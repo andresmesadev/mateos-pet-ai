@@ -1,3 +1,5 @@
+const { analyzeMessage } = require("./openai.service");
+
 const verifyWebhookSignature = (mode, token, challenge) => {
   const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN;
 
@@ -48,7 +50,16 @@ const processIncomingMessage = async (body) => {
   console.log(`New message from: ${parsed.from}`);
   console.log(`Message: ${parsed.text}`);
 
-  return { received: true, processed: true, ...parsed };
+  let analysis = null;
+  try {
+    analysis = await analyzeMessage(parsed.text);
+  } catch (error) {
+    console.error("[WhatsApp] Error al analizar mensaje:", error.message);
+  }
+
+  console.log("AI Analysis:", analysis);
+
+  return { received: true, processed: true, ...parsed, analysis };
 };
 
 module.exports = {
