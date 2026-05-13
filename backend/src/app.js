@@ -3,6 +3,8 @@ const cors = require("cors");
 require("dotenv").config();
 
 const healthRoutes = require("./routes/health.routes");
+const errorRoutes = require("./routes/error.routes");
+const errorHandler = require("./middlewares/error.middleware");
 
 const app = express();
 
@@ -14,6 +16,9 @@ app.get("/", (req, res) => {
 });
 
 app.use("/health", healthRoutes);
+app.use("/error", errorRoutes);
+
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
 
