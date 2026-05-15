@@ -3,6 +3,7 @@ const cors = require("cors");
 require("dotenv").config();
 
 const routes = require("./routes");
+const webhookRoutes = require("./routes/webhook.routes");
 const errorHandler = require("./middlewares/error.middleware");
 
 const app = express();
@@ -14,6 +15,7 @@ app.get("/", (req, res) => {
   res.send("Mateos Pet AI funcionando 🚀");
 });
 
+app.use("/webhook", webhookRoutes);
 app.use("/api", routes);
 
 app.use(errorHandler);

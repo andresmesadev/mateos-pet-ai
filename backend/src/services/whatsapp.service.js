@@ -1,10 +1,44 @@
 const { analyzeMessage } = require("./openai.service");
+const { generateReply } = require("./conversation.service");
+const { getSession, updateSession } = require("./memory.service");
+
+const isEmptyValue = (value) => {
+  if (value === null || value === undefined) {
+    return true;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    return normalized === "" || normalized === "n/a";
+  }
+
+  return false;
+};
+
+const mergeSessionData = (previous, current) => {
+  const result = { ...previous };
+
+  if (!current || typeof current !== "object") {
+    return result;
+  }
+
+  for (const key of Object.keys(current)) {
+    if (!isEmptyValue(current[key])) {
+      result[key] = current[key];
+    }
+  }
+
+  return result;
+};
 
 const verifyWebhookSignature = (mode, token, challenge) => {
-  const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN;
+  const verifyToken = String(process.env.WHATSAPP_VERIFY_TOKEN || "").trim();
+  const hubToken = token == null ? "" : String(token).trim();
+  const challengeStr =
+    challenge == null ? "" : String(challenge);
 
-  if (mode === "subscribe" && token === verifyToken) {
-    return challenge;
+  if (mode && hubToken === verifyToken && challengeStr.length > 0) {
+    return challengeStr;
   }
 
   return null;
@@ -59,7 +93,23 @@ const processIncomingMessage = async (body) => {
 
   console.log("AI Analysis:", analysis);
 
-  return { received: true, processed: true, ...parsed, analysis };
+  const previous = getSession(parsed.from);
+  const mergedAnalysis = mergeSessionData(previous, analysis);
+  const session = updateSession(parsed.from, mergedAnalysis);
+  const reply = generateReply(mergedAnalysis);
+
+  console.log("Generated reply:", reply);
+  console.log("Session:", session);
+
+  return {
+    received: true,
+    processed: true,
+    from: parsed.from,
+    reply,
+    ...parsed,
+    analysis: mergedAnalysis,
+    session,
+  };
 };
 
 module.exports = {
