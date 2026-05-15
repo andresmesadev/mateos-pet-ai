@@ -1,3 +1,35 @@
+const STEPS = {
+  AWAITING_PET_NAME: "awaiting_pet_name",
+  AWAITING_PET_TYPE: "awaiting_pet_type",
+  AWAITING_DATE_TIME: "awaiting_date_time",
+  AWAITING_CONFIRMATION: "awaiting_confirmation",
+  COMPLETED: "completed",
+};
+
+const confirmationKeywords = [
+  "si",
+  "ok",
+  "perfecto",
+  "confirmar",
+  "confirmo",
+  "dale",
+  "claro",
+  "de acuerdo",
+  "confirmado",
+];
+
+const normalizeText = (text) => {
+  if (typeof text !== "string") {
+    return "";
+  }
+
+  return text
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+};
+
 const isMissing = (value) => {
   if (value === null || value === undefined) {
     return true;
@@ -9,6 +41,18 @@ const isMissing = (value) => {
   }
 
   return false;
+};
+
+const isConfirmationMessage = (text) => {
+  const normalized = normalizeText(text);
+
+  if (!normalized) {
+    return false;
+  }
+
+  return confirmationKeywords.some((keyword) =>
+    normalized.includes(normalizeText(keyword))
+  );
 };
 
 const getPetLabel = (petType) => {
@@ -29,7 +73,18 @@ const getServiceLabel = (service) => {
 
 const generateReply = (analysis) => {
   if (!analysis || typeof analysis !== "object") {
-    return "¿Me cuentas un poco más? 🐾 Con gusto te ayudo.";
+    return {
+      reply: "¿Me cuentas un poco más? 🐾 Con gusto te ayudo.",
+      step: null,
+    };
+  }
+
+  if (analysis.step === STEPS.COMPLETED) {
+    return {
+      reply:
+        "¡Hola de nuevo! 😊 Tu cita ya está confirmada en Mateos Pet 🐾\n¿Te ayudo con algo más?",
+      step: null,
+    };
   }
 
   const intent = analysis.intent;
@@ -40,11 +95,19 @@ const generateReply = (analysis) => {
   const time = analysis.time;
 
   if (intent === "greeting") {
-    return "¡Hola! 😊 Bienvenido a Mateos Pet 🐾\n¿En qué podemos ayudarte hoy?";
+    return {
+      reply:
+        "¡Hola! 😊 Bienvenido a Mateos Pet 🐾\n¿En qué podemos ayudarte hoy?",
+      step: null,
+    };
   }
 
   if (intent === "ask_info") {
-    return "Con gusto te oriento 😊\nOfrecemos baño y peluquería, consultas veterinarias, medicamentos y citas.\n¿Qué necesitas?";
+    return {
+      reply:
+        "Con gusto te oriento 😊\nOfrecemos baño y peluquería, consultas veterinarias, medicamentos y citas.\n¿Qué necesitas?",
+      step: null,
+    };
   }
 
   const isBooking =
@@ -52,33 +115,63 @@ const generateReply = (analysis) => {
 
   if (isBooking) {
     if (isMissing(service)) {
-      return "Perfecto 🐾 ¿Qué servicio necesitas?\n• Baño y peluquería 🛁\n• Consulta veterinaria 🩺\n• Medicamentos 💊\n• Cita general 📅";
+      return {
+        reply:
+          "Perfecto 🐾 ¿Qué servicio necesitas?\n• Baño y peluquería 🛁\n• Consulta veterinaria 🩺\n• Medicamentos 💊\n• Cita general 📅",
+        step: null,
+      };
     }
 
     if (isMissing(petName)) {
       const petLabel = getPetLabel(petType);
-      if (service === "bath_grooming") {
-        return `¡Claro! 🛁\n¿Cuál es el nombre de tu ${petLabel}?`;
-      }
-      return `¡Perfecto! 😊\n¿Cuál es el nombre de tu ${petLabel}?`;
+      const reply =
+        service === "bath_grooming"
+          ? `¡Claro! 🛁\n¿Cuál es el nombre de tu ${petLabel}?`
+          : `¡Perfecto! 😊\n¿Cuál es el nombre de tu ${petLabel}?`;
+
+      return { reply, step: STEPS.AWAITING_PET_NAME };
     }
 
     if (isMissing(petType)) {
-      return "Claro 😊 ¿Tu mascota es perro o gato?";
+      return {
+        reply: "Claro 😊 ¿Tu mascota es perro o gato?",
+        step: STEPS.AWAITING_PET_TYPE,
+      };
     }
 
     if (isMissing(date) || isMissing(time)) {
-      return "¿Qué día y hora te queda mejor? 📅";
+      return {
+        reply: "¿Qué día y hora te queda mejor? 📅",
+        step: STEPS.AWAITING_DATE_TIME,
+      };
     }
 
     const serviceLabel = getServiceLabel(service);
     const name = petName || getPetLabel(petType);
-    return `¡Listo! 🐾\n${serviceLabel} para ${name} el ${date} a las ${time}.\n¿Confirmamos la cita?`;
+
+    return {
+      reply: `¡Listo! 🐾\n${serviceLabel} para ${name} el ${date} a las ${time}.\n¿Confirmamos la cita?`,
+      step: STEPS.AWAITING_CONFIRMATION,
+    };
   }
 
-  return "¡Hola! 😊 Bienvenido a Mateos Pet 🐾\n¿En qué podemos ayudarte hoy?";
+  return {
+    reply:
+      "¡Hola! 😊 Bienvenido a Mateos Pet 🐾\n¿En qué podemos ayudarte hoy?",
+    step: null,
+  };
 };
 
+const getConfirmationReply = () => ({
+  reply: "¡Perfecto! 😊 Tu cita quedó confirmada en Mateos Pet 🐾",
+  step: STEPS.COMPLETED,
+});
+
 module.exports = {
+  STEPS,
+  confirmationKeywords,
+  normalizeText,
+  isConfirmationMessage,
   generateReply,
+  getConfirmationReply,
 };

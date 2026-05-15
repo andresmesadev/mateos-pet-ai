@@ -1,5 +1,9 @@
 const { analyzeMessage } = require("./openai.service");
-const { generateReply } = require("./conversation.service");
+const {
+  generateReply,
+  getConfirmationReply,
+  isConfirmationMessage,
+} = require("./conversation.service");
 const { getSession, updateSession } = require("./memory.service");
 
 const isEmptyValue = (value) => {
@@ -93,11 +97,38 @@ const processIncomingMessage = async (body) => {
 
   console.log("AI Analysis:", analysis);
 
-  const previous = getSession(parsed.from);
-  const mergedAnalysis = mergeSessionData(previous, analysis);
-  const session = updateSession(parsed.from, mergedAnalysis);
-  const reply = generateReply(mergedAnalysis);
+  let previous = getSession(parsed.from);
+  console.log("[Conversation] Current step:", previous.step ?? "(none)");
 
+  if (previous.step === "completed") {
+    previous = { ...previous, step: null };
+  }
+
+  if (
+    previous.step === "awaiting_confirmation" &&
+    isConfirmationMessage(parsed.text)
+  ) {
+    const { reply, step } = getConfirmationReply();
+    const session = updateSession(parsed.from, { ...previous, step });
+
+    console.log("[Conversation] New step:", session.step);
+    console.log("Generated reply:", reply);
+
+    return {
+      received: true,
+      processed: true,
+      from: parsed.from,
+      reply,
+      ...parsed,
+      session,
+    };
+  }
+
+  const mergedAnalysis = mergeSessionData(previous, analysis);
+  const { reply, step } = generateReply(mergedAnalysis);
+  const session = updateSession(parsed.from, { ...mergedAnalysis, step });
+
+  console.log("[Conversation] New step:", session.step);
   console.log("Generated reply:", reply);
   console.log("Session:", session);
 

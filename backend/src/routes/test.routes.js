@@ -1,6 +1,10 @@
 const express = require("express");
 const { analyzeMessage } = require("../services/openai.service");
-const { generateReply } = require("../services/conversation.service");
+const {
+  generateReply,
+  getConfirmationReply,
+  isConfirmationMessage,
+} = require("../services/conversation.service");
 const { getSession, updateSession } = require("../services/memory.service");
 
 const router = express.Router();
@@ -47,13 +51,35 @@ router.post("/analyze", async (req, res, next) => {
 
     const phone = "573001234567";
 
+    let previous = getSession(phone);
+    console.log("[Conversation] Current step:", previous.step ?? "(none)");
+
+    if (previous.step === "completed") {
+      previous = { ...previous, step: null };
+    }
+
+    if (
+      previous.step === "awaiting_confirmation" &&
+      isConfirmationMessage(message)
+    ) {
+      const { reply, step } = getConfirmationReply();
+      const session = updateSession(phone, { ...previous, step });
+      console.log("[Conversation] New step:", session.step);
+
+      return res.status(200).json({
+        success: true,
+        session,
+        reply,
+      });
+    }
+
     const analysis = await analyzeMessage(message);
 
-    const previous = getSession(phone);
     const mergedAnalysis = mergeSessionData(previous, analysis);
-    const session = updateSession(phone, mergedAnalysis);
+    const { reply, step } = generateReply(mergedAnalysis);
+    const session = updateSession(phone, { ...mergedAnalysis, step });
 
-    const reply = generateReply(mergedAnalysis);
+    console.log("[Conversation] New step:", session.step);
 
     return res.status(200).json({
       success: true,
