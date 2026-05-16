@@ -106,12 +106,6 @@ const isWithinBusinessHours = (serviceType, hour) => {
 /** @typedef {{ date: string, hour: number, serviceType?: string }} MockAppointment */
 
 /**
- * Separa fecha + hora de una cita mock normalizada.
- * @param {MockAppointment} appt
- */
-const appointmentKey = (appt) => `${appt.date}|${Number(appt.hour)}`;
-
-/**
  * Citas de grooming en una fecha concreta.
  * @param {MockAppointment[]} existingAppointments
  * @param {string} dateKey
@@ -203,13 +197,16 @@ const getNextAvailableGroomingSlot = (existingAppointments, options = {}) => {
 
 /**
  * Si la hora solicitada está ocupada (vet), sugiere hasta 3 alternativas el mismo día.
- * Fecha de referencia: hoy, o la primera `date` encontrada en `existingAppointments`.
- *
  * @param {number} requestedHour
  * @param {MockAppointment[]} existingAppointments
+ * @param {string} [explicitDateKey] Día concreto (ej. fecha parseada del usuario).
  * @returns {number[]}
  */
-const suggestVetAlternativeSlots = (requestedHour, existingAppointments) => {
+const suggestVetAlternativeSlots = (
+  requestedHour,
+  existingAppointments,
+  explicitDateKey
+) => {
   const hr = Number(requestedHour);
   if (!Number.isFinite(hr)) {
     console.log("[availability] suggestVetAlternativeSlots: hora inválida");
@@ -217,7 +214,9 @@ const suggestVetAlternativeSlots = (requestedHour, existingAppointments) => {
   }
 
   let dateKey =
-    existingAppointments?.find((a) => a.date)?.date || toDateKey(new Date());
+    explicitDateKey ||
+    existingAppointments?.find((a) => a.date)?.date ||
+    toDateKey(new Date());
 
   if (!dateKey || !isBusinessDay(dateKey)) {
     console.log(
@@ -264,4 +263,9 @@ module.exports = {
   isWithinBusinessHours,
   getNextAvailableGroomingSlot,
   suggestVetAlternativeSlots,
+  toDateKey,
+  addOneDay,
+  SERVICE_TYPES,
+  vetBookedHours,
+  groomingBookedHours,
 };

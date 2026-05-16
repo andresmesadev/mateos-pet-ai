@@ -1,0 +1,69 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  phone     String   @unique
+  createdAt DateTime @default(now())
+
+  pets            Pet[]
+  conversations   Conversation[]
+  appointments    Appointment[]
+}
+
+model Pet {
+  id        String   @id @default(cuid())
+  name      String
+  type      String
+
+  ownerId   String
+  owner     User @relation(fields: [ownerId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model Conversation {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User @relation(fields: [userId], references: [id])
+
+  intent    String?
+  step      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages Message[]
+}
+
+model Message {
+  id              String   @id @default(cuid())
+  conversationId  String
+  conversation    Conversation @relation(fields: [conversationId], references: [id])
+
+  role            String
+  content         String
+
+  createdAt       DateTime @default(now())
+}
+
+model Appointment {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User @relation(fields: [userId], references: [id])
+
+  petName     String
+  petType     String
+
+  serviceType String
+
+  date        DateTime
+  status      String   @default("pending")
+
+  createdAt   DateTime @default(now())
+}

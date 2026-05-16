@@ -6,6 +6,7 @@ const {
   isConfirmationMessage,
 } = require("../services/conversation.service");
 const { getSession, updateSession } = require("../services/memory.service");
+const scheduling = require("../services/scheduling.service");
 
 const router = express.Router();
 
@@ -58,12 +59,33 @@ router.post("/analyze", async (req, res, next) => {
       previous = { ...previous, step: null };
     }
 
+    if (scheduling.detectHumanEscalation(message)) {
+      const reply =
+        "Entiendo 😊\nVoy a escalar tu solicitud directamente con Lina 🐾";
+      const session = updateSession(phone, {
+        ...previous,
+        requires_human_attention: true,
+        step: null,
+      });
+      console.log("[scheduling] Sesión marcada requires_human_attention (test)");
+
+      return res.status(200).json({
+        success: true,
+        session,
+        reply,
+      });
+    }
+
     if (
       previous.step === "awaiting_confirmation" &&
       isConfirmationMessage(message)
     ) {
-      const { reply, step } = getConfirmationReply();
-      const session = updateSession(phone, { ...previous, step });
+      const { reply, step, sessionPatch } = getConfirmationReply();
+      const session = updateSession(phone, {
+        ...previous,
+        step,
+        ...(sessionPatch || {}),
+      });
       console.log("[Conversation] New step:", session.step);
 
       return res.status(200).json({
@@ -76,15 +98,22 @@ router.post("/analyze", async (req, res, next) => {
     const analysis = await analyzeMessage(message);
 
     const mergedAnalysis = mergeSessionData(previous, analysis);
-    const { reply, step } = generateReply(mergedAnalysis);
-    const session = updateSession(phone, { ...mergedAnalysis, step });
+    const result = generateReply(mergedAnalysis, {
+      mockAppointments: scheduling.getMockAppointments(),
+      now: new Date(),
+    });
+    const session = updateSession(phone, {
+      ...mergedAnalysis,
+      step: result.step,
+      ...(result.sessionPatch || {}),
+    });
 
     console.log("[Conversation] New step:", session.step);
 
     return res.status(200).json({
       success: true,
       session,
-      reply,
+      reply: result.reply,
     });
   } catch (error) {
     next(error);

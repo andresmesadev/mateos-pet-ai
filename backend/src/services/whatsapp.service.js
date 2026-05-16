@@ -5,6 +5,7 @@ const {
   isConfirmationMessage,
 } = require("./conversation.service");
 const { getSession, updateSession } = require("./memory.service");
+const scheduling = require("./scheduling.service");
 
 const isEmptyValue = (value) => {
   if (value === null || value === undefined) {
@@ -88,15 +89,6 @@ const processIncomingMessage = async (body) => {
   console.log(`New message from: ${parsed.from}`);
   console.log(`Message: ${parsed.text}`);
 
-  let analysis = null;
-  try {
-    analysis = await analyzeMessage(parsed.text);
-  } catch (error) {
-    console.error("[WhatsApp] Error al analizar mensaje:", error.message);
-  }
-
-  console.log("AI Analysis:", analysis);
-
   let previous = getSession(parsed.from);
   console.log("[Conversation] Current step:", previous.step ?? "(none)");
 
@@ -104,12 +96,40 @@ const processIncomingMessage = async (body) => {
     previous = { ...previous, step: null };
   }
 
+  if (scheduling.detectHumanEscalation(parsed.text)) {
+    const reply =
+      "Entiendo 😊\nVoy a escalar tu solicitud directamente con Lina 🐾";
+    const session = updateSession(parsed.from, {
+      ...previous,
+      requires_human_attention: true,
+      step: null,
+    });
+    console.log(
+      "[scheduling] Sesión marcada requires_human_attention:",
+      parsed.from
+    );
+    console.log("[Conversation] New step:", session.step ?? "(none)");
+
+    return {
+      received: true,
+      processed: true,
+      from: parsed.from,
+      reply,
+      ...parsed,
+      session,
+    };
+  }
+
   if (
     previous.step === "awaiting_confirmation" &&
     isConfirmationMessage(parsed.text)
   ) {
-    const { reply, step } = getConfirmationReply();
-    const session = updateSession(parsed.from, { ...previous, step });
+    const { reply, step, sessionPatch } = getConfirmationReply();
+    const session = updateSession(parsed.from, {
+      ...previous,
+      step,
+      ...(sessionPatch || {}),
+    });
 
     console.log("[Conversation] New step:", session.step);
     console.log("Generated reply:", reply);
@@ -124,19 +144,35 @@ const processIncomingMessage = async (body) => {
     };
   }
 
+  let analysis = null;
+  try {
+    analysis = await analyzeMessage(parsed.text);
+  } catch (error) {
+    console.error("[WhatsApp] Error al analizar mensaje:", error.message);
+  }
+
+  console.log("AI Analysis:", analysis);
+
   const mergedAnalysis = mergeSessionData(previous, analysis);
-  const { reply, step } = generateReply(mergedAnalysis);
-  const session = updateSession(parsed.from, { ...mergedAnalysis, step });
+  const result = generateReply(mergedAnalysis, {
+    mockAppointments: scheduling.getMockAppointments(),
+    now: new Date(),
+  });
+  const session = updateSession(parsed.from, {
+    ...mergedAnalysis,
+    step: result.step,
+    ...(result.sessionPatch || {}),
+  });
 
   console.log("[Conversation] New step:", session.step);
-  console.log("Generated reply:", reply);
+  console.log("Generated reply:", result.reply);
   console.log("Session:", session);
 
   return {
     received: true,
     processed: true,
     from: parsed.from,
-    reply,
+    reply: result.reply,
     ...parsed,
     analysis: mergedAnalysis,
     session,
