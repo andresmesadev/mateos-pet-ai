@@ -14,6 +14,50 @@ const {
   createAppointment,
   checkAppointmentConflict,
 } = require("./appointment.service");
+const {
+  findOrCreateConversation,
+  saveMessage,
+  syncConversationState,
+} = require("./conversation-persistence.service");
+const {
+  searchRelevantMemories,
+  buildSemanticContext,
+} = require("./semantic-memory.service");
+const { processVoiceMessage } = require("./audio.service");
+
+const persistUserMessage = async (user, conversation, content) => {
+  if (!user?.id || !conversation?.id || !content) return;
+
+  try {
+    await saveMessage({
+      conversationId: conversation.id,
+      userId: user.id,
+      role: "user",
+      content,
+    });
+    console.log("[WhatsApp] Message persisted");
+  } catch (error) {
+    console.error("[WhatsApp] Error persisting user message:", error.message);
+  }
+};
+
+const persistAssistantMessage = async (conversation, content) => {
+  if (!conversation?.id || !content) return;
+
+  try {
+    await saveMessage({
+      conversationId: conversation.id,
+      role: "assistant",
+      content,
+    });
+    console.log("[WhatsApp] Message persisted");
+  } catch (error) {
+    console.error(
+      "[WhatsApp] Error persisting assistant message:",
+      error.message
+    );
+  }
+};
 
 const isEmptyValue = (value) => {
   if (value === null || value === undefined) {
@@ -66,6 +110,20 @@ const parseIncomingMessage = (body) => {
   }
 
   const from = message.from;
+
+  if (!from) {
+    return null;
+  }
+
+  if (message.type === "audio" && message.audio?.id) {
+    return {
+      from,
+      text: null,
+      type: "audio",
+      mediaId: message.audio.id,
+    };
+  }
+
   let text = null;
 
   if (message.type === "text") {
@@ -79,7 +137,7 @@ const parseIncomingMessage = (body) => {
       null;
   }
 
-  if (!from || !text) {
+  if (!text) {
     return null;
   }
 
@@ -94,6 +152,26 @@ const processIncomingMessage = async (body) => {
     return { received: true, processed: false };
   }
 
+  if (parsed.type === "audio" && parsed.mediaId) {
+    console.log("[WhatsApp] Voice message detected");
+
+    const transcript = await processVoiceMessage(parsed.mediaId);
+
+    if (!transcript) {
+      console.log("[WhatsApp] Voice transcription failed");
+
+      return {
+        received: true,
+        processed: false,
+      };
+    }
+
+    parsed.text = transcript;
+    parsed.type = "text";
+
+    console.log("[WhatsApp] Voice transcription:", transcript);
+  }
+
   console.log(`New message from: ${parsed.from}`);
   console.log(`Message: ${parsed.text}`);
 
@@ -105,6 +183,19 @@ const processIncomingMessage = async (body) => {
     );
   } catch (error) {
     console.error("[WhatsApp] Error loading user:", error.message);
+  }
+
+  let conversation = null;
+  if (user) {
+    try {
+      conversation = await findOrCreateConversation(user.id);
+      console.log(
+        `[WhatsApp] Conversation loaded: ${conversation.id} (user ${user.id})`
+      );
+      await persistUserMessage(user, conversation, parsed.text);
+    } catch (error) {
+      console.error("[WhatsApp] Error loading conversation:", error.message);
+    }
   }
 
   let previous = getSession(parsed.from);
@@ -128,11 +219,18 @@ const processIncomingMessage = async (body) => {
     );
     console.log("[Conversation] New step:", session.step ?? "(none)");
 
+    await persistAssistantMessage(conversation, reply);
+    await syncConversationState(conversation?.id, {
+      intent: session.intent,
+      step: session.step,
+    });
+
     return {
       received: true,
       processed: true,
       from: parsed.from,
       user,
+      conversation,
       reply,
       ...parsed,
       session,
@@ -209,11 +307,18 @@ const processIncomingMessage = async (body) => {
     console.log("[Conversation] New step:", session.step);
     console.log("Generated reply:", reply);
 
+    await persistAssistantMessage(conversation, reply);
+    await syncConversationState(conversation?.id, {
+      intent: session.intent,
+      step: session.step,
+    });
+
     return {
       received: true,
       processed: true,
       from: parsed.from,
       user,
+      conversation,
       appointment,
       reply,
       ...parsed,
@@ -221,9 +326,32 @@ const processIncomingMessage = async (body) => {
     };
   }
 
+  let semanticContext = "";
+  if (user?.id) {
+    try {
+      const memories = await searchRelevantMemories({
+        userId: user.id,
+        query: parsed.text,
+        limit: 5,
+      });
+      semanticContext = buildSemanticContext(memories);
+      if (semanticContext) {
+        console.log("[SemanticMemory] Context injected");
+      }
+    } catch (error) {
+      console.error(
+        "[WhatsApp] Semantic memory search failed:",
+        error.message
+      );
+    }
+  }
+
   let analysis = null;
   try {
-    analysis = await analyzeMessage(parsed.text);
+    analysis = await analyzeMessage({
+      message: parsed.text,
+      semanticContext,
+    });
   } catch (error) {
     console.error("[WhatsApp] Error al analizar mensaje:", error.message);
   }
@@ -252,10 +380,18 @@ const processIncomingMessage = async (body) => {
     }
   }
 
-  const result = generateReply(mergedAnalysis, {
-    mockAppointments: scheduling.getMockAppointments(),
-    now: new Date(),
-  });
+  const result = await generateReply(
+    {
+      analysis: mergedAnalysis,
+      session: previous,
+      semanticContext,
+      userMessage: parsed.text,
+    },
+    {
+      mockAppointments: scheduling.getMockAppointments(),
+      now: new Date(),
+    }
+  );
   const session = updateSession(parsed.from, {
     ...mergedAnalysis,
     step: result.step,
@@ -266,11 +402,18 @@ const processIncomingMessage = async (body) => {
   console.log("Generated reply:", result.reply);
   console.log("Session:", session);
 
+  await persistAssistantMessage(conversation, result.reply);
+  await syncConversationState(conversation?.id, {
+    intent: mergedAnalysis?.intent,
+    step: session.step,
+  });
+
   return {
     received: true,
     processed: true,
     from: parsed.from,
     user,
+    conversation,
     pet,
     reply: result.reply,
     ...parsed,

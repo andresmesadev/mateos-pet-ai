@@ -7,6 +7,14 @@ const STEPS = {
 };
 
 const scheduling = require("./scheduling.service");
+const { generateReply: generateReplyWithAI } = require("./openai.service");
+
+const BOOKING_STEPS = new Set([
+  STEPS.AWAITING_PET_NAME,
+  STEPS.AWAITING_PET_TYPE,
+  STEPS.AWAITING_DATE_TIME,
+  STEPS.AWAITING_CONFIRMATION,
+]);
 
 const isVetLikeService = (service) =>
   service === "veterinary_consultation" ||
@@ -78,7 +86,37 @@ const getServiceLabel = (service) => {
   return labels[service] || "servicio";
 };
 
-const generateReply = (analysis, options = {}) => {
+const resolveGenerateReplyInput = (input, options = {}) => {
+  if (
+    input &&
+    typeof input === "object" &&
+    !Array.isArray(input) &&
+    ("analysis" in input || "semanticContext" in input || "session" in input)
+  ) {
+    return {
+      analysis: input.analysis,
+      session: input.session || {},
+      semanticContext: input.semanticContext || "",
+      userMessage: input.userMessage || "",
+      options,
+    };
+  }
+
+  return {
+    analysis: input,
+    session: {},
+    semanticContext: "",
+    userMessage: "",
+    options,
+  };
+};
+
+const shouldUseRuleReplyOnly = (ruleResult) => {
+  const step = ruleResult?.step;
+  return step != null && BOOKING_STEPS.has(step);
+};
+
+const buildRuleBasedReply = (analysis, options = {}) => {
   const mockAppointments = options.mockAppointments || [];
   const now = options.now instanceof Date ? options.now : new Date();
 
@@ -227,6 +265,48 @@ const generateReply = (analysis, options = {}) => {
     step: null,
     sessionPatch: {},
   };
+};
+
+const generateReply = async (input, legacyOptions) => {
+  const {
+    analysis,
+    session,
+    semanticContext,
+    userMessage,
+    options,
+  } = resolveGenerateReplyInput(input, legacyOptions);
+
+  const ruleResult = buildRuleBasedReply(analysis, options);
+  const contextText =
+    typeof semanticContext === "string" ? semanticContext.trim() : "";
+
+  if (!contextText || shouldUseRuleReplyOnly(ruleResult)) {
+    return ruleResult;
+  }
+
+  try {
+    const aiReply = await generateReplyWithAI({
+      analysis,
+      session,
+      semanticContext: contextText,
+      userMessage,
+      suggestedReply: ruleResult.reply,
+    });
+
+    if (aiReply) {
+      return {
+        ...ruleResult,
+        reply: aiReply,
+      };
+    }
+  } catch (error) {
+    console.error(
+      "[Conversation] AI reply failed, using rule-based reply:",
+      error.message
+    );
+  }
+
+  return ruleResult;
 };
 
 const getConfirmationReply = () => ({

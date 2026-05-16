@@ -41,14 +41,59 @@ Tu única tarea es leer el mensaje del cliente y devolver datos estructurados en
 - Responde ÚNICAMENTE un objeto JSON válido con exactamente estas claves:
   intent, pet_type, pet_name, requested_service, date, time`;
 
-const analyzeMessage = async (message) => {
+const buildSystemPrompt = (semanticContext) => {
+  const context = typeof semanticContext === "string" ? semanticContext.trim() : "";
+
+  if (!context) {
+    return SYSTEM_PROMPT;
+  }
+
+  return `${SYSTEM_PROMPT}
+
+Memorias relevantes del usuario:
+${context}`;
+};
+
+const resolveAnalyzeInput = (input) => {
+  if (typeof input === "string") {
+    return { message: input, semanticContext: "" };
+  }
+
+  if (input && typeof input === "object") {
+    return {
+      message: input.message ?? "",
+      semanticContext: input.semanticContext ?? "",
+    };
+  }
+
+  return { message: "", semanticContext: "" };
+};
+
+const analyzeMessage = async (input) => {
+  const { message, semanticContext } = resolveAnalyzeInput(input);
+  const userMessage = typeof message === "string" ? message.trim() : "";
+
+  if (!userMessage) {
+    console.warn("[OpenAI] Mensaje vacío para analizar");
+    return null;
+  }
+
+  const contextText =
+    typeof semanticContext === "string" ? semanticContext.trim() : "";
+
+  if (contextText) {
+    console.log(
+      `[OpenAI] Semantic context length: ${contextText.length}`
+    );
+  }
+
   try {
     const response = await client.chat.completions.create({
       model: "gpt-4.1-mini",
       response_format: { type: "json_object" },
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: message },
+        { role: "system", content: buildSystemPrompt(contextText) },
+        { role: "user", content: userMessage },
       ],
     });
 
@@ -71,6 +116,123 @@ const analyzeMessage = async (message) => {
   }
 };
 
+const REPLY_SYSTEM_PROMPT = `Eres la recepcionista virtual de Mateos Pet, veterinaria y peluquería canina en Colombia.
+
+Tu tarea es redactar la respuesta al cliente por WhatsApp.
+
+## Tono
+- Amable, profesional, cálido y humano
+- Respuestas cortas (máximo 3-4 líneas)
+- Emojis moderados 🐾
+- Nunca digas que eres una IA ni un modelo de lenguaje
+
+## Servicios
+- Baño y peluquería
+- Consultas veterinarias
+- Medicamentos
+- Citas
+
+## Reglas
+- Usa las memorias relevantes cuando respondan la pregunta del cliente
+- No inventes datos que no estén en el mensaje, la sesión ni las memorias
+- Si hay una respuesta sugerida del sistema de citas, respétala salvo que las memorias permitan enriquecerla con un dato útil
+- Responde solo con el texto del mensaje, sin JSON ni markdown`;
+
+const buildReplySystemPrompt = (semanticContext) => {
+  const context =
+    typeof semanticContext === "string" ? semanticContext.trim() : "";
+
+  if (!context) {
+    return REPLY_SYSTEM_PROMPT;
+  }
+
+  return `${REPLY_SYSTEM_PROMPT}
+
+Memorias relevantes del usuario:
+${context}`;
+};
+
+const buildReplyUserPrompt = ({
+  userMessage,
+  analysis,
+  session,
+  suggestedReply,
+}) => {
+  const parts = [];
+
+  if (userMessage) {
+    parts.push(`Mensaje del cliente:\n${userMessage}`);
+  }
+
+  if (analysis && typeof analysis === "object") {
+    parts.push(`Análisis (JSON):\n${JSON.stringify(analysis)}`);
+  }
+
+  if (session && typeof session === "object" && Object.keys(session).length > 0) {
+    parts.push(`Sesión actual:\n${JSON.stringify(session)}`);
+  }
+
+  if (suggestedReply) {
+    parts.push(`Respuesta sugerida por reglas de negocio:\n${suggestedReply}`);
+  }
+
+  parts.push("Redacta la respuesta final al cliente.");
+
+  return parts.join("\n\n");
+};
+
+/**
+ * Genera respuesta natural usando memorias semánticas.
+ * @returns {Promise<string|null>}
+ */
+const generateReply = async ({
+  analysis,
+  session,
+  semanticContext,
+  userMessage,
+  suggestedReply,
+} = {}) => {
+  const contextText =
+    typeof semanticContext === "string" ? semanticContext.trim() : "";
+
+  if (!contextText) {
+    return null;
+  }
+
+  console.log(`[OpenAI] Reply semantic context length: ${contextText.length}`);
+
+  try {
+    const response = await client.chat.completions.create({
+      model: "gpt-4.1-mini",
+      messages: [
+        { role: "system", content: buildReplySystemPrompt(contextText) },
+        {
+          role: "user",
+          content: buildReplyUserPrompt({
+            userMessage,
+            analysis,
+            session,
+            suggestedReply,
+          }),
+        },
+      ],
+    });
+
+    const reply = response.choices?.[0]?.message?.content?.trim();
+
+    if (!reply) {
+      console.warn("[OpenAI] Respuesta vacía en generateReply");
+      return null;
+    }
+
+    return reply;
+  } catch (error) {
+    console.error("[OpenAI] Error en generateReply:", error.message);
+    return null;
+  }
+};
+
 module.exports = {
   analyzeMessage,
+  generateReply,
 };

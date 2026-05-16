@@ -1,9 +1,11 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
+  provider   = "postgresql"
+  extensions = [vector]
 }
 
 model User {
@@ -11,9 +13,10 @@ model User {
   phone     String   @unique
   createdAt DateTime @default(now())
 
-  pets            Pet[]
-  conversations   Conversation[]
-  appointments    Appointment[]
+  pets              Pet[]
+  conversations     Conversation[]
+  appointments      Appointment[]
+  memoryEmbeddings  MemoryEmbedding[]
 }
 
 model Pet {
@@ -38,7 +41,8 @@ model Conversation {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  messages Message[]
+  messages          Message[]
+  memoryEmbeddings  MemoryEmbedding[]
 }
 
 model Message {
@@ -50,6 +54,29 @@ model Message {
   content         String
 
   createdAt       DateTime @default(now())
+
+  memoryEmbeddings MemoryEmbedding[]
+}
+
+/// Embeddings semánticos (pgvector). Dimensión 1536 = text-embedding-3-small / similar.
+model MemoryEmbedding {
+  id             String   @id @default(cuid())
+
+  userId         String
+  user           User @relation(fields: [userId], references: [id])
+
+  conversationId String?
+  conversation   Conversation? @relation(fields: [conversationId], references: [id])
+
+  messageId      String?
+  message        Message? @relation(fields: [messageId], references: [id])
+
+  content        String
+  embedding      Unsupported("vector(1536)")
+
+  metadata       Json?
+
+  createdAt      DateTime @default(now())
 }
 
 model Appointment {

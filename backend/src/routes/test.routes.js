@@ -98,10 +98,18 @@ router.post("/analyze", async (req, res, next) => {
     const analysis = await analyzeMessage(message);
 
     const mergedAnalysis = mergeSessionData(previous, analysis);
-    const result = generateReply(mergedAnalysis, {
-      mockAppointments: scheduling.getMockAppointments(),
-      now: new Date(),
-    });
+    const result = await generateReply(
+      {
+        analysis: mergedAnalysis,
+        session: previous,
+        semanticContext: "",
+        userMessage: message,
+      },
+      {
+        mockAppointments: scheduling.getMockAppointments(),
+        now: new Date(),
+      }
+    );
     const session = updateSession(phone, {
       ...mergedAnalysis,
       step: result.step,
