@@ -4,6 +4,8 @@ require("dotenv").config();
 
 const routes = require("./routes");
 const webhookRoutes = require("./routes/webhook.routes");
+const dashboardRoutes = require("./routes/dashboard.routes");
+
 const errorHandler = require("./middlewares/error.middleware");
 
 const app = express();
@@ -16,7 +18,10 @@ app.get("/", (req, res) => {
 });
 
 app.use("/webhook", webhookRoutes);
+
 app.use("/api", routes);
+
+app.use("/api/dashboard", dashboardRoutes);
 
 app.use(errorHandler);
 
