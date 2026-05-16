@@ -8,6 +8,12 @@ const { getSession, updateSession } = require("./memory.service");
 const scheduling = require("./scheduling.service");
 const { findOrCreateUser } = require("./user.service");
 const { findOrCreatePet } = require("./pet.service");
+const {
+  buildAppointmentDateTime,
+  mapSessionServiceType,
+  createAppointment,
+  checkAppointmentConflict,
+} = require("./appointment.service");
 
 const isEmptyValue = (value) => {
   if (value === null || value === undefined) {
@@ -138,6 +144,62 @@ const processIncomingMessage = async (body) => {
     isConfirmationMessage(parsed.text)
   ) {
     const { reply, step, sessionPatch } = getConfirmationReply();
+
+    let appointment = null;
+
+    if (user) {
+      const dateKey = previous.scheduling_date_key;
+      const hour = previous.scheduling_hour;
+
+      if (dateKey != null && hour != null) {
+        try {
+          const serviceType = mapSessionServiceType(
+            previous.requested_service
+          );
+          const appointmentDate = buildAppointmentDateTime(dateKey, hour);
+
+          const hasConflict = await checkAppointmentConflict({
+            date: appointmentDate,
+            serviceType,
+          });
+
+          if (hasConflict) {
+            console.log(
+              "[WhatsApp] Appointment conflict at confirm (persisting anyway)"
+            );
+          }
+
+          appointment = await createAppointment({
+            userId: user.id,
+            petName: previous.pet_name || "Mascota",
+            petType: previous.pet_type || "other",
+            serviceType,
+            date: appointmentDate,
+            status: "confirmed",
+          });
+
+          scheduling.pushMockAppointment({
+            date: dateKey,
+            hour: Number(hour),
+            serviceType,
+          });
+
+          console.log(
+            `[WhatsApp] Appointment persisted: ${appointment.id} (${dateKey} ${hour}h, ${serviceType})`
+          );
+        } catch (error) {
+          console.error(
+            "[WhatsApp] Error persisting appointment:",
+            error.message
+          );
+        }
+      } else {
+        console.log(
+          "[WhatsApp] Confirmación sin scheduling_date_key/hour; cita no persistida"
+        );
+      }
+    }
+
     const session = updateSession(parsed.from, {
       ...previous,
       step,
@@ -152,6 +214,7 @@ const processIncomingMessage = async (body) => {
       processed: true,
       from: parsed.from,
       user,
+      appointment,
       reply,
       ...parsed,
       session,
