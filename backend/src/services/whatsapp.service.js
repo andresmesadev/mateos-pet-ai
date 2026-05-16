@@ -276,12 +276,6 @@ const processIncomingMessage = async (body) => {
             status: "confirmed",
           });
 
-          scheduling.pushMockAppointment({
-            date: dateKey,
-            hour: Number(hour),
-            serviceType,
-          });
-
           console.log(
             `[WhatsApp] Appointment persisted: ${appointment.id} (${dateKey} ${hour}h, ${serviceType})`
           );
@@ -388,7 +382,6 @@ const processIncomingMessage = async (body) => {
       userMessage: parsed.text,
     },
     {
-      mockAppointments: scheduling.getMockAppointments(),
       now: new Date(),
     }
   );

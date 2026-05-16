@@ -116,8 +116,7 @@ const shouldUseRuleReplyOnly = (ruleResult) => {
   return step != null && BOOKING_STEPS.has(step);
 };
 
-const buildRuleBasedReply = (analysis, options = {}) => {
-  const mockAppointments = options.mockAppointments || [];
+const buildRuleBasedReply = async (analysis, options = {}) => {
   const now = options.now instanceof Date ? options.now : new Date();
 
   if (!analysis || typeof analysis !== "object") {
@@ -194,8 +193,7 @@ const buildRuleBasedReply = (analysis, options = {}) => {
     }
 
     if (service === "bath_grooming") {
-      const groom = scheduling.resolveGroomingNextSlotMessage({
-        mockAppointments,
+      const groom = await scheduling.resolveGroomingNextSlotMessage({
         referenceDate: now,
         awaitingConfirmationStep: STEPS.AWAITING_CONFIRMATION,
         awaitingDateTimeFallbackStep: STEPS.AWAITING_DATE_TIME,
@@ -216,10 +214,9 @@ const buildRuleBasedReply = (analysis, options = {}) => {
         };
       }
 
-      const vet = scheduling.resolveVetScheduling({
+      const vet = await scheduling.resolveVetScheduling({
         dateText: date,
         timeText: time,
-        mockAppointments,
         referenceDate: now,
         awaitingStepConstant: STEPS.AWAITING_DATE_TIME,
         confirmationStepConstant: STEPS.AWAITING_CONFIRMATION,
@@ -276,7 +273,7 @@ const generateReply = async (input, legacyOptions) => {
     options,
   } = resolveGenerateReplyInput(input, legacyOptions);
 
-  const ruleResult = buildRuleBasedReply(analysis, options);
+  const ruleResult = await buildRuleBasedReply(analysis, options);
   const contextText =
     typeof semanticContext === "string" ? semanticContext.trim() : "";
 

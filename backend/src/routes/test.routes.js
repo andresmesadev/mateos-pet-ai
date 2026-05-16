@@ -106,7 +106,6 @@ router.post("/analyze", async (req, res, next) => {
         userMessage: message,
       },
       {
-        mockAppointments: scheduling.getMockAppointments(),
         now: new Date(),
       }
     );

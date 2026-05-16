@@ -1,26 +1,30 @@
 /**
- * Orquestación de agenda (mock) entre conversación y availability.service.
- * Sin DB ni APIs externas. Logs con prefijo [scheduling].
+ * Orquestación de agenda entre conversación y disponibilidad (PostgreSQL).
+ * Logs con prefijo [scheduling].
  */
 
 const {
   isBusinessDay,
   isWithinBusinessHours,
-  suggestVetAlternativeSlots,
-  getNextAvailableGroomingSlot,
   toDateKey,
   SERVICE_TYPES,
-  vetBookedHours,
 } = require("./availability.service");
 
-/** Citas mock compartidas en memoria (reemplazar por DB más adelante). */
+const availabilityDb = require("./availability-db.service");
+
+/** @deprecated Solo para tests legacy. Producción usa Appointment en DB. */
 let mockAppointments = [];
 
-const getMockAppointments = () => mockAppointments;
+/** @deprecated */
+const getMockAppointments = () => {
+  console.warn("[scheduling] getMockAppointments is deprecated; use availability-db");
+  return mockAppointments;
+};
 
+/** @deprecated */
 const pushMockAppointment = (appt) => {
+  console.warn("[scheduling] pushMockAppointment is deprecated; use createAppointment");
   mockAppointments.push(appt);
-  console.log("[scheduling] Mock cita agregada:", appt);
 };
 
 const normalizeText = (text) => {
@@ -34,9 +38,6 @@ const normalizeText = (text) => {
     .replace(/[\u0300-\u036f]/g, "");
 };
 
-/**
- * Escalación humana (Lina / urgencia / restricción de horario).
- */
 const detectHumanEscalation = (text) => {
   const n = normalizeText(text);
   if (!n) return false;
@@ -64,9 +65,6 @@ const formatHourAmPm = (hour) => {
   return `${h - 12}pm`;
 };
 
-/**
- * Etiqueta relativa "hoy" / "mañana" / fecha ISO legible.
- */
 const formatRelativeDayLabel = (dateKey, referenceDate = new Date()) => {
   const today = toDateKey(referenceDate);
   if (dateKey === today) return "hoy";
@@ -79,44 +77,221 @@ const formatRelativeDayLabel = (dateKey, referenceDate = new Date()) => {
   return dateKey;
 };
 
+/** JS getDay(): 0=domingo … 6=sábado */
+const WEEKDAY_TO_JS = {
+  domingo: 0,
+  lunes: 1,
+  martes: 2,
+  miercoles: 3,
+  jueves: 4,
+  viernes: 5,
+  sabado: 6,
+};
+
+const MONTH_NAME_TO_INDEX = {
+  enero: 0,
+  febrero: 1,
+  marzo: 2,
+  abril: 3,
+  mayo: 4,
+  junio: 5,
+  julio: 6,
+  agosto: 7,
+  septiembre: 8,
+  setiembre: 8,
+  octubre: 9,
+  noviembre: 10,
+  diciembre: 11,
+};
+
+const logParsedDate = (input, result) => {
+  console.log("[scheduling] Parsed date:", {
+    input: String(input),
+    result,
+  });
+  return result;
+};
+
+const logFailedDate = (input) => {
+  console.log(
+    "[scheduling] Failed parsing date:",
+    input == null ? input : String(input)
+  );
+  return null;
+};
+
+const localRefParts = (ref) => ({
+  y: ref.getFullYear(),
+  m: ref.getMonth(),
+  d: ref.getDate(),
+});
+
+const isValidLocalDate = (y, monthIndex, day) => {
+  const dt = new Date(y, monthIndex, day, 12, 0, 0, 0);
+  return (
+    dt.getFullYear() === y &&
+    dt.getMonth() === monthIndex &&
+    dt.getDate() === day
+  );
+};
+
+const keyFromLocalParts = (y, monthIndex, day) => {
+  if (!isValidLocalDate(y, monthIndex, day)) {
+    return null;
+  }
+  return toDateKey(new Date(y, monthIndex, day, 12, 0, 0, 0));
+};
+
+const parseExplicitYear = (raw) => {
+  if (raw == null || raw === "") {
+    return null;
+  }
+  let y = parseInt(String(raw), 10);
+  if (!Number.isFinite(y)) {
+    return null;
+  }
+  if (y < 100) {
+    y += 2000;
+  }
+  return y;
+};
+
+/** Si la fecha (sin hora) ya pasó respecto a ref, avanza al año siguiente. */
+const bumpYearIfPast = (y, monthIndex, day, ref) => {
+  const { y: refY, m: refM, d: refD } = localRefParts(ref);
+  const candidate = new Date(y, monthIndex, day, 12, 0, 0, 0);
+  const refNoon = new Date(refY, refM, refD, 12, 0, 0, 0);
+  if (candidate < refNoon) {
+    return y + 1;
+  }
+  return y;
+};
+
+const nextWeekdayKey = (weekdayName, ref) => {
+  const target = WEEKDAY_TO_JS[weekdayName];
+  if (target === undefined) {
+    return null;
+  }
+  const { y, m, d } = localRefParts(ref);
+  const refDay = ref.getDay();
+  let daysAhead = (target - refDay + 7) % 7;
+  if (daysAhead === 0) {
+    daysAhead = 7;
+  }
+  return keyFromLocalParts(y, m, d + daysAhead);
+};
+
 /**
- * Interpreta fecha en texto libre o ISO.
+ * Fechas en lenguaje natural (timezone local del servidor).
+ * @returns {string|null} YYYY-MM-DD
  */
 const parseDateToKey = (dateText, referenceDate = new Date()) => {
   if (!dateText || typeof dateText !== "string") {
-    return null;
+    return logFailedDate(dateText);
   }
 
   const trimmed = dateText.trim();
-  const iso = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
-  if (iso) {
-    return iso[1];
+  if (!trimmed) {
+    return logFailedDate(trimmed);
   }
 
-  const n = normalizeText(dateText);
   const ref = referenceDate instanceof Date ? referenceDate : new Date();
+  const { y: refY, m: refM, d: refD } = localRefParts(ref);
 
-  if (n.includes("hoy")) {
-    return toDateKey(ref);
+  const iso = trimmed.match(/(\d{4}-\d{2}-\d{2})/);
+  if (iso) {
+    return logParsedDate(trimmed, iso[1]);
   }
 
-  if (n.includes("manana") || n.includes("mañana")) {
-    const d = new Date(toDateKey(ref) + "T12:00:00");
-    d.setDate(d.getDate() + 1);
-    return toDateKey(d);
+  const n = normalizeText(trimmed);
+
+  if (/\bhoy\b/.test(n)) {
+    return logParsedDate(trimmed, toDateKey(ref));
+  }
+
+  if (/\bmanana\b/.test(n)) {
+    return logParsedDate(
+      trimmed,
+      keyFromLocalParts(refY, refM, refD + 1)
+    );
+  }
+
+  const weekdayMatch = n.match(
+    /\b(lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b/
+  );
+  if (weekdayMatch) {
+    const key = nextWeekdayKey(weekdayMatch[1], ref);
+    if (key) {
+      return logParsedDate(trimmed, key);
+    }
+    return logFailedDate(trimmed);
+  }
+
+  const dayMonthWord = n.match(
+    /\b(\d{1,2})\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)(?:\s+de\s+(\d{2,4}))?\b/
+  );
+  if (dayMonthWord) {
+    const day = parseInt(dayMonthWord[1], 10);
+    const monthIndex = MONTH_NAME_TO_INDEX[dayMonthWord[2]];
+    let year = parseExplicitYear(dayMonthWord[3]) ?? refY;
+    if (dayMonthWord[3] == null) {
+      year = bumpYearIfPast(year, monthIndex, day, ref);
+    }
+    const key = keyFromLocalParts(year, monthIndex, day);
+    if (key) {
+      return logParsedDate(trimmed, key);
+    }
+    return logFailedDate(trimmed);
+  }
+
+  const slashMatch = n.match(
+    /\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b/
+  );
+  if (slashMatch) {
+    const day = parseInt(slashMatch[1], 10);
+    const monthIndex = parseInt(slashMatch[2], 10) - 1;
+    let year = parseExplicitYear(slashMatch[3]) ?? refY;
+    if (slashMatch[3] == null) {
+      year = bumpYearIfPast(year, monthIndex, day, ref);
+    }
+    const key = keyFromLocalParts(year, monthIndex, day);
+    if (key) {
+      return logParsedDate(trimmed, key);
+    }
+    return logFailedDate(trimmed);
+  }
+
+  const dayOnlyMatch = n.match(/\b(?:el\s+)?(\d{1,2})\b/);
+  if (dayOnlyMatch) {
+    const day = parseInt(dayOnlyMatch[1], 10);
+    if (day >= 1 && day <= 31) {
+      let monthIndex = refM;
+      let year = refY;
+      if (day < refD) {
+        monthIndex += 1;
+        if (monthIndex > 11) {
+          monthIndex = 0;
+          year += 1;
+        }
+      }
+      const key = keyFromLocalParts(year, monthIndex, day);
+      if (key) {
+        return logParsedDate(trimmed, key);
+      }
+    }
   }
 
   const parsed = new Date(trimmed);
   if (!Number.isNaN(parsed.getTime())) {
-    return toDateKey(parsed);
+    const key = toDateKey(parsed);
+    if (key) {
+      return logParsedDate(trimmed, key);
+    }
   }
 
-  return null;
+  return logFailedDate(trimmed);
 };
 
-/**
- * Hora 0–23 desde texto (ej. "2pm", "14", "las 2").
- */
 const parseTimeToHour = (timeText) => {
   if (timeText == null || timeText === "") {
     return null;
@@ -171,17 +346,17 @@ const isVetLikeService = (service) =>
   service === "general_appointment";
 
 /**
- * Resuelve disponibilidad vet cuando ya hay fecha y hora en la sesión/análisis.
- * @returns {null|{ reply: string, step: string|null, sessionPatch?: object }}
+ * Disponibilidad veterinaria usando PostgreSQL.
  */
-const resolveVetScheduling = ({
+const resolveVetScheduling = async ({
   dateText,
   timeText,
-  mockAppointments: appointments,
   referenceDate = new Date(),
   awaitingStepConstant,
   confirmationStepConstant,
 }) => {
+  console.log("[Scheduling] Using DB availability");
+
   const dateKey = parseDateToKey(dateText, referenceDate);
   const hour = parseTimeToHour(timeText);
 
@@ -215,13 +390,16 @@ const resolveVetScheduling = ({
     };
   }
 
-  const booked = vetBookedHours(appointments, dateKey);
-  const occupied = booked.has(Number(hour));
+  const available = await availabilityDb.isSlotAvailable({
+    dateKey,
+    hour,
+    serviceType: SERVICE_TYPES.VET,
+  });
 
-  if (!occupied) {
+  if (available) {
     const dayLabel = formatRelativeDayLabel(dateKey, referenceDate);
     const timeLabel = formatHourAmPm(hour);
-    console.log("[scheduling] CASO 1: slot vet libre", { dateKey, hour });
+    console.log("[Scheduling] Real slot found:", { dateKey, hour });
     return {
       reply: `¡Perfecto! 😊 Tenemos disponibilidad ${dayLabel} a las ${timeLabel}. ¿Confirmamos la cita?`,
       step: confirmationStepConstant,
@@ -232,8 +410,13 @@ const resolveVetScheduling = ({
     };
   }
 
-  const alternatives = suggestVetAlternativeSlots(hour, appointments, dateKey);
-  console.log("[scheduling] CASO 2: vet ocupado, alternativas:", alternatives);
+  const { hours: alternatives } = await availabilityDb.suggestAvailableVetSlots({
+      dateKey,
+      requestedHour: hour,
+      limit: 3,
+    });
+
+  console.log("[Scheduling] Real alternatives found:", alternatives);
 
   if (alternatives.length === 0) {
     return {
@@ -254,15 +437,16 @@ const resolveVetScheduling = ({
 };
 
 /**
- * Próximo turno grooming + mensaje CASO 4.
+ * Próximo turno grooming desde PostgreSQL.
  */
-const resolveGroomingNextSlotMessage = ({
-  mockAppointments: appointments,
+const resolveGroomingNextSlotMessage = async ({
   referenceDate = new Date(),
   awaitingConfirmationStep,
   awaitingDateTimeFallbackStep,
 }) => {
-  const slot = getNextAvailableGroomingSlot(appointments, {
+  console.log("[Scheduling] Using DB availability");
+
+  const slot = await availabilityDb.findNextAvailableGroomingSlot({
     referenceDate,
   });
 
@@ -277,7 +461,7 @@ const resolveGroomingNextSlotMessage = ({
 
   const dayLabel = formatRelativeDayLabel(slot.date, referenceDate);
   const timeLabel = formatHourAmPm(slot.hour);
-  console.log("[scheduling] CASO 4: grooming próximo slot", slot);
+  console.log("[Scheduling] Real slot found:", slot);
 
   return {
     reply: `El siguiente turno disponible para grooming es:\n${dayLabel} a las ${timeLabel} 🛁`,
