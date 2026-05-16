@@ -6,6 +6,8 @@ const {
 } = require("./conversation.service");
 const { getSession, updateSession } = require("./memory.service");
 const scheduling = require("./scheduling.service");
+const { findOrCreateUser } = require("./user.service");
+const { findOrCreatePet } = require("./pet.service");
 
 const isEmptyValue = (value) => {
   if (value === null || value === undefined) {
@@ -89,6 +91,16 @@ const processIncomingMessage = async (body) => {
   console.log(`New message from: ${parsed.from}`);
   console.log(`Message: ${parsed.text}`);
 
+  let user = null;
+  try {
+    user = await findOrCreateUser(parsed.from);
+    console.log(
+      `[WhatsApp] User loaded: ${user.id} (${user.phone})`
+    );
+  } catch (error) {
+    console.error("[WhatsApp] Error loading user:", error.message);
+  }
+
   let previous = getSession(parsed.from);
   console.log("[Conversation] Current step:", previous.step ?? "(none)");
 
@@ -114,6 +126,7 @@ const processIncomingMessage = async (body) => {
       received: true,
       processed: true,
       from: parsed.from,
+      user,
       reply,
       ...parsed,
       session,
@@ -138,6 +151,7 @@ const processIncomingMessage = async (body) => {
       received: true,
       processed: true,
       from: parsed.from,
+      user,
       reply,
       ...parsed,
       session,
@@ -154,6 +168,27 @@ const processIncomingMessage = async (body) => {
   console.log("AI Analysis:", analysis);
 
   const mergedAnalysis = mergeSessionData(previous, analysis);
+
+  let pet = null;
+  if (
+    user &&
+    !isEmptyValue(mergedAnalysis?.pet_name) &&
+    !isEmptyValue(mergedAnalysis?.pet_type)
+  ) {
+    try {
+      pet = await findOrCreatePet({
+        name: mergedAnalysis.pet_name,
+        type: mergedAnalysis.pet_type,
+        ownerId: user.id,
+      });
+      console.log(
+        `[WhatsApp] Pet loaded: ${pet.id} (${pet.name}, ${pet.type})`
+      );
+    } catch (error) {
+      console.error("[WhatsApp] Error loading pet:", error.message);
+    }
+  }
+
   const result = generateReply(mergedAnalysis, {
     mockAppointments: scheduling.getMockAppointments(),
     now: new Date(),
@@ -172,6 +207,8 @@ const processIncomingMessage = async (body) => {
     received: true,
     processed: true,
     from: parsed.from,
+    user,
+    pet,
     reply: result.reply,
     ...parsed,
     analysis: mergedAnalysis,
