@@ -1,8 +1,16 @@
 const OpenAI = require("openai");
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+let _client = null;
+
+const getClient = () => {
+  if (!_client) {
+    _client = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+  }
+
+  return _client;
+};
 
 const SYSTEM_PROMPT = `Eres el analizador interno de Mateos Pet, una veterinaria y peluquería canina.
 
@@ -106,7 +114,7 @@ const analyzeMessage = async (input) => {
   }
 
   try {
-    const response = await client.chat.completions.create({
+    const response = await getClient().chat.completions.create({
       model: "gpt-4.1-mini",
       response_format: { type: "json_object" },
       messages: [
@@ -220,7 +228,7 @@ const generateReply = async ({
   console.log(`[OpenAI] Reply semantic context length: ${contextText.length}`);
 
   try {
-    const response = await client.chat.completions.create({
+    const response = await getClient().chat.completions.create({
       model: "gpt-4.1-mini",
       messages: [
         { role: "system", content: buildReplySystemPrompt(contextText) },
