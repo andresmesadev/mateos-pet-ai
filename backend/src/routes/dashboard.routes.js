@@ -8,6 +8,14 @@ const {
   createRecord,
   getRecordsByPet,
 } = require("../services/medical-record.service");
+const {
+  listConversations,
+  getConversationMessages,
+} = require("../services/dashboard-conversation.service");
+const {
+  listClients,
+  getClientById,
+} = require("../services/dashboard-client.service");
 
 const router = express.Router();
 
@@ -232,6 +240,74 @@ router.patch("/escalations/:id/resolve", async (req, res) => {
     res.json(resolved);
   } catch (error) {
     console.error("[Dashboard] Resolve escalation error:", error);
+
+    res.status(500).json({
+      error: "Internal server error",
+    });
+  }
+});
+
+router.get("/conversations", async (req, res) => {
+  try {
+    const result = await listConversations(req.query);
+    res.json(result);
+  } catch (error) {
+    console.error("[Dashboard] Conversations error:", error);
+
+    res.status(500).json({
+      error: "Internal server error",
+    });
+  }
+});
+
+router.get("/conversations/:id/messages", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await getConversationMessages(id);
+
+    if (!result) {
+      return res.status(404).json({
+        error: "Conversation not found",
+      });
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error("[Dashboard] Conversation messages error:", error);
+
+    res.status(500).json({
+      error: "Internal server error",
+    });
+  }
+});
+
+router.get("/clients", async (req, res) => {
+  try {
+    const clients = await listClients();
+    res.json(clients);
+  } catch (error) {
+    console.error("[Dashboard] Clients error:", error);
+
+    res.status(500).json({
+      error: "Internal server error",
+    });
+  }
+});
+
+router.get("/clients/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const client = await getClientById(id);
+
+    if (!client) {
+      return res.status(404).json({
+        error: "Client not found",
+      });
+    }
+
+    res.json(client);
+  } catch (error) {
+    console.error("[Dashboard] Client detail error:", error);
 
     res.status(500).json({
       error: "Internal server error",

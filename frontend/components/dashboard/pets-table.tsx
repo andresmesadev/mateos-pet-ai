@@ -39,12 +39,17 @@ function TableSkeleton() {
   );
 }
 
-export function PetsTable() {
+export function PetsTable({
+  initialPetId = null,
+}: {
+  initialPetId?: string | null;
+}) {
   const [pets, setPets] = useState<DashboardPet[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedPet, setSelectedPet] = useState<DashboardPet | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [openedFromQuery, setOpenedFromQuery] = useState(false);
 
   const loadPets = useCallback(async () => {
     setLoading(true);
@@ -91,8 +96,19 @@ export function PetsTable() {
         const data: DashboardPet[] = await response.json();
 
         if (!cancelled) {
-          setPets(Array.isArray(data) ? data : []);
+          const nextPets = Array.isArray(data) ? data : [];
+          setPets(nextPets);
           setError(null);
+
+          if (initialPetId && !openedFromQuery) {
+            const pet = nextPets.find((item) => item.id === initialPetId);
+
+            if (pet) {
+              setSelectedPet(pet);
+              setSheetOpen(true);
+              setOpenedFromQuery(true);
+            }
+          }
         }
       } catch (err) {
         console.error(err);
@@ -113,7 +129,7 @@ export function PetsTable() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialPetId, openedFromQuery]);
 
   const handleSelectPet = (pet: DashboardPet) => {
     setSelectedPet(pet);
