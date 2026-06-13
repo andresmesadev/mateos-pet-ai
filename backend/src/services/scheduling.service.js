@@ -7,8 +7,15 @@ const {
   isBusinessDay,
   isWithinBusinessHours,
   toDateKey,
+  addOneDay,
   SERVICE_TYPES,
 } = require("./availability.service");
+
+const {
+  getZonedYearMonthDay,
+  dateKeyFromParts,
+  getDayOfWeekFromKey,
+} = require("../lib/timezone");
 
 const availabilityDb = require("./availability-db.service");
 
@@ -68,12 +75,7 @@ const formatHourAmPm = (hour) => {
 const formatRelativeDayLabel = (dateKey, referenceDate = new Date()) => {
   const today = toDateKey(referenceDate);
   if (dateKey === today) return "hoy";
-
-  const dRef = new Date(`${today}T12:00:00`);
-  const dNext = new Date(dRef);
-  dNext.setDate(dNext.getDate() + 1);
-  if (dateKey === toDateKey(dNext)) return "mañana";
-
+  if (dateKey === addOneDay(today)) return "mañana";
   return dateKey;
 };
 
@@ -120,27 +122,10 @@ const logFailedDate = (input) => {
   return null;
 };
 
-const localRefParts = (ref) => ({
-  y: ref.getFullYear(),
-  m: ref.getMonth(),
-  d: ref.getDate(),
-});
+const localRefParts = (ref) => getZonedYearMonthDay(ref);
 
-const isValidLocalDate = (y, monthIndex, day) => {
-  const dt = new Date(y, monthIndex, day, 12, 0, 0, 0);
-  return (
-    dt.getFullYear() === y &&
-    dt.getMonth() === monthIndex &&
-    dt.getDate() === day
-  );
-};
-
-const keyFromLocalParts = (y, monthIndex, day) => {
-  if (!isValidLocalDate(y, monthIndex, day)) {
-    return null;
-  }
-  return toDateKey(new Date(y, monthIndex, day, 12, 0, 0, 0));
-};
+const keyFromLocalParts = (y, monthIndex, day) =>
+  dateKeyFromParts(y, monthIndex, day);
 
 const parseExplicitYear = (raw) => {
   if (raw == null || raw === "") {
@@ -156,14 +141,17 @@ const parseExplicitYear = (raw) => {
   return y;
 };
 
-/** Si la fecha (sin hora) ya pasó respecto a ref, avanza al año siguiente. */
 const bumpYearIfPast = (y, monthIndex, day, ref) => {
-  const { y: refY, m: refM, d: refD } = localRefParts(ref);
-  const candidate = new Date(y, monthIndex, day, 12, 0, 0, 0);
-  const refNoon = new Date(refY, refM, refD, 12, 0, 0, 0);
-  if (candidate < refNoon) {
+  const key = dateKeyFromParts(y, monthIndex, day);
+  if (!key) {
+    return y;
+  }
+
+  const refKey = toDateKey(ref);
+  if (key < refKey) {
     return y + 1;
   }
+
   return y;
 };
 
@@ -172,17 +160,28 @@ const nextWeekdayKey = (weekdayName, ref) => {
   if (target === undefined) {
     return null;
   }
-  const { y, m, d } = localRefParts(ref);
-  const refDay = ref.getDay();
+
+  const refKey = toDateKey(ref);
+  if (!refKey) {
+    return null;
+  }
+
+  const refDay = getDayOfWeekFromKey(refKey);
   let daysAhead = (target - refDay + 7) % 7;
   if (daysAhead === 0) {
     daysAhead = 7;
   }
-  return keyFromLocalParts(y, m, d + daysAhead);
+
+  let cursor = refKey;
+  for (let i = 0; i < daysAhead; i += 1) {
+    cursor = addOneDay(cursor);
+  }
+
+  return cursor;
 };
 
 /**
- * Fechas en lenguaje natural (timezone local del servidor).
+ * Fechas en lenguaje natural (timezone America/Bogota).
  * @returns {string|null} YYYY-MM-DD
  */
 const parseDateToKey = (dateText, referenceDate = new Date()) => {
@@ -475,11 +474,70 @@ const resolveGroomingNextSlotMessage = async ({
   };
 };
 
+const resolveGroomingScheduling = async ({
+  dateText,
+  timeText,
+  referenceDate = new Date(),
+  awaitingStepConstant,
+  confirmationStepConstant,
+}) => {
+  console.log("[Scheduling] Using DB availability (grooming)");
+
+  const dateKey = parseDateToKey(dateText, referenceDate);
+  const hour = parseTimeToHour(timeText);
+
+  if (!dateKey || hour === null || Number.isNaN(hour)) {
+    return null;
+  }
+
+  if (!isBusinessDay(dateKey)) {
+    return {
+      reply:
+        "Ese día no tenemos atención 😔\n¿Deseas otro horario?",
+      step: awaitingStepConstant,
+    };
+  }
+
+  if (!isWithinBusinessHours(SERVICE_TYPES.GROOMING, hour)) {
+    return {
+      reply:
+        "Ese horario está fuera de nuestro horario de grooming (11am a 4pm) 😊\n¿Qué otra hora te viene bien?",
+      step: awaitingStepConstant,
+    };
+  }
+
+  const available = await availabilityDb.isSlotAvailable({
+    dateKey,
+    hour,
+    serviceType: SERVICE_TYPES.GROOMING,
+  });
+
+  if (available) {
+    const dayLabel = formatRelativeDayLabel(dateKey, referenceDate);
+    const timeLabel = formatHourAmPm(hour);
+    return {
+      reply: `¡Perfecto! 😊 Tenemos disponibilidad ${dayLabel} a las ${timeLabel}. ¿Confirmamos la cita?`,
+      step: confirmationStepConstant,
+      sessionPatch: {
+        scheduling_date_key: dateKey,
+        scheduling_hour: hour,
+      },
+    };
+  }
+
+  return {
+    reply:
+      "No tenemos disponibilidad a esa hora 😔\n¿Te sirve otro día u horario?",
+    step: awaitingStepConstant,
+  };
+};
+
 module.exports = {
   getMockAppointments,
   pushMockAppointment,
   detectHumanEscalation,
   resolveVetScheduling,
+  resolveGroomingScheduling,
   resolveGroomingNextSlotMessage,
   parseDateToKey,
   parseTimeToHour,

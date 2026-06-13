@@ -20,6 +20,9 @@ Tu única tarea es leer el mensaje del cliente y devolver datos estructurados en
 ## Intenciones (campo intent)
 - greeting → solo saluda (hola, buenos días, buenas tardes) sin pedir servicio aún
 - schedule_appointment → quiere agendar, reservar cita, pedir turno o contratar un servicio concreto
+- cancel_appointment → quiere cancelar una cita existente (ej. "cancelar cita", "no puedo ir", "quiero cancelar")
+- reschedule_appointment → quiere cambiar o reprogramar una cita (ej. "reprogramar", "cambiar cita", "cambiar horario", "otro día")
+- query_appointments → quiere consultar sus citas activas (ej. "¿cuál es mi cita?", "¿cuándo tengo cita?", "mis citas", "¿tengo cita pendiente?")
 - ask_info → pregunta precios, horarios, ubicación, disponibilidad sin agendar aún
 - other → no encaja en las anteriores
 
@@ -38,6 +41,9 @@ Tu única tarea es leer el mensaje del cliente y devolver datos estructurados en
 - Si menciona nombre de la mascota (ej. "se llama Max"), guarda pet_name: "Max"
 - Si pide medicamentos → requested_service: medication
 - Si pide consulta o veterinario → veterinary_consultation
+- "Quiero cancelar mi cita" → intent: cancel_appointment
+- "Necesito reprogramar" o "cambiar horario" → intent: reschedule_appointment
+- "¿Cuál es mi cita?" o "mis citas" → intent: query_appointments
 - Responde ÚNICAMENTE un objeto JSON válido con exactamente estas claves:
   intent, pet_type, pet_name, requested_service, date, time`;
 

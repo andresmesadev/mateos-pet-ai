@@ -1,10 +1,18 @@
 /**
- * Motor de disponibilidad (mock) para Mateos Pet.
- * Centraliza reglas de día hábil, horario y slots sin integrar calendario externo.
+ * Motor de disponibilidad para Mateos Pet.
+ * Reglas de día hábil, horario y slots. Calendario en America/Bogota.
  */
 
-/** Festivos Colombia (mock). Ampliar o sustituir por API/calendario oficial. */
-const COLOMBIA_HOLIDAYS = ["2026-01-01", "2026-12-25"];
+const {
+  TIMEZONE,
+  toDateKey,
+  addOneDay,
+  getDayOfWeekFromKey,
+} = require("../lib/timezone");
+const {
+  isColombianHoliday,
+  getHolidayName,
+} = require("../lib/colombianHolidays");
 
 /** Tipos de servicio reconocidos por este servicio. */
 const SERVICE_TYPES = {
@@ -14,31 +22,17 @@ const SERVICE_TYPES = {
 
 /** Horas de inicio de consulta veterinaria (entero 0–23). Incluye 11; excluye cierre 17h (último inicio razonable 16h). */
 const VET_START_HOUR = 11;
-const VET_END_HOUR_EXCLUSIVE = 17; // último slot hora checa: 16
+const VET_END_HOUR_EXCLUSIVE = 17;
 
 /** Duración típica consulta (minutos): informativa para logs/comentarios; slots mock son por hora. */
 const VET_SLOT_DURATION_MINUTES = 45;
 
-/** Peluquería: slots cada 1 hora desde las 11. Último inicio antes del cierre (coincide con fin jornada tipo vet en mock). */
+/** Peluquería: slots cada 1 hora desde las 11. Último inicio antes del cierre. */
 const GROOMING_FIRST_HOUR = 11;
-const GROOMING_LAST_START_HOUR = 16; // 16:00–17:00 último bloque de 1h
-
-const toDateKey = (date) => {
-  if (typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return date;
-  }
-  const d = date instanceof Date ? date : new Date(date);
-  if (Number.isNaN(d.getTime())) {
-    return null;
-  }
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-};
+const GROOMING_LAST_START_HOUR = 16;
 
 /**
- * Día hábil: no domingo, no festivo mock Colombia.
+ * Día hábil: no domingo, no festivo Colombia (calendario Bogotá).
  * @param {Date|string} date
  * @returns {boolean}
  */
@@ -49,16 +43,18 @@ const isBusinessDay = (date) => {
     return false;
   }
 
-  const d = new Date(`${key}T12:00:00`);
-  const dayOfWeek = d.getDay(); // 0 = domingo
+  const dayOfWeek = getDayOfWeekFromKey(key);
 
   if (dayOfWeek === 0) {
     console.log(`[availability] isBusinessDay ${key}: domingo → false`);
     return false;
   }
 
-  if (COLOMBIA_HOLIDAYS.includes(key)) {
-    console.log(`[availability] isBusinessDay ${key}: festivo Colombia → false`);
+  if (isColombianHoliday(key)) {
+    const holidayName = getHolidayName(key);
+    console.log(
+      `[availability] isBusinessDay ${key}: festivo Colombia (${holidayName}) → false`
+    );
     return false;
   }
 
@@ -66,7 +62,7 @@ const isBusinessDay = (date) => {
 };
 
 /**
- * La hora cae dentro del horario del tipo de servicio (solo hora entera, mock).
+ * La hora cae dentro del horario del tipo de servicio (hora entera, Bogotá).
  * @param {"vet"|"grooming"} serviceType
  * @param {number} hour Entero 0–23
  * @returns {boolean}
@@ -105,11 +101,6 @@ const isWithinBusinessHours = (serviceType, hour) => {
 
 /** @typedef {{ date: string, hour: number, serviceType?: string }} MockAppointment */
 
-/**
- * Citas de grooming en una fecha concreta.
- * @param {MockAppointment[]} existingAppointments
- * @param {string} dateKey
- */
 const groomingBookedHours = (existingAppointments, dateKey) => {
   const set = new Set();
   for (const a of existingAppointments || []) {
@@ -122,11 +113,6 @@ const groomingBookedHours = (existingAppointments, dateKey) => {
   return set;
 };
 
-/**
- * Citas veterinarias en una fecha concreta.
- * @param {MockAppointment[]} existingAppointments
- * @param {string} dateKey
- */
 const vetBookedHours = (existingAppointments, dateKey) => {
   const set = new Set();
   for (const a of existingAppointments || []) {
@@ -139,24 +125,6 @@ const vetBookedHours = (existingAppointments, dateKey) => {
   return set;
 };
 
-/**
- * Avanza un día calendario a partir de YYYY-MM-DD.
- * @param {string} dateKey
- */
-const addOneDay = (dateKey) => {
-  const d = new Date(`${dateKey}T12:00:00`);
-  d.setDate(d.getDate() + 1);
-  return toDateKey(d);
-};
-
-/**
- * Próximo slot de peluquería disponible (1h) desde el día de referencia.
- * Recorre días hábiles y slots 11–16 hasta encontrar hueco.
- *
- * @param {MockAppointment[]} existingAppointments
- * @param {{ referenceDate?: Date|string }} [options]
- * @returns {{ date: string, hour: number }|null}
- */
 const getNextAvailableGroomingSlot = (existingAppointments, options = {}) => {
   let cursor =
     toDateKey(options.referenceDate ?? new Date()) || toDateKey(new Date());
@@ -164,7 +132,7 @@ const getNextAvailableGroomingSlot = (existingAppointments, options = {}) => {
   let skipped = 0;
 
   console.log(
-    `[availability] getNextAvailableGroomingSlot: buscando desde ${cursor}`
+    `[availability] getNextAvailableGroomingSlot: buscando desde ${cursor} (${TIMEZONE})`
   );
 
   while (skipped < maxSkips) {
@@ -195,13 +163,6 @@ const getNextAvailableGroomingSlot = (existingAppointments, options = {}) => {
   return null;
 };
 
-/**
- * Si la hora solicitada está ocupada (vet), sugiere hasta 3 alternativas el mismo día.
- * @param {number} requestedHour
- * @param {MockAppointment[]} existingAppointments
- * @param {string} [explicitDateKey] Día concreto (ej. fecha parseada del usuario).
- * @returns {number[]}
- */
 const suggestVetAlternativeSlots = (
   requestedHour,
   existingAppointments,
@@ -241,7 +202,6 @@ const suggestVetAlternativeSlots = (
     return [];
   }
 
-  /** Horas candidatas vet: 11–16 (inicio). */
   const candidates = [];
   for (let h = VET_START_HOUR; h < VET_END_HOUR_EXCLUSIVE; h += 1) {
     if (h === hr) continue;
@@ -259,6 +219,7 @@ const suggestVetAlternativeSlots = (
 };
 
 module.exports = {
+  TIMEZONE,
   isBusinessDay,
   isWithinBusinessHours,
   getNextAvailableGroomingSlot,

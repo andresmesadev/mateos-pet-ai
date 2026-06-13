@@ -6,9 +6,13 @@
 
 const prisma = require("../lib/prisma");
 const {
+  toDateKey,
+  getHourInTimezone,
+  dayBoundsInTimezone,
+} = require("../lib/timezone");
+const {
   isBusinessDay,
   isWithinBusinessHours,
-  toDateKey,
   addOneDay,
   SERVICE_TYPES,
 } = require("./availability.service");
@@ -31,11 +35,7 @@ const normalizeServiceType = (serviceType) => {
   return type;
 };
 
-const dayBounds = (dateKey) => {
-  const start = new Date(`${dateKey}T00:00:00`);
-  const end = new Date(`${dateKey}T23:59:59.999`);
-  return { start, end };
-};
+const dayBounds = (dateKey) => dayBoundsInTimezone(dateKey);
 
 const appointmentToSlot = (row) => {
   const date = row.date instanceof Date ? row.date : new Date(row.date);
@@ -47,7 +47,7 @@ const appointmentToSlot = (row) => {
     serviceType: normalizeServiceType(row.serviceType),
     status: row.status,
     dateKey: toDateKey(date),
-    hour: date.getHours(),
+    hour: getHourInTimezone(date),
     date,
   };
 };

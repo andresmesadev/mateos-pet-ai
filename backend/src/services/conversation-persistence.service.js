@@ -1,5 +1,6 @@
 const prisma = require("../lib/prisma");
 const { saveMessageEmbedding } = require("./embedding.service");
+const { hydrateSessionFromConversation } = require("./memory.service");
 
 const ACTIVE_STEP_EXCLUDED = "completed";
 
@@ -20,16 +21,26 @@ const findOrCreateConversation = async (userId) => {
         OR: [{ step: null }, { step: { not: ACTIVE_STEP_EXCLUDED } }],
       },
       orderBy: { updatedAt: "desc" },
+      include: { user: true },
     });
 
     if (existing) {
       console.log("[ConversationPersistence] Conversation loaded");
+      if (existing.user?.phone) {
+        hydrateSessionFromConversation(existing.user.phone, existing);
+      }
       return existing;
     }
+
+    const user = await prisma.user.findUnique({ where: { id } });
 
     const created = await prisma.conversation.create({
       data: { userId: id },
     });
+
+    if (user?.phone) {
+      hydrateSessionFromConversation(user.phone, created);
+    }
     console.log("[ConversationPersistence] Conversation created");
     return created;
   } catch (error) {

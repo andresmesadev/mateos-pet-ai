@@ -27,6 +27,8 @@ model Pet {
   ownerId   String
   owner     User @relation(fields: [ownerId], references: [id])
 
+  appointments Appointment[]
+
   createdAt DateTime @default(now())
 }
 
@@ -35,8 +37,10 @@ model Conversation {
   userId    String
   user      User @relation(fields: [userId], references: [id])
 
-  intent    String?
-  step      String?
+  intent      String?
+  step        String?
+  /// Estado del wizard de reserva (pet_name, scheduling_date_key, etc.)
+  sessionData Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -83,6 +87,9 @@ model Appointment {
   id          String   @id @default(cuid())
   userId      String
   user        User @relation(fields: [userId], references: [id])
+
+  petId       String?
+  pet         Pet? @relation(fields: [petId], references: [id])
 
   petName     String
   petType     String

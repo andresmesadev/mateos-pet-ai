@@ -1,0 +1,45 @@
+# Mateos Pet AI Rules
+
+## Stack
+- Node.js
+- Express
+- Prisma
+- React
+- TailwindCSS
+
+## General Rules
+- Never break existing functionality
+- Always explain important changes
+- Prefer reusable components
+- Use clean architecture
+- Keep code readable and maintainable
+
+## Backend Rules
+- Controllers must stay thin
+- Business logic belongs in services
+- Use async/await
+- Use try/catch in controllers
+- Validate request bodies
+- Use REST conventions
+- Never access Prisma directly from routes
+
+## Frontend Rules
+- Use functional React components
+- Avoid inline styles
+- Use responsive layouts
+- Prefer reusable UI components
+- Keep components modular
+
+## Prisma Rules
+- Never generate destructive migrations automatically
+- Preserve schema compatibility
+- Prefer explicit relations
+
+## File Editing Rules
+- Do not modify unrelated files
+- Preserve existing comments unless obsolete
+- Keep naming consistent
+
+## Important
+- Before large refactors, explain the plan first
+- Prefer minimal safe changes

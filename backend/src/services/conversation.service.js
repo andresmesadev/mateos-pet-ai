@@ -8,6 +8,247 @@ const STEPS = {
 
 const scheduling = require("./scheduling.service");
 const { generateReply: generateReplyWithAI } = require("./openai.service");
+const {
+  cancelAppointment,
+  getUserAppointments,
+  mapDbServiceTypeToSession,
+  formatAppointmentDateLabel,
+  formatAppointmentListLine,
+} = require("./appointment.service");
+
+const MANAGEMENT_INTENTS = new Set([
+  "cancel_appointment",
+  "reschedule_appointment",
+  "query_appointments",
+]);
+
+const CANCEL_PATTERNS = [
+  "cancelar cita",
+  "cancela mi cita",
+  "quiero cancelar",
+  "no puedo ir",
+  "cancelar mi cita",
+];
+
+const RESCHEDULE_PATTERNS = [
+  "cambiar cita",
+  "reprogramar",
+  "cambiar horario",
+  "reagendar",
+  "cambiar la cita",
+  "mover la cita",
+];
+
+const QUERY_APPOINTMENTS_PATTERNS = [
+  "mi cita",
+  "mis citas",
+  "cuando tengo cita",
+  "cita pendiente",
+  "proxima cita",
+  "cual es mi cita",
+  "tengo cita pendiente",
+  "cuando es mi cita",
+];
+
+const clearSchedulingPatch = () => ({
+  scheduling_date_key: undefined,
+  scheduling_hour: undefined,
+  date: undefined,
+  time: undefined,
+});
+
+const detectCancelIntent = (text, intent) => {
+  if (intent === "cancel_appointment") {
+    return true;
+  }
+
+  const normalized = normalizeText(text);
+  return CANCEL_PATTERNS.some((pattern) => normalized.includes(pattern));
+};
+
+const detectRescheduleIntent = (text, intent) => {
+  if (intent === "reschedule_appointment") {
+    return true;
+  }
+
+  const normalized = normalizeText(text);
+
+  if (RESCHEDULE_PATTERNS.some((pattern) => normalized.includes(pattern))) {
+    return true;
+  }
+
+  if (normalized.includes("otro dia")) {
+    return (
+      normalized.includes("cita") ||
+      normalized.includes("horario") ||
+      normalized.includes("reprogram") ||
+      normalized.includes("cambiar")
+    );
+  }
+
+  return false;
+};
+
+const detectQueryAppointmentsIntent = (text, intent) => {
+  if (intent === "query_appointments") {
+    return true;
+  }
+
+  const normalized = normalizeText(text);
+  return QUERY_APPOINTMENTS_PATTERNS.some((pattern) =>
+    normalized.includes(pattern)
+  );
+};
+
+const buildRescheduleSessionPatch = (cancelled, session = {}) => {
+  const patch = {
+    ...clearSchedulingPatch(),
+    step: STEPS.AWAITING_DATE_TIME,
+  };
+
+  if (cancelled) {
+    patch.pet_name = cancelled.petName;
+    patch.pet_type = cancelled.petType;
+    patch.requested_service =
+      mapDbServiceTypeToSession(cancelled.serviceType) ??
+      session.requested_service;
+  } else {
+    if (!isMissing(session.pet_name)) patch.pet_name = session.pet_name;
+    if (!isMissing(session.pet_type)) patch.pet_type = session.pet_type;
+    if (!isMissing(session.requested_service)) {
+      patch.requested_service = session.requested_service;
+    }
+  }
+
+  return patch;
+};
+
+const handleCancellation = async (userId) => {
+  if (!userId) {
+    return {
+      reply: "No encontré citas activas.",
+      step: null,
+      sessionPatch: clearSchedulingPatch(),
+      forceRuleReply: true,
+    };
+  }
+
+  try {
+    const cancelled = await cancelAppointment(userId);
+
+    if (!cancelled) {
+      return {
+        reply: "No encontré citas activas.",
+        step: null,
+        sessionPatch: clearSchedulingPatch(),
+        forceRuleReply: true,
+      };
+    }
+
+    const dateLabel = formatAppointmentDateLabel(cancelled);
+
+    return {
+      reply: `Tu cita del ${dateLabel} ha sido cancelada.\n¿Deseas agendar una nueva?`,
+      step: null,
+      sessionPatch: clearSchedulingPatch(),
+      forceRuleReply: true,
+    };
+  } catch (error) {
+    console.error("[Conversation] Cancel appointment error:", error.message);
+    return {
+      reply:
+        "Hubo un problema al cancelar tu cita 😔\n¿Podemos intentarlo de nuevo en un momento?",
+      step: null,
+      sessionPatch: {},
+      forceRuleReply: true,
+    };
+  }
+};
+
+const handleReschedule = async (userId, session = {}) => {
+  if (!userId) {
+    return {
+      reply: "No encontré citas activas para reprogramar.",
+      step: null,
+      sessionPatch: clearSchedulingPatch(),
+      forceRuleReply: true,
+    };
+  }
+
+  try {
+    const cancelled = await cancelAppointment(userId);
+
+    if (!cancelled) {
+      return {
+        reply: "No encontré citas activas para reprogramar.",
+        step: null,
+        sessionPatch: clearSchedulingPatch(),
+        forceRuleReply: true,
+      };
+    }
+
+    return {
+      reply:
+        "Cita cancelada. ¿Para qué fecha y hora te gustaría reagendar?",
+      step: STEPS.AWAITING_DATE_TIME,
+      sessionPatch: buildRescheduleSessionPatch(cancelled, session),
+      forceRuleReply: true,
+    };
+  } catch (error) {
+    console.error("[Conversation] Reschedule appointment error:", error.message);
+    return {
+      reply:
+        "Hubo un problema al reprogramar tu cita 😔\n¿Podemos intentarlo de nuevo en un momento?",
+      step: null,
+      sessionPatch: {},
+      forceRuleReply: true,
+    };
+  }
+};
+
+const handleQueryAppointments = async (userId) => {
+  if (!userId) {
+    return {
+      reply: "No tienes citas programadas. ¿Deseas agendar una?",
+      step: null,
+      sessionPatch: {},
+      forceRuleReply: true,
+    };
+  }
+
+  try {
+    const appointments = await getUserAppointments(userId);
+
+    if (!appointments.length) {
+      return {
+        reply: "No tienes citas programadas. ¿Deseas agendar una?",
+        step: null,
+        sessionPatch: {},
+        forceRuleReply: true,
+      };
+    }
+
+    const lines = appointments
+      .map(formatAppointmentListLine)
+      .filter(Boolean);
+
+    return {
+      reply: `Tienes las siguientes citas:\n${lines.join("\n")}`,
+      step: null,
+      sessionPatch: {},
+      forceRuleReply: true,
+    };
+  } catch (error) {
+    console.error("[Conversation] Query appointments error:", error.message);
+    return {
+      reply:
+        "Hubo un problema al consultar tus citas 😔\n¿Podemos intentarlo de nuevo en un momento?",
+      step: null,
+      sessionPatch: {},
+      forceRuleReply: true,
+    };
+  }
+};
 
 const BOOKING_STEPS = new Set([
   STEPS.AWAITING_PET_NAME,
@@ -111,13 +352,25 @@ const resolveGenerateReplyInput = (input, options = {}) => {
   };
 };
 
-const shouldUseRuleReplyOnly = (ruleResult) => {
+const shouldUseRuleReplyOnly = (ruleResult, analysis) => {
+  if (ruleResult?.forceRuleReply) {
+    return true;
+  }
+
+  if (MANAGEMENT_INTENTS.has(analysis?.intent)) {
+    return true;
+  }
+
   const step = ruleResult?.step;
   return step != null && BOOKING_STEPS.has(step);
 };
 
 const buildRuleBasedReply = async (analysis, options = {}) => {
   const now = options.now instanceof Date ? options.now : new Date();
+  const session = options.session || {};
+  const userMessage = options.userMessage || "";
+  const userId = options.userId;
+  const currentStep = analysis?.step ?? session.step;
 
   if (!analysis || typeof analysis !== "object") {
     return {
@@ -125,6 +378,20 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
       step: null,
       sessionPatch: {},
     };
+  }
+
+  const intent = analysis.intent;
+
+  if (detectRescheduleIntent(userMessage, intent)) {
+    return handleReschedule(userId, session);
+  }
+
+  if (detectCancelIntent(userMessage, intent)) {
+    return handleCancellation(userId);
+  }
+
+  if (detectQueryAppointmentsIntent(userMessage, intent)) {
+    return handleQueryAppointments(userId);
   }
 
   if (analysis.step === STEPS.COMPLETED) {
@@ -136,7 +403,6 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
     };
   }
 
-  const intent = analysis.intent;
   const petType = analysis.pet_type;
   const petName = analysis.pet_name;
   const service = analysis.requested_service;
@@ -162,7 +428,8 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
   }
 
   const isBooking =
-    intent === "schedule_appointment" || !isMissing(service);
+    !MANAGEMENT_INTENTS.has(intent) &&
+    (intent === "schedule_appointment" || !isMissing(service));
 
   if (isBooking) {
     if (isMissing(service)) {
@@ -193,6 +460,39 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
     }
 
     if (service === "bath_grooming") {
+      if (currentStep === STEPS.AWAITING_DATE_TIME) {
+        if (isMissing(date) || isMissing(time)) {
+          return {
+            reply: "¿Para qué fecha y hora te gustaría reagendar? 📅",
+            step: STEPS.AWAITING_DATE_TIME,
+            sessionPatch: {},
+          };
+        }
+
+        const groom = await scheduling.resolveGroomingScheduling({
+          dateText: date,
+          timeText: time,
+          referenceDate: now,
+          awaitingStepConstant: STEPS.AWAITING_DATE_TIME,
+          confirmationStepConstant: STEPS.AWAITING_CONFIRMATION,
+        });
+
+        if (groom) {
+          return {
+            reply: groom.reply,
+            step: groom.step,
+            sessionPatch: groom.sessionPatch || {},
+          };
+        }
+
+        return {
+          reply:
+            "¿Me dices el día y la hora de nuevo? 📅 (por ejemplo mañana a las 2pm)",
+          step: STEPS.AWAITING_DATE_TIME,
+          sessionPatch: {},
+        };
+      }
+
       const groom = await scheduling.resolveGroomingNextSlotMessage({
         referenceDate: now,
         awaitingConfirmationStep: STEPS.AWAITING_CONFIRMATION,
@@ -273,11 +573,15 @@ const generateReply = async (input, legacyOptions) => {
     options,
   } = resolveGenerateReplyInput(input, legacyOptions);
 
-  const ruleResult = await buildRuleBasedReply(analysis, options);
+  const ruleResult = await buildRuleBasedReply(analysis, {
+    ...options,
+    session,
+    userMessage,
+  });
   const contextText =
     typeof semanticContext === "string" ? semanticContext.trim() : "";
 
-  if (!contextText || shouldUseRuleReplyOnly(ruleResult)) {
+  if (!contextText || shouldUseRuleReplyOnly(ruleResult, analysis)) {
     return ruleResult;
   }
 
