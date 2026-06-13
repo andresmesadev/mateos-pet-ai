@@ -1,4 +1,5 @@
 const { analyzeMessage } = require("./openai.service");
+const logger = require("../lib/logger");
 const {
   generateReply,
   getConfirmationReply,
@@ -37,9 +38,9 @@ const persistUserMessage = async (user, conversation, content) => {
       role: "user",
       content,
     });
-    console.log("[WhatsApp] Message persisted");
+    logger.info("[WhatsApp] Message persisted");
   } catch (error) {
-    console.error("[WhatsApp] Error persisting user message:", error.message);
+    logger.error("[WhatsApp] Error persisting user message:", error.message);
   }
 };
 
@@ -52,9 +53,9 @@ const persistAssistantMessage = async (conversation, content) => {
       role: "assistant",
       content,
     });
-    console.log("[WhatsApp] Message persisted");
+    logger.info("[WhatsApp] Message persisted");
   } catch (error) {
-    console.error(
+    logger.error(
       "[WhatsApp] Error persisting assistant message:",
       error.message
     );
@@ -150,17 +151,17 @@ const processIncomingMessage = async (body) => {
   const parsed = parseIncomingMessage(body);
 
   if (!parsed) {
-    console.log("[WhatsApp] Payload ignorado (sin mensaje de texto soportado)");
+    logger.info("[WhatsApp] Payload ignorado (sin mensaje de texto soportado)");
     return { received: true, processed: false };
   }
 
   if (parsed.type === "audio" && parsed.mediaId) {
-    console.log("[WhatsApp] Voice message detected");
+    logger.info("[WhatsApp] Voice message detected");
 
     const transcript = await processVoiceMessage(parsed.mediaId);
 
     if (!transcript) {
-      console.log("[WhatsApp] Voice transcription failed");
+      logger.info("[WhatsApp] Voice transcription failed");
 
       return {
         received: true,
@@ -171,37 +172,37 @@ const processIncomingMessage = async (body) => {
     parsed.text = transcript;
     parsed.type = "text";
 
-    console.log("[WhatsApp] Voice transcription:", transcript);
+    logger.info("[WhatsApp] Voice transcription:", transcript);
   }
 
-  console.log(`New message from: ${parsed.from}`);
-  console.log(`Message: ${parsed.text}`);
+  logger.info(`New message from: ${parsed.from}`);
+  logger.info(`Message: ${parsed.text}`);
 
   let user = null;
   try {
     user = await findOrCreateUser(parsed.from);
-    console.log(
+    logger.info(
       `[WhatsApp] User loaded: ${user.id} (${user.phone})`
     );
   } catch (error) {
-    console.error("[WhatsApp] Error loading user:", error.message);
+    logger.error("[WhatsApp] Error loading user:", error.message);
   }
 
   let conversation = null;
   if (user) {
     try {
       conversation = await findOrCreateConversation(user.id);
-      console.log(
+      logger.info(
         `[WhatsApp] Conversation loaded: ${conversation.id} (user ${user.id})`
       );
       await persistUserMessage(user, conversation, parsed.text);
     } catch (error) {
-      console.error("[WhatsApp] Error loading conversation:", error.message);
+      logger.error("[WhatsApp] Error loading conversation:", error.message);
     }
   }
 
   let previous = getSession(parsed.from);
-  console.log("[Conversation] Current step:", previous.step ?? "(none)");
+  logger.info("[Conversation] Current step:", previous.step ?? "(none)");
 
   if (previous.step === "completed") {
     previous = { ...previous, step: null };
@@ -215,11 +216,11 @@ const processIncomingMessage = async (body) => {
       requires_human_attention: true,
       step: null,
     });
-    console.log(
+    logger.info(
       "[scheduling] Sesión marcada requires_human_attention:",
       parsed.from
     );
-    console.log("[Conversation] New step:", session.step ?? "(none)");
+    logger.info("[Conversation] New step:", session.step ?? "(none)");
 
     await persistAssistantMessage(conversation, reply);
     await syncConversationState(conversation?.id, {
@@ -267,7 +268,7 @@ const processIncomingMessage = async (body) => {
           const reply =
             `Lo siento 😔 El horario ${dayLabel} a las ${timeLabel} ya está ocupado.\n¿Te gustaría elegir otro día u hora? 📅`;
 
-          console.log(
+          logger.info(
             "[WhatsApp] Appointment blocked — slot occupied:",
             dateKey,
             hour,
@@ -281,7 +282,7 @@ const processIncomingMessage = async (body) => {
             scheduling_hour: undefined,
           });
 
-          console.log("[Conversation] New step:", session.step);
+          logger.info("[Conversation] New step:", session.step);
 
           await persistAssistantMessage(conversation, reply);
           await syncConversationState(conversation?.id, {
@@ -311,7 +312,7 @@ const processIncomingMessage = async (body) => {
           status: "confirmed",
         });
 
-        console.log(
+        logger.info(
           `[WhatsApp] Appointment persisted: ${appointment.id} (${dateKey} ${hour}h ${formatSlotForUser(dateKey, hour)}, ${serviceType})`
         );
 
@@ -326,8 +327,8 @@ const processIncomingMessage = async (body) => {
           ...(sessionPatch || {}),
         });
 
-        console.log("[Conversation] New step:", session.step);
-        console.log("Generated reply:", reply);
+        logger.info("[Conversation] New step:", session.step);
+        logger.info("Generated reply:", reply);
 
         await persistAssistantMessage(conversation, reply);
         await syncConversationState(conversation?.id, {
@@ -347,7 +348,7 @@ const processIncomingMessage = async (body) => {
           session,
         };
       } catch (error) {
-        console.error(
+        logger.error(
           "[WhatsApp] Error persisting appointment:",
           error.message
         );
@@ -379,7 +380,7 @@ const processIncomingMessage = async (body) => {
       }
     }
 
-    console.log(
+    logger.info(
       "[WhatsApp] Confirmación sin scheduling_date_key/hour; cita no persistida"
     );
 
@@ -390,8 +391,8 @@ const processIncomingMessage = async (body) => {
       ...(sessionPatch || {}),
     });
 
-    console.log("[Conversation] New step:", session.step);
-    console.log("Generated reply:", reply);
+    logger.info("[Conversation] New step:", session.step);
+    logger.info("Generated reply:", reply);
 
     await persistAssistantMessage(conversation, reply);
     await syncConversationState(conversation?.id, {
@@ -422,10 +423,10 @@ const processIncomingMessage = async (body) => {
       });
       semanticContext = buildSemanticContext(memories);
       if (semanticContext) {
-        console.log("[SemanticMemory] Context injected");
+        logger.info("[SemanticMemory] Context injected");
       }
     } catch (error) {
-      console.error(
+      logger.error(
         "[WhatsApp] Semantic memory search failed:",
         error.message
       );
@@ -439,10 +440,10 @@ const processIncomingMessage = async (body) => {
       semanticContext,
     });
   } catch (error) {
-    console.error("[WhatsApp] Error al analizar mensaje:", error.message);
+    logger.error("[WhatsApp] Error al analizar mensaje:", error.message);
   }
 
-  console.log("AI Analysis:", analysis);
+  logger.info("AI Analysis:", analysis);
 
   const mergedAnalysis = mergeSessionData(previous, analysis);
 
@@ -458,11 +459,11 @@ const processIncomingMessage = async (body) => {
         type: mergedAnalysis.pet_type,
         ownerId: user.id,
       });
-      console.log(
+      logger.info(
         `[WhatsApp] Pet loaded: ${pet.id} (${pet.name}, ${pet.type})`
       );
     } catch (error) {
-      console.error("[WhatsApp] Error loading pet:", error.message);
+      logger.error("[WhatsApp] Error loading pet:", error.message);
     }
   }
 
@@ -484,9 +485,9 @@ const processIncomingMessage = async (body) => {
     ...(result.sessionPatch || {}),
   });
 
-  console.log("[Conversation] New step:", session.step);
-  console.log("Generated reply:", result.reply);
-  console.log("Session:", session);
+  logger.info("[Conversation] New step:", session.step);
+  logger.info("Generated reply:", result.reply);
+  logger.info("Session:", session);
 
   await persistAssistantMessage(conversation, result.reply);
   await syncConversationState(conversation?.id, {

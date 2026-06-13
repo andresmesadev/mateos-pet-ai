@@ -5,7 +5,10 @@
   "main": "index.js",
   "scripts": {
     "start": "node src/app.js",
-    "dev": "nodemon src/app.js"
+    "dev": "nodemon src/app.js",
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "test:watch": "jest --watch"
   },
   "repository": {
     "type": "git",
@@ -20,8 +23,10 @@
   },
   "homepage": "https://github.com/andresmesadev/mateos-pet-ai#readme",
   "dependencies": {
+    "@google-cloud/local-auth": "^3.0.1",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "@sentry/node": "^10.57.0",
     "axios": "^1.16.1",
     "cors": "^2.8.6",
     "date-fns": "^4.4.0",
@@ -29,11 +34,17 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
+    "googleapis": "^173.0.0",
     "ngrok": "^5.0.0-beta.2",
+    "node-cron": "^4.2.1",
     "openai": "^6.37.0",
-    "pg": "^8.16.0"
+    "pg": "^8.16.0",
+    "winston": "^3.19.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "@types/jest": "^30.0.0",
+    "jest": "^30.4.2",
+    "nodemon": "^3.1.14",
+    "supertest": "^7.2.2"
   }
 }

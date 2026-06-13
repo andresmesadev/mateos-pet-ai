@@ -4,6 +4,10 @@ const {
   getPendingEscalations,
   resolveEscalation,
 } = require("../services/escalation.service");
+const {
+  createRecord,
+  getRecordsByPet,
+} = require("../services/medical-record.service");
 
 const router = express.Router();
 
@@ -70,6 +74,130 @@ router.get("/appointments", async (req, res) => {
     res.json(appointments);
   } catch (error) {
     console.error("[Dashboard] Appointments error:", error);
+
+    res.status(500).json({
+      error: "Internal server error",
+    });
+  }
+});
+
+router.get("/pets", async (req, res) => {
+  try {
+    const pets = await prisma.pet.findMany({
+      orderBy: { createdAt: "desc" },
+      include: {
+        owner: {
+          select: { phone: true },
+        },
+        _count: {
+          select: {
+            medicalRecords: true,
+            appointments: true,
+          },
+        },
+      },
+    });
+
+    res.json(
+      pets.map((pet) => ({
+        id: pet.id,
+        name: pet.name,
+        type: pet.type,
+        owner: {
+          phone: pet.owner.phone,
+        },
+        _count: pet._count,
+      }))
+    );
+  } catch (error) {
+    console.error("[Dashboard] Pets error:", error);
+
+    res.status(500).json({
+      error: "Internal server error",
+    });
+  }
+});
+
+router.get("/pets/:id/records", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const pet = await prisma.pet.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!pet) {
+      return res.status(404).json({
+        error: "Pet not found",
+      });
+    }
+
+    const records = await getRecordsByPet(id);
+
+    res.json(
+      records.map((record) => ({
+        id: record.id,
+        type: record.type,
+        title: record.title,
+        detail: record.detail,
+        date: record.date,
+        createdAt: record.createdAt,
+      }))
+    );
+  } catch (error) {
+    console.error("[Dashboard] Pet records error:", error);
+
+    res.status(500).json({
+      error: "Internal server error",
+    });
+  }
+});
+
+router.post("/pets/:id/records", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { type, title, detail, date } = req.body ?? {};
+
+    const pet = await prisma.pet.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!pet) {
+      return res.status(404).json({
+        error: "Pet not found",
+      });
+    }
+
+    const record = await createRecord(
+      id,
+      type || "note",
+      title,
+      detail,
+      date
+    );
+
+    res.status(201).json({
+      id: record.id,
+      type: record.type,
+      title: record.title,
+      detail: record.detail,
+      date: record.date,
+      createdAt: record.createdAt,
+    });
+  } catch (error) {
+    console.error("[Dashboard] Create pet record error:", error.message);
+
+    if (
+      error.message.includes("required") ||
+      error.message.includes("must be one of") ||
+      error.message.includes("Invalid date")
+    ) {
+      return res.status(400).json({
+        error: error.message,
+      });
+    }
 
     res.status(500).json({
       error: "Internal server error",

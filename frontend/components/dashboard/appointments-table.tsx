@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -55,35 +55,45 @@ export function AppointmentsTable() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadAppointments = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch(apiUrl("/api/dashboard/appointments"), {
-        cache: "no-store",
-      });
-
-      if (!response.ok) {
-        throw new Error("No se pudieron cargar las citas");
-      }
-
-      const data: Appointment[] = await response.json();
-      setAppointments(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error(err);
-      setError(
-        err instanceof Error ? err.message : "Error al cargar las citas"
-      );
-      setAppointments([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    loadAppointments();
-  }, [loadAppointments]);
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const response = await fetch(apiUrl("/api/dashboard/appointments"), {
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          throw new Error("No se pudieron cargar las citas");
+        }
+
+        const data: Appointment[] = await response.json();
+
+        if (!cancelled) {
+          setAppointments(Array.isArray(data) ? data : []);
+          setError(null);
+        }
+      } catch (err) {
+        console.error(err);
+
+        if (!cancelled) {
+          setError(
+            err instanceof Error ? err.message : "Error al cargar las citas"
+          );
+          setAppointments([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredAppointments = useMemo(
     () => filterAppointments(appointments, filter),

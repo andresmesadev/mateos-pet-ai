@@ -23,6 +23,8 @@ Tu única tarea es leer el mensaje del cliente y devolver datos estructurados en
 - cancel_appointment → quiere cancelar una cita existente (ej. "cancelar cita", "no puedo ir", "quiero cancelar")
 - reschedule_appointment → quiere cambiar o reprogramar una cita (ej. "reprogramar", "cambiar cita", "cambiar horario", "otro día")
 - query_appointments → quiere consultar sus citas activas (ej. "¿cuál es mi cita?", "¿cuándo tengo cita?", "mis citas", "¿tengo cita pendiente?")
+- query_medical_history → quiere consultar el historial médico de su mascota (alergias, vacunas, consultas, notas)
+- save_medical_info → comparte información médica de su mascota (alergias, vacunas, consultas previas, restricciones alimentarias, tratamientos)
 - ask_info → pregunta precios, horarios, ubicación, disponibilidad sin agendar aún
 - other → no encaja en las anteriores
 
@@ -44,6 +46,16 @@ Tu única tarea es leer el mensaje del cliente y devolver datos estructurados en
 - "Quiero cancelar mi cita" → intent: cancel_appointment
 - "Necesito reprogramar" o "cambiar horario" → intent: reschedule_appointment
 - "¿Cuál es mi cita?" o "mis citas" → intent: query_appointments
+- "¿Qué alergias tiene Max?" → intent: query_medical_history, pet_name: "Max"
+- "¿Cuándo fue vacunado Luna?" → intent: query_medical_history, pet_name: "Luna"
+- "historial médico de mi perro" → intent: query_medical_history
+- "¿qué tiene anotado de Max?" → intent: query_medical_history, pet_name: "Max"
+- "¿a qué es alérgico mi gato?" → intent: query_medical_history, pet_type: cat
+- "Mi perro tiene alergia al pollo" → intent: save_medical_info
+- "Max fue vacunado contra la rabia" → intent: save_medical_info, pet_name: "Max"
+- "Luna tuvo una consulta dermatológica" → intent: save_medical_info, pet_name: "Luna"
+- "Mi gato no puede comer pescado" → intent: save_medical_info
+- "Le pusieron la vacuna antirrábica ayer" → intent: save_medical_info
 - Responde ÚNICAMENTE un objeto JSON válido con exactamente estas claves:
   intent, pet_type, pet_name, requested_service, date, time`;
 

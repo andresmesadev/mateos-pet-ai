@@ -1,4 +1,3 @@
-import { LogoutButton } from "@/components/auth/logout-button";
 import { AppointmentsTable } from "@/components/dashboard/appointments-table";
 import { EscalationsPanel } from "@/components/dashboard/escalations-panel";
 import { Badge } from "@/components/ui/badge";
@@ -43,18 +42,7 @@ export default async function DashboardPage() {
   const stats = await getDashboardStats();
 
   return (
-    <main className="min-h-screen bg-muted/40 p-6">
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-4xl font-bold tracking-tight">Mateos Pet AI</h1>
-
-          <p className="mt-2 text-muted-foreground">
-            Dashboard administrativo inteligente
-          </p>
-        </div>
-
-        <LogoutButton />
-      </div>
+    <>
       <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardHeader>
@@ -107,6 +95,6 @@ export default async function DashboardPage() {
 
       <EscalationsPanel />
       <AppointmentsTable />
-    </main>
+    </>
   );
 }

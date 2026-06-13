@@ -2,6 +2,10 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 
+const { initSentry } = require("./lib/sentry");
+initSentry();
+
+const logger = require("./lib/logger");
 const routes = require("./routes");
 const webhookRoutes = require("./routes/webhook.routes");
 const parseWebhookBody = require("./middleware/parseWebhookBody");
@@ -12,6 +16,7 @@ const {
 } = require("./middleware/rateLimit");
 
 const errorHandler = require("./middlewares/error.middleware");
+const { startReminderJob } = require("./jobs/reminder.job");
 
 const app = express();
 
@@ -41,5 +46,6 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log(`Servidor corriendo en puerto ${PORT}`);
+  logger.info("Servidor iniciado", { port: PORT, env: process.env.NODE_ENV || "development" });
+  startReminderJob();
 });

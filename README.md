@@ -229,6 +229,29 @@ Si PostgreSQL u OpenAI fallan, el JSON incluye `"status": "degraded"` y el servi
 
 ---
 
+## 9. CI/CD (GitHub Actions)
+
+Cada **push** o **pull request** a `main` ejecuta el workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml):
+
+- Tests del backend (`npm test`)
+- Verificación de migraciones Prisma (`npx prisma migrate status`)
+- Lint del frontend (`npm run lint`, job paralelo)
+
+El despliegue manual del build del frontend está en [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) (`workflow_dispatch`).
+
+### Secrets de GitHub Actions
+
+Configura en **GitHub → Settings → Secrets and variables → Actions → New repository secret**:
+
+| Secret | Uso |
+|--------|-----|
+| `DATABASE_URL` | Conexión PostgreSQL para `prisma migrate status` en CI |
+| `OPENAI_API_KEY` | Variable requerida por el entorno de test del backend |
+
+Las demás variables del workflow CI usan valores de prueba fijos (`WHATSAPP_*`, `NODE_ENV=test`).
+
+---
+
 ## Licencia
 
 ISC · [Repositorio](https://github.com/andresmesadev/mateos-pet-ai)

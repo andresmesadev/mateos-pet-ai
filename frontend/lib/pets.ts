@@ -1,0 +1,104 @@
+export type PetType = "dog" | "cat" | "other" | string;
+
+export type MedicalRecordType =
+  | "allergy"
+  | "vaccine"
+  | "consultation"
+  | "note";
+
+export type DashboardPet = {
+  id: string;
+  name: string;
+  type: PetType;
+  owner: {
+    phone: string;
+  };
+  _count: {
+    medicalRecords: number;
+    appointments: number;
+  };
+};
+
+export type PetMedicalRecord = {
+  id: string;
+  type: MedicalRecordType;
+  title: string;
+  detail: string | null;
+  date: string | null;
+  createdAt: string;
+};
+
+export const PET_TYPE_LABELS: Record<string, string> = {
+  dog: "Perro",
+  cat: "Gato",
+  other: "Otro",
+};
+
+export const MEDICAL_SECTIONS: {
+  type: MedicalRecordType;
+  emoji: string;
+  label: string;
+}[] = [
+  { type: "allergy", emoji: "🤧", label: "Alergias" },
+  { type: "vaccine", emoji: "💉", label: "Vacunas" },
+  { type: "consultation", emoji: "🩺", label: "Consultas" },
+  { type: "note", emoji: "📝", label: "Notas" },
+];
+
+export function getPetEmoji(type: PetType): string {
+  switch (type?.toLowerCase()) {
+    case "dog":
+      return "🐶";
+    case "cat":
+      return "🐱";
+    default:
+      return "🐰";
+  }
+}
+
+export function formatPetType(type: PetType): string {
+  return PET_TYPE_LABELS[type?.toLowerCase()] ?? type ?? "Otro";
+}
+
+export function formatPhone(phone: string): string {
+  if (!phone) return "—";
+  if (phone.length <= 4) return phone;
+  return phone;
+}
+
+export function formatRecordDate(iso: string | null): string {
+  if (!iso) return "—";
+
+  const date = new Date(iso);
+
+  if (Number.isNaN(date.getTime())) {
+    return "—";
+  }
+
+  return new Intl.DateTimeFormat("es-CO", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
+}
+
+export function groupRecordsByType(
+  records: PetMedicalRecord[]
+): Record<MedicalRecordType, PetMedicalRecord[]> {
+  const grouped: Record<MedicalRecordType, PetMedicalRecord[]> = {
+    allergy: [],
+    vaccine: [],
+    consultation: [],
+    note: [],
+  };
+
+  for (const record of records) {
+    const type = record.type?.toLowerCase() as MedicalRecordType;
+
+    if (grouped[type]) {
+      grouped[type].push(record);
+    }
+  }
+
+  return grouped;
+}

@@ -8,6 +8,15 @@ const STEPS = {
 
 const scheduling = require("./scheduling.service");
 const { generateReply: generateReplyWithAI } = require("./openai.service");
+const { findPetByNameAndOwner } = require("./pet.service");
+const { detectMedicalInfo } = require("./medical-detection.service");
+const {
+  createRecord,
+  recordExists,
+  getRecordsByPet,
+  getRecordsByType,
+  formatRecordsForWhatsApp,
+} = require("./medical-record.service");
 const {
   cancelAppointment,
   getUserAppointments,
@@ -20,6 +29,7 @@ const MANAGEMENT_INTENTS = new Set([
   "cancel_appointment",
   "reschedule_appointment",
   "query_appointments",
+  "query_medical_history",
 ]);
 
 const CANCEL_PATTERNS = [
@@ -48,6 +58,20 @@ const QUERY_APPOINTMENTS_PATTERNS = [
   "cual es mi cita",
   "tengo cita pendiente",
   "cuando es mi cita",
+];
+
+const QUERY_MEDICAL_HISTORY_PATTERNS = [
+  "historial medico",
+  "historial de",
+  "que alergias",
+  "que tiene anotado",
+  "a que es alergico",
+  "a que es alergica",
+  "cuando fue vacunado",
+  "cuando fue vacunada",
+  "que vacunas",
+  "anotado de",
+  "registro medico",
 ];
 
 const clearSchedulingPatch = () => ({
@@ -98,6 +122,48 @@ const detectQueryAppointmentsIntent = (text, intent) => {
   return QUERY_APPOINTMENTS_PATTERNS.some((pattern) =>
     normalized.includes(pattern)
   );
+};
+
+const detectQueryMedicalHistoryIntent = (text, intent) => {
+  if (intent === "query_medical_history") {
+    return true;
+  }
+
+  const normalized = normalizeText(text);
+  return QUERY_MEDICAL_HISTORY_PATTERNS.some((pattern) =>
+    normalized.includes(pattern)
+  );
+};
+
+const resolveMedicalHistoryFilter = (text) => {
+  const normalized = normalizeText(text);
+
+  if (
+    normalized.includes("alerg") ||
+    normalized.includes("alergic")
+  ) {
+    return "allergy";
+  }
+
+  if (normalized.includes("vacun")) {
+    return "vaccine";
+  }
+
+  if (normalized.includes("consult")) {
+    return "consultation";
+  }
+
+  if (normalized.includes("nota")) {
+    return "note";
+  }
+
+  return null;
+};
+
+const getPetEmoji = (petType) => {
+  if (petType === "dog") return "🐶";
+  if (petType === "cat") return "🐱";
+  return "🐾";
 };
 
 const buildRescheduleSessionPatch = (cancelled, session = {}) => {
@@ -250,6 +316,81 @@ const handleQueryAppointments = async (userId) => {
   }
 };
 
+const handleQueryMedicalHistory = async (
+  userId,
+  session = {},
+  analysis = {},
+  userMessage = ""
+) => {
+  const petName = analysis?.pet_name ?? session?.pet_name;
+
+  if (isMissing(petName)) {
+    return {
+      reply:
+        "¿De qué mascota quieres consultar el historial médico? 🐾",
+      step: null,
+      sessionPatch: {},
+      forceRuleReply: true,
+    };
+  }
+
+  if (!userId) {
+    return {
+      reply: `No hay historial para ${petName} aún.`,
+      step: null,
+      sessionPatch: {},
+      forceRuleReply: true,
+    };
+  }
+
+  try {
+    const pet = await findPetByNameAndOwner(petName, userId);
+
+    if (!pet) {
+      return {
+        reply: `No hay historial para ${petName} aún.`,
+        step: null,
+        sessionPatch: {},
+        forceRuleReply: true,
+      };
+    }
+
+    const filterType = resolveMedicalHistoryFilter(userMessage);
+    const records = filterType
+      ? await getRecordsByType(pet.id, filterType)
+      : await getRecordsByPet(pet.id);
+
+    if (!records.length) {
+      return {
+        reply: `No hay historial para ${pet.name} aún.`,
+        step: null,
+        sessionPatch: {},
+        forceRuleReply: true,
+      };
+    }
+
+    const petType = pet.type ?? analysis?.pet_type ?? session?.pet_type;
+    const emoji = getPetEmoji(petType);
+    const body = formatRecordsForWhatsApp(records, { filterType });
+
+    return {
+      reply: `Historial de ${pet.name} ${emoji}:\n${body}`,
+      step: null,
+      sessionPatch: {},
+      forceRuleReply: true,
+    };
+  } catch (error) {
+    console.error("[Conversation] Query medical history error:", error.message);
+    return {
+      reply:
+        "Hubo un problema al consultar el historial 😔\n¿Podemos intentarlo de nuevo en un momento?",
+      step: null,
+      sessionPatch: {},
+      forceRuleReply: true,
+    };
+  }
+};
+
 const BOOKING_STEPS = new Set([
   STEPS.AWAITING_PET_NAME,
   STEPS.AWAITING_PET_TYPE,
@@ -365,6 +506,77 @@ const shouldUseRuleReplyOnly = (ruleResult, analysis) => {
   return step != null && BOOKING_STEPS.has(step);
 };
 
+const buildMedicalSaveConfirmation = (petName, extracted) => {
+  const name = String(petName || "tu mascota").trim();
+  const title = String(extracted.title || "").trim();
+
+  if (extracted.type === "allergy") {
+    const phrase = title.toLowerCase().startsWith("alergia")
+      ? title.toLowerCase()
+      : `alergia ${title.toLowerCase()}`;
+    return `Anotado ✅ Guardé que ${name} tiene ${phrase} en su historial.`;
+  }
+
+  return `Anotado ✅ Guardé que ${name}: ${title} en su historial.`;
+};
+
+const trySaveMedicalInfo = async ({ userMessage, session, analysis, userId }) => {
+  const currentStep = session?.step ?? analysis?.step;
+
+  if (currentStep && BOOKING_STEPS.has(currentStep)) {
+    return null;
+  }
+
+  if (detectQueryMedicalHistoryIntent(userMessage, analysis?.intent)) {
+    return null;
+  }
+
+  const petName = session?.pet_name ?? analysis?.pet_name;
+
+  if (!userId || isMissing(petName) || isMissing(userMessage)) {
+    return null;
+  }
+
+  try {
+    const extracted = await detectMedicalInfo(userMessage);
+
+    if (!extracted) {
+      return null;
+    }
+
+    const pet = await findPetByNameAndOwner(petName, userId);
+
+    if (!pet?.id) {
+      console.log("[Conversation] Medical info skipped — pet not found in DB");
+      return null;
+    }
+
+    const duplicate = await recordExists(pet.id, extracted.type, extracted.title);
+
+    if (duplicate) {
+      console.log(
+        "[Conversation] Medical record duplicate skipped:",
+        extracted.type,
+        extracted.title
+      );
+      return null;
+    }
+
+    await createRecord(
+      pet.id,
+      extracted.type,
+      extracted.title,
+      extracted.detail,
+      extracted.date
+    );
+
+    return buildMedicalSaveConfirmation(pet.name, extracted);
+  } catch (error) {
+    console.error("[Conversation] trySaveMedicalInfo error:", error.message);
+    return null;
+  }
+};
+
 const buildRuleBasedReply = async (analysis, options = {}) => {
   const now = options.now instanceof Date ? options.now : new Date();
   const session = options.session || {};
@@ -392,6 +604,10 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
 
   if (detectQueryAppointmentsIntent(userMessage, intent)) {
     return handleQueryAppointments(userId);
+  }
+
+  if (detectQueryMedicalHistoryIntent(userMessage, intent)) {
+    return handleQueryMedicalHistory(userId, session, analysis, userMessage);
   }
 
   if (analysis.step === STEPS.COMPLETED) {
@@ -422,6 +638,23 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
     return {
       reply:
         "Con gusto te oriento 😊\nOfrecemos baño y peluquería, consultas veterinarias, medicamentos y citas.\n¿Qué necesitas?",
+      step: null,
+      sessionPatch: {},
+    };
+  }
+
+  if (intent === "save_medical_info") {
+    if (isMissing(petName)) {
+      return {
+        reply:
+          "¿Cuál es el nombre de tu mascota? Así lo anoto en su historial 🐾",
+        step: null,
+        sessionPatch: {},
+      };
+    }
+
+    return {
+      reply: "Gracias por contarnos 🐾",
       step: null,
       sessionPatch: {},
     };
@@ -578,6 +811,18 @@ const generateReply = async (input, legacyOptions) => {
     session,
     userMessage,
   });
+
+  const medicalConfirmation = await trySaveMedicalInfo({
+    userMessage,
+    session,
+    analysis,
+    userId: options?.userId,
+  });
+
+  if (medicalConfirmation) {
+    ruleResult.reply = `${ruleResult.reply}\n\n${medicalConfirmation}`;
+  }
+
   const contextText =
     typeof semanticContext === "string" ? semanticContext.trim() : "";
 

@@ -28,8 +28,27 @@ model Pet {
   owner     User @relation(fields: [ownerId], references: [id])
 
   appointments Appointment[]
+  medicalRecords MedicalRecord[]
+
+  groomingReminderSent Boolean @default(false)
 
   createdAt DateTime @default(now())
+}
+
+model MedicalRecord {
+  id        String   @id @default(cuid())
+  petId     String
+  pet       Pet      @relation(fields: [petId], references: [id])
+
+  type      String
+  title     String
+  detail    String?
+  date      DateTime?
+
+  reminderSent Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Conversation {
@@ -98,6 +117,10 @@ model Appointment {
 
   date        DateTime
   status      String   @default("pending")
+
+  googleEventId String?
+
+  reminderSent  Boolean  @default(false)
 
   createdAt   DateTime @default(now())
 }

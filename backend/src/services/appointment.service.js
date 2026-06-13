@@ -1,5 +1,11 @@
 const prisma = require("../lib/prisma");
+const logger = require("../lib/logger");
 const { findPetByNameAndOwner } = require("./pet.service");
+const {
+  createCalendarEvent,
+  cancelCalendarEvent,
+} = require("./google-calendar.service");
+const { resetGroomingReminderForPet } = require("./reminder.service");
 const availabilityDb = require("./availability-db.service");
 const { SERVICE_TYPES, toDateKey } = require("./availability.service");
 const {
@@ -56,6 +62,54 @@ const mapSessionServiceType = (requestedService) => {
 };
 
 const ACTIVE_APPOINTMENT_STATUSES = ["pending", "confirmed"];
+
+const syncAppointmentToCalendar = (appointment) => {
+  void (async () => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: appointment.userId },
+        select: { phone: true },
+      });
+
+      const eventId = await createCalendarEvent({
+        ...appointment,
+        userPhone: user?.phone ?? null,
+      });
+
+      if (!eventId) {
+        return;
+      }
+
+      await prisma.appointment.update({
+        where: { id: appointment.id },
+        data: { googleEventId: eventId },
+      });
+
+      logger.info(
+        "[AppointmentService] Google Calendar synced:",
+        appointment.id
+      );
+    } catch (error) {
+      logger.error(
+        "[AppointmentService] Google Calendar sync error:",
+        error.message
+      );
+    }
+  })();
+};
+
+const syncCancelToCalendar = (appointment) => {
+  if (!appointment?.googleEventId) {
+    return;
+  }
+
+  void cancelCalendarEvent(appointment.googleEventId).catch((error) => {
+    logger.error(
+      "[AppointmentService] Google Calendar cancel error:",
+      error.message
+    );
+  });
+};
 
 /**
  * Mapea serviceType de DB al valor de sesión/OpenAI.
@@ -140,12 +194,12 @@ const getUserAppointments = async (userId) => {
       take: MAX_USER_APPOINTMENTS,
     });
 
-    console.log(
+    logger.info(
       `[AppointmentService] User appointments found: ${appointments.length}`
     );
     return appointments;
   } catch (error) {
-    console.error(
+    logger.error(
       "[AppointmentService] getUserAppointments error:",
       error.message
     );
@@ -174,7 +228,7 @@ const cancelAppointment = async (userId) => {
     });
 
     if (!appointment) {
-      console.log("[AppointmentService] No active appointment to cancel");
+      logger.info("[AppointmentService] No active appointment to cancel");
       return null;
     }
 
@@ -183,10 +237,12 @@ const cancelAppointment = async (userId) => {
       data: { status: "cancelled" },
     });
 
-    console.log("[AppointmentService] Appointment cancelled:", cancelled.id);
+    syncCancelToCalendar(cancelled);
+
+    logger.info("[AppointmentService] Appointment cancelled:", cancelled.id);
     return cancelled;
   } catch (error) {
-    console.error("[AppointmentService] cancelAppointment error:", error.message);
+    logger.error("[AppointmentService] cancelAppointment error:", error.message);
     throw error;
   }
 };
@@ -213,7 +269,7 @@ const createAppointment = async (data) => {
         petId = pet.id;
       }
     } catch (lookupError) {
-      console.warn(
+      logger.warn(
         "[AppointmentService] Pet lookup skipped:",
         lookupError.message
       );
@@ -230,12 +286,24 @@ const createAppointment = async (data) => {
         status: String(status).trim(),
       },
     });
-    console.log(
+    logger.info(
       `[AppointmentService] Appointment created (${TIMEZONE} → UTC stored)`
     );
+
+    if (
+      petId &&
+      String(serviceType).trim().toLowerCase() === "grooming"
+    ) {
+      await resetGroomingReminderForPet(petId);
+    }
+
+    if (String(appointment.status).trim().toLowerCase() === "confirmed") {
+      syncAppointmentToCalendar(appointment);
+    }
+
     return appointment;
   } catch (error) {
-    console.error("[AppointmentService] createAppointment error:", error.message);
+    logger.error("[AppointmentService] createAppointment error:", error.message);
     throw error;
   }
 };
@@ -262,7 +330,7 @@ const findAppointmentsByDate = async (date) => {
       orderBy: { date: "asc" },
     });
   } catch (error) {
-    console.error(
+    logger.error(
       "[AppointmentService] findAppointmentsByDate error:",
       error.message
     );
@@ -283,7 +351,7 @@ const findAppointmentsByUser = async (userId) => {
       orderBy: { date: "asc" },
     });
   } catch (error) {
-    console.error(
+    logger.error(
       "[AppointmentService] findAppointmentsByUser error:",
       error.message
     );
@@ -322,13 +390,13 @@ const checkAppointmentConflict = async ({ date, serviceType, dateKey, hour }) =>
     });
 
     if (!available) {
-      console.log("[AppointmentService] Conflict detected:", key, h, serviceType);
+      logger.info("[AppointmentService] Conflict detected:", key, h, serviceType);
       return true;
     }
 
     return false;
   } catch (error) {
-    console.error(
+    logger.error(
       "[AppointmentService] checkAppointmentConflict error:",
       error.message
     );

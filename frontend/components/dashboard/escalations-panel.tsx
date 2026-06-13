@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,42 +38,51 @@ export function EscalationsPanel() {
   const [error, setError] = useState<string | null>(null);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
 
-  const loadEscalations = useCallback(async (showLoading = false) => {
-    if (showLoading) {
-      setLoading(true);
-    }
-    setError(null);
-
-    try {
-      const response = await fetch(apiUrl("/api/dashboard/escalations"), {
-        cache: "no-store",
-      });
-
-      if (!response.ok) {
-        throw new Error("No se pudieron cargar las escalaciones");
-      }
-
-      const data: Escalation[] = await response.json();
-      setEscalations(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error(err);
-      setError(
-        err instanceof Error ? err.message : "Error al cargar escalaciones"
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    loadEscalations(true);
+    let cancelled = false;
+
+    const fetchEscalations = async () => {
+      try {
+        const response = await fetch(apiUrl("/api/dashboard/escalations"), {
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          throw new Error("No se pudieron cargar las escalaciones");
+        }
+
+        const data: Escalation[] = await response.json();
+
+        if (!cancelled) {
+          setEscalations(Array.isArray(data) ? data : []);
+          setError(null);
+        }
+      } catch (err) {
+        console.error(err);
+
+        if (!cancelled) {
+          setError(
+            err instanceof Error ? err.message : "Error al cargar escalaciones"
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void fetchEscalations();
 
     const interval = setInterval(() => {
-      loadEscalations(false);
+      void fetchEscalations();
     }, REFRESH_INTERVAL_MS);
 
-    return () => clearInterval(interval);
-  }, [loadEscalations]);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
 
   const handleResolve = async (id: string) => {
     setResolvingId(id);
