@@ -1,6 +1,5 @@
 /**
  * Disponibilidad basada en PostgreSQL (Appointment).
- * Capa DB-first; reemplaza mockAppointments en una fase posterior.
  * Preparado para sincronización futura con Google Calendar (eventos externos).
  */
 
@@ -248,7 +247,7 @@ const suggestAvailableVetSlots = async ({
 };
 
 /**
- * Adaptador: formato compatible con scheduling mock (date + hour + serviceType).
+ * Citas del día en formato { date, hour, serviceType } para scheduling.
  */
 const getSchedulingAppointments = async (dateKey) => {
   const list = await getAppointmentsByDate(dateKey);

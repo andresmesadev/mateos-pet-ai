@@ -4,7 +4,6 @@
  */
 
 const {
-  TIMEZONE,
   toDateKey,
   addOneDay,
   getDayOfWeekFromKey,
@@ -24,7 +23,7 @@ const SERVICE_TYPES = {
 const VET_START_HOUR = 11;
 const VET_END_HOUR_EXCLUSIVE = 17;
 
-/** Duración típica consulta (minutos): informativa para logs/comentarios; slots mock son por hora. */
+/** Duración típica consulta (minutos): informativa para logs. */
 const VET_SLOT_DURATION_MINUTES = 45;
 
 /** Peluquería: slots cada 1 hora desde las 11. Último inicio antes del cierre. */
@@ -79,7 +78,7 @@ const isWithinBusinessHours = (serviceType, hour) => {
   if (serviceType === SERVICE_TYPES.VET) {
     const valid = h >= VET_START_HOUR && h < VET_END_HOUR_EXCLUSIVE;
     console.log(
-      `[availability] isWithinBusinessHours vet ${h}h → ${valid} (11am–5pm, inicio hasta 16h; duración mock ~${VET_SLOT_DURATION_MINUTES} min)`
+      `[availability] isWithinBusinessHours vet ${h}h → ${valid} (11am–5pm, inicio hasta 16h; duración ~${VET_SLOT_DURATION_MINUTES} min)`
     );
     return valid;
   }
@@ -99,134 +98,10 @@ const isWithinBusinessHours = (serviceType, hour) => {
   return false;
 };
 
-/** @typedef {{ date: string, hour: number, serviceType?: string }} MockAppointment */
-
-const groomingBookedHours = (existingAppointments, dateKey) => {
-  const set = new Set();
-  for (const a of existingAppointments || []) {
-    const type = (a.serviceType || "").toLowerCase();
-    if (type !== SERVICE_TYPES.GROOMING) continue;
-    if (a.date === dateKey) {
-      set.add(Number(a.hour));
-    }
-  }
-  return set;
-};
-
-const vetBookedHours = (existingAppointments, dateKey) => {
-  const set = new Set();
-  for (const a of existingAppointments || []) {
-    const type = (a.serviceType || "").toLowerCase();
-    if (type !== SERVICE_TYPES.VET) continue;
-    if (a.date === dateKey) {
-      set.add(Number(a.hour));
-    }
-  }
-  return set;
-};
-
-const getNextAvailableGroomingSlot = (existingAppointments, options = {}) => {
-  let cursor =
-    toDateKey(options.referenceDate ?? new Date()) || toDateKey(new Date());
-  const maxSkips = 366;
-  let skipped = 0;
-
-  console.log(
-    `[availability] getNextAvailableGroomingSlot: buscando desde ${cursor} (${TIMEZONE})`
-  );
-
-  while (skipped < maxSkips) {
-    if (!isBusinessDay(cursor)) {
-      cursor = addOneDay(cursor);
-      skipped += 1;
-      continue;
-    }
-
-    const booked = groomingBookedHours(existingAppointments, cursor);
-
-    for (let h = GROOMING_FIRST_HOUR; h <= GROOMING_LAST_START_HOUR; h += 1) {
-      if (!booked.has(h)) {
-        const slot = { date: cursor, hour: h };
-        console.log(
-          "[availability] siguiente slot grooming:",
-          JSON.stringify(slot)
-        );
-        return slot;
-      }
-    }
-
-    cursor = addOneDay(cursor);
-    skipped += 1;
-  }
-
-  console.log("[availability] getNextAvailableGroomingSlot: sin hueco en ventana");
-  return null;
-};
-
-const suggestVetAlternativeSlots = (
-  requestedHour,
-  existingAppointments,
-  explicitDateKey
-) => {
-  const hr = Number(requestedHour);
-  if (!Number.isFinite(hr)) {
-    console.log("[availability] suggestVetAlternativeSlots: hora inválida");
-    return [];
-  }
-
-  let dateKey =
-    explicitDateKey ||
-    existingAppointments?.find((a) => a.date)?.date ||
-    toDateKey(new Date());
-
-  if (!dateKey || !isBusinessDay(dateKey)) {
-    console.log(
-      `[availability] suggestVetAlternativeSlots: ${String(dateKey)} no es día hábil; buscando próximo hábil`
-    );
-    let c = dateKey || toDateKey(new Date());
-    for (let i = 0; i < 14; i += 1) {
-      if (isBusinessDay(c)) {
-        dateKey = c;
-        break;
-      }
-      c = addOneDay(c);
-    }
-  }
-
-  const booked = vetBookedHours(existingAppointments, dateKey);
-
-  if (!booked.has(hr)) {
-    console.log(
-      `[availability] vet ${hr}h el ${dateKey}: libre → sin alternativas`
-    );
-    return [];
-  }
-
-  const candidates = [];
-  for (let h = VET_START_HOUR; h < VET_END_HOUR_EXCLUSIVE; h += 1) {
-    if (h === hr) continue;
-    if (booked.has(h)) continue;
-    if (!isWithinBusinessHours(SERVICE_TYPES.VET, h)) continue;
-    candidates.push(h);
-  }
-
-  const suggestion = candidates.slice(0, 3);
-  console.log(
-    `[availability] vet ${hr}h ocupado el ${dateKey}; alternativas (max 3):`,
-    suggestion
-  );
-  return suggestion;
-};
-
 module.exports = {
-  TIMEZONE,
   isBusinessDay,
   isWithinBusinessHours,
-  getNextAvailableGroomingSlot,
-  suggestVetAlternativeSlots,
   toDateKey,
   addOneDay,
   SERVICE_TYPES,
-  vetBookedHours,
-  groomingBookedHours,
 };

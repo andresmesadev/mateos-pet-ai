@@ -19,21 +19,6 @@ const {
 
 const availabilityDb = require("./availability-db.service");
 
-/** @deprecated Solo para tests legacy. Producción usa Appointment en DB. */
-let mockAppointments = [];
-
-/** @deprecated */
-const getMockAppointments = () => {
-  console.warn("[scheduling] getMockAppointments is deprecated; use availability-db");
-  return mockAppointments;
-};
-
-/** @deprecated */
-const pushMockAppointment = (appt) => {
-  console.warn("[scheduling] pushMockAppointment is deprecated; use createAppointment");
-  mockAppointments.push(appt);
-};
-
 const normalizeText = (text) => {
   if (typeof text !== "string") {
     return "";
@@ -533,8 +518,6 @@ const resolveGroomingScheduling = async ({
 };
 
 module.exports = {
-  getMockAppointments,
-  pushMockAppointment,
   detectHumanEscalation,
   resolveVetScheduling,
   resolveGroomingScheduling,
