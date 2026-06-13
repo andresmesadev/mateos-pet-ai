@@ -252,6 +252,87 @@ Las demás variables del workflow CI usan valores de prueba fijos (`WHATSAPP_*`,
 
 ---
 
+## 10. Deploy
+
+### Requisitos previos
+
+1. Copia variables de entorno:
+   ```bash
+   cp backend/.env.example backend/.env
+   cp frontend/.env.local.example frontend/.env.local
+   ```
+2. Completa `DATABASE_URL`, credenciales WhatsApp/OpenAI y auth del dashboard.
+3. Aplica migraciones (Neon u otro PostgreSQL con extensión `vector`):
+   ```bash
+   npm ci
+   npx prisma migrate deploy
+   ```
+
+### Con Docker (recomendado)
+
+Un solo comando levanta backend (`:3000`) y frontend (`:3001`):
+
+```bash
+docker-compose up -d
+```
+
+Rebuild tras cambios de código:
+
+```bash
+docker-compose up -d --build
+```
+
+Ver logs:
+
+```bash
+docker-compose logs -f backend frontend
+```
+
+> **Nota:** el `backend/Dockerfile` usa contexto de la raíz del repo para incluir `prisma/` y `prisma.config.ts`. El frontend en Docker usa `API_URL=http://backend:3000` para SSR y `NEXT_PUBLIC_API_URL=http://localhost:3000` para el navegador.
+
+### Sin Docker (servidor / VPS)
+
+Script de despliegue en el host (git pull + migraciones + Docker):
+
+```bash
+chmod +x scripts/deploy.sh
+./scripts/deploy.sh
+```
+
+Para desarrollo local sin contenedores, sigue las secciones 2–4 de este README.
+
+### Railway / Render
+
+Despliega **backend** y **frontend** como servicios separados (o solo backend si usas dashboard aparte).
+
+| Variable | Backend | Frontend |
+|----------|---------|----------|
+| `DATABASE_URL` | ✅ | — |
+| `OPENAI_API_KEY` | ✅ | — |
+| `WHATSAPP_VERIFY_TOKEN` | ✅ | — |
+| `WHATSAPP_PHONE_NUMBER_ID` | ✅ | — |
+| `WHATSAPP_ACCESS_TOKEN` | ✅ | — |
+| `WHATSAPP_APP_SECRET` | ✅ | — |
+| `PORT` | ✅ (`3000`) | — |
+| `NODE_ENV` | `production` | `production` |
+| `SENTRY_DSN` | opcional | — |
+| `GOOGLE_CALENDAR_ID` | opcional | — |
+| `GOOGLE_SERVICE_ACCOUNT_EMAIL` | opcional | — |
+| `GOOGLE_PRIVATE_KEY` | opcional | — |
+| `NEXT_PUBLIC_API_URL` | — | ✅ URL pública del backend |
+| `API_URL` | — | URL interna del backend (SSR) |
+| `NEXTAUTH_SECRET` | — | ✅ |
+| `NEXTAUTH_URL` | — | ✅ URL pública del dashboard |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | — | ✅ |
+
+**Backend (Render/Railway):** build desde raíz del repo con `backend/Dockerfile` (context `.`) o `npm ci` en `backend/` + `npx prisma migrate deploy` en raíz antes del start.
+
+**Frontend:** build `npm ci && npm run build`, start `npm start` con `PORT=3001`.
+
+Webhook de Meta: la **Callback URL** debe apuntar a la URL pública HTTPS del backend (`https://tu-backend.com/webhook`).
+
+---
+
 ## Licencia
 
 ISC · [Repositorio](https://github.com/andresmesadev/mateos-pet-ai)
