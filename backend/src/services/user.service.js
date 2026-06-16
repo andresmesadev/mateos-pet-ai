@@ -19,7 +19,7 @@ const findUserByPhone = async (phone) => {
   }
 };
 
-const createUser = async (phone) => {
+const createUser = async (phone, tenantId = null) => {
   const normalized = normalizePhone(phone);
 
   if (!normalized) {
@@ -27,9 +27,10 @@ const createUser = async (phone) => {
   }
 
   try {
-    const user = await prisma.user.create({
-      data: { phone: normalized },
-    });
+    const data = { phone: normalized };
+    if (tenantId) data.tenantId = tenantId;
+
+    const user = await prisma.user.create({ data });
     console.log("[UserService] User created");
     return user;
   } catch (error) {
@@ -38,7 +39,7 @@ const createUser = async (phone) => {
   }
 };
 
-const findOrCreateUser = async (phone) => {
+const findOrCreateUser = async (phone, tenantId = null) => {
   try {
     const existing = await findUserByPhone(phone);
 
@@ -47,7 +48,7 @@ const findOrCreateUser = async (phone) => {
       return existing;
     }
 
-    return await createUser(phone);
+    return await createUser(phone, tenantId);
   } catch (error) {
     console.error("[UserService] findOrCreateUser error:", error.message);
     throw error;

@@ -16,21 +16,35 @@ const {
   listClients,
   getClientById,
 } = require("../services/dashboard-client.service");
+const { listTenants } = require("../services/tenant.service");
 
 const router = express.Router();
 
+router.get("/tenants", async (req, res) => {
+  try {
+    const tenants = await listTenants();
+    res.json(tenants);
+  } catch (error) {
+    console.error("[Dashboard] Tenants error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.get("/stats", async (req, res) => {
   try {
+    const { tenantId } = req.query;
+    const where = tenantId ? { tenantId } : {};
+
     const [
       users,
       pets,
       appointments,
       conversations,
     ] = await Promise.all([
-      prisma.user.count(),
-      prisma.pet.count(),
-      prisma.appointment.count(),
-      prisma.conversation.count(),
+      prisma.user.count({ where }),
+      prisma.pet.count({ where }),
+      prisma.appointment.count({ where }),
+      prisma.conversation.count({ where }),
     ]);
 
     res.json({
@@ -38,6 +52,7 @@ router.get("/stats", async (req, res) => {
       pets,
       appointments,
       conversations,
+      ...(tenantId ? { tenantId } : {}),
     });
   } catch (error) {
     console.error("[Dashboard] Stats error:", error);

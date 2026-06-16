@@ -8,9 +8,28 @@ datasource db {
   extensions = [vector]
 }
 
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  phone     String   @unique
+  email     String?
+  plan      String   @default("free")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users         User[]
+  pets          Pet[]
+  appointments  Appointment[]
+  conversations Conversation[]
+}
+
 model User {
   id        String   @id @default(cuid())
   phone     String   @unique
+  tenantId  String?
+  tenant    Tenant?  @relation(fields: [tenantId], references: [id])
   createdAt DateTime @default(now())
 
   pets              Pet[]
@@ -23,6 +42,8 @@ model Pet {
   id        String   @id @default(cuid())
   name      String
   type      String
+  tenantId  String?
+  tenant    Tenant?  @relation(fields: [tenantId], references: [id])
 
   ownerId   String
   owner     User @relation(fields: [ownerId], references: [id])
@@ -55,6 +76,8 @@ model Conversation {
   id        String   @id @default(cuid())
   userId    String
   user      User @relation(fields: [userId], references: [id])
+  tenantId  String?
+  tenant    Tenant?  @relation(fields: [tenantId], references: [id])
 
   intent      String?
   step        String?
@@ -106,6 +129,8 @@ model Appointment {
   id          String   @id @default(cuid())
   userId      String
   user        User @relation(fields: [userId], references: [id])
+  tenantId    String?
+  tenant      Tenant?  @relation(fields: [tenantId], references: [id])
 
   petId       String?
   pet         Pet? @relation(fields: [petId], references: [id])

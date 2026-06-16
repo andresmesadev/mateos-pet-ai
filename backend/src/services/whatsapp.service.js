@@ -29,6 +29,7 @@ const {
 const { processVoiceMessage } = require("./audio.service");
 const { processImageMessage } = require("./image.service");
 const { createRecord } = require("./medical-record.service");
+const { getTenantByPhone } = require("./tenant.service");
 
 const persistUserMessage = async (user, conversation, content) => {
   if (!user?.id || !conversation?.id || !content) return;
@@ -120,12 +121,19 @@ const parseIncomingMessage = (body) => {
     return null;
   }
 
+  // phone_number_id identifica la línea WhatsApp Business (= un tenant)
+  const phoneNumberId =
+    value?.metadata?.phone_number_id ||
+    process.env.WHATSAPP_PHONE_NUMBER_ID ||
+    null;
+
   if (message.type === "audio" && message.audio?.id) {
     return {
       from,
       text: null,
       type: "audio",
       mediaId: message.audio.id,
+      phoneNumberId,
     };
   }
 
@@ -136,11 +144,12 @@ const parseIncomingMessage = (body) => {
       type: "image",
       mediaId: message.image.id,
       mimeType: message.image.mime_type || "image/jpeg",
+      phoneNumberId,
     };
   }
 
   if (message.type === "document") {
-    return { from, text: null, type: "document" };
+    return { from, text: null, type: "document", phoneNumberId };
   }
 
   let text = null;
@@ -160,7 +169,7 @@ const parseIncomingMessage = (body) => {
     return null;
   }
 
-  return { from, text, type: message.type };
+  return { from, text, type: message.type, phoneNumberId };
 };
 
 const processIncomingMessage = async (body) => {
@@ -205,9 +214,23 @@ const processIncomingMessage = async (body) => {
   logger.info(`New message from: ${parsed.from}`);
   logger.info(`Message: ${parsed.text}`);
 
+  // Identificar tenant por el phone_number_id de la línea WhatsApp Business
+  let tenantId = null;
+  if (parsed.phoneNumberId) {
+    try {
+      const tenant = await getTenantByPhone(parsed.phoneNumberId);
+      if (tenant?.active) {
+        tenantId = tenant.id;
+        logger.info(`[WhatsApp] Tenant identified: ${tenant.slug} (${tenant.id})`);
+      }
+    } catch (error) {
+      logger.error("[WhatsApp] Error resolving tenant:", error.message);
+    }
+  }
+
   let user = null;
   try {
-    user = await findOrCreateUser(parsed.from);
+    user = await findOrCreateUser(parsed.from, tenantId);
     logger.info(
       `[WhatsApp] User loaded: ${user.id} (${user.phone})`
     );
