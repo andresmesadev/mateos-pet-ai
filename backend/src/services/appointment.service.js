@@ -28,9 +28,20 @@ const APPOINTMENT_SERVICE_LABELS = {
 
 const VET_BUCKET_TYPES = new Set(["vet", "general_appointment", "medication"]);
 
+const GROOMING_SERVICE_NAMES = new Set([
+  "grooming",
+  "baño básico",
+  "baño + corte",
+  "baño medicado",
+  "baño antipulgas",
+  "spa canino/felino",
+  "deslanado",
+  "colorimetría",
+]);
+
 const mapToAvailabilityServiceType = (serviceType) => {
   const type = String(serviceType || "").trim().toLowerCase();
-  if (type === "grooming") return SERVICE_TYPES.GROOMING;
+  if (GROOMING_SERVICE_NAMES.has(type)) return SERVICE_TYPES.GROOMING;
   if (VET_BUCKET_TYPES.has(type)) return SERVICE_TYPES.VET;
   return type;
 };
@@ -248,8 +259,10 @@ const cancelAppointment = async (userId) => {
 };
 
 const createAppointment = async (data) => {
-  const { userId, petName, petType, serviceType, date, status = "confirmed" } =
-    data || {};
+  const {
+    userId, petName, petType, serviceType, date, status = "confirmed",
+    address = null, groomingBreed = null, groomingSize = null,
+  } = data || {};
 
   if (!userId || !petName || !petType || !serviceType || !date) {
     throw new Error(
@@ -275,17 +288,20 @@ const createAppointment = async (data) => {
       );
     }
 
-    const appointment = await prisma.appointment.create({
-      data: {
-        userId: String(userId),
-        petId,
-        petName: trimmedPetName,
-        petType: trimmedPetType,
-        serviceType: String(serviceType).trim(),
-        date: date instanceof Date ? date : new Date(date),
-        status: String(status).trim(),
-      },
-    });
+    const appointmentData = {
+      userId: String(userId),
+      petId,
+      petName: trimmedPetName,
+      petType: trimmedPetType,
+      serviceType: String(serviceType).trim(),
+      date: date instanceof Date ? date : new Date(date),
+      status: String(status).trim(),
+    };
+    if (address) appointmentData.address = String(address).trim();
+    if (groomingBreed) appointmentData.groomingBreed = String(groomingBreed).trim();
+    if (groomingSize) appointmentData.groomingSize = String(groomingSize).trim();
+
+    const appointment = await prisma.appointment.create({ data: appointmentData });
     logger.info(
       `[AppointmentService] Appointment created (${TIMEZONE} → UTC stored)`
     );

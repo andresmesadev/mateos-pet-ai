@@ -359,8 +359,7 @@ const resolveVetScheduling = async ({
   if (!isBusinessDay(dateKey)) {
     console.log("[scheduling] CASO 3: día no hábil", dateKey);
     return {
-      reply:
-        "Ese día no tenemos atención 😔\n¿Deseas otro horario?",
+      reply: "Ese día no tenemos atención 😔 ¿Qué otro día te queda bien?",
       step: awaitingStepConstant,
     };
   }
@@ -368,8 +367,7 @@ const resolveVetScheduling = async ({
   if (!isWithinBusinessHours(SERVICE_TYPES.VET, hour)) {
     console.log("[scheduling] Hora fuera de horario vet:", hour);
     return {
-      reply:
-        "Ese horario está fuera de nuestro horario de consultas (11am a 5pm) 😊\n¿Qué otra hora te viene bien?",
+      reply: "Ese horario está fuera de nuestra atención (11am a 5pm) 😊 ¿Qué otra hora te viene bien?",
       step: awaitingStepConstant,
     };
   }
@@ -385,7 +383,7 @@ const resolveVetScheduling = async ({
     const timeLabel = formatHourAmPm(hour);
     console.log("[Scheduling] Real slot found:", { dateKey, hour });
     return {
-      reply: `¡Perfecto! 😊 Tenemos disponibilidad ${dayLabel} a las ${timeLabel}. ¿Confirmamos la cita?`,
+      reply: `Perfecto, ${dayLabel} a las ${timeLabel} está disponible ✅ ¿Confirmamos la cita?`,
       step: confirmationStepConstant,
       sessionPatch: {
         scheduling_date_key: dateKey,
@@ -395,27 +393,24 @@ const resolveVetScheduling = async ({
   }
 
   const { hours: alternatives } = await availabilityDb.suggestAvailableVetSlots({
-      dateKey,
-      requestedHour: hour,
-      limit: 3,
-    });
+    dateKey,
+    requestedHour: hour,
+    limit: 3,
+  });
 
   console.log("[Scheduling] Real alternatives found:", alternatives);
 
   if (alternatives.length === 0) {
     return {
-      reply:
-        "No tenemos disponibilidad a esa hora 😔\n¿Te sirve otro día u horario?",
+      reply: "Esa hora ya está ocupada 😔 ¿Te sirve otro día u horario?",
       step: awaitingStepConstant,
     };
   }
 
-  const bullets = alternatives
-    .map((h) => `• ${formatHourAmPm(h)}`)
-    .join("\n");
+  const altList = alternatives.map((h) => formatHourAmPm(h)).join(", ");
 
   return {
-    reply: `No tenemos disponibilidad a esa hora 😔\n\nTenemos disponibles:\n${bullets}\n\n¿Alguno te sirve? 😊`,
+    reply: `Esa hora ya está ocupada 😔 Tenemos disponible a las ${altList}. ¿Alguna te sirve?`,
     step: awaitingStepConstant,
   };
 };

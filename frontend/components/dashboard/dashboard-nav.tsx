@@ -6,11 +6,16 @@ import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+const isSuperAdmin = process.env.NEXT_PUBLIC_SUPER_ADMIN === "true";
+
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Inicio", exact: true },
   { href: "/dashboard/clients", label: "Clientes", exact: false },
   { href: "/dashboard/conversations", label: "Conversaciones", exact: false },
   { href: "/dashboard/pets", label: "Mascotas", exact: false },
+  ...(isSuperAdmin
+    ? [{ href: "/dashboard/admin/tenants", label: "Admin", exact: false }]
+    : []),
 ];
 
 export function DashboardNav() {

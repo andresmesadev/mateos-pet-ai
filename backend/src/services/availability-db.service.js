@@ -8,6 +8,7 @@ const {
   toDateKey,
   getHourInTimezone,
   dayBoundsInTimezone,
+  zonedDateTimeToUtc,
 } = require("../lib/timezone");
 const {
   isBusinessDay,
@@ -27,9 +28,21 @@ const MAX_VET_SUGGESTIONS = 3;
 /** Tipos que comparten agenda veterinaria (misma hora). */
 const VET_BUCKET_TYPES = new Set(["vet", "general_appointment", "medication"]);
 
+/** Sub-servicios de grooming — todos comparten la misma agenda. */
+const GROOMING_SUB_SERVICES = new Set([
+  "baño básico",
+  "baño + corte",
+  "baño medicado",
+  "baño antipulgas",
+  "spa canino/felino",
+  "deslanado",
+  "colorimetría",
+]);
+
 const normalizeServiceType = (serviceType) => {
   const type = String(serviceType || "").trim().toLowerCase();
-  if (type === "bath_grooming") return SERVICE_TYPES.GROOMING;
+  if (type === "bath_grooming" || type === "grooming" || GROOMING_SUB_SERVICES.has(type))
+    return SERVICE_TYPES.GROOMING;
   if (type === "veterinary_consultation") return SERVICE_TYPES.VET;
   return type;
 };
@@ -134,6 +147,16 @@ const isSlotAvailable = async ({ dateKey, hour, serviceType }) => {
       return false;
     }
 
+    // Grooming: regla de orden consecutivo — no se puede saltar un slot
+    if (type === SERVICE_TYPES.GROOMING && h > GROOMING_FIRST_HOUR) {
+      for (let prev = GROOMING_FIRST_HOUR; prev < h; prev++) {
+        if (!booked.has(prev)) {
+          console.log(`[AvailabilityDB] Grooming slot ${h}h bloqueado — slot ${prev}h sin ocupar (regla consecutiva)`);
+          return false;
+        }
+      }
+    }
+
     console.log("[AvailabilityDB] Slot available:", key, h, type);
     return true;
   } catch (error) {
@@ -142,14 +165,23 @@ const isSlotAvailable = async ({ dateKey, hour, serviceType }) => {
   }
 };
 
+const GROOMING_FUTURE_BUFFER_MS = 30 * 60 * 1000;
+
 /**
  * Próximo turno grooming libre (1h) en los próximos 30 días hábiles.
+ * Solo retorna slots al menos 30 minutos en el futuro (hora Bogotá).
  * @param {{ referenceDate?: Date|string }} [options]
  * @returns {Promise<{ date: string, hour: number }|null>}
  */
 const findNextAvailableGroomingSlot = async (options = {}) => {
-  let cursor =
-    toDateKey(options.referenceDate ?? new Date()) || toDateKey(new Date());
+  const referenceDate =
+    options.referenceDate instanceof Date
+      ? options.referenceDate
+      : new Date(options.referenceDate ?? Date.now());
+
+  let cursor = toDateKey(referenceDate) || toDateKey(new Date());
+  const todayKey = cursor;
+  const cutoffTime = new Date(referenceDate.getTime() + GROOMING_FUTURE_BUFFER_MS);
 
   try {
     for (let day = 0; day < MAX_GROOMING_SEARCH_DAYS; day += 1) {
@@ -163,6 +195,17 @@ const findNextAvailableGroomingSlot = async (options = {}) => {
         h <= GROOMING_LAST_START_HOUR;
         h += 1
       ) {
+        // Skip slots already past (only relevant for today)
+        if (cursor === todayKey) {
+          const slotUtc = zonedDateTimeToUtc(cursor, h);
+          if (slotUtc < cutoffTime) {
+            console.log(
+              `[AvailabilityDB] Skipping past grooming slot ${h}h on ${cursor}`
+            );
+            continue;
+          }
+        }
+
         const available = await isSlotAvailable({
           dateKey: cursor,
           hour: h,

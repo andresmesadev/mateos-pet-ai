@@ -21,6 +21,10 @@ const SESSION_DATA_FIELDS = [
   "scheduling_date_key",
   "scheduling_hour",
   "requires_human_attention",
+  // Grooming flow
+  "grooming_service",
+  "domicilio",
+  "domicilio_address",
 ];
 
 const mergeSession = (current, data) => {

@@ -382,7 +382,10 @@ const processIncomingMessage = async (body) => {
 
     if (user && dateKey != null && hour != null) {
       try {
-        const serviceType = mapSessionServiceType(previous.requested_service);
+        // Para grooming usar el sub-servicio específico si está disponible
+        const serviceType = previous.grooming_service
+          ? previous.grooming_service
+          : mapSessionServiceType(previous.requested_service);
         const appointmentDate = buildAppointmentDateTime(dateKey, hour);
 
         const hasConflict = await checkAppointmentConflict({
@@ -443,6 +446,9 @@ const processIncomingMessage = async (body) => {
           serviceType,
           date: appointmentDate,
           status: "confirmed",
+          address: previous.domicilio_address || null,
+          groomingBreed: previous.grooming_breed || null,
+          groomingSize: previous.grooming_size || null,
         });
 
         logger.info(
@@ -452,7 +458,7 @@ const processIncomingMessage = async (body) => {
         const slotLabel = formatSlotForUser(dateKey, hour);
         const { reply: defaultReply, step, sessionPatch } = getConfirmationReply();
         const reply = slotLabel
-          ? `¡Perfecto! 😊 Tu cita quedó confirmada en Mateos Pet 🐾\n${slotLabel}.`
+          ? `¡Listo! Tu cita quedó agendada ${slotLabel} 🐾 ¡Te esperamos en Mateos Pet!`
           : defaultReply;
         const session = updateSession(parsed.from, {
           ...previous,
@@ -612,6 +618,36 @@ const processIncomingMessage = async (body) => {
       userId: user?.id,
     }
   );
+
+  // Grooming: la cita se crea al confirmar domicilio (no por awaiting_confirmation)
+  if (result.createGroomingAppointment && user) {
+    const sessionForAppt = { ...previous, ...(result.sessionPatch || {}) };
+    const dateKey = previous.scheduling_date_key;
+    const hour = previous.scheduling_hour;
+    if (dateKey != null && hour != null) {
+      try {
+        const serviceType = previous.grooming_service || "grooming";
+        const appointmentDate = buildAppointmentDateTime(dateKey, Number(hour));
+        await createAppointment({
+          userId: user.id,
+          petName: previous.pet_name || "Mascota",
+          petType: previous.pet_type || "other",
+          serviceType,
+          date: appointmentDate,
+          status: "confirmed",
+          address: sessionForAppt.domicilio_address || null,
+          groomingBreed: previous.grooming_breed || null,
+          groomingSize: previous.grooming_size || null,
+        });
+        logger.info(`[WhatsApp] Grooming appointment created: ${dateKey} ${hour}h ${serviceType}`);
+      } catch (error) {
+        logger.error("[WhatsApp] Error creating grooming appointment:", error.message);
+      }
+    } else {
+      logger.warn("[WhatsApp] Grooming appointment skipped — missing scheduling_date_key or hour");
+    }
+  }
+
   const session = updateSession(parsed.from, {
     ...mergedAnalysis,
     step: result.step,
