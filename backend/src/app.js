@@ -17,6 +17,8 @@ const {
 
 const errorHandler = require("./middlewares/error.middleware");
 const { startReminderJob } = require("./jobs/reminder.job");
+const { router: billingRouter, webhookHandler } = require("./routes/billing.routes");
+const onboardingRoutes = require("./routes/onboarding.routes");
 
 const app = express();
 
@@ -24,8 +26,11 @@ const webhookRawParser = express.raw({ type: "application/json" });
 
 app.use(cors());
 
+// Rutas con raw body — deben ir ANTES de express.json()
 app.use("/webhook", webhookRateLimit, webhookRawParser, parseWebhookBody, webhookRoutes);
 app.use("/api/webhook", webhookRateLimit, webhookRawParser, parseWebhookBody, webhookRoutes);
+// Stripe webhook: raw body requerido para verificar firma (stripe-signature)
+app.post("/api/billing/webhook", webhookRawParser, webhookHandler);
 
 app.use(express.json());
 
@@ -40,6 +45,8 @@ const dashboardRoutes = require("./routes/dashboard.routes");
 app.use("/api", routes);
 
 app.use("/api/dashboard", dashboardRateLimit, dashboardRoutes);
+app.use("/api/billing", billingRouter);
+app.use("/api/onboarding", onboardingRoutes);
 
 app.use(errorHandler);
 
