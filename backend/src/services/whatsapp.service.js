@@ -9,7 +9,7 @@ const {
 const { getSession, updateSession } = require("./memory.service");
 const scheduling = require("./scheduling.service");
 const { findOrCreateUser } = require("./user.service");
-const { findOrCreatePet } = require("./pet.service");
+const { findOrCreatePet, findPetByNameAndOwner } = require("./pet.service");
 const {
   buildAppointmentDateTime,
   mapSessionServiceType,
@@ -27,6 +27,8 @@ const {
   buildSemanticContext,
 } = require("./semantic-memory.service");
 const { processVoiceMessage } = require("./audio.service");
+const { processImageMessage } = require("./image.service");
+const { createRecord } = require("./medical-record.service");
 
 const persistUserMessage = async (user, conversation, content) => {
   if (!user?.id || !conversation?.id || !content) return;
@@ -127,6 +129,20 @@ const parseIncomingMessage = (body) => {
     };
   }
 
+  if (message.type === "image" && message.image?.id) {
+    return {
+      from,
+      text: null,
+      type: "image",
+      mediaId: message.image.id,
+      mimeType: message.image.mime_type || "image/jpeg",
+    };
+  }
+
+  if (message.type === "document") {
+    return { from, text: null, type: "document" };
+  }
+
   let text = null;
 
   if (message.type === "text") {
@@ -175,6 +191,17 @@ const processIncomingMessage = async (body) => {
     logger.info("[WhatsApp] Voice transcription:", transcript);
   }
 
+  if (parsed.type === "document") {
+    logger.info("[WhatsApp] Document message received — not supported");
+    return {
+      received: true,
+      processed: true,
+      from: parsed.from,
+      reply:
+        "Solo proceso imágenes 📸\nSi quieres compartir información médica, envíame una foto o escríbeme un mensaje.",
+    };
+  }
+
   logger.info(`New message from: ${parsed.from}`);
   logger.info(`Message: ${parsed.text}`);
 
@@ -199,6 +226,89 @@ const processIncomingMessage = async (body) => {
     } catch (error) {
       logger.error("[WhatsApp] Error loading conversation:", error.message);
     }
+  }
+
+  if (parsed.type === "image" && parsed.mediaId) {
+    logger.info("[WhatsApp] Image message detected");
+
+    const imageSession = getSession(parsed.from);
+    const petName = imageSession?.pet_name;
+
+    if (!petName) {
+      const reply =
+        "Recibí tu imagen 📸 ¿De qué mascota es? Dime su nombre para guardarla en el historial médico.";
+      await persistAssistantMessage(conversation, reply);
+      return {
+        received: true,
+        processed: true,
+        from: parsed.from,
+        user,
+        conversation,
+        reply,
+        ...parsed,
+        session: imageSession,
+      };
+    }
+
+    const imageAnalysis = await processImageMessage(parsed.mediaId);
+
+    if (!imageAnalysis) {
+      const reply =
+        "No pude analizar la imagen 😔 ¿Puedes intentarlo de nuevo?";
+      await persistAssistantMessage(conversation, reply);
+      return {
+        received: true,
+        processed: true,
+        from: parsed.from,
+        user,
+        conversation,
+        reply,
+        ...parsed,
+        session: imageSession,
+      };
+    }
+
+    let savedRecord = null;
+    if (user) {
+      try {
+        const pet = await findPetByNameAndOwner(petName, user.id);
+        if (pet) {
+          savedRecord = await createRecord(
+            pet.id,
+            "note",
+            "Análisis de imagen",
+            imageAnalysis,
+            new Date()
+          );
+          logger.info(
+            "[WhatsApp] Image analysis saved as MedicalRecord:",
+            savedRecord.id
+          );
+        }
+      } catch (error) {
+        logger.error(
+          "[WhatsApp] Error saving image analysis as MedicalRecord:",
+          error.message
+        );
+      }
+    }
+
+    const reply = savedRecord
+      ? `📸 Esto es lo que observé en la imagen:\n\n${imageAnalysis}\n\n✅ Lo guardé en el historial de ${petName}.`
+      : `📸 Esto es lo que observé en la imagen:\n\n${imageAnalysis}`;
+
+    await persistAssistantMessage(conversation, reply);
+
+    return {
+      received: true,
+      processed: true,
+      from: parsed.from,
+      user,
+      conversation,
+      reply,
+      ...parsed,
+      session: imageSession,
+    };
   }
 
   let previous = getSession(parsed.from);
