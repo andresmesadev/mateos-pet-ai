@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/conversations", label: "Conversaciones", exact: false },
   { href: "/dashboard/pets", label: "Mascotas", exact: false },
   { href: "/dashboard/reactivation", label: "Reactivar", exact: false },
+  { href: "/dashboard/services", label: "Servicios", exact: false },
   ...(isSuperAdmin
     ? [{ href: "/dashboard/admin/tenants", label: "Admin", exact: false }]
     : []),
