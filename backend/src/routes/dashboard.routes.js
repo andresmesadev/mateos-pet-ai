@@ -54,6 +54,60 @@ const {
 
 const router = express.Router();
 
+// ── Tenant profile (self) — TAREA 18 ─────────────────────────────────────────
+router.get("/tenant/profile", async (req, res) => {
+  try {
+    const { tenantId, isSuperAdmin } = req.tenant;
+    if (!tenantId && !isSuperAdmin) return res.status(403).json({ error: "Forbidden" });
+    if (!tenantId) return res.status(400).json({ error: "No tenant context" });
+
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        id: true, name: true, slug: true, phone: true, email: true,
+        description: true, address: true, logoUrl: true, businessHours: true,
+        plan: true, active: true, createdAt: true,
+      },
+    });
+    if (!tenant) return res.status(404).json({ error: "Tenant not found" });
+    res.json(tenant);
+  } catch (error) {
+    console.error("[Dashboard] Tenant profile error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.put("/tenant/profile", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    if (!tenantId) return res.status(403).json({ error: "Forbidden" });
+
+    const { name, email, description, address, logoUrl, businessHours } = req.body ?? {};
+
+    const data = {};
+    if (name !== undefined) data.name = String(name).trim();
+    if (email !== undefined) data.email = email?.trim() || null;
+    if (description !== undefined) data.description = description?.trim() || null;
+    if (address !== undefined) data.address = address?.trim() || null;
+    if (logoUrl !== undefined) data.logoUrl = logoUrl?.trim() || null;
+    if (businessHours !== undefined) data.businessHours = businessHours;
+
+    const updated = await prisma.tenant.update({
+      where: { id: tenantId },
+      data,
+      select: {
+        id: true, name: true, slug: true, phone: true, email: true,
+        description: true, address: true, logoUrl: true, businessHours: true,
+        plan: true, active: true,
+      },
+    });
+    res.json(updated);
+  } catch (error) {
+    console.error("[Dashboard] Update tenant profile error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.get("/tenants", async (req, res) => {
   try {
     const tenants = await listTenants();
@@ -1293,7 +1347,7 @@ router.get("/services", async (req, res) => {
 
 router.post("/services", async (req, res) => {
   try {
-    const { name, category, duration, requiresAppointment } = req.body ?? {};
+    const { name, category, duration, requiresAppointment, basePrice } = req.body ?? {};
     const { tenantId } = req.tenant;
 
     // Validate name
@@ -1325,6 +1379,7 @@ router.post("/services", async (req, res) => {
       category: String(category).trim(),
       duration: durationNum,
       requiresAppointment: requiresAppointment !== false,
+      basePrice: basePrice !== undefined && basePrice !== null ? Number(basePrice) : null,
     });
     res.status(201).json(service);
   } catch (error) {
@@ -1337,7 +1392,7 @@ router.patch("/services/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const { tenantId, isSuperAdmin } = req.tenant;
-    const { name, category, duration, requiresAppointment, active } = req.body ?? {};
+    const { name, category, duration, requiresAppointment, active, basePrice } = req.body ?? {};
 
     // Verify ownership (unless super admin with no tenant filter)
     if (!isSuperAdmin || tenantId) {
@@ -1356,6 +1411,7 @@ router.patch("/services/:id", async (req, res) => {
     if (duration !== undefined) data.duration = Number(duration);
     if (requiresAppointment !== undefined) data.requiresAppointment = Boolean(requiresAppointment);
     if (active !== undefined) data.active = Boolean(active);
+    if (basePrice !== undefined) data.basePrice = basePrice !== null ? Number(basePrice) : null;
     const updated = await updateService(id, data);
     res.json(updated);
   } catch (error) {

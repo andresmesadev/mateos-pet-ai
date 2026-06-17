@@ -24,6 +24,12 @@ model Tenant {
   subscriptionStatus   String?   // active / past_due / canceled / trialing
   planExpiresAt        DateTime?
 
+  // Perfil del negocio (TAREA 18)
+  description   String?
+  address       String?
+  logoUrl       String?
+  businessHours Json?   // { mon: { open: "08:00", close: "18:00", active: true }, ... }
+
   users         User[]
   pets          Pet[]
   appointments  Appointment[]
@@ -57,6 +63,7 @@ model Service {
   name        String
   category    String   // "veterinary" | "grooming" | "other"
   duration    Int      // minutos
+  basePrice   Decimal? @db.Decimal(10, 2)
   requiresAppointment Boolean @default(true)
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())

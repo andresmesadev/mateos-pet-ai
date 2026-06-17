@@ -21,6 +21,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/reactivation", label: "Reactivar", exact: false },
   { href: "/dashboard/services", label: "Servicios", exact: false },
   { href: "/dashboard/staff", label: "Staff", exact: false },
+  { href: "/dashboard/settings", label: "Configuración", exact: false },
 ];
 
 export function DashboardNav() {
