@@ -8,6 +8,11 @@ const {
   deleteService,
 } = require("../services/service.service");
 const {
+  createStaff,
+  updateStaff,
+  deleteStaff,
+} = require("../services/staff.service");
+const {
   getPendingEscalations,
   resolveEscalation,
 } = require("../services/escalation.service");
@@ -647,6 +652,100 @@ router.delete("/services/:id", async (req, res) => {
   } catch (error) {
     console.error("[Dashboard] Delete service error:", error);
     if (error.code === "P2025") return res.status(404).json({ error: "Service not found" });
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+const VALID_ROLES = ["vet", "groomer", "admin"];
+
+router.get("/staff", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    const rows = await prisma.staff.findMany({
+      where: tenantId ? { tenantId } : {},
+      orderBy: [{ role: "asc" }, { name: "asc" }],
+    });
+    res.json(rows);
+  } catch (error) {
+    console.error("[Dashboard] Staff error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/staff", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    const { name, role, phone, email } = req.body ?? {};
+
+    if (!name || typeof name !== "string" || !name.trim()) {
+      return res.status(400).json({ error: "name es requerido" });
+    }
+    if (!role || !VALID_ROLES.includes(role)) {
+      return res.status(400).json({ error: `role debe ser uno de: ${VALID_ROLES.join(", ")}` });
+    }
+
+    const member = await createStaff(tenantId ?? null, {
+      name: name.trim(),
+      role,
+      phone: phone?.trim() || null,
+      email: email?.trim() || null,
+    });
+    res.status(201).json(member);
+  } catch (error) {
+    console.error("[Dashboard] Create staff error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.patch("/staff/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { tenantId } = req.tenant;
+    const { name, role, phone, email, active } = req.body ?? {};
+
+    const existing = await prisma.staff.findFirst({
+      where: tenantId ? { id, tenantId } : { id },
+      select: { id: true },
+    });
+    if (!existing) return res.status(404).json({ error: "Staff not found" });
+
+    const data = {};
+    if (name !== undefined) data.name = String(name).trim();
+    if (role !== undefined) {
+      if (!VALID_ROLES.includes(role)) {
+        return res.status(400).json({ error: `role debe ser uno de: ${VALID_ROLES.join(", ")}` });
+      }
+      data.role = role;
+    }
+    if (phone !== undefined) data.phone = phone?.trim() || null;
+    if (email !== undefined) data.email = email?.trim() || null;
+    if (active !== undefined) data.active = Boolean(active);
+
+    const updated = await updateStaff(id, data);
+    res.json(updated);
+  } catch (error) {
+    console.error("[Dashboard] Update staff error:", error);
+    if (error.code === "P2025") return res.status(404).json({ error: "Staff not found" });
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.delete("/staff/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { tenantId } = req.tenant;
+
+    const existing = await prisma.staff.findFirst({
+      where: tenantId ? { id, tenantId } : { id },
+      select: { id: true },
+    });
+    if (!existing) return res.status(404).json({ error: "Staff not found" });
+
+    await deleteStaff(id);
+    res.status(204).end();
+  } catch (error) {
+    console.error("[Dashboard] Delete staff error:", error);
+    if (error.code === "P2025") return res.status(404).json({ error: "Staff not found" });
     res.status(500).json({ error: "Internal server error" });
   }
 });
