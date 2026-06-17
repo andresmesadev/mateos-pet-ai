@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Sheet,
   SheetContent,
@@ -47,6 +48,9 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
   const [client, setClient] = useState<ClientDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editForm, setEditForm] = useState({ name: "", email: "", address: "", notes: "" });
 
   useEffect(() => {
     let cancelled = false;
@@ -99,6 +103,36 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
     );
   }
 
+  const handleEdit = () => {
+    setEditForm({
+      name: client?.name ?? "",
+      email: client?.email ?? "",
+      address: client?.address ?? "",
+      notes: client?.notes ?? "",
+    });
+    setEditing(true);
+  };
+
+  const handleSave = async () => {
+    if (!client) return;
+    setSaving(true);
+    try {
+      const res = await fetch(apiUrl(`/api/dashboard/clients/${client.id}`), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editForm),
+      });
+      if (!res.ok) throw new Error("Error al guardar");
+      const updated = await res.json();
+      setClient((prev) => prev ? { ...prev, ...updated } : prev);
+      setEditing(false);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (error || !client) {
     return (
       <>
@@ -129,6 +163,57 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
       </SheetHeader>
 
       <div className="flex flex-col gap-6 overflow-y-auto px-4 pb-6">
+        {/* Ficha del cliente */}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium text-muted-foreground">Datos del cliente</h3>
+            {!editing && (
+              <Button size="sm" variant="outline" onClick={handleEdit}>Editar</Button>
+            )}
+          </div>
+          {editing ? (
+            <div className="space-y-2">
+              <Input
+                placeholder="Nombre"
+                value={editForm.name}
+                onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+              />
+              <Input
+                placeholder="Email"
+                value={editForm.email}
+                onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+              />
+              <Input
+                placeholder="Dirección"
+                value={editForm.address}
+                onChange={(e) => setEditForm((f) => ({ ...f, address: e.target.value }))}
+              />
+              <Input
+                placeholder="Notas"
+                value={editForm.notes}
+                onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
+              />
+              <div className="flex gap-2">
+                <Button size="sm" onClick={handleSave} disabled={saving}>
+                  {saving ? "Guardando…" : "Guardar"}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setEditing(false)} disabled={saving}>
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-lg border bg-muted/30 px-3 py-3 text-sm space-y-1">
+              {client.email && <p><span className="text-muted-foreground">Email: </span>{client.email}</p>}
+              {client.address && <p><span className="text-muted-foreground">Dirección: </span>{client.address}</p>}
+              {client.notes && <p><span className="text-muted-foreground">Notas: </span>{client.notes}</p>}
+              {!client.email && !client.address && !client.notes && (
+                <p className="text-muted-foreground">Sin datos adicionales.</p>
+              )}
+            </div>
+          )}
+        </section>
+
         <section className="space-y-2">
           <h3 className="text-sm font-medium text-muted-foreground">Mascotas</h3>
           {client.pets.length === 0 ? (

@@ -34,6 +34,9 @@ export type ClientDetail = {
   id: string;
   phone: string;
   name: string | null;
+  email: string | null;
+  address: string | null;
+  notes: string | null;
   createdAt: string;
   pets: ClientPet[];
   appointments: ClientAppointment[];

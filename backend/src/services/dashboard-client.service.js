@@ -40,7 +40,7 @@ const mapClientSummary = (user) => {
   return {
     id: user.id,
     phone: user.phone,
-    name: extractNameFromSession(latestConversation?.sessionData),
+    name: user.name ?? extractNameFromSession(latestConversation?.sessionData),
     petsCount: user._count.pets,
     appointmentsCount: user._count.appointments,
     lastConversation: latestConversation
@@ -140,7 +140,10 @@ const getClientById = async (clientId) => {
   return {
     id: user.id,
     phone: user.phone,
-    name: extractNameFromSession(latestConversation?.sessionData),
+    name: user.name ?? extractNameFromSession(latestConversation?.sessionData),
+    email: user.email ?? null,
+    address: user.address ?? null,
+    notes: user.notes ?? null,
     createdAt: user.createdAt,
     pets: user.pets,
     appointments: user.appointments,
@@ -149,7 +152,20 @@ const getClientById = async (clientId) => {
   };
 };
 
+const updateClient = async (id, { name, email, address, notes }) => {
+  return prisma.user.update({
+    where: { id },
+    data: {
+      name: name ?? undefined,
+      email: email ?? undefined,
+      address: address ?? undefined,
+      notes: notes ?? undefined,
+    },
+  });
+};
+
 module.exports = {
   listClients,
   getClientById,
+  updateClient,
 };

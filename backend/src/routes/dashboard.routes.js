@@ -15,6 +15,7 @@ const {
 const {
   listClients,
   getClientById,
+  updateClient,
 } = require("../services/dashboard-client.service");
 const {
   listTenants,
@@ -418,6 +419,21 @@ router.get("/clients/:id", async (req, res) => {
     res.status(500).json({
       error: "Internal server error",
     });
+  }
+});
+
+router.patch("/clients/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email, address, notes } = req.body ?? {};
+    const updated = await updateClient(id, { name, email, address, notes });
+    res.json({ id: updated.id, name: updated.name, email: updated.email, address: updated.address, notes: updated.notes });
+  } catch (error) {
+    console.error("[Dashboard] Update client error:", error);
+    if (error.code === "P2025") {
+      return res.status(404).json({ error: "Client not found" });
+    }
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
