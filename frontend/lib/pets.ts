@@ -32,6 +32,18 @@ export type PetMedicalRecord = {
   detail: string | null;
   date: string | null;
   createdAt: string;
+  // Clinical fields (TAREA 10)
+  appointmentId?: string | null;
+  staffId?: string | null;
+  staffName?: string | null;
+  reason?: string | null;
+  findings?: string | null;
+  diagnosis?: string | null;
+  treatment?: string | null;
+  recommendations?: string | null;
+  weight?: number | null;
+  nextControlAt?: string | null;
+  updatedAt?: string;
 };
 
 export const PET_TYPE_LABELS: Record<string, string> = {

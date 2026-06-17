@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { VetRecordSheet } from "@/components/dashboard/vet-record-sheet";
 import {
   type TodayAppointment,
   formatColombiaTime,
@@ -15,6 +16,19 @@ import {
 } from "@/lib/appointments";
 import { getPetEmoji } from "@/lib/pets";
 import { proxyUrl } from "@/lib/api";
+
+const VET_SERVICE_TYPES = ["vet", "consultation", "veterinary_consultation"];
+
+function isVetAppointment(appt: TodayAppointment): boolean {
+  return VET_SERVICE_TYPES.includes(appt.serviceType?.toLowerCase());
+}
+
+function canRecordVetAttention(appt: TodayAppointment): boolean {
+  return (
+    isVetAppointment(appt) &&
+    (appt.status === "in_progress" || appt.status === "completed")
+  );
+}
 
 function formatTodayHeader(): string {
   return new Intl.DateTimeFormat("es-CO", {
@@ -32,6 +46,7 @@ type Props = {
 export function TodaySchedule({ appointments: initial }: Props) {
   const [appointments, setAppointments] = useState(initial);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [recordingAppt, setRecordingAppt] = useState<TodayAppointment | null>(null);
 
   const header = formatTodayHeader();
   const capitalized = header.charAt(0).toUpperCase() + header.slice(1);
@@ -59,100 +74,123 @@ export function TodaySchedule({ appointments: initial }: Props) {
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <CardTitle className="text-lg">Agenda de hoy</CardTitle>
-        <span className="text-sm text-muted-foreground">{capitalized}</span>
-      </CardHeader>
+    <>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-3">
+          <CardTitle className="text-lg">Agenda de hoy</CardTitle>
+          <span className="text-sm text-muted-foreground">{capitalized}</span>
+        </CardHeader>
 
-      <CardContent>
-        {appointments.length === 0 ? (
-          <div className="rounded-lg border border-dashed px-4 py-10 text-center">
-            <p className="text-lg font-medium">No hay citas para hoy 🐾</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              El agente WhatsApp irá agendando durante el día.
-            </p>
-          </div>
-        ) : (
-          <ul className="divide-y">
-            {appointments.map((appt) => {
-              const transitions = getStatusTransitions(appt.status);
-              const busy = updating === appt.id;
-              return (
-                <li key={appt.id} className="py-3">
-                  <div className="flex items-start gap-4">
-                    {/* Hora */}
-                    <div className="w-14 shrink-0 text-right pt-0.5">
-                      <span className="text-lg font-bold tabular-nums leading-none">
-                        {formatColombiaTime(appt.date)}
-                      </span>
-                    </div>
-
-                    {/* Info principal */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-base">{getPetEmoji(appt.petType)}</span>
-                        <span className="font-medium">{appt.petName}</span>
-                        <span className="text-muted-foreground text-sm">·</span>
-                        <span className="text-sm text-muted-foreground truncate">
-                          {appt.clientName ?? appt.clientPhone}
+        <CardContent>
+          {appointments.length === 0 ? (
+            <div className="rounded-lg border border-dashed px-4 py-10 text-center">
+              <p className="text-lg font-medium">No hay citas para hoy 🐾</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                El agente WhatsApp irá agendando durante el día.
+              </p>
+            </div>
+          ) : (
+            <ul className="divide-y">
+              {appointments.map((appt) => {
+                const transitions = getStatusTransitions(appt.status);
+                const busy = updating === appt.id;
+                const showRecordBtn = canRecordVetAttention(appt);
+                return (
+                  <li key={appt.id} className="py-3">
+                    <div className="flex items-start gap-4">
+                      {/* Hora */}
+                      <div className="w-14 shrink-0 text-right pt-0.5">
+                        <span className="text-lg font-bold tabular-nums leading-none">
+                          {formatColombiaTime(appt.date)}
                         </span>
                       </div>
-                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-muted-foreground">
-                        <span>{appt.serviceName ?? formatService(appt.serviceType)}</span>
-                        {appt.staffName && (
-                          <>
-                            <span>·</span>
-                            <span>{appt.staffName}</span>
-                          </>
-                        )}
-                        {appt.price !== null && (
-                          <>
-                            <span>·</span>
-                            <span>
-                              {new Intl.NumberFormat("es-CO", {
-                                style: "currency",
-                                currency: "COP",
-                                maximumFractionDigits: 0,
-                              }).format(appt.price)}
-                            </span>
-                          </>
+
+                      {/* Info principal */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-base">{getPetEmoji(appt.petType)}</span>
+                          <span className="font-medium">{appt.petName}</span>
+                          <span className="text-muted-foreground text-sm">·</span>
+                          <span className="text-sm text-muted-foreground truncate">
+                            {appt.clientName ?? appt.clientPhone}
+                          </span>
+                        </div>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-muted-foreground">
+                          <span>{appt.serviceName ?? formatService(appt.serviceType)}</span>
+                          {appt.staffName && (
+                            <>
+                              <span>·</span>
+                              <span>{appt.staffName}</span>
+                            </>
+                          )}
+                          {appt.price !== null && (
+                            <>
+                              <span>·</span>
+                              <span>
+                                {new Intl.NumberFormat("es-CO", {
+                                  style: "currency",
+                                  currency: "COP",
+                                  maximumFractionDigits: 0,
+                                }).format(appt.price)}
+                              </span>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Acciones de estado + registro clínico */}
+                        {(transitions.length > 0 || showRecordBtn) && (
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {transitions.map((t) => (
+                              <Button
+                                key={t.next}
+                                size="sm"
+                                variant={t.variant ?? "outline"}
+                                className="h-7 px-2.5 text-xs"
+                                disabled={busy}
+                                onClick={() => updateStatus(appt.id, t.next)}
+                              >
+                                {t.label}
+                              </Button>
+                            ))}
+                            {showRecordBtn && (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                className="h-7 px-2.5 text-xs"
+                                disabled={busy}
+                                onClick={() => setRecordingAppt(appt)}
+                              >
+                                🩺 Registrar atención
+                              </Button>
+                            )}
+                          </div>
                         )}
                       </div>
 
-                      {/* Acciones de estado */}
-                      {transitions.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          {transitions.map((t) => (
-                            <Button
-                              key={t.next}
-                              size="sm"
-                              variant={t.variant ?? "outline"}
-                              className="h-7 px-2.5 text-xs"
-                              disabled={busy}
-                              onClick={() => updateStatus(appt.id, t.next)}
-                            >
-                              {t.label}
-                            </Button>
-                          ))}
-                        </div>
-                      )}
+                      {/* Badge de estado */}
+                      <Badge
+                        variant="outline"
+                        className={`shrink-0 mt-0.5 ${statusBadgeClass(appt.status)}`}
+                      >
+                        {formatStatus(appt.status)}
+                      </Badge>
                     </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
 
-                    {/* Badge de estado */}
-                    <Badge
-                      variant="outline"
-                      className={`shrink-0 mt-0.5 ${statusBadgeClass(appt.status)}`}
-                    >
-                      {formatStatus(appt.status)}
-                    </Badge>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
+      {recordingAppt && (
+        <VetRecordSheet
+          appointment={recordingAppt}
+          open={recordingAppt !== null}
+          onOpenChange={(open) => { if (!open) setRecordingAppt(null); }}
+          onSaved={() => { /* badge stays; no state change needed */ }}
+        />
+      )}
+    </>
   );
 }

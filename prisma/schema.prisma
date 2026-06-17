@@ -44,7 +44,8 @@ model Staff {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  appointments Appointment[]
+  appointments   Appointment[]
+  medicalRecords MedicalRecord[]
 }
 
 model Service {
@@ -109,10 +110,27 @@ model MedicalRecord {
   petId     String
   pet       Pet      @relation(fields: [petId], references: [id])
 
+  // Link to the originating appointment (TAREA 10)
+  appointmentId String?   @unique
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+
+  // Attending professional
+  staffId   String?
+  staff     Staff?   @relation(fields: [staffId], references: [id])
+
   type      String
   title     String
   detail    String?
   date      DateTime?
+
+  // Clinical fields (TAREA 10) — all optional for backward compatibility
+  reason          String?
+  findings        String?
+  diagnosis       String?
+  treatment       String?
+  recommendations String?
+  weight          Float?
+  nextControlAt   DateTime?
 
   reminderSent Boolean @default(false)
 
@@ -209,6 +227,8 @@ model Appointment {
 
   reminderSent  Boolean  @default(false)
   followUpSent  Boolean  @default(false)
+
+  medicalRecord MedicalRecord?
 
   createdAt   DateTime @default(now())
 }

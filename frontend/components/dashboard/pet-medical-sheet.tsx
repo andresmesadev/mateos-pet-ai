@@ -456,15 +456,46 @@ function PetMedicalSheetContent({
                       items.map((record) => (
                         <div
                           key={record.id}
-                          className="rounded-md border border-dashed px-3 py-2"
+                          className="rounded-md border border-dashed px-3 py-2 space-y-1"
                         >
                           <p className="font-medium">{record.title}</p>
-                          {record.detail ? (
+
+                          {/* Clinical fields (TAREA 10) */}
+                          {record.staffName && (
+                            <p className="text-xs text-muted-foreground">
+                              <span className="font-medium">Profesional: </span>{record.staffName}
+                            </p>
+                          )}
+                          {record.reason && (
+                            <p className="text-sm"><span className="text-muted-foreground font-medium">Motivo: </span>{record.reason}</p>
+                          )}
+                          {record.findings && (
+                            <p className="text-sm"><span className="text-muted-foreground font-medium">Hallazgos: </span>{record.findings}</p>
+                          )}
+                          {record.diagnosis && (
+                            <p className="text-sm"><span className="text-muted-foreground font-medium">Diagnóstico: </span>{record.diagnosis}</p>
+                          )}
+                          {record.treatment && (
+                            <p className="text-sm"><span className="text-muted-foreground font-medium">Tratamiento: </span>{record.treatment}</p>
+                          )}
+                          {record.recommendations && (
+                            <p className="text-sm"><span className="text-muted-foreground font-medium">Recomendaciones: </span>{record.recommendations}</p>
+                          )}
+                          {record.weight != null && (
+                            <p className="text-sm"><span className="text-muted-foreground font-medium">Peso: </span>{record.weight} kg</p>
+                          )}
+                          {record.nextControlAt && (
+                            <p className="text-sm"><span className="text-muted-foreground font-medium">Próximo control: </span>{formatRecordDate(record.nextControlAt)}</p>
+                          )}
+
+                          {/* Legacy detail field */}
+                          {record.detail && !record.reason && (
                             <p className="mt-1 text-sm text-muted-foreground">
                               {record.detail}
                             </p>
-                          ) : null}
-                          <p className="mt-2 text-xs text-muted-foreground">
+                          )}
+
+                          <p className="mt-1 text-xs text-muted-foreground">
                             {record.date
                               ? `Fecha: ${formatRecordDate(record.date)}`
                               : `Registrado: ${formatRecordDate(record.createdAt)}`}
