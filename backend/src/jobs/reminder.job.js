@@ -10,17 +10,23 @@ const {
 
   getUpcomingGroomingReminders,
 
+  getConsultationsForFollowUp,
+
   sendReminder,
 
   sendVaccineReminder,
 
   sendGroomingReminder,
 
+  sendFollowUp,
+
   markReminderSent,
 
   markVaccineReminderSent,
 
   markGroomingReminderSent,
+
+  markFollowUpSent,
 
 } = require("../services/reminder.service");
 
@@ -178,6 +184,54 @@ const processReminders = async () => {
 
 
 
+  const consultations = await getConsultationsForFollowUp();
+
+  let followUpSentCount = 0;
+
+
+
+  for (const appointment of consultations) {
+
+    try {
+
+      const sent = await sendFollowUp(appointment);
+
+
+
+      if (sent) {
+
+        await markFollowUpSent(appointment.id);
+
+        followUpSentCount += 1;
+
+      }
+
+    } catch (error) {
+
+      console.error(
+
+        "[ReminderJob] Error processing follow-up:",
+
+        appointment.id,
+
+        error.message
+
+      );
+
+    }
+
+  }
+
+
+
+  console.log(
+
+    `[ReminderJob] Follow-ups sent: ${followUpSentCount}/${consultations.length}`
+
+  );
+
+
+
   return {
 
     appointments: {
@@ -201,6 +255,14 @@ const processReminders = async () => {
       total: groomingReminders.length,
 
       sent: groomingSentCount,
+
+    },
+
+    followUps: {
+
+      total: consultations.length,
+
+      sent: followUpSentCount,
 
     },
 

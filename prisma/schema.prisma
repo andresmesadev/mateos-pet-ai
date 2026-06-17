@@ -194,6 +194,7 @@ model Appointment {
   groomingSize  String?
 
   reminderSent  Boolean  @default(false)
+  followUpSent  Boolean  @default(false)
 
   createdAt   DateTime @default(now())
 }

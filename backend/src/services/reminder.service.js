@@ -865,6 +865,81 @@ const markGroomingReminderSent = async (petId) => {
 
 
 
+const VET_SERVICE_TYPES = ["vet", "consultation"];
+
+const getConsultationsForFollowUp = async () => {
+  try {
+    const yesterdayKey = toDateKey(new Date(Date.now() - 86_400_000));
+    const { start, end } = dayBoundsInTimezone(yesterdayKey);
+
+    const appointments = await prisma.appointment.findMany({
+      where: {
+        serviceType: { in: VET_SERVICE_TYPES },
+        status: { not: "cancelled" },
+        followUpSent: false,
+        date: { gte: start, lte: end },
+      },
+      include: {
+        user: { select: { phone: true } },
+        pet: { select: { name: true } },
+      },
+      orderBy: { date: "asc" },
+    });
+
+    logger.info(
+      `[ReminderService] Consultations for follow-up (${yesterdayKey}): ${appointments.length}`
+    );
+
+    return appointments;
+  } catch (error) {
+    logger.error("[ReminderService] getConsultationsForFollowUp error:", error.message);
+    throw error;
+  }
+};
+
+const buildFollowUpMessage = (appointment) => {
+  const petName = String(
+    appointment.pet?.name ?? appointment.petName ?? "tu mascota"
+  ).trim();
+
+  return `Hola 👋 ¿Cómo está ${petName} después de la consulta de ayer? Si notas algo diferente o tienes alguna duda, escríbenos aquí mismo 🐾`;
+};
+
+const sendFollowUp = async (appointment) => {
+  const phone = String(appointment?.user?.phone || "").trim();
+
+  if (!phone) {
+    logger.warn("[ReminderService] Skipped follow-up — missing phone:", appointment?.id);
+    return false;
+  }
+
+  const message = buildFollowUpMessage(appointment);
+  const response = await sendWhatsAppMessage(phone, message);
+
+  if (!response) {
+    logger.error("[ReminderService] Failed to send follow-up:", appointment.id, phone);
+    return false;
+  }
+
+  logger.info("[ReminderService] Follow-up sent:", appointment.id, phone);
+  return true;
+};
+
+const markFollowUpSent = async (appointmentId) => {
+  const id = String(appointmentId || "").trim();
+
+  if (!id) {
+    throw new Error("appointmentId is required");
+  }
+
+  await prisma.appointment.update({
+    where: { id },
+    data: { followUpSent: true },
+  });
+
+  logger.info("[ReminderService] Follow-up marked sent:", id);
+};
+
 const resetGroomingReminderForPet = async (petId) => {
 
   const id = String(petId || "").trim();
@@ -913,17 +988,23 @@ module.exports = {
 
   getUpcomingGroomingReminders,
 
+  getConsultationsForFollowUp,
+
   sendReminder,
 
   sendVaccineReminder,
 
   sendGroomingReminder,
 
+  sendFollowUp,
+
   markReminderSent,
 
   markVaccineReminderSent,
 
   markGroomingReminderSent,
+
+  markFollowUpSent,
 
   resetGroomingReminderForPet,
 
@@ -932,6 +1013,8 @@ module.exports = {
   buildVaccineReminderMessage,
 
   buildGroomingReminderMessage,
+
+  buildFollowUpMessage,
 
 };
 
