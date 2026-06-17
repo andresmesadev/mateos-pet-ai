@@ -72,8 +72,9 @@ model User {
   name      String?
   email     String?
   address   String?
-  notes     String?
-  createdAt DateTime @default(now())
+  notes              String?
+  lastReminderSentAt DateTime?
+  createdAt          DateTime @default(now())
 
   pets              Pet[]
   conversations     Conversation[]

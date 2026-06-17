@@ -1473,11 +1473,13 @@ router.post("/campaigns/reactivation", async (req, res) => {
     let sent = 0;
     let failed = 0;
 
+    const now = new Date();
     for (const user of users) {
       const text = message.replace(/\{nombre\}/g, user.name ?? "cliente");
       const result = await sendWhatsAppMessage(user.phone, text);
       if (result) {
         sent++;
+        await prisma.user.update({ where: { id: user.id }, data: { lastReminderSentAt: now } });
       } else {
         failed++;
       }
@@ -1516,6 +1518,67 @@ router.patch("/clients/:id", async (req, res) => {
     if (error.code === "P2025") {
       return res.status(404).json({ error: "Client not found" });
     }
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── Métricas de recuperación (TAREA 15) ───────────────────────────────────────
+router.get("/metrics/recovery", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    const tenantFilter = tenantId ? { tenantId } : {};
+
+    // ── Reactivación de clientes ──────────────────────────────────────────────
+    // Clientes a quienes se envió recordatorio
+    const contactedUsers = await prisma.user.findMany({
+      where: { ...tenantFilter, lastReminderSentAt: { not: null } },
+      select: { id: true, lastReminderSentAt: true },
+    });
+
+    // De esos, cuántos tienen al menos una cita posterior a lastReminderSentAt
+    let reactivatedCount = 0;
+    for (const u of contactedUsers) {
+      const appt = await prisma.appointment.findFirst({
+        where: {
+          userId: u.id,
+          date: { gt: u.lastReminderSentAt },
+          status: { notIn: ["cancelled", "no_show"] },
+        },
+        select: { id: true },
+      });
+      if (appt) reactivatedCount++;
+    }
+
+    const contactedCount = contactedUsers.length;
+    const reactivationRate = contactedCount > 0
+      ? Math.round((reactivatedCount / contactedCount) * 100)
+      : 0;
+
+    // ── Acciones cerradas tras recordatorio ───────────────────────────────────
+    const remindedActions = await prisma.petNextAction.count({
+      where: { ...tenantFilter, reminderSentAt: { not: null } },
+    });
+    const closedAfterReminder = await prisma.petNextAction.count({
+      where: { ...tenantFilter, reminderSentAt: { not: null }, status: "done" },
+    });
+    const actionCloseRate = remindedActions > 0
+      ? Math.round((closedAfterReminder / remindedActions) * 100)
+      : 0;
+
+    res.json({
+      reactivation: {
+        contacted: contactedCount,
+        reactivated: reactivatedCount,
+        rate: reactivationRate,
+      },
+      nextActions: {
+        reminded: remindedActions,
+        closed: closedAfterReminder,
+        rate: actionCloseRate,
+      },
+    });
+  } catch (error) {
+    console.error("[Dashboard] Recovery metrics error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });

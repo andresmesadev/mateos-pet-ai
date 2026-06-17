@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EscalationsPanel } from "@/components/dashboard/escalations-panel";
 import { MetricsCards } from "@/components/dashboard/metrics-cards";
+import { RecoveryCard } from "@/components/dashboard/recovery-card";
 import { TodaySchedule } from "@/components/dashboard/today-schedule";
 import { apiUrl, makeServerHeaders } from "@/lib/api";
 import {
@@ -30,6 +31,11 @@ type ActionsSummary = {
   overduePets: number;
 };
 
+type RecoveryMetrics = {
+  reactivation: { contacted: number; reactivated: number; rate: number };
+  nextActions: { reminded: number; closed: number; rate: number };
+};
+
 const METRICS_FALLBACK: MetricsData = {
   appointmentsThisWeek: { count: 0, prev: 0, delta: 0 },
   confirmationRate: { rate: 0, prev: 0, delta: 0 },
@@ -37,6 +43,11 @@ const METRICS_FALLBACK: MetricsData = {
 };
 
 const ACTIONS_FALLBACK: ActionsSummary = { total: 0, byType: {}, overduePets: 0 };
+
+const RECOVERY_FALLBACK: RecoveryMetrics = {
+  reactivation: { contacted: 0, reactivated: 0, rate: 0 },
+  nextActions: { reminded: 0, closed: 0, rate: 0 },
+};
 
 async function fetchToday(headers: Record<string, string>): Promise<TodayAppointment[]> {
   try {
@@ -81,6 +92,14 @@ async function fetchActionsSummary(headers: Record<string, string>): Promise<Act
   } catch { return ACTIONS_FALLBACK; }
 }
 
+async function fetchRecoveryMetrics(headers: Record<string, string>): Promise<RecoveryMetrics> {
+  try {
+    const res = await fetch(apiUrl("/api/dashboard/metrics/recovery"), { cache: "no-store", headers });
+    if (!res.ok) return RECOVERY_FALLBACK;
+    return (await res.json()) as RecoveryMetrics;
+  } catch { return RECOVERY_FALLBACK; }
+}
+
 const TYPE_LABELS: Record<string, string> = {
   control: "controles",
   vaccine: "vacunas",
@@ -98,12 +117,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const { tenant } = await searchParams;
   const session = await auth();
   const headers = makeServerHeaders(session, tenant);
-  const [today, upcoming, inactiveCount, metrics, actionsSummary] = await Promise.all([
+  const [today, upcoming, inactiveCount, metrics, actionsSummary, recovery] = await Promise.all([
     fetchToday(headers),
     fetchUpcoming(headers),
     fetchInactiveCount(headers),
     fetchMetrics(headers),
     fetchActionsSummary(headers),
+    fetchRecoveryMetrics(headers),
   ]);
 
   return (
@@ -155,6 +175,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </Card>
         </Link>
       )}
+
+      {/* RECUPERACIÓN REAL */}
+      <RecoveryCard metrics={recovery} />
 
       {/* PRÓXIMAS CITAS */}
       <Card>
