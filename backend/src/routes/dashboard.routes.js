@@ -1037,6 +1037,147 @@ router.get("/pets/:id/timeline", async (req, res) => {
   }
 });
 
+// GET /pets/:id/report — ficha clínica completa para exportar como PDF
+// Retorna: datos de la mascota + dueño + timeline completa + próximas acciones
+router.get("/pets/:id/report", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { tenantId } = req.tenant;
+
+    const pet = await prisma.pet.findFirst({
+      where: tenantId ? { id, tenantId } : { id },
+      include: {
+        owner: { select: { id: true, name: true, phone: true, email: true, address: true } },
+        tenant: { select: { name: true, phone: true, email: true, address: true, logoUrl: true } },
+      },
+    });
+    if (!pet) return res.status(404).json({ error: "Pet not found" });
+
+    // Reutilizamos la misma lógica que /timeline
+    const timelineRes = await new Promise((resolve, reject) => {
+      const fakeReq = { params: { id }, tenant: req.tenant };
+      const fakeRes = {
+        json: (data) => resolve(data),
+        status: (code) => ({ json: (err) => reject(new Error(err.error ?? "timeline error")) }),
+      };
+      // Invocar el handler directamente no es limpio — hacemos la query directamente
+      resolve(null);
+    });
+
+    // Traer timeline directamente
+    const now = new Date();
+    const [appointments, standaloneRecords, storedActions] = await Promise.all([
+      prisma.appointment.findMany({
+        where: tenantId ? { petId: id, tenantId } : { petId: id },
+        orderBy: { date: "desc" },
+        include: {
+          service: { select: { name: true, category: true } },
+          staff: { select: { name: true } },
+          medicalRecord: { include: { staff: { select: { name: true } } } },
+        },
+      }),
+      prisma.medicalRecord.findMany({
+        where: { petId: id, appointmentId: null },
+        orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+        include: { staff: { select: { name: true } } },
+      }),
+      listNextActions(id, tenantId),
+    ]);
+
+    const items = [];
+    const nextActions = [];
+
+    for (const appt of appointments) {
+      const rec = appt.medicalRecord;
+      const kind = appointmentKind(appt);
+      items.push({
+        id: `appt-${appt.id}`, kind,
+        date: appt.date.toISOString(),
+        title: appt.service?.name ?? appt.serviceType,
+        appointmentId: appt.id,
+        appointmentStatus: appt.status,
+        serviceType: appt.serviceType,
+        serviceName: appt.service?.name ?? null,
+        staffName: rec?.staff?.name ?? appt.staff?.name ?? null,
+        recordId: rec?.id ?? null,
+        reason: rec?.reason ?? null,
+        findings: rec?.findings ?? null,
+        diagnosis: rec?.diagnosis ?? null,
+        treatment: rec?.treatment ?? null,
+        recommendations: rec?.recommendations ?? null,
+        weight: rec?.weight ?? null,
+        nextControlAt: rec?.nextControlAt?.toISOString() ?? null,
+        detail: null,
+      });
+      if (rec?.nextControlAt && new Date(rec.nextControlAt) > now) {
+        nextActions.push({ id: `next-${rec.id}`, kind: "next_action", date: rec.nextControlAt.toISOString(), title: "Control recomendado", detail: rec.diagnosis ? `Seguimiento: ${rec.diagnosis}` : null });
+      }
+    }
+
+    for (const rec of standaloneRecords) {
+      items.push({
+        id: `rec-${rec.id}`, kind: standaloneRecordKind(rec),
+        date: (rec.date ?? rec.createdAt).toISOString(),
+        title: rec.title,
+        appointmentId: null, appointmentStatus: null,
+        serviceType: null, serviceName: null,
+        staffName: rec.staff?.name ?? null, recordId: rec.id,
+        reason: rec.reason ?? null, findings: rec.findings ?? null,
+        diagnosis: rec.diagnosis ?? null, treatment: rec.treatment ?? null,
+        recommendations: rec.recommendations ?? null,
+        weight: rec.weight ?? null,
+        nextControlAt: rec.nextControlAt?.toISOString() ?? null,
+        detail: rec.detail ?? null,
+      });
+      if (rec.nextControlAt && new Date(rec.nextControlAt) > now) {
+        nextActions.push({ id: `next-rec-${rec.id}`, kind: "next_action", date: rec.nextControlAt.toISOString(), title: "Control recomendado", detail: rec.title });
+      }
+    }
+
+    for (const sa of storedActions) {
+      if (!nextActions.some((a) => a.id === `next-${sa.sourceRecordId}`)) {
+        nextActions.push({
+          id: `action-${sa.id}`, kind: "next_action",
+          date: sa.dueAt.toISOString(),
+          title: sa.type === "grooming" ? "Grooming pendiente" : sa.type === "vaccine" ? "Vacuna pendiente" : sa.type === "exam" ? "Examen pendiente" : sa.type === "treatment" ? "Tratamiento pendiente" : "Control recomendado",
+          detail: sa.notes, actionId: sa.id, actionType: sa.type,
+        });
+      }
+    }
+
+    items.sort((a, b) => new Date(b.date) - new Date(a.date));
+    nextActions.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    // Historial de peso (solo entradas con peso registrado)
+    const weightHistory = items
+      .filter((i) => i.weight != null)
+      .map((i) => ({ date: i.date, weight: i.weight, title: i.title }))
+      .reverse(); // cronológico asc
+
+    res.json({
+      pet: {
+        id: pet.id,
+        name: pet.name,
+        type: pet.type,
+        breed: pet.breed,
+        gender: pet.gender,
+        birthDate: pet.birthDate,
+        weight: pet.weight,
+        sterilized: pet.sterilized,
+        notes: pet.notes,
+        createdAt: pet.createdAt,
+      },
+      owner: pet.owner,
+      tenant: pet.tenant,
+      timeline: { items, nextActions },
+      weightHistory,
+    });
+  } catch (error) {
+    console.error("[Dashboard] Pet report error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // ────────────────────────────────────────────────────────────
 // Next actions — TAREA 12
 // ────────────────────────────────────────────────────────────

@@ -202,6 +202,19 @@ function PetMedicalSheetContent({ pet, onRecordAdded }: PetMedicalSheetContentPr
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline">{totalItems} eventos en historial</Badge>
           <Badge variant="outline">{pet._count.appointments} citas</Badge>
+          <a
+            href={`/print/pets/${pet.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-auto"
+          >
+            <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+                <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+              Exportar ficha PDF
+            </Button>
+          </a>
         </div>
 
         {/* Ficha de la mascota */}
