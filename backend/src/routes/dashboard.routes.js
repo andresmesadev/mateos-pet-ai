@@ -36,6 +36,11 @@ const {
   getTenantById,
   createTenant,
 } = require("../services/tenant.service");
+const {
+  isValidStatus,
+  isAllowedTransition,
+  autoTimestamps,
+} = require("../services/appointment-status.service");
 
 const router = express.Router();
 
@@ -178,16 +183,6 @@ function bogotaDayStart(ymd) {
   return new Date(`${ymd}T05:00:00.000Z`);
 }
 
-const VALID_APPOINTMENT_STATUSES = [
-  "pending",
-  "confirmed",
-  "arrived",
-  "in_progress",
-  "completed",
-  "no_show",
-  "cancelled",
-];
-
 function mapAppointmentRow(a) {
   return {
     id: a.id,
@@ -326,8 +321,9 @@ router.patch("/appointments/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const { tenantId } = req.tenant;
-    const { status, staffId, serviceId, price, startedAt, endedAt } = req.body ?? {};
+    const { status, staffId, serviceId, price } = req.body ?? {};
 
+    // Ownership check
     const existing = await prisma.appointment.findFirst({
       where: tenantId ? { id, tenantId } : { id },
     });
@@ -335,17 +331,50 @@ router.patch("/appointments/:id", async (req, res) => {
 
     const data = {};
 
+    // Status transition
     if (status !== undefined) {
-      if (!VALID_APPOINTMENT_STATUSES.includes(status)) {
-        return res.status(400).json({ error: `Estado inválido. Valores permitidos: ${VALID_APPOINTMENT_STATUSES.join(", ")}` });
+      if (!isValidStatus(status)) {
+        return res.status(400).json({ error: "Estado inválido" });
+      }
+      if (!isAllowedTransition(existing.status, status)) {
+        return res.status(422).json({
+          error: `Transición no permitida: ${existing.status} → ${status}`,
+        });
       }
       data.status = status;
+      Object.assign(data, autoTimestamps(existing.status, status));
     }
-    if (staffId !== undefined) data.staffId = staffId || null;
-    if (serviceId !== undefined) data.serviceId = serviceId || null;
-    if (price !== undefined) data.price = price !== null ? Number(price) : null;
-    if (startedAt !== undefined) data.startedAt = startedAt ? new Date(startedAt) : null;
-    if (endedAt !== undefined) data.endedAt = endedAt ? new Date(endedAt) : null;
+
+    // Staff must belong to same tenant
+    if (staffId !== undefined) {
+      if (staffId) {
+        const staff = await prisma.staff.findFirst({
+          where: tenantId ? { id: staffId, tenantId } : { id: staffId },
+        });
+        if (!staff) return res.status(404).json({ error: "Staff no encontrado en este tenant" });
+      }
+      data.staffId = staffId || null;
+    }
+
+    // Service must belong to same tenant; copy price if not explicitly provided
+    if (serviceId !== undefined) {
+      if (serviceId) {
+        const service = await prisma.service.findFirst({
+          where: tenantId ? { id: serviceId, tenantId } : { id: serviceId },
+        });
+        if (!service) return res.status(404).json({ error: "Servicio no encontrado en este tenant" });
+        // Auto-populate price from service if caller didn't send one and appointment has none
+        if (price === undefined && existing.price === null) {
+          data.price = service.price ?? null;
+        }
+      }
+      data.serviceId = serviceId || null;
+    }
+
+    // Explicit price override (preserved as historical even if service changes later)
+    if (price !== undefined) {
+      data.price = price !== null ? Number(price) : null;
+    }
 
     const updated = await prisma.appointment.update({
       where: { id },
