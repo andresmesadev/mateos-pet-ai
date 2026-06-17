@@ -158,16 +158,14 @@ export default function OnboardingPage() {
   useEffect(() => {
     const slug = form.slug.trim();
     if (!slug || slug.length < 2) {
-      setSlugAvailable(null);
       return;
     }
-
-    setSlugChecking(true);
-    setSlugAvailable(null);
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     debounceRef.current = setTimeout(async () => {
+      setSlugChecking(true);
+      setSlugAvailable(null);
       try {
         const res = await fetch(apiUrl(`/api/onboarding/verify/${slug}`));
         const data = await res.json();
@@ -177,7 +175,7 @@ export default function OnboardingPage() {
       } finally {
         setSlugChecking(false);
       }
-    }, 500);
+    }, 400);
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -189,10 +187,14 @@ export default function OnboardingPage() {
     setForm((f) => ({ ...f, slug: toSlug(raw) }));
   };
 
+  // When slug is too short, treat availability as unknown (null) without setState in effect
+  const effectiveSlugAvailable =
+    form.slug.trim().length < 2 ? null : slugAvailable;
+
   const canGoStep2 =
     form.name.trim().length >= 2 &&
     form.slug.length >= 2 &&
-    slugAvailable === true;
+    effectiveSlugAvailable === true;
 
   const canGoStep3 =
     form.phone.trim().length >= 6 && form.email.trim().includes("@");
@@ -272,9 +274,9 @@ export default function OnboardingPage() {
                     value={form.slug}
                     onChange={handleSlugChange}
                     className={
-                      slugAvailable === false
+                      effectiveSlugAvailable === false
                         ? "border-destructive focus-visible:ring-destructive"
-                        : slugAvailable === true
+                        : effectiveSlugAvailable === true
                         ? "border-green-500 focus-visible:ring-green-500"
                         : ""
                     }
@@ -286,11 +288,11 @@ export default function OnboardingPage() {
                     <span className="text-muted-foreground">
                       Verificando…
                     </span>
-                  ) : slugAvailable === true ? (
+                  ) : effectiveSlugAvailable === true ? (
                     <span className="text-green-600 font-medium">
                       ✓ Disponible
                     </span>
-                  ) : slugAvailable === false ? (
+                  ) : effectiveSlugAvailable === false ? (
                     <span className="text-destructive font-medium">
                       ✗ Ya está en uso
                     </span>

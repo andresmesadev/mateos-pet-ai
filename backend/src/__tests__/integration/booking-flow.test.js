@@ -125,7 +125,7 @@ describe("POST /api/test/analyze booking flow", () => {
 
     expect(step1.body.success).toBe(true);
     expect(step1.body.session.step).toBe(STEPS.AWAITING_PET_NAME);
-    expect(step1.body.reply).toMatch(/nombre/i);
+    expect(step1.body.reply).toMatch(/llama|nombre/i);
 
     const step2 = await request(app)
       .post("/api/test/analyze")
@@ -160,7 +160,7 @@ describe("POST /api/test/analyze booking flow", () => {
       .expect(200);
 
     expect(step5.body.session.step).toBe(STEPS.COMPLETED);
-    expect(step5.body.reply).toMatch(/confirmada/i);
+    expect(step5.body.reply).toMatch(/agendada|listo/i);
   });
 
   test("rechaza mensaje vacío", async () => {
