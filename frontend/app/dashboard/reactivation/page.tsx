@@ -9,9 +9,14 @@ type InactiveClient = {
   lastAppointmentDate: string | null;
 };
 
-async function fetchInactiveClients(): Promise<InactiveClient[]> {
+type PageProps = {
+  searchParams: Promise<{ tenant?: string }>;
+};
+
+async function fetchInactiveClients(tenantId?: string): Promise<InactiveClient[]> {
+  const q = tenantId ? `?tenantId=${encodeURIComponent(tenantId)}` : "";
   try {
-    const res = await fetch(apiUrl("/api/dashboard/clients/inactive"), {
+    const res = await fetch(apiUrl(`/api/dashboard/clients/inactive${q}`), {
       cache: "no-store",
     });
     if (!res.ok) return [];
@@ -22,8 +27,9 @@ async function fetchInactiveClients(): Promise<InactiveClient[]> {
   }
 }
 
-export default async function ReactivationPage() {
-  const clients = await fetchInactiveClients();
+export default async function ReactivationPage({ searchParams }: PageProps) {
+  const { tenant } = await searchParams;
+  const clients = await fetchInactiveClients(tenant);
 
   return (
     <div className="space-y-4">

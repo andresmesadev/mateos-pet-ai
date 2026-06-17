@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTenant, tenantQuery } from "@/lib/use-tenant";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ function PanelSkeleton() {
 }
 
 export function EscalationsPanel() {
+  const tenant = useTenant();
   const [escalations, setEscalations] = useState<Escalation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +45,7 @@ export function EscalationsPanel() {
 
     const fetchEscalations = async () => {
       try {
-        const response = await fetch(apiUrl("/api/dashboard/escalations"), {
+        const response = await fetch(apiUrl(`/api/dashboard/escalations${tenantQuery(tenant)}`), {
           cache: "no-store",
         });
 
@@ -82,7 +84,7 @@ export function EscalationsPanel() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, []);
+  }, [tenant]);
 
   const handleResolve = async (id: string) => {
     setResolvingId(id);

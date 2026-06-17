@@ -30,9 +30,11 @@ const mapEscalation = (conversation) => {
 /**
  * Conversaciones con requires_human_attention en sessionData.
  */
-const getPendingEscalations = async () => {
+const getPendingEscalations = async (tenantId) => {
+  const tenantFilter = tenantId ? { tenantId } : {};
   const conversations = await prisma.conversation.findMany({
     where: {
+      ...tenantFilter,
       sessionData: {
         path: ["requires_human_attention"],
         equals: true,

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import { TenantSelector } from "@/components/dashboard/tenant-selector";
 import { cn } from "@/lib/utils";
 
 const isSuperAdmin = process.env.NEXT_PUBLIC_SUPER_ADMIN === "true";
@@ -23,7 +24,7 @@ export function DashboardNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="mb-8 flex flex-wrap gap-2">
+    <nav className="mb-8 flex flex-wrap items-center gap-2">
       {NAV_ITEMS.map((item) => {
         const isActive = item.exact
           ? pathname === item.href
@@ -45,6 +46,9 @@ export function DashboardNav() {
           </Button>
         );
       })}
+      <div className="ml-auto">
+        <TenantSelector />
+      </div>
     </nav>
   );
 }

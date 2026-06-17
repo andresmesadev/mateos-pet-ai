@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTenant, tenantQuery } from "@/lib/use-tenant";
 
 import { PetMedicalSheet } from "@/components/dashboard/pet-medical-sheet";
 import { Badge } from "@/components/ui/badge";
@@ -51,12 +52,14 @@ export function PetsTable({
   const [sheetOpen, setSheetOpen] = useState(false);
   const [openedFromQuery, setOpenedFromQuery] = useState(false);
 
+  const tenant = useTenant();
+
   const loadPets = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(apiUrl("/api/dashboard/pets"), {
+      const response = await fetch(apiUrl(`/api/dashboard/pets${tenantQuery(tenant)}`), {
         cache: "no-store",
       });
 
@@ -78,14 +81,14 @@ export function PetsTable({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tenant]);
 
   useEffect(() => {
     let cancelled = false;
 
     void (async () => {
       try {
-        const response = await fetch(apiUrl("/api/dashboard/pets"), {
+        const response = await fetch(apiUrl(`/api/dashboard/pets${tenantQuery(tenant)}`), {
           cache: "no-store",
         });
 
@@ -129,7 +132,7 @@ export function PetsTable({
     return () => {
       cancelled = true;
     };
-  }, [initialPetId, openedFromQuery]);
+  }, [initialPetId, openedFromQuery, tenant]);
 
   const handleSelectPet = (pet: DashboardPet) => {
     setSelectedPet(pet);

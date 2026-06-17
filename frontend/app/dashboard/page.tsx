@@ -16,9 +16,13 @@ import { getPetEmoji } from "@/lib/pets";
 
 type UpcomingAppointment = TodayAppointment;
 
-async function fetchToday(): Promise<TodayAppointment[]> {
+function tq(tenantId: string | undefined): string {
+  return tenantId ? `?tenantId=${encodeURIComponent(tenantId)}` : "";
+}
+
+async function fetchToday(tenantId?: string): Promise<TodayAppointment[]> {
   try {
-    const res = await fetch(apiUrl("/api/dashboard/appointments/today"), {
+    const res = await fetch(apiUrl(`/api/dashboard/appointments/today${tq(tenantId)}`), {
       cache: "no-store",
     });
     if (!res.ok) return [];
@@ -29,9 +33,9 @@ async function fetchToday(): Promise<TodayAppointment[]> {
   }
 }
 
-async function fetchUpcoming(): Promise<UpcomingAppointment[]> {
+async function fetchUpcoming(tenantId?: string): Promise<UpcomingAppointment[]> {
   try {
-    const res = await fetch(apiUrl("/api/dashboard/appointments/upcoming"), {
+    const res = await fetch(apiUrl(`/api/dashboard/appointments/upcoming${tq(tenantId)}`), {
       cache: "no-store",
     });
     if (!res.ok) return [];
@@ -42,9 +46,9 @@ async function fetchUpcoming(): Promise<UpcomingAppointment[]> {
   }
 }
 
-async function fetchInactiveCount(): Promise<number> {
+async function fetchInactiveCount(tenantId?: string): Promise<number> {
   try {
-    const res = await fetch(apiUrl("/api/dashboard/clients/inactive-count"), {
+    const res = await fetch(apiUrl(`/api/dashboard/clients/inactive-count${tq(tenantId)}`), {
       cache: "no-store",
     });
     if (!res.ok) return 0;
@@ -55,11 +59,16 @@ async function fetchInactiveCount(): Promise<number> {
   }
 }
 
-export default async function DashboardPage() {
+type DashboardPageProps = {
+  searchParams: Promise<{ tenant?: string }>;
+};
+
+export default async function DashboardPage({ searchParams }: DashboardPageProps) {
+  const { tenant } = await searchParams;
   const [today, upcoming, inactiveCount] = await Promise.all([
-    fetchToday(),
-    fetchUpcoming(),
-    fetchInactiveCount(),
+    fetchToday(tenant),
+    fetchUpcoming(tenant),
+    fetchInactiveCount(tenant),
   ]);
 
   return (

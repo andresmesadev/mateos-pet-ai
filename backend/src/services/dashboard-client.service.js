@@ -55,8 +55,10 @@ const mapClientSummary = (user) => {
   };
 };
 
-const listClients = async () => {
+const listClients = async (tenantId) => {
+  const tenantFilter = tenantId ? { tenantId } : {};
   const users = await prisma.user.findMany({
+    where: tenantFilter,
     include: {
       _count: {
         select: {
@@ -152,11 +154,13 @@ const getClientById = async (clientId) => {
   };
 };
 
-const listInactiveClients = async () => {
+const listInactiveClients = async (tenantId) => {
   const cutoff = new Date(Date.now() - 60 * 86_400_000);
+  const tenantFilter = tenantId ? { tenantId } : {};
 
   const users = await prisma.user.findMany({
     where: {
+      ...tenantFilter,
       AND: [
         { appointments: { some: {} } },
         { appointments: { none: { date: { gte: cutoff } } } },

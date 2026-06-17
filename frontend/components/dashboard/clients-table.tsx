@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTenant, tenantQuery } from "@/lib/use-tenant";
 
 import { ClientSheet } from "@/components/dashboard/client-sheet";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +39,7 @@ function TableSkeleton() {
 }
 
 export function ClientsTable() {
+  const tenant = useTenant();
   const [clients, setClients] = useState<DashboardClient[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,8 +50,9 @@ export function ClientsTable() {
     let cancelled = false;
 
     void (async () => {
+      if (!cancelled) setLoading(true);
       try {
-        const response = await fetch(apiUrl("/api/dashboard/clients"), {
+        const response = await fetch(apiUrl(`/api/dashboard/clients${tenantQuery(tenant)}`), {
           cache: "no-store",
         });
 
@@ -82,7 +85,7 @@ export function ClientsTable() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [tenant]);
 
   const handleOpenClient = (client: DashboardClient) => {
     setSelectedId(client.id);

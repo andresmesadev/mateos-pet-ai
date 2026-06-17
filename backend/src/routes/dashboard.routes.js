@@ -187,12 +187,14 @@ const APPOINTMENT_INCLUDE = {
 
 router.get("/appointments/today", async (req, res) => {
   try {
+    const { tenantId } = req.query;
+    const tenantFilter = tenantId ? { tenantId } : {};
     const ymd = getBogotaYmd();
     const start = bogotaDayStart(ymd);
     const end = new Date(start.getTime() + 86_400_000);
 
     const rows = await prisma.appointment.findMany({
-      where: { date: { gte: start, lt: end } },
+      where: { ...tenantFilter, date: { gte: start, lt: end } },
       orderBy: { date: "asc" },
       include: APPOINTMENT_INCLUDE,
     });
@@ -206,12 +208,15 @@ router.get("/appointments/today", async (req, res) => {
 
 router.get("/appointments/upcoming", async (req, res) => {
   try {
+    const { tenantId } = req.query;
+    const tenantFilter = tenantId ? { tenantId } : {};
     const ymd = getBogotaYmd();
     const todayEnd = new Date(bogotaDayStart(ymd).getTime() + 86_400_000);
     const weekEnd = new Date(todayEnd.getTime() + 6 * 86_400_000);
 
     const rows = await prisma.appointment.findMany({
       where: {
+        ...tenantFilter,
         date: { gte: todayEnd, lt: weekEnd },
         status: { not: "cancelled" },
       },
@@ -229,9 +234,12 @@ router.get("/appointments/upcoming", async (req, res) => {
 
 router.get("/clients/inactive-count", async (req, res) => {
   try {
+    const { tenantId } = req.query;
+    const tenantFilter = tenantId ? { tenantId } : {};
     const cutoff = new Date(Date.now() - 60 * 86_400_000);
     const count = await prisma.user.count({
       where: {
+        ...tenantFilter,
         AND: [
           { appointments: { some: {} } },
           { appointments: { none: { date: { gte: cutoff } } } },
@@ -288,7 +296,10 @@ router.get("/appointments", async (req, res) => {
 
 router.get("/pets", async (req, res) => {
   try {
+    const { tenantId } = req.query;
+    const tenantFilter = tenantId ? { tenantId } : {};
     const pets = await prisma.pet.findMany({
+      where: tenantFilter,
       orderBy: { createdAt: "desc" },
       include: {
         owner: {
@@ -418,7 +429,8 @@ router.post("/pets/:id/records", async (req, res) => {
 
 router.get("/escalations", async (req, res) => {
   try {
-    const escalations = await getPendingEscalations();
+    const { tenantId } = req.query;
+    const escalations = await getPendingEscalations(tenantId);
     res.json(escalations);
   } catch (error) {
     console.error("[Dashboard] Escalations error:", error);
@@ -486,7 +498,8 @@ router.get("/conversations/:id/messages", async (req, res) => {
 
 router.get("/clients", async (req, res) => {
   try {
-    const clients = await listClients();
+    const { tenantId } = req.query;
+    const clients = await listClients(tenantId);
     res.json(clients);
   } catch (error) {
     console.error("[Dashboard] Clients error:", error);
@@ -543,7 +556,8 @@ router.patch("/pets/:id", async (req, res) => {
 
 router.get("/clients/inactive", async (req, res) => {
   try {
-    const clients = await listInactiveClients();
+    const { tenantId } = req.query;
+    const clients = await listInactiveClients(tenantId);
     res.json(clients);
   } catch (error) {
     console.error("[Dashboard] Inactive clients error:", error);
