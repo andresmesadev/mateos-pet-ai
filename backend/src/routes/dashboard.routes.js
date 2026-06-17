@@ -265,6 +265,48 @@ router.get("/appointments/upcoming", async (req, res) => {
   }
 });
 
+// GET /appointments/week?date=YYYY-MM-DD  (defaults to current Bogotá week Mon–Sun)
+router.get("/appointments/week", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    const tenantFilter = tenantId ? { tenantId } : {};
+
+    // Resolve anchor date (Bogotá)
+    const anchor = typeof req.query.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(req.query.date)
+      ? req.query.date
+      : getBogotaYmd();
+
+    // Find Monday of the anchor's week
+    const anchorDate = new Date(`${anchor}T12:00:00.000Z`);
+    const dow = anchorDate.getUTCDay(); // 0=Sun
+    const daysToMon = dow === 0 ? -6 : 1 - dow;
+    const monday = new Date(anchorDate.getTime() + daysToMon * 86_400_000);
+    const mondayYmd = monday.toISOString().slice(0, 10);
+
+    const weekStart = bogotaDayStart(mondayYmd);
+    const weekEnd = new Date(weekStart.getTime() + 7 * 86_400_000);
+
+    const rows = await prisma.appointment.findMany({
+      where: {
+        ...tenantFilter,
+        date: { gte: weekStart, lt: weekEnd },
+      },
+      orderBy: { date: "asc" },
+      include: APPOINTMENT_INCLUDE,
+    });
+
+    res.json({
+      weekStart: weekStart.toISOString(),
+      weekEnd: weekEnd.toISOString(),
+      mondayYmd,
+      appointments: rows.map(mapAppointmentRow),
+    });
+  } catch (error) {
+    console.error("[Dashboard] Week appointments error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.get("/clients/inactive-count", async (req, res) => {
   try {
     const { tenantId } = req.tenant;

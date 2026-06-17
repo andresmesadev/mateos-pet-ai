@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Inicio", exact: true },
+  { href: "/dashboard/calendar", label: "Calendario", exact: false },
   { href: "/dashboard/clients", label: "Clientes", exact: false },
   { href: "/dashboard/conversations", label: "Conversaciones", exact: false },
   { href: "/dashboard/pets", label: "Mascotas", exact: false },
