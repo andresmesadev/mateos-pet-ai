@@ -117,14 +117,18 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const { tenant } = await searchParams;
   const session = await auth();
   const headers = makeServerHeaders(session, tenant);
-  const [today, upcoming, inactiveCount, metrics, actionsSummary, recovery] = await Promise.all([
+  const [today, upcoming, inactiveCount, metrics, actionsSummary, recovery, churnRaw] = await Promise.all([
     fetchToday(headers),
     fetchUpcoming(headers),
     fetchInactiveCount(headers),
     fetchMetrics(headers),
     fetchActionsSummary(headers),
     fetchRecoveryMetrics(headers),
+    fetch(apiUrl("/api/dashboard/metrics/churn?limit=5"), { cache: "no-store", headers })
+      .then((r) => r.ok ? r.json() : []).catch(() => []),
   ]);
+  const churnAtRisk = Array.isArray(churnRaw) ? churnRaw as { name: string; riskLevel: string }[] : [];
+  const churnHigh = churnAtRisk.filter((c) => c.riskLevel === "high").length;
 
   return (
     <div className="space-y-8">
@@ -217,6 +221,29 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           )}
         </CardContent>
       </Card>
+
+      {/* CHURN PREDICTION WIDGET */}
+      {churnAtRisk.length > 0 && (
+        <Link href="/dashboard/churn" className="block">
+          <Card className="border-2 border-red-200 bg-red-50/40 transition-colors hover:bg-red-50/70 dark:border-red-900 dark:bg-red-950/10">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                ⚠️ Clientes en riesgo de abandono
+                <Badge className="border-red-200 bg-red-100 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+                  {churnAtRisk.length}
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                {churnAtRisk.length} cliente{churnAtRisk.length === 1 ? "" : "s"} llevan más tiempo del habitual sin visitar.
+                {churnHigh > 0 && ` ${churnHigh} en riesgo alto.`}
+                {" "}Ver predicción de churn →
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+      )}
 
       {/* REACTIVAR PREVIEW */}
       {inactiveCount > 0 && (

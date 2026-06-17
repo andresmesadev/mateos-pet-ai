@@ -14,6 +14,9 @@ import {
 import { proxyUrl } from "@/lib/api";
 import { useTenant } from "@/lib/use-tenant";
 
+type DaySlot = { open: string; close: string; active: boolean };
+type Availability = Record<string, DaySlot>;
+
 type StaffMember = {
   id: string;
   tenantId: string | null;
@@ -22,6 +25,7 @@ type StaffMember = {
   phone: string | null;
   email: string | null;
   active: boolean;
+  availability: Availability | null;
 };
 
 const ROLES = [
@@ -29,6 +33,103 @@ const ROLES = [
   { value: "groomer", label: "Peluquero/a" },
   { value: "admin", label: "Administrativo/a" },
 ];
+
+const DAYS = [
+  { key: "mon", label: "Lun" },
+  { key: "tue", label: "Mar" },
+  { key: "wed", label: "Mié" },
+  { key: "thu", label: "Jue" },
+  { key: "fri", label: "Vie" },
+  { key: "sat", label: "Sáb" },
+  { key: "sun", label: "Dom" },
+];
+
+const DEFAULT_SLOT: DaySlot = { open: "08:00", close: "18:00", active: true };
+
+function buildDefaultAvailability(): Availability {
+  const base: Availability = {};
+  for (const { key } of DAYS) base[key] = { ...DEFAULT_SLOT };
+  base.sun = { ...DEFAULT_SLOT, active: false };
+  return base;
+}
+
+// ── Availability panel ────────────────────────────────────────
+
+function AvailabilityPanel({ staffId, initial, onSaved }: {
+  staffId: string;
+  initial: Availability | null;
+  onSaved: (av: Availability) => void;
+}) {
+  const [av, setAv] = useState<Availability>(() => initial ?? buildDefaultAvailability());
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  function setDay(key: string, field: keyof DaySlot, value: string | boolean) {
+    setSaved(false);
+    setAv((prev) => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    setSaved(false);
+    try {
+      const res = await fetch(proxyUrl(`/api/dashboard/staff/${staffId}`), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ availability: av }),
+      });
+      if (res.ok) {
+        setSaved(true);
+        onSaved(av);
+      }
+    } catch { /* noop */ } finally { setSaving(false); }
+  }
+
+  return (
+    <div className="mt-3 rounded-lg border bg-muted/20 p-3 space-y-2">
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Disponibilidad semanal</p>
+      <div className="space-y-1.5">
+        {DAYS.map(({ key, label }) => {
+          const day = av[key] ?? { ...DEFAULT_SLOT, active: false };
+          return (
+            <div key={key} className="grid grid-cols-[40px_80px_auto_auto] gap-2 items-center">
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="checkbox"
+                  checked={day.active}
+                  onChange={(e) => setDay(key, "active", e.target.checked)}
+                  className="h-3.5 w-3.5 rounded border-input"
+                />
+                <span className={`text-xs ${day.active ? "font-medium" : "text-muted-foreground"}`}>{label}</span>
+              </div>
+              <input
+                type="time"
+                value={day.open}
+                disabled={!day.active}
+                onChange={(e) => setDay(key, "open", e.target.value)}
+                className="h-7 w-full rounded border border-input bg-background px-2 text-xs disabled:opacity-40"
+              />
+              <input
+                type="time"
+                value={day.close}
+                disabled={!day.active}
+                onChange={(e) => setDay(key, "close", e.target.value)}
+                className="h-7 w-full rounded border border-input bg-background px-2 text-xs disabled:opacity-40"
+              />
+              {!day.active && <span className="text-xs text-muted-foreground">Cerrado</span>}
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex items-center gap-3 pt-1">
+        <Button size="sm" onClick={handleSave} disabled={saving} className="h-7 text-xs px-3">
+          {saving ? "Guardando…" : "Guardar horario"}
+        </Button>
+        {saved && <span className="text-xs text-green-600">Guardado</span>}
+      </div>
+    </div>
+  );
+}
 
 const ROLE_LABELS: Record<string, string> = {
   vet: "Veterinario/a",
@@ -50,6 +151,7 @@ export function StaffManager() {
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EditForm | null>(null);
+  const [availabilityOpenId, setAvailabilityOpenId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function fetchStaff() {
@@ -283,34 +385,51 @@ export function StaffManager() {
                           </div>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className={`font-medium ${!m.active ? "text-muted-foreground line-through" : ""}`}>
-                                {m.name}
-                              </span>
-                              <Badge variant="secondary" className="text-xs">
-                                {ROLE_LABELS[m.role] ?? m.role}
-                              </Badge>
+                        <div>
+                          <div className="flex items-center gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className={`font-medium ${!m.active ? "text-muted-foreground line-through" : ""}`}>
+                                  {m.name}
+                                </span>
+                                <Badge variant="secondary" className="text-xs">
+                                  {ROLE_LABELS[m.role] ?? m.role}
+                                </Badge>
+                              </div>
+                              <div className="mt-0.5 flex gap-3 text-sm text-muted-foreground">
+                                {m.phone && <span>{m.phone}</span>}
+                                {m.email && <span>{m.email}</span>}
+                              </div>
                             </div>
-                            <div className="mt-0.5 flex gap-3 text-sm text-muted-foreground">
-                              {m.phone && <span>{m.phone}</span>}
-                              {m.email && <span>{m.email}</span>}
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Button size="sm" variant="ghost" onClick={() => startEdit(m)}>
+                                Editar
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-muted-foreground"
+                                onClick={() => setAvailabilityOpenId(availabilityOpenId === m.id ? null : m.id)}
+                              >
+                                {availabilityOpenId === m.id ? "Cerrar horario" : "Horario"}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className={m.active ? "text-muted-foreground" : "text-green-600"}
+                                onClick={() => handleToggleActive(m)}
+                              >
+                                {m.active ? "Desactivar" : "Activar"}
+                              </Button>
                             </div>
                           </div>
-                          <div className="flex items-center gap-1 shrink-0">
-                            <Button size="sm" variant="ghost" onClick={() => startEdit(m)}>
-                              Editar
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className={m.active ? "text-muted-foreground" : "text-green-600"}
-                              onClick={() => handleToggleActive(m)}
-                            >
-                              {m.active ? "Desactivar" : "Activar"}
-                            </Button>
-                          </div>
+                          {availabilityOpenId === m.id && (
+                            <AvailabilityPanel
+                              staffId={m.id}
+                              initial={m.availability}
+                              onSaved={(av) => setMembers((prev) => prev.map((s) => s.id === m.id ? { ...s, availability: av } : s))}
+                            />
+                          )}
                         </div>
                       )}
                     </li>

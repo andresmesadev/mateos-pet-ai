@@ -1491,7 +1491,7 @@ router.patch("/staff/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const { tenantId } = req.tenant;
-    const { name, role, phone, email, active } = req.body ?? {};
+    const { name, role, phone, email, active, availability } = req.body ?? {};
 
     const existing = await prisma.staff.findFirst({
       where: tenantId ? { id, tenantId } : { id },
@@ -1510,6 +1510,7 @@ router.patch("/staff/:id", async (req, res) => {
     if (phone !== undefined) data.phone = phone?.trim() || null;
     if (email !== undefined) data.email = email?.trim() || null;
     if (active !== undefined) data.active = Boolean(active);
+    if (availability !== undefined) data.availability = availability;
 
     const updated = await updateStaff(id, data);
     res.json(updated);
@@ -1536,6 +1537,115 @@ router.delete("/staff/:id", async (req, res) => {
   } catch (error) {
     console.error("[Dashboard] Delete staff error:", error);
     if (error.code === "P2025") return res.status(404).json({ error: "Staff not found" });
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// GET /staff/available?date=YYYY-MM-DD&time=HH:MM — para el agente NLP
+// Devuelve qué staff members están disponibles en ese día y hora
+router.get("/staff/available", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    const { date, time } = req.query;
+
+    if (!date || !time) return res.status(400).json({ error: "date y time son requeridos" });
+
+    const DOW_MAP = ["sun","mon","tue","wed","thu","fri","sat"];
+    const dayKey = DOW_MAP[new Date(`${date}T12:00:00Z`).getUTCDay()];
+
+    const allStaff = await prisma.staff.findMany({
+      where: { ...(tenantId ? { tenantId } : {}), active: true },
+      select: { id: true, name: true, role: true, availability: true },
+    });
+
+    const available = allStaff.filter((s) => {
+      if (!s.availability) return true; // no restrictions = always available
+      const day = s.availability[dayKey];
+      if (!day || !day.active) return false;
+      return time >= day.open && time < day.close;
+    });
+
+    res.json(available.map((s) => ({ id: s.id, name: s.name, role: s.role })));
+  } catch (error) {
+    console.error("[Dashboard] Staff available error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── TAREA 22: Predicción de churn ─────────────────────────────────────────────
+// GET /metrics/churn?limit=50
+// Identifica clientes en riesgo basándose en frecuencia histórica de visitas.
+// Requiere >= 2 citas completadas para calcular intervalo promedio.
+// overdueRatio = daysSinceLastVisit / avgIntervalDays
+//   >= 2.0 → riesgo alto  (muy atrasado)
+//   >= 1.3 → riesgo medio
+//   >= 1.0 → riesgo bajo  (ventana pasada)
+router.get("/metrics/churn", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    const limit = Math.min(parseInt(req.query.limit ?? "50") || 50, 200);
+
+    // Traer todos los clientes con >= 2 citas completadas
+    const users = await prisma.user.findMany({
+      where: { ...(tenantId ? { tenantId } : {}) },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        appointments: {
+          where: { status: "completed", ...(tenantId ? { tenantId } : {}) },
+          select: { date: true, petName: true },
+          orderBy: { date: "asc" },
+        },
+      },
+    });
+
+    const now = Date.now();
+    const MS_DAY = 86400000;
+
+    const atRisk = [];
+
+    for (const u of users) {
+      const appts = u.appointments;
+      if (appts.length < 2) continue;
+
+      // Calcular intervalo promedio entre citas consecutivas
+      let totalInterval = 0;
+      for (let i = 1; i < appts.length; i++) {
+        totalInterval += new Date(appts[i].date) - new Date(appts[i - 1].date);
+      }
+      const avgIntervalMs = totalInterval / (appts.length - 1);
+      const avgIntervalDays = Math.round(avgIntervalMs / MS_DAY);
+
+      if (avgIntervalDays < 7) continue; // clientes diarios no son churn risk
+
+      const lastAppt = appts[appts.length - 1];
+      const daysSinceLast = Math.floor((now - new Date(lastAppt.date)) / MS_DAY);
+      const overdueRatio = daysSinceLast / avgIntervalDays;
+
+      if (overdueRatio < 1.0) continue; // aún dentro de su ventana normal
+
+      const riskLevel = overdueRatio >= 2.0 ? "high" : overdueRatio >= 1.3 ? "medium" : "low";
+
+      atRisk.push({
+        id: u.id,
+        name: u.name ?? "Sin nombre",
+        phone: u.phone,
+        petName: lastAppt.petName,
+        lastVisitDays: daysSinceLast,
+        avgIntervalDays,
+        overdueRatio: Math.round(overdueRatio * 10) / 10,
+        riskLevel,
+        totalVisits: appts.length,
+      });
+    }
+
+    // Ordenar por riesgo mayor primero
+    atRisk.sort((a, b) => b.overdueRatio - a.overdueRatio);
+
+    res.json(atRisk.slice(0, limit));
+  } catch (error) {
+    console.error("[Dashboard] Churn metrics error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });

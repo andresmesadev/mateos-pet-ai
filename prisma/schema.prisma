@@ -49,6 +49,8 @@ model Staff {
   phone     String?
   email     String?
   active    Boolean  @default(true)
+  // Disponibilidad semanal: { mon: { open: "08:00", close: "18:00", active: true }, ... }
+  availability Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
