@@ -27,15 +27,18 @@ const MONTH_NAMES = [
 
 // ── Helpers ───────────────────────────────────────────────────
 
-function bogotaDate(iso: string) {
-  // Returns a Date interpreted in America/Bogota (UTC-5)
-  return new Date(new Date(iso).toLocaleString("en-CA", { timeZone: "America/Bogota" }));
+// Shift a UTC instant by -5h so getUTC* methods return Bogotá local values
+function toBogotaUTC(iso: string): Date {
+  const ms = new Date(iso).getTime();
+  return new Date(ms - 5 * 3_600_000);
 }
 
 function ymdFromIso(iso: string): string {
-  return new Date(iso)
-    .toLocaleDateString("en-CA", { timeZone: "America/Bogota" })
-    .slice(0, 10);
+  const b = toBogotaUTC(iso);
+  const y = b.getUTCFullYear();
+  const m = String(b.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(b.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 function prevMonday(ymd: string): string {
@@ -118,8 +121,11 @@ function ApptDetail({
   appt: TodayAppointment;
   onClose: () => void;
 }) {
-  const d = bogotaDate(appt.date);
-  const timeStr = d.toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" });
+  const timeStr = new Date(appt.date).toLocaleTimeString("es-CO", {
+    timeZone: "America/Bogota",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
@@ -192,11 +198,11 @@ export function WeekCalendar({ data }: { data: WeekData }) {
   }
 
   function apptPosition(appt: TodayAppointment): { top: number; height: number } {
-    const d = bogotaDate(appt.date);
-    const hour = d.getHours() + d.getMinutes() / 60;
+    const b = toBogotaUTC(appt.date);
+    const hour = b.getUTCHours() + b.getUTCMinutes() / 60;
     const top = (hour - HOUR_START) * SLOT_HEIGHT;
-    const height = SLOT_HEIGHT * 0.85; // default ~50min block
-    return { top, height };
+    const height = SLOT_HEIGHT * 0.85;
+    return { top: isNaN(top) ? 0 : top, height };
   }
 
   return (
