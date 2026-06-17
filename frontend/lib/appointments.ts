@@ -1,5 +1,16 @@
 export const BOGOTA_TIMEZONE = "America/Bogota";
 
+export type TodayAppointment = {
+  id: string;
+  date: string;
+  status: AppointmentStatus;
+  serviceType: string;
+  petName: string;
+  petType: string;
+  clientPhone: string;
+  clientName: string | null;
+};
+
 export type AppointmentStatus = "pending" | "confirmed" | "cancelled" | string;
 
 export type AppointmentPet = {
@@ -41,6 +52,17 @@ const STATUS_LABELS: Record<string, string> = {
   pending: "Pendiente",
   cancelled: "Cancelada",
 };
+
+export function formatColombiaTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("es-CO", {
+    timeZone: BOGOTA_TIMEZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+}
 
 export function formatColombiaDateTime(iso: string): string {
   const date = new Date(iso);

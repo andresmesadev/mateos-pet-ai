@@ -156,6 +156,93 @@ router.get("/stats", async (req, res) => {
   }
 });
 
+function getBogotaYmd() {
+  const bogota = new Date(Date.now() - 5 * 3600 * 1000);
+  return bogota.toISOString().slice(0, 10);
+}
+
+function bogotaDayStart(ymd) {
+  return new Date(`${ymd}T05:00:00.000Z`);
+}
+
+function mapAppointmentRow(a) {
+  return {
+    id: a.id,
+    date: a.date,
+    status: a.status,
+    serviceType: a.serviceType,
+    petName: a.pet?.name ?? a.petName,
+    petType: a.pet?.type ?? a.petType,
+    clientPhone: a.user?.phone ?? "",
+    clientName: a.user?.name ?? null,
+  };
+}
+
+const APPOINTMENT_INCLUDE = {
+  user: { select: { phone: true, name: true } },
+  pet: { select: { name: true, type: true } },
+};
+
+router.get("/appointments/today", async (req, res) => {
+  try {
+    const ymd = getBogotaYmd();
+    const start = bogotaDayStart(ymd);
+    const end = new Date(start.getTime() + 86_400_000);
+
+    const rows = await prisma.appointment.findMany({
+      where: { date: { gte: start, lt: end } },
+      orderBy: { date: "asc" },
+      include: APPOINTMENT_INCLUDE,
+    });
+
+    res.json(rows.map(mapAppointmentRow));
+  } catch (error) {
+    console.error("[Dashboard] Today appointments error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get("/appointments/upcoming", async (req, res) => {
+  try {
+    const ymd = getBogotaYmd();
+    const todayEnd = new Date(bogotaDayStart(ymd).getTime() + 86_400_000);
+    const weekEnd = new Date(todayEnd.getTime() + 6 * 86_400_000);
+
+    const rows = await prisma.appointment.findMany({
+      where: {
+        date: { gte: todayEnd, lt: weekEnd },
+        status: { not: "cancelled" },
+      },
+      orderBy: { date: "asc" },
+      take: 30,
+      include: APPOINTMENT_INCLUDE,
+    });
+
+    res.json(rows.map(mapAppointmentRow));
+  } catch (error) {
+    console.error("[Dashboard] Upcoming appointments error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get("/clients/inactive-count", async (req, res) => {
+  try {
+    const cutoff = new Date(Date.now() - 60 * 86_400_000);
+    const count = await prisma.user.count({
+      where: {
+        AND: [
+          { appointments: { some: {} } },
+          { appointments: { none: { date: { gte: cutoff } } } },
+        ],
+      },
+    });
+    res.json({ count });
+  } catch (error) {
+    console.error("[Dashboard] Inactive count error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.get("/appointments", async (req, res) => {
   try {
     const rows = await prisma.appointment.findMany({
