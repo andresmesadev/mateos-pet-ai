@@ -41,6 +41,15 @@ const {
   isAllowedTransition,
   autoTimestamps,
 } = require("../services/appointment-status.service");
+const {
+  VALID_TYPES: VALID_ACTION_TYPES,
+  listNextActions,
+  createNextAction,
+  updateNextAction,
+  upsertControlFromRecord,
+  createGroomingReminderIfNeeded,
+  pendingActionsSummary,
+} = require("../services/next-action.service");
 
 const router = express.Router();
 
@@ -379,8 +388,23 @@ router.patch("/appointments/:id", async (req, res) => {
     const updated = await prisma.appointment.update({
       where: { id },
       data,
-      include: APPOINTMENT_INCLUDE,
+      include: { ...APPOINTMENT_INCLUDE, service: { select: { name: true, category: true } } },
     });
+
+    // Auto-create grooming reminder when a grooming appointment completes
+    if (data.status === "completed" && updated.petId) {
+      const category = updated.service?.category;
+      const stype = updated.serviceType?.toLowerCase() ?? "";
+      const isGrooming = category === "grooming" || GROOMING_TYPES.includes(stype);
+      if (isGrooming) {
+        await createGroomingReminderIfNeeded({
+          petId: updated.petId,
+          tenantId: updated.tenantId,
+          appointmentId: updated.id,
+          appointmentDate: updated.date,
+        }).catch((err) => console.error("[NextAction] Grooming reminder error:", err));
+      }
+    }
 
     res.json(mapAppointmentRow(updated));
   } catch (error) {
@@ -538,6 +562,15 @@ router.put("/appointments/:id/medical-record", async (req, res) => {
 
       return record;
     });
+
+    // Auto-upsert "control" next action when nextControlAt is set
+    await upsertControlFromRecord({
+      petId: appt.petId,
+      tenantId: appt.tenantId,
+      recordId: result.id,
+      dueAt: nextControlAt ? new Date(nextControlAt) : null,
+      notes: result.diagnosis ? `Seguimiento: ${result.diagnosis}` : null,
+    }).catch((err) => console.error("[NextAction] Control upsert error:", err));
 
     res.json(mapMedicalRecord(result));
   } catch (error) {
@@ -875,12 +908,110 @@ router.get("/pets/:id/timeline", async (req, res) => {
       items.push(item);
     }
 
+    // Merge PetNextAction table into nextActions
+    const storedActions = await listNextActions(id, tenantId);
+    for (const sa of storedActions) {
+      // Avoid duplicating actions already derived from nextControlAt on records
+      const alreadyCovered = nextActions.some((a) => a.id === `next-${sa.sourceRecordId}`);
+      if (!alreadyCovered) {
+        nextActions.push({
+          id: `action-${sa.id}`,
+          kind: "next_action",
+          date: sa.dueAt.toISOString(),
+          title: sa.type === "grooming" ? "Grooming pendiente"
+            : sa.type === "vaccine" ? "Vacuna pendiente"
+            : sa.type === "exam" ? "Examen pendiente"
+            : sa.type === "treatment" ? "Tratamiento pendiente"
+            : "Control recomendado",
+          detail: sa.notes,
+          actionId: sa.id,
+          actionType: sa.type,
+        });
+      }
+    }
+
     items.sort((a, b) => new Date(b.date) - new Date(a.date));
     nextActions.sort((a, b) => new Date(a.date) - new Date(b.date));
 
     res.json({ items, nextActions });
   } catch (error) {
     console.error("[Dashboard] Pet timeline error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ────────────────────────────────────────────────────────────
+// Next actions — TAREA 12
+// ────────────────────────────────────────────────────────────
+
+router.get("/next-actions/summary", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    const summary = await pendingActionsSummary(tenantId);
+    res.json(summary);
+  } catch (error) {
+    console.error("[Dashboard] Next actions summary error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get("/pets/:id/next-actions", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { tenantId } = req.tenant;
+    const includeAll = req.query.all === "true";
+
+    const pet = await prisma.pet.findFirst({
+      where: tenantId ? { id, tenantId } : { id },
+      select: { id: true },
+    });
+    if (!pet) return res.status(404).json({ error: "Pet not found" });
+
+    const actions = await listNextActions(id, tenantId, { includeAll });
+    res.json(actions);
+  } catch (error) {
+    console.error("[Dashboard] List next actions error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/pets/:id/next-actions", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { tenantId } = req.tenant;
+    const { type, notes, dueAt } = req.body ?? {};
+
+    const pet = await prisma.pet.findFirst({
+      where: tenantId ? { id, tenantId } : { id },
+      select: { id: true },
+    });
+    if (!pet) return res.status(404).json({ error: "Pet not found" });
+
+    if (!dueAt) return res.status(400).json({ error: "dueAt es requerido" });
+    if (!VALID_ACTION_TYPES.includes(type)) {
+      return res.status(400).json({ error: `Tipo inválido. Valores: ${VALID_ACTION_TYPES.join(", ")}` });
+    }
+
+    const action = await createNextAction({ petId: id, tenantId, type, notes, dueAt });
+    res.status(201).json(action);
+  } catch (error) {
+    console.error("[Dashboard] Create next action error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.patch("/next-actions/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { tenantId } = req.tenant;
+    const { status, notes, dueAt } = req.body ?? {};
+
+    const updated = await updateNextAction(id, tenantId, { status, notes, dueAt });
+    if (!updated) return res.status(404).json({ error: "Not found" });
+    res.json(updated);
+  } catch (error) {
+    console.error("[Dashboard] Update next action error:", error.message);
+    if (error.message.includes("inválido")) return res.status(400).json({ error: error.message });
     res.status(500).json({ error: "Internal server error" });
   }
 });

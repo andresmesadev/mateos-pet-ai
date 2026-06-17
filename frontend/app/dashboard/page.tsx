@@ -24,74 +24,71 @@ type MetricsData = {
   newClientsThisMonth: { count: number; prev: number; delta: number };
 };
 
+type ActionsSummary = {
+  total: number;
+  byType: Record<string, number>;
+  overduePets: number;
+};
+
 const METRICS_FALLBACK: MetricsData = {
   appointmentsThisWeek: { count: 0, prev: 0, delta: 0 },
   confirmationRate: { rate: 0, prev: 0, delta: 0 },
   newClientsThisMonth: { count: 0, prev: 0, delta: 0 },
 };
 
-async function fetchToday(
-  headers: Record<string, string>
-): Promise<TodayAppointment[]> {
+const ACTIONS_FALLBACK: ActionsSummary = { total: 0, byType: {}, overduePets: 0 };
+
+async function fetchToday(headers: Record<string, string>): Promise<TodayAppointment[]> {
   try {
-    const res = await fetch(apiUrl("/api/dashboard/appointments/today"), {
-      cache: "no-store",
-      headers,
-    });
+    const res = await fetch(apiUrl("/api/dashboard/appointments/today"), { cache: "no-store", headers });
     if (!res.ok) return [];
     const data = await res.json();
     return Array.isArray(data) ? data : [];
-  } catch {
-    return [];
-  }
+  } catch { return []; }
 }
 
-async function fetchUpcoming(
-  headers: Record<string, string>
-): Promise<UpcomingAppointment[]> {
+async function fetchUpcoming(headers: Record<string, string>): Promise<UpcomingAppointment[]> {
   try {
-    const res = await fetch(apiUrl("/api/dashboard/appointments/upcoming"), {
-      cache: "no-store",
-      headers,
-    });
+    const res = await fetch(apiUrl("/api/dashboard/appointments/upcoming"), { cache: "no-store", headers });
     if (!res.ok) return [];
     const data = await res.json();
     return Array.isArray(data) ? data : [];
-  } catch {
-    return [];
-  }
+  } catch { return []; }
 }
 
-async function fetchInactiveCount(
-  headers: Record<string, string>
-): Promise<number> {
+async function fetchInactiveCount(headers: Record<string, string>): Promise<number> {
   try {
-    const res = await fetch(
-      apiUrl("/api/dashboard/clients/inactive-count"),
-      { cache: "no-store", headers }
-    );
+    const res = await fetch(apiUrl("/api/dashboard/clients/inactive-count"), { cache: "no-store", headers });
     if (!res.ok) return 0;
     const data = await res.json();
     return data.count ?? 0;
-  } catch {
-    return 0;
-  }
+  } catch { return 0; }
 }
 
-async function fetchMetrics(
-  headers: Record<string, string>
-): Promise<MetricsData> {
+async function fetchMetrics(headers: Record<string, string>): Promise<MetricsData> {
   try {
-    const res = await fetch(apiUrl("/api/dashboard/metrics"), {
-      cache: "no-store",
-      headers,
-    });
+    const res = await fetch(apiUrl("/api/dashboard/metrics"), { cache: "no-store", headers });
     if (!res.ok) return METRICS_FALLBACK;
     return (await res.json()) as MetricsData;
-  } catch {
-    return METRICS_FALLBACK;
-  }
+  } catch { return METRICS_FALLBACK; }
 }
+
+async function fetchActionsSummary(headers: Record<string, string>): Promise<ActionsSummary> {
+  try {
+    const res = await fetch(apiUrl("/api/dashboard/next-actions/summary"), { cache: "no-store", headers });
+    if (!res.ok) return ACTIONS_FALLBACK;
+    return (await res.json()) as ActionsSummary;
+  } catch { return ACTIONS_FALLBACK; }
+}
+
+const TYPE_LABELS: Record<string, string> = {
+  control: "controles",
+  vaccine: "vacunas",
+  grooming: "grooming",
+  exam: "exámenes",
+  treatment: "tratamientos",
+  other: "otros",
+};
 
 type DashboardPageProps = {
   searchParams: Promise<{ tenant?: string }>;
@@ -101,11 +98,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const { tenant } = await searchParams;
   const session = await auth();
   const headers = makeServerHeaders(session, tenant);
-  const [today, upcoming, inactiveCount, metrics] = await Promise.all([
+  const [today, upcoming, inactiveCount, metrics, actionsSummary] = await Promise.all([
     fetchToday(headers),
     fetchUpcoming(headers),
     fetchInactiveCount(headers),
     fetchMetrics(headers),
+    fetchActionsSummary(headers),
   ]);
 
   return (
@@ -119,7 +117,41 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       {/* ALERTAS */}
       <EscalationsPanel />
 
-      {/* PRÓXIMAS */}
+      {/* PRÓXIMAS ACCIONES — widget TAREA 12 */}
+      {actionsSummary.total > 0 && (
+        <Card className={actionsSummary.overduePets > 0
+          ? "border-2 border-amber-200 bg-amber-50/40 dark:border-amber-900 dark:bg-amber-950/10"
+          : "border-2 border-blue-200 bg-blue-50/40 dark:border-blue-900 dark:bg-blue-950/10"
+        }>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              📌 Mascotas con acciones pendientes
+              <Badge className={actionsSummary.overduePets > 0
+                ? "border-amber-200 bg-amber-100 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300"
+                : "border-blue-200 bg-blue-100 text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300"
+              }>
+                {actionsSummary.total}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+              {Object.entries(actionsSummary.byType).map(([type, count]) => (
+                <span key={type}>
+                  {count} {TYPE_LABELS[type] ?? type}
+                </span>
+              ))}
+            </div>
+            {actionsSummary.overduePets > 0 && (
+              <p className="mt-2 text-sm font-medium text-amber-700 dark:text-amber-400">
+                ⚠️ {actionsSummary.overduePets} mascota{actionsSummary.overduePets === 1 ? "" : "s"} con acción vencida
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* PRÓXIMAS CITAS */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-lg">Próximas citas</CardTitle>

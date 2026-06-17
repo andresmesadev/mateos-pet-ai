@@ -146,7 +146,32 @@ export type NextAction = {
   date: string;
   title: string;
   detail: string | null;
+  actionId?: string;
+  actionType?: string;
 };
+
+export type PetNextAction = {
+  id: string;
+  petId: string;
+  tenantId: string | null;
+  type: string;
+  notes: string | null;
+  dueAt: string;
+  status: "pending" | "done" | "dismissed";
+  sourceRecordId: string | null;
+  sourceAppointmentId: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export const NEXT_ACTION_TYPES: { value: string; label: string; icon: string }[] = [
+  { value: "control", label: "Control veterinario", icon: "🩺" },
+  { value: "vaccine", label: "Vacuna", icon: "💉" },
+  { value: "grooming", label: "Grooming", icon: "✂️" },
+  { value: "exam", label: "Examen", icon: "🔬" },
+  { value: "treatment", label: "Tratamiento", icon: "🩹" },
+  { value: "other", label: "Otro", icon: "📋" },
+];
 
 export type PetTimeline = {
   items: TimelineItem[];

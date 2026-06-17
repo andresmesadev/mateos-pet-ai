@@ -30,6 +30,7 @@ model Tenant {
   conversations Conversation[]
   services      Service[]
   staff         Staff[]
+  nextActions   PetNextAction[]
 }
 
 model Staff {
@@ -97,12 +98,35 @@ model Pet {
   sterilized Boolean?
   notes      String?
 
-  appointments Appointment[]
+  appointments   Appointment[]
   medicalRecords MedicalRecord[]
+  nextActions    PetNextAction[]
 
   groomingReminderSent Boolean @default(false)
 
   createdAt DateTime @default(now())
+}
+
+// status: "pending" | "done" | "dismissed"
+// type:   "control" | "vaccine" | "grooming" | "exam" | "treatment" | "other"
+model PetNextAction {
+  id       String  @id @default(cuid())
+  petId    String
+  pet      Pet     @relation(fields: [petId], references: [id])
+  tenantId String?
+  tenant   Tenant? @relation(fields: [tenantId], references: [id])
+
+  type   String
+  notes  String?
+  dueAt  DateTime
+  status String   @default("pending")
+
+  // Trazabilidad — qué generó esta acción
+  sourceRecordId      String?
+  sourceAppointmentId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model MedicalRecord {

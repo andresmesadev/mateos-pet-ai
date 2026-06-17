@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { proxyUrl } from "@/lib/api";
 import {
   type NextAction,
   type TimelineItem,
@@ -186,22 +187,63 @@ function TimelineEntry({ item }: { item: TimelineItem }) {
 
 // ── Next actions section ─────────────────────────────────────
 
-function NextActionsSection({ actions }: { actions: NextAction[] }) {
+function NextActionsSection({ actions: initial, onReload }: { actions: NextAction[]; onReload?: () => void }) {
+  const [actions, setActions] = useState(initial);
+  const [busy, setBusy] = useState<string | null>(null);
+
   if (actions.length === 0) return null;
+
+  async function updateAction(id: string, status: "done" | "dismissed") {
+    setBusy(id);
+    try {
+      const res = await fetch(proxyUrl(`/api/dashboard/next-actions/${id}`), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (res.ok) {
+        setActions((prev) => prev.filter((a) => a.actionId !== id));
+        onReload?.();
+      }
+    } catch { /* noop */ } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-4 py-3 dark:border-amber-900 dark:bg-amber-950/20">
       <p className="mb-2 text-xs font-semibold uppercase text-amber-700 dark:text-amber-400">
         📌 Próximas acciones
       </p>
-      <ul className="space-y-1.5">
+      <ul className="space-y-2">
         {actions.map((a) => (
-          <li key={a.id} className="flex items-start gap-2 text-sm">
-            <span className="text-amber-600 dark:text-amber-400 shrink-0">
-              {formatRecordDate(a.date)}
-            </span>
-            <span className="text-foreground">{a.title}</span>
-            {a.detail && (
-              <span className="text-muted-foreground">· {a.detail}</span>
+          <li key={a.id} className="flex items-start justify-between gap-2 text-sm">
+            <div className="flex flex-col min-w-0">
+              <span className="text-foreground font-medium">{a.title}</span>
+              <span className="text-xs text-amber-600 dark:text-amber-400">
+                {formatRecordDate(a.date)}
+              </span>
+              {a.detail && (
+                <span className="text-xs text-muted-foreground">{a.detail}</span>
+              )}
+            </div>
+            {a.actionId && (
+              <div className="flex gap-1.5 shrink-0">
+                <button
+                  disabled={busy === a.actionId}
+                  onClick={() => updateAction(a.actionId!, "done")}
+                  className="rounded px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-950 dark:text-green-300 disabled:opacity-50"
+                >
+                  ✓ Hecho
+                </button>
+                <button
+                  disabled={busy === a.actionId}
+                  onClick={() => updateAction(a.actionId!, "dismissed")}
+                  className="rounded px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground underline disabled:opacity-50"
+                >
+                  Descartar
+                </button>
+              </div>
             )}
           </li>
         ))}
@@ -215,9 +257,10 @@ function NextActionsSection({ actions }: { actions: NextAction[] }) {
 type Props = {
   items: TimelineItem[];
   nextActions: NextAction[];
+  onReload?: () => void;
 };
 
-export function PetTimeline({ items, nextActions }: Props) {
+export function PetTimeline({ items, nextActions, onReload }: Props) {
   if (items.length === 0 && nextActions.length === 0) {
     return (
       <div className="rounded-lg border border-dashed px-4 py-8 text-center">
@@ -242,7 +285,7 @@ export function PetTimeline({ items, nextActions }: Props) {
 
   return (
     <div className="space-y-4">
-      <NextActionsSection actions={nextActions} />
+      <NextActionsSection actions={nextActions} onReload={onReload} />
 
       {groups.map((group) => (
         <div key={group.label}>

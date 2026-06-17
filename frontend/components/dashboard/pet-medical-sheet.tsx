@@ -387,7 +387,7 @@ function PetMedicalSheetContent({ pet, onRecordAdded }: PetMedicalSheetContentPr
             {error}
           </div>
         ) : timeline ? (
-          <PetTimeline items={timeline.items} nextActions={timeline.nextActions} />
+          <PetTimeline items={timeline.items} nextActions={timeline.nextActions} onReload={reloadTimeline} />
         ) : null}
       </div>
     </>

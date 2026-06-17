@@ -5,6 +5,7 @@ jest.mock("../../lib/prisma", () => ({
   pet: { findFirst: jest.fn() },
   appointment: { findMany: jest.fn() },
   medicalRecord: { findMany: jest.fn() },
+  petNextAction: { findMany: jest.fn() },
 }));
 
 const prisma = require("../../lib/prisma");
@@ -143,6 +144,7 @@ beforeEach(() => {
   prisma.pet.findFirst.mockResolvedValue({ id: "pet-1" });
   prisma.appointment.findMany.mockResolvedValue(appointments);
   prisma.medicalRecord.findMany.mockResolvedValue(standaloneRecords);
+  prisma.petNextAction.findMany.mockResolvedValue([]);
 });
 
 describe("GET /api/dashboard/pets/:id/timeline", () => {

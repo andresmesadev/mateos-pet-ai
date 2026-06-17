@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/sheet";
 import { proxyUrl } from "@/lib/api";
 import { type TodayAppointment } from "@/lib/appointments";
-import { getPetEmoji } from "@/lib/pets";
+import { getPetEmoji, NEXT_ACTION_TYPES, type PetNextAction } from "@/lib/pets";
 
 type VetRecord = {
   reason: string;
@@ -73,6 +73,9 @@ function Textarea({
   );
 }
 
+type NewAction = { type: string; dueAt: string; notes: string };
+const EMPTY_ACTION: NewAction = { type: "control", dueAt: "", notes: "" };
+
 export function VetRecordSheet({ appointment, open, onOpenChange, onSaved }: Props) {
   const [form, setForm] = useState<VetRecord>(EMPTY);
   const [staff, setStaff] = useState<StaffOption[]>([]);
@@ -81,6 +84,12 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved }: Pro
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const dirtyRef = useRef(false);
+
+  // next actions
+  const [existingActions, setExistingActions] = useState<PetNextAction[]>([]);
+  const [newAction, setNewAction] = useState<NewAction>(EMPTY_ACTION);
+  const [addingAction, setAddingAction] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const set = (key: keyof VetRecord) => (value: string) => {
     dirtyRef.current = true;
@@ -96,9 +105,12 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved }: Pro
     void (async () => {
       if (!cancelled) setLoading(true);
       try {
-        const [staffRes, recordRes] = await Promise.all([
+        const [staffRes, recordRes, actionsRes] = await Promise.all([
           fetch(proxyUrl("/api/dashboard/staff"), { cache: "no-store" }),
           fetch(proxyUrl(`/api/dashboard/appointments/${appointment.id}/medical-record`), {
+            cache: "no-store",
+          }),
+          fetch(proxyUrl(`/api/dashboard/pets/${appointment.petId}/next-actions`), {
             cache: "no-store",
           }),
         ]);
@@ -125,6 +137,11 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved }: Pro
             staffId: rec.staffId ?? "",
           });
           dirtyRef.current = false;
+        }
+
+        if (!cancelled && actionsRes.ok) {
+          const actions = await actionsRes.json();
+          setExistingActions(Array.isArray(actions) ? actions : []);
         }
       } catch {
         // ignore — form stays empty
@@ -263,6 +280,123 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved }: Pro
               <Button variant="outline" onClick={() => handleOpenChange(false)}>
                 Cerrar
               </Button>
+            </div>
+
+            {/* PRÓXIMAS ACCIONES */}
+            <div className="border-t pt-4 space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Próximas acciones pendientes
+              </p>
+
+              {/* existing pending actions */}
+              {existingActions.length > 0 && (
+                <ul className="space-y-1">
+                  {existingActions.map((a) => {
+                    const meta = NEXT_ACTION_TYPES.find((t) => t.value === a.type);
+                    return (
+                      <li key={a.id} className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
+                        <span>
+                          {meta?.icon ?? "📋"} {meta?.label ?? a.type}
+                          {a.dueAt && (
+                            <span className="ml-2 text-xs text-muted-foreground">
+                              · {new Date(a.dueAt).toLocaleDateString("es-CO", { timeZone: "America/Bogota", day: "2-digit", month: "short", year: "numeric" })}
+                            </span>
+                          )}
+                        </span>
+                        <button
+                          className="text-xs text-muted-foreground underline hover:text-foreground"
+                          onClick={async () => {
+                            try {
+                              await fetch(proxyUrl(`/api/dashboard/next-actions/${a.id}`), {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ status: "dismissed" }),
+                              });
+                              setExistingActions((prev) => prev.filter((x) => x.id !== a.id));
+                            } catch { /* noop */ }
+                          }}
+                        >
+                          Descartar
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+
+              {/* add new action form */}
+              <div className="rounded-lg border border-dashed p-3 space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">Tipo</label>
+                    <select
+                      value={newAction.type}
+                      onChange={(e) => setNewAction((a) => ({ ...a, type: e.target.value }))}
+                      className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    >
+                      {NEXT_ACTION_TYPES.map((t) => (
+                        <option key={t.value} value={t.value}>{t.icon} {t.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">Fecha estimada</label>
+                    <Input
+                      type="date"
+                      value={newAction.dueAt}
+                      onChange={(e) => setNewAction((a) => ({ ...a, dueAt: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Notas (opcional)</label>
+                  <Input
+                    placeholder="Indicaciones adicionales…"
+                    value={newAction.notes}
+                    onChange={(e) => setNewAction((a) => ({ ...a, notes: e.target.value }))}
+                  />
+                </div>
+                {actionError && (
+                  <p className="text-xs text-destructive">{actionError}</p>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={addingAction || !newAction.dueAt}
+                  onClick={async () => {
+                    setAddingAction(true);
+                    setActionError(null);
+                    try {
+                      const res = await fetch(
+                        proxyUrl(`/api/dashboard/pets/${appointment.petId}/next-actions`),
+                        {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            type: newAction.type,
+                            dueAt: newAction.dueAt,
+                            notes: newAction.notes.trim() || null,
+                            sourceAppointmentId: appointment.id,
+                          }),
+                        }
+                      );
+                      if (!res.ok) {
+                        const p = await res.json().catch(() => null);
+                        throw new Error(p?.error ?? "Error al agregar acción");
+                      }
+                      const created = await res.json() as PetNextAction;
+                      setExistingActions((prev) => [...prev, created]);
+                      setNewAction(EMPTY_ACTION);
+                    } catch (err) {
+                      setActionError(err instanceof Error ? err.message : "Error al agregar");
+                    } finally {
+                      setAddingAction(false);
+                    }
+                  }}
+                >
+                  {addingAction ? "Agregando…" : "+ Agregar acción"}
+                </Button>
+              </div>
             </div>
           </div>
         )}
