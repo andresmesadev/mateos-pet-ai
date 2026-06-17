@@ -49,6 +49,7 @@ const {
   upsertControlFromRecord,
   createGroomingReminderIfNeeded,
   pendingActionsSummary,
+  sendNextActionReminders,
 } = require("../services/next-action.service");
 
 const router = express.Router();
@@ -1485,6 +1486,21 @@ router.post("/campaigns/reactivation", async (req, res) => {
     res.json({ sent, failed, total: users.length });
   } catch (error) {
     console.error("[Dashboard] Reactivation campaign error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── Automatizaciones — envío masivo por tipo de acción (TAREA 14) ────────────
+router.post("/campaigns/next-actions", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    const { type } = req.body ?? {};
+    if (!type) return res.status(400).json({ error: "type es requerido" });
+    const result = await sendNextActionReminders({ tenantId, type });
+    res.json(result);
+  } catch (error) {
+    console.error("[Dashboard] Next-action campaign error:", error.message);
+    if (error.message.includes("inválido")) return res.status(400).json({ error: error.message });
     res.status(500).json({ error: "Internal server error" });
   }
 });

@@ -125,6 +125,8 @@ model PetNextAction {
   sourceRecordId      String?
   sourceAppointmentId String?
 
+  reminderSentAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

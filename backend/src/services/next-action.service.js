@@ -1,4 +1,5 @@
 const prisma = require("../lib/prisma");
+const { sendWhatsAppMessage } = require("./whatsapp-api.service");
 
 const VALID_TYPES = ["control", "vaccine", "grooming", "exam", "treatment", "other"];
 const VALID_STATUSES = ["pending", "done", "dismissed"];
@@ -140,6 +141,81 @@ async function pendingActionsSummary(tenantId) {
   return { total, byType, overduePets: overdueRaw.length };
 }
 
+const TYPE_MESSAGES = {
+  control: (petName, ownerName, dueAt) => {
+    const due = dueAt ? new Date(dueAt).toLocaleDateString("es-CO", { timeZone: "America/Bogota", day: "2-digit", month: "long" }) : "próximamente";
+    return `Hola ${ownerName ?? "cliente"} 👋\n\nTe recordamos que ${petName} tiene un control veterinario pendiente (${due}).\n\n¿Cuándo te queda bien para la cita? Escríbenos aquí y lo agendamos 🐾`;
+  },
+  vaccine: (petName, ownerName, dueAt) => {
+    const due = dueAt ? new Date(dueAt).toLocaleDateString("es-CO", { timeZone: "America/Bogota", day: "2-digit", month: "long" }) : "próximamente";
+    return `Hola ${ownerName ?? "cliente"} 👋\n\n${petName} tiene una vacuna pendiente para el ${due}.\n\n¿Deseas agendar la cita? Escríbenos aquí 💉`;
+  },
+  grooming: (petName, ownerName) =>
+    `Hola ${ownerName ?? "cliente"} 👋\n\n¡Es hora del baño y peluquería de ${petName}! 🛁✂️\n\n¿Cuándo te queda bien? Escríbenos aquí y te damos turno.`,
+  exam: (petName, ownerName) =>
+    `Hola ${ownerName ?? "cliente"} 👋\n\nTe recordamos que ${petName} tiene un examen pendiente. ¿Quieres agendar? Escríbenos aquí 🔬`,
+  treatment: (petName, ownerName) =>
+    `Hola ${ownerName ?? "cliente"} 👋\n\nTe recordamos que ${petName} tiene un tratamiento pendiente. ¿Quieres coordinar? Escríbenos aquí 🩹`,
+  other: (petName, ownerName) =>
+    `Hola ${ownerName ?? "cliente"} 👋\n\nTe recordamos que tienes una acción pendiente para ${petName}. ¿Podemos ayudarte? Escríbenos aquí 🐾`,
+};
+
+function buildActionMessage(type, petName, ownerName, dueAt, notes) {
+  const builder = TYPE_MESSAGES[type] ?? TYPE_MESSAGES.other;
+  let msg = builder(petName, ownerName, dueAt);
+  if (notes) msg += `\n\n📝 ${notes}`;
+  return msg;
+}
+
+/**
+ * Bulk-send WhatsApp reminders for all pending actions of a given type in a tenant.
+ * Skips actions already sent. Returns { sent, skipped, noPhone }.
+ */
+async function sendNextActionReminders({ tenantId, type }) {
+  if (!VALID_TYPES.includes(type)) {
+    throw new Error(`Tipo inválido: ${type}`);
+  }
+
+  const where = { status: "pending", type, reminderSentAt: null };
+  if (tenantId) where.tenantId = tenantId;
+
+  const actions = await prisma.petNextAction.findMany({
+    where,
+    include: {
+      pet: {
+        select: {
+          name: true,
+          owner: { select: { name: true, phone: true } },
+        },
+      },
+    },
+    orderBy: { dueAt: "asc" },
+  });
+
+  let sent = 0;
+  let noPhone = 0;
+
+  for (const action of actions) {
+    const phone = action.pet?.owner?.phone;
+    if (!phone) { noPhone++; continue; }
+
+    const petName = action.pet.name ?? "tu mascota";
+    const ownerName = action.pet.owner?.name ?? null;
+    const message = buildActionMessage(action.type, petName, ownerName, action.dueAt, action.notes);
+
+    const ok = await sendWhatsAppMessage(phone, message);
+    if (ok) {
+      await prisma.petNextAction.update({
+        where: { id: action.id },
+        data: { reminderSentAt: new Date() },
+      });
+      sent++;
+    }
+  }
+
+  return { sent, noPhone, total: actions.length };
+}
+
 module.exports = {
   VALID_TYPES,
   listNextActions,
@@ -148,4 +224,5 @@ module.exports = {
   upsertControlFromRecord,
   createGroomingReminderIfNeeded,
   pendingActionsSummary,
+  sendNextActionReminders,
 };
