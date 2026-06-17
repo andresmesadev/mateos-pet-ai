@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+
 import { LogoutButton } from "@/components/auth/logout-button";
 import { DashboardNav } from "@/components/dashboard/dashboard-nav";
 
@@ -20,7 +22,7 @@ export default function DashboardLayout({
       </div>
 
       <DashboardNav />
-      {children}
+      <Suspense fallback={null}>{children}</Suspense>
     </main>
   );
 }

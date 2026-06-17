@@ -235,7 +235,7 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved }: Pro
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Próximo control</label>
+                <label className="text-xs font-medium text-muted-foreground">Próximo control recomendado</label>
                 <Input
                   type="date"
                   value={form.nextControlAt}

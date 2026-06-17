@@ -695,6 +695,196 @@ router.post("/pets/:id/records", async (req, res) => {
   }
 });
 
+// ────────────────────────────────────────────────────────────
+// Unified pet timeline (TAREA 11)
+// ────────────────────────────────────────────────────────────
+
+const GROOMING_KEYWORDS = [
+  "grooming",
+  "bath",
+  "baño",
+  "peluquer",
+  "corte",
+  "spa",
+  "deslanado",
+  "colorimetría",
+  "colorimetria",
+  "antipulgas",
+];
+
+function appointmentKind(appt) {
+  if (appt.status === "cancelled") return "cancelled";
+  if (appt.status === "no_show") return "no_show";
+  const category = appt.service?.category?.toLowerCase() ?? null;
+  const stype = appt.serviceType?.toLowerCase() ?? "";
+  if (category === "veterinary" || VET_SERVICE_TYPES.includes(stype)) return "consultation";
+  if (category === "grooming" || GROOMING_KEYWORDS.some((keyword) => stype.includes(keyword))) {
+    return "grooming";
+  }
+  return "other_appt";
+}
+
+function standaloneRecordKind(record) {
+  if (record.type !== "note") return record.type;
+
+  const text = `${record.title ?? ""} ${record.detail ?? ""}`
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  if (text.includes("desparasit")) return "deworming";
+  if (text.includes("imagen") || text.includes("foto")) return "image";
+  if (
+    text.includes("examen") ||
+    text.includes("laboratorio") ||
+    text.includes("rayos x") ||
+    text.includes("ecografia")
+  ) {
+    return "exam";
+  }
+  if (text.includes("tratamiento")) return "treatment";
+  return "note";
+}
+
+router.get("/pets/:id/timeline", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { tenantId } = req.tenant;
+
+    const pet = await prisma.pet.findFirst({
+      where: tenantId ? { id, tenantId } : { id },
+      select: { id: true },
+    });
+    if (!pet) return res.status(404).json({ error: "Pet not found" });
+
+    const [appointments, standaloneRecords] = await Promise.all([
+      prisma.appointment.findMany({
+        where: tenantId ? { petId: id, tenantId } : { petId: id },
+        orderBy: { date: "desc" },
+        include: {
+          service: { select: { name: true, category: true } },
+          staff: { select: { name: true } },
+          medicalRecord: { include: { staff: { select: { name: true } } } },
+        },
+      }),
+      prisma.medicalRecord.findMany({
+        where: { petId: id, appointmentId: null },
+        orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+        include: { staff: { select: { name: true } } },
+      }),
+    ]);
+
+    const now = new Date();
+    const items = [];
+    const nextActions = [];
+
+    for (const appt of appointments) {
+      const rec = appt.medicalRecord;
+      const kind = appointmentKind(appt);
+
+      const item = {
+        id: `appt-${appt.id}`,
+        kind,
+        date: appt.date.toISOString(),
+        title: appt.service?.name ?? appt.serviceType,
+        appointmentId: appt.id,
+        appointmentStatus: appt.status,
+        serviceType: appt.serviceType,
+        serviceName: appt.service?.name ?? null,
+        staffName: rec?.staff?.name ?? appt.staff?.name ?? null,
+        recordId: rec?.id ?? null,
+        reason: rec?.reason ?? null,
+        findings: rec?.findings ?? null,
+        diagnosis: rec?.diagnosis ?? null,
+        treatment: rec?.treatment ?? null,
+        recommendations: rec?.recommendations ?? null,
+        weight: rec?.weight ?? null,
+        nextControlAt: rec?.nextControlAt?.toISOString() ?? null,
+        detail: null,
+      };
+
+      if (rec?.nextControlAt && new Date(rec.nextControlAt) > now) {
+        nextActions.push({
+          id: `next-${rec.id}`,
+          kind: "next_action",
+          date: rec.nextControlAt.toISOString(),
+          title: "Control recomendado",
+          detail: rec.diagnosis ? `Seguimiento: ${rec.diagnosis}` : null,
+        });
+      }
+
+      if (
+        appt.date > now &&
+        !["completed", "cancelled", "no_show"].includes(appt.status)
+      ) {
+        nextActions.push({
+          id: `appointment-${appt.id}`,
+          kind: "next_action",
+          date: appt.date.toISOString(),
+          title: `Cita programada: ${appt.service?.name ?? appt.serviceType}`,
+          detail: appt.staff?.name ? `Con ${appt.staff.name}` : null,
+        });
+      }
+
+      items.push(item);
+    }
+
+    for (const rec of standaloneRecords) {
+      const item = {
+        id: `rec-${rec.id}`,
+        kind: standaloneRecordKind(rec),
+        date: (rec.date ?? rec.createdAt).toISOString(),
+        title: rec.title,
+        appointmentId: null,
+        appointmentStatus: null,
+        serviceType: null,
+        serviceName: null,
+        staffName: rec.staff?.name ?? null,
+        recordId: rec.id,
+        reason: rec.reason ?? null,
+        findings: rec.findings ?? null,
+        diagnosis: rec.diagnosis ?? null,
+        treatment: rec.treatment ?? null,
+        recommendations: rec.recommendations ?? null,
+        weight: rec.weight ?? null,
+        nextControlAt: rec.nextControlAt?.toISOString() ?? null,
+        detail: rec.detail ?? null,
+      };
+
+      if (rec.nextControlAt && new Date(rec.nextControlAt) > now) {
+        nextActions.push({
+          id: `next-rec-${rec.id}`,
+          kind: "next_action",
+          date: rec.nextControlAt.toISOString(),
+          title: "Control recomendado",
+          detail: rec.title,
+        });
+      }
+
+
+      if (rec.type === "vaccine" && rec.date && rec.date > now) {
+        nextActions.push({
+          id: `vaccine-${rec.id}`,
+          kind: "next_action",
+          date: rec.date.toISOString(),
+          title: `Vacuna próxima: ${rec.title}`,
+          detail: rec.detail ?? null,
+        });
+      }
+
+      items.push(item);
+    }
+
+    items.sort((a, b) => new Date(b.date) - new Date(a.date));
+    nextActions.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    res.json({ items, nextActions });
+  } catch (error) {
+    console.error("[Dashboard] Pet timeline error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.get("/escalations", async (req, res) => {
   try {
     const { tenantId } = req.tenant;

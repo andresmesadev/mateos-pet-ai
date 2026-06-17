@@ -1,13 +1,13 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 import { Button } from "@/components/ui/button";
 import { TenantSelector } from "@/components/dashboard/tenant-selector";
 import { cn } from "@/lib/utils";
-
-const isSuperAdmin = process.env.NEXT_PUBLIC_SUPER_ADMIN === "true";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Inicio", exact: true },
@@ -17,17 +17,18 @@ const NAV_ITEMS = [
   { href: "/dashboard/reactivation", label: "Reactivar", exact: false },
   { href: "/dashboard/services", label: "Servicios", exact: false },
   { href: "/dashboard/staff", label: "Staff", exact: false },
-  ...(isSuperAdmin
-    ? [{ href: "/dashboard/admin/tenants", label: "Admin", exact: false }]
-    : []),
 ];
 
 export function DashboardNav() {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const items = session?.user?.isSuperAdmin
+    ? [...NAV_ITEMS, { href: "/dashboard/admin/tenants", label: "Admin", exact: false }]
+    : NAV_ITEMS;
 
   return (
     <nav className="mb-8 flex flex-wrap items-center gap-2">
-      {NAV_ITEMS.map((item) => {
+      {items.map((item) => {
         const isActive = item.exact
           ? pathname === item.href
           : pathname.startsWith(item.href);
@@ -49,7 +50,9 @@ export function DashboardNav() {
         );
       })}
       <div className="ml-auto">
-        <TenantSelector />
+        <Suspense fallback={null}>
+          <TenantSelector />
+        </Suspense>
       </div>
     </nav>
   );

@@ -94,11 +94,64 @@ export function formatRecordDate(iso: string | null): string {
   }
 
   return new Intl.DateTimeFormat("es-CO", {
+    timeZone: "America/Bogota",
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
   }).format(date);
 }
+
+export type TimelineItemKind =
+  | "consultation"
+  | "grooming"
+  | "other_appt"
+  | "vaccine"
+  | "deworming"
+  | "exam"
+  | "image"
+  | "treatment"
+  | "allergy"
+  | "note"
+  | "cancelled"
+  | "no_show"
+  | "next_action"
+  | string;
+
+export type TimelineItem = {
+  id: string;
+  kind: TimelineItemKind;
+  date: string;
+  title: string;
+  // appointment
+  appointmentId: string | null;
+  appointmentStatus: string | null;
+  serviceType: string | null;
+  serviceName: string | null;
+  // clinical / record
+  staffName: string | null;
+  recordId: string | null;
+  reason: string | null;
+  findings: string | null;
+  diagnosis: string | null;
+  treatment: string | null;
+  recommendations: string | null;
+  weight: number | null;
+  nextControlAt: string | null;
+  detail: string | null;
+};
+
+export type NextAction = {
+  id: string;
+  kind: "next_action";
+  date: string;
+  title: string;
+  detail: string | null;
+};
+
+export type PetTimeline = {
+  items: TimelineItem[];
+  nextActions: NextAction[];
+};
 
 export function groupRecordsByType(
   records: PetMedicalRecord[]
