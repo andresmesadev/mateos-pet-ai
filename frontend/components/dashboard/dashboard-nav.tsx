@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/clients", label: "Clientes", exact: false },
   { href: "/dashboard/conversations", label: "Conversaciones", exact: false },
   { href: "/dashboard/pets", label: "Mascotas", exact: false },
+  { href: "/dashboard/reactivation", label: "Reactivar", exact: false },
   ...(isSuperAdmin
     ? [{ href: "/dashboard/admin/tenants", label: "Admin", exact: false }]
     : []),

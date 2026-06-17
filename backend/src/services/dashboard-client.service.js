@@ -152,6 +152,40 @@ const getClientById = async (clientId) => {
   };
 };
 
+const listInactiveClients = async () => {
+  const cutoff = new Date(Date.now() - 60 * 86_400_000);
+
+  const users = await prisma.user.findMany({
+    where: {
+      AND: [
+        { appointments: { some: {} } },
+        { appointments: { none: { date: { gte: cutoff } } } },
+      ],
+    },
+    include: {
+      pets: {
+        select: { name: true, type: true },
+        orderBy: { createdAt: "desc" },
+        take: 3,
+      },
+      appointments: {
+        orderBy: { date: "desc" },
+        take: 1,
+        select: { date: true },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  return users.map((u) => ({
+    id: u.id,
+    phone: u.phone,
+    name: u.name ?? null,
+    pets: u.pets,
+    lastAppointmentDate: u.appointments[0]?.date ?? null,
+  }));
+};
+
 const updateClient = async (id, { name, email, address, notes }) => {
   return prisma.user.update({
     where: { id },
@@ -168,4 +202,5 @@ module.exports = {
   listClients,
   getClientById,
   updateClient,
+  listInactiveClients,
 };

@@ -17,7 +17,9 @@ const {
   listClients,
   getClientById,
   updateClient,
+  listInactiveClients,
 } = require("../services/dashboard-client.service");
+const { sendWhatsAppMessage } = require("../services/whatsapp-api.service");
 const {
   listTenants,
   getTenantById,
@@ -535,6 +537,53 @@ router.patch("/pets/:id", async (req, res) => {
     if (error.code === "P2025") {
       return res.status(404).json({ error: "Pet not found" });
     }
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get("/clients/inactive", async (req, res) => {
+  try {
+    const clients = await listInactiveClients();
+    res.json(clients);
+  } catch (error) {
+    console.error("[Dashboard] Inactive clients error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/campaigns/reactivation", async (req, res) => {
+  try {
+    const { clientIds, message } = req.body ?? {};
+
+    if (!Array.isArray(clientIds) || clientIds.length === 0) {
+      return res.status(400).json({ error: "clientIds es requerido" });
+    }
+
+    if (!message || typeof message !== "string" || !message.trim()) {
+      return res.status(400).json({ error: "message es requerido" });
+    }
+
+    const users = await prisma.user.findMany({
+      where: { id: { in: clientIds } },
+      select: { id: true, phone: true, name: true },
+    });
+
+    let sent = 0;
+    let failed = 0;
+
+    for (const user of users) {
+      const text = message.replace(/\{nombre\}/g, user.name ?? "cliente");
+      const result = await sendWhatsAppMessage(user.phone, text);
+      if (result) {
+        sent++;
+      } else {
+        failed++;
+      }
+    }
+
+    res.json({ sent, failed, total: users.length });
+  } catch (error) {
+    console.error("[Dashboard] Reactivation campaign error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
