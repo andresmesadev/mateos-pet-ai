@@ -178,6 +178,16 @@ function bogotaDayStart(ymd) {
   return new Date(`${ymd}T05:00:00.000Z`);
 }
 
+const VALID_APPOINTMENT_STATUSES = [
+  "pending",
+  "confirmed",
+  "arrived",
+  "in_progress",
+  "completed",
+  "no_show",
+  "cancelled",
+];
+
 function mapAppointmentRow(a) {
   return {
     id: a.id,
@@ -188,12 +198,19 @@ function mapAppointmentRow(a) {
     petType: a.pet?.type ?? a.petType,
     clientPhone: a.user?.phone ?? "",
     clientName: a.user?.name ?? null,
+    serviceName: a.service?.name ?? null,
+    staffName: a.staff?.name ?? null,
+    price: a.price !== null && a.price !== undefined ? Number(a.price) : null,
+    startedAt: a.startedAt?.toISOString() ?? null,
+    endedAt: a.endedAt?.toISOString() ?? null,
   };
 }
 
 const APPOINTMENT_INCLUDE = {
   user: { select: { phone: true, name: true } },
   pet: { select: { name: true, type: true } },
+  service: { select: { name: true } },
+  staff: { select: { name: true } },
 };
 
 router.get("/appointments/today", async (req, res) => {
@@ -302,6 +319,45 @@ router.get("/appointments", async (req, res) => {
     res.status(500).json({
       error: "Internal server error",
     });
+  }
+});
+
+router.patch("/appointments/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { tenantId } = req.tenant;
+    const { status, staffId, serviceId, price, startedAt, endedAt } = req.body ?? {};
+
+    const existing = await prisma.appointment.findFirst({
+      where: tenantId ? { id, tenantId } : { id },
+    });
+    if (!existing) return res.status(404).json({ error: "Not found" });
+
+    const data = {};
+
+    if (status !== undefined) {
+      if (!VALID_APPOINTMENT_STATUSES.includes(status)) {
+        return res.status(400).json({ error: `Estado inválido. Valores permitidos: ${VALID_APPOINTMENT_STATUSES.join(", ")}` });
+      }
+      data.status = status;
+    }
+    if (staffId !== undefined) data.staffId = staffId || null;
+    if (serviceId !== undefined) data.serviceId = serviceId || null;
+    if (price !== undefined) data.price = price !== null ? Number(price) : null;
+    if (startedAt !== undefined) data.startedAt = startedAt ? new Date(startedAt) : null;
+    if (endedAt !== undefined) data.endedAt = endedAt ? new Date(endedAt) : null;
+
+    const updated = await prisma.appointment.update({
+      where: { id },
+      data,
+      include: APPOINTMENT_INCLUDE,
+    });
+
+    res.json(mapAppointmentRow(updated));
+  } catch (error) {
+    console.error("[Dashboard] Patch appointment error:", error);
+    if (error.code === "P2025") return res.status(404).json({ error: "Not found" });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 

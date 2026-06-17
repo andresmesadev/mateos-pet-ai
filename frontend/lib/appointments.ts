@@ -1,5 +1,15 @@
 export const BOGOTA_TIMEZONE = "America/Bogota";
 
+export type AppointmentStatus =
+  | "pending"
+  | "confirmed"
+  | "arrived"
+  | "in_progress"
+  | "completed"
+  | "no_show"
+  | "cancelled"
+  | string;
+
 export type TodayAppointment = {
   id: string;
   date: string;
@@ -9,9 +19,13 @@ export type TodayAppointment = {
   petType: string;
   clientPhone: string;
   clientName: string | null;
+  // Operational fields (TAREA 9)
+  serviceName: string | null;
+  staffName: string | null;
+  price: number | null;
+  startedAt: string | null;
+  endedAt: string | null;
 };
-
-export type AppointmentStatus = "pending" | "confirmed" | "cancelled" | string;
 
 export type AppointmentPet = {
   id: string;
@@ -48,8 +62,12 @@ const SERVICE_LABELS: Record<string, string> = {
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  confirmed: "Confirmada",
   pending: "Pendiente",
+  confirmed: "Confirmada",
+  arrived: "Llegó",
+  in_progress: "En atención",
+  completed: "Completada",
+  no_show: "No asistió",
   cancelled: "Cancelada",
 };
 
@@ -120,15 +138,48 @@ export function formatClient(userId: string): string {
 
 export function statusBadgeClass(status: AppointmentStatus): string {
   switch (status?.toLowerCase()) {
-    case "confirmed":
-      return "border-green-200 bg-green-100 text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-300";
     case "pending":
       return "border-yellow-200 bg-yellow-100 text-yellow-800 dark:border-yellow-900 dark:bg-yellow-950 dark:text-yellow-300";
+    case "confirmed":
+      return "border-blue-200 bg-blue-100 text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300";
+    case "arrived":
+      return "border-violet-200 bg-violet-100 text-violet-800 dark:border-violet-900 dark:bg-violet-950 dark:text-violet-300";
+    case "in_progress":
+      return "border-orange-200 bg-orange-100 text-orange-800 dark:border-orange-900 dark:bg-orange-950 dark:text-orange-300";
+    case "completed":
+      return "border-green-200 bg-green-100 text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-300";
+    case "no_show":
+      return "border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400";
     case "cancelled":
       return "border-red-200 bg-red-100 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300";
     default:
       return "border-border bg-muted text-muted-foreground";
   }
+}
+
+const STATUS_TRANSITIONS: Record<string, { label: string; next: string; variant?: "destructive" | "outline" | "secondary" }[]> = {
+  pending: [
+    { label: "Confirmar", next: "confirmed" },
+    { label: "Cancelar", next: "cancelled", variant: "destructive" },
+  ],
+  confirmed: [
+    { label: "Llegó", next: "arrived" },
+    { label: "Cancelar", next: "cancelled", variant: "destructive" },
+  ],
+  arrived: [
+    { label: "En atención", next: "in_progress" },
+    { label: "No asistió", next: "no_show", variant: "secondary" },
+  ],
+  in_progress: [
+    { label: "Completar", next: "completed" },
+  ],
+  completed: [],
+  no_show: [],
+  cancelled: [],
+};
+
+export function getStatusTransitions(status: AppointmentStatus) {
+  return STATUS_TRANSITIONS[status] ?? [];
 }
 
 function getZonedYmd(date: Date): string {
