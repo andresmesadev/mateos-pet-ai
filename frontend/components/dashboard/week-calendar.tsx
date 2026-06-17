@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   type TodayAppointment,
   statusBadgeClass,
-  STATUS_LABELS,
+  formatStatus,
 } from "@/lib/appointments";
 import { getPetEmoji } from "@/lib/pets";
 
@@ -135,7 +135,7 @@ function ApptDetail({
             <p className="text-sm text-muted-foreground">{appt.clientName ?? appt.clientPhone}</p>
           </div>
           <Badge variant="outline" className={`shrink-0 text-xs ${statusBadgeClass(appt.status)}`}>
-            {STATUS_LABELS[appt.status] ?? appt.status}
+            {formatStatus(appt.status)}
           </Badge>
         </div>
         <dl className="space-y-1 text-sm">
@@ -284,17 +284,10 @@ export function WeekCalendar({ data }: { data: WeekData }) {
 
       {/* Legend */}
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-        {[
-          { status: "pending",    label: "Pendiente" },
-          { status: "confirmed",  label: "Confirmada" },
-          { status: "arrived",    label: "Llegó" },
-          { status: "in_progress",label: "En atención" },
-          { status: "completed",  label: "Completada" },
-          { status: "no_show",    label: "No asistió" },
-        ].map(({ status, label }) => (
+        {(["pending","confirmed","arrived","in_progress","completed","no_show"] as const).map((status) => (
           <span key={status} className="flex items-center gap-1">
             <span className={`inline-block h-2.5 w-2.5 rounded border ${STATUS_BG[status]}`} />
-            {label}
+            {formatStatus(status)}
           </span>
         ))}
       </div>
