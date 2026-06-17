@@ -22,7 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { apiUrl } from "@/lib/api";
+import { proxyUrl } from "@/lib/api";
 import {
   type DashboardPet,
   formatPetType,
@@ -59,7 +59,7 @@ export function PetsTable({
     setError(null);
 
     try {
-      const response = await fetch(apiUrl(`/api/dashboard/pets${tenantQuery(tenant)}`), {
+      const response = await fetch(proxyUrl(`/api/dashboard/pets${tenantQuery(tenant)}`), {
         cache: "no-store",
       });
 
@@ -88,7 +88,7 @@ export function PetsTable({
 
     void (async () => {
       try {
-        const response = await fetch(apiUrl(`/api/dashboard/pets${tenantQuery(tenant)}`), {
+        const response = await fetch(proxyUrl(`/api/dashboard/pets${tenantQuery(tenant)}`), {
           cache: "no-store",
         });
 

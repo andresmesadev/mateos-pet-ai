@@ -29,6 +29,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             id: "admin",
             email: adminEmail,
             name: "Administrador",
+            tenantId: null,
+            isSuperAdmin: true,
           };
         }
 

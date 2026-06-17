@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { apiUrl } from "@/lib/api";
+import { proxyUrl } from "@/lib/api";
 import { getPetEmoji } from "@/lib/pets";
 
 const DEFAULT_MESSAGE =
@@ -82,7 +82,7 @@ export function ReactivationCampaign({ clients }: Props) {
 
     try {
       const res = await fetch(
-        apiUrl("/api/dashboard/campaigns/reactivation"),
+        proxyUrl("/api/dashboard/campaigns/reactivation"),
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

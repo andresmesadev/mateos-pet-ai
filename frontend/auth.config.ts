@@ -26,6 +26,8 @@ export const authConfig = {
       if (user) {
         token.email = user.email;
         token.name = user.name;
+        token.tenantId = user.tenantId ?? null;
+        token.isSuperAdmin = user.isSuperAdmin ?? false;
       }
       return token;
     },
@@ -36,6 +38,8 @@ export const authConfig = {
       if (token.name) {
         session.user.name = token.name as string;
       }
+      session.user.tenantId = (token.tenantId ?? null) as string | null;
+      session.user.isSuperAdmin = (token.isSuperAdmin ?? false) as boolean;
       return session;
     },
   },

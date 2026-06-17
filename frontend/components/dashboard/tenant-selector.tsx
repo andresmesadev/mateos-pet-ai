@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 
-import { apiUrl } from "@/lib/api";
+import { proxyUrl } from "@/lib/api";
 
 type Tenant = {
   id: string;
@@ -12,20 +13,23 @@ type Tenant = {
 };
 
 export function TenantSelector() {
+  const { data: session } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
   const currentTenant = searchParams.get("tenant") ?? "";
   const [tenants, setTenants] = useState<Tenant[]>([]);
 
   useEffect(() => {
-    fetch(apiUrl("/api/dashboard/tenants"), { cache: "no-store" })
+    if (!session?.user?.isSuperAdmin) return;
+    fetch(proxyUrl("/api/dashboard/tenants"), { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) setTenants(data);
       })
       .catch(() => {});
-  }, []);
+  }, [session]);
 
+  if (!session?.user?.isSuperAdmin) return null;
   if (tenants.length === 0) return null;
 
   function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {

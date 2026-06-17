@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { apiUrl } from "@/lib/api";
+import { proxyUrl } from "@/lib/api";
 import { useTenant, tenantQuery } from "@/lib/use-tenant";
 
 type Service = {
@@ -63,7 +63,7 @@ export function ServicesManager() {
   const [error, setError] = useState<string | null>(null);
 
   async function fetchServices() {
-    const res = await fetch(apiUrl(`/api/dashboard/services${tenantQuery(tenant)}`), {
+    const res = await fetch(proxyUrl(`/api/dashboard/services${tenantQuery(tenant)}`), {
       cache: "no-store",
     });
     const data = await res.json();
@@ -100,7 +100,7 @@ export function ServicesManager() {
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch(apiUrl("/api/dashboard/services"), {
+      const res = await fetch(proxyUrl("/api/dashboard/services"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -137,7 +137,7 @@ export function ServicesManager() {
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch(apiUrl(`/api/dashboard/services/${id}`), {
+      const res = await fetch(proxyUrl(`/api/dashboard/services/${id}`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -160,7 +160,7 @@ export function ServicesManager() {
 
   async function handleToggleActive(svc: Service) {
     try {
-      await fetch(apiUrl(`/api/dashboard/services/${svc.id}`), {
+      await fetch(proxyUrl(`/api/dashboard/services/${svc.id}`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ active: !svc.active }),

@@ -47,7 +47,8 @@ const dashboardRoutes = require("./routes/dashboard.routes");
 
 app.use("/api", routes);
 
-app.use("/api/dashboard", dashboardRateLimit, dashboardRoutes);
+const { resolveTenant } = require("./middleware/resolveTenant");
+app.use("/api/dashboard", dashboardRateLimit, resolveTenant, dashboardRoutes);
 app.use("/api/billing", billingRouter);
 app.use("/api/onboarding", onboardingRoutes);
 

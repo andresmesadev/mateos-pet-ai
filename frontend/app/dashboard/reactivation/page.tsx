@@ -1,5 +1,6 @@
+import { auth } from "@/auth";
 import { ReactivationCampaign } from "@/components/dashboard/reactivation-campaign";
-import { apiUrl } from "@/lib/api";
+import { apiUrl, makeServerHeaders } from "@/lib/api";
 
 type InactiveClient = {
   id: string;
@@ -13,11 +14,13 @@ type PageProps = {
   searchParams: Promise<{ tenant?: string }>;
 };
 
-async function fetchInactiveClients(tenantId?: string): Promise<InactiveClient[]> {
-  const q = tenantId ? `?tenantId=${encodeURIComponent(tenantId)}` : "";
+async function fetchInactiveClients(
+  headers: Record<string, string>
+): Promise<InactiveClient[]> {
   try {
-    const res = await fetch(apiUrl(`/api/dashboard/clients/inactive${q}`), {
+    const res = await fetch(apiUrl("/api/dashboard/clients/inactive"), {
       cache: "no-store",
+      headers,
     });
     if (!res.ok) return [];
     const data = await res.json();
@@ -29,7 +32,9 @@ async function fetchInactiveClients(tenantId?: string): Promise<InactiveClient[]
 
 export default async function ReactivationPage({ searchParams }: PageProps) {
   const { tenant } = await searchParams;
-  const clients = await fetchInactiveClients(tenant);
+  const session = await auth();
+  const headers = makeServerHeaders(session, tenant);
+  const clients = await fetchInactiveClients(headers);
 
   return (
     <div className="space-y-4">

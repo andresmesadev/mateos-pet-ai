@@ -1,10 +1,11 @@
 import Link from "next/link";
 
+import { auth } from "@/auth";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EscalationsPanel } from "@/components/dashboard/escalations-panel";
 import { TodaySchedule } from "@/components/dashboard/today-schedule";
-import { apiUrl } from "@/lib/api";
+import { apiUrl, makeServerHeaders } from "@/lib/api";
 import {
   type TodayAppointment,
   formatColombiaDateTime,
@@ -16,14 +17,13 @@ import { getPetEmoji } from "@/lib/pets";
 
 type UpcomingAppointment = TodayAppointment;
 
-function tq(tenantId: string | undefined): string {
-  return tenantId ? `?tenantId=${encodeURIComponent(tenantId)}` : "";
-}
-
-async function fetchToday(tenantId?: string): Promise<TodayAppointment[]> {
+async function fetchToday(
+  headers: Record<string, string>
+): Promise<TodayAppointment[]> {
   try {
-    const res = await fetch(apiUrl(`/api/dashboard/appointments/today${tq(tenantId)}`), {
+    const res = await fetch(apiUrl("/api/dashboard/appointments/today"), {
       cache: "no-store",
+      headers,
     });
     if (!res.ok) return [];
     const data = await res.json();
@@ -33,10 +33,13 @@ async function fetchToday(tenantId?: string): Promise<TodayAppointment[]> {
   }
 }
 
-async function fetchUpcoming(tenantId?: string): Promise<UpcomingAppointment[]> {
+async function fetchUpcoming(
+  headers: Record<string, string>
+): Promise<UpcomingAppointment[]> {
   try {
-    const res = await fetch(apiUrl(`/api/dashboard/appointments/upcoming${tq(tenantId)}`), {
+    const res = await fetch(apiUrl("/api/dashboard/appointments/upcoming"), {
       cache: "no-store",
+      headers,
     });
     if (!res.ok) return [];
     const data = await res.json();
@@ -46,11 +49,14 @@ async function fetchUpcoming(tenantId?: string): Promise<UpcomingAppointment[]> 
   }
 }
 
-async function fetchInactiveCount(tenantId?: string): Promise<number> {
+async function fetchInactiveCount(
+  headers: Record<string, string>
+): Promise<number> {
   try {
-    const res = await fetch(apiUrl(`/api/dashboard/clients/inactive-count${tq(tenantId)}`), {
-      cache: "no-store",
-    });
+    const res = await fetch(
+      apiUrl("/api/dashboard/clients/inactive-count"),
+      { cache: "no-store", headers }
+    );
     if (!res.ok) return 0;
     const data = await res.json();
     return data.count ?? 0;
@@ -65,10 +71,12 @@ type DashboardPageProps = {
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const { tenant } = await searchParams;
+  const session = await auth();
+  const headers = makeServerHeaders(session, tenant);
   const [today, upcoming, inactiveCount] = await Promise.all([
-    fetchToday(tenant),
-    fetchUpcoming(tenant),
-    fetchInactiveCount(tenant),
+    fetchToday(headers),
+    fetchUpcoming(headers),
+    fetchInactiveCount(headers),
   ]);
 
   return (

@@ -21,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { apiUrl } from "@/lib/api";
+import { proxyUrl } from "@/lib/api";
 import {
   type DashboardClient,
   formatPhone,
@@ -52,7 +52,7 @@ export function ClientsTable() {
     void (async () => {
       if (!cancelled) setLoading(true);
       try {
-        const response = await fetch(apiUrl(`/api/dashboard/clients${tenantQuery(tenant)}`), {
+        const response = await fetch(proxyUrl(`/api/dashboard/clients${tenantQuery(tenant)}`), {
           cache: "no-store",
         });
 

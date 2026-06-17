@@ -13,7 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { apiUrl } from "@/lib/api";
+import { proxyUrl } from "@/lib/api";
 import {
   type Escalation,
   formatPhone,
@@ -45,7 +45,7 @@ export function EscalationsPanel() {
 
     const fetchEscalations = async () => {
       try {
-        const response = await fetch(apiUrl(`/api/dashboard/escalations${tenantQuery(tenant)}`), {
+        const response = await fetch(proxyUrl(`/api/dashboard/escalations${tenantQuery(tenant)}`), {
           cache: "no-store",
         });
 
@@ -91,7 +91,7 @@ export function EscalationsPanel() {
 
     try {
       const response = await fetch(
-        apiUrl(`/api/dashboard/escalations/${id}/resolve`),
+        proxyUrl(`/api/dashboard/escalations/${id}/resolve`),
         { method: "PATCH" }
       );
 

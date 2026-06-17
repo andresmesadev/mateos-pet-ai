@@ -133,7 +133,7 @@ router.patch("/tenants/:id", async (req, res) => {
 
 router.get("/stats", async (req, res) => {
   try {
-    const { tenantId } = req.query;
+    const { tenantId } = req.tenant;
     const where = tenantId ? { tenantId } : {};
 
     const [
@@ -193,7 +193,7 @@ const APPOINTMENT_INCLUDE = {
 
 router.get("/appointments/today", async (req, res) => {
   try {
-    const { tenantId } = req.query;
+    const { tenantId } = req.tenant;
     const tenantFilter = tenantId ? { tenantId } : {};
     const ymd = getBogotaYmd();
     const start = bogotaDayStart(ymd);
@@ -214,7 +214,7 @@ router.get("/appointments/today", async (req, res) => {
 
 router.get("/appointments/upcoming", async (req, res) => {
   try {
-    const { tenantId } = req.query;
+    const { tenantId } = req.tenant;
     const tenantFilter = tenantId ? { tenantId } : {};
     const ymd = getBogotaYmd();
     const todayEnd = new Date(bogotaDayStart(ymd).getTime() + 86_400_000);
@@ -240,7 +240,7 @@ router.get("/appointments/upcoming", async (req, res) => {
 
 router.get("/clients/inactive-count", async (req, res) => {
   try {
-    const { tenantId } = req.query;
+    const { tenantId } = req.tenant;
     const tenantFilter = tenantId ? { tenantId } : {};
     const cutoff = new Date(Date.now() - 60 * 86_400_000);
     const count = await prisma.user.count({
@@ -302,7 +302,7 @@ router.get("/appointments", async (req, res) => {
 
 router.get("/pets", async (req, res) => {
   try {
-    const { tenantId } = req.query;
+    const { tenantId } = req.tenant;
     const tenantFilter = tenantId ? { tenantId } : {};
     const pets = await prisma.pet.findMany({
       where: tenantFilter,
@@ -435,7 +435,7 @@ router.post("/pets/:id/records", async (req, res) => {
 
 router.get("/escalations", async (req, res) => {
   try {
-    const { tenantId } = req.query;
+    const { tenantId } = req.tenant;
     const escalations = await getPendingEscalations(tenantId);
     res.json(escalations);
   } catch (error) {
@@ -470,7 +470,8 @@ router.patch("/escalations/:id/resolve", async (req, res) => {
 
 router.get("/conversations", async (req, res) => {
   try {
-    const result = await listConversations(req.query);
+    const { tenantId } = req.tenant;
+    const result = await listConversations({ ...req.query, tenantId: tenantId ?? undefined });
     res.json(result);
   } catch (error) {
     console.error("[Dashboard] Conversations error:", error);
@@ -504,7 +505,7 @@ router.get("/conversations/:id/messages", async (req, res) => {
 
 router.get("/clients", async (req, res) => {
   try {
-    const { tenantId } = req.query;
+    const { tenantId } = req.tenant;
     const clients = await listClients(tenantId);
     res.json(clients);
   } catch (error) {
@@ -539,7 +540,7 @@ router.get("/clients/:id", async (req, res) => {
 
 router.get("/services", async (req, res) => {
   try {
-    const { tenantId } = req.query;
+    const { tenantId } = req.tenant;
     const rows = await prisma.service.findMany({
       where: tenantId ? { tenantId } : {},
       orderBy: [{ category: "asc" }, { name: "asc" }],
@@ -553,14 +554,37 @@ router.get("/services", async (req, res) => {
 
 router.post("/services", async (req, res) => {
   try {
-    const { tenantId, name, category, duration, requiresAppointment } = req.body ?? {};
-    if (!name || !category || !duration) {
-      return res.status(400).json({ error: "name, category y duration son requeridos" });
+    const { name, category, duration, requiresAppointment } = req.body ?? {};
+    const { tenantId } = req.tenant;
+
+    // Validate name
+    if (!name || typeof name !== "string" || !name.trim() || name.trim().length > 100) {
+      return res.status(400).json({ error: "name es requerido y debe tener entre 1 y 100 caracteres" });
     }
+    // Validate category
+    const validCategories = ["veterinary", "grooming", "other"];
+    if (!category || !validCategories.includes(String(category))) {
+      return res.status(400).json({ error: "category debe ser veterinary, grooming u other" });
+    }
+    // Validate duration
+    const durationNum = Number(duration);
+    if (!duration || !Number.isInteger(durationNum) || durationNum <= 0) {
+      return res.status(400).json({ error: "duration debe ser un entero positivo" });
+    }
+
+    // Check for duplicate name in same tenant
+    const existing = await prisma.service.findFirst({
+      where: { name: name.trim(), tenantId: tenantId ?? null },
+      select: { id: true },
+    });
+    if (existing) {
+      return res.status(409).json({ error: "Ya existe un servicio con ese nombre en este tenant" });
+    }
+
     const service = await createService(tenantId ?? null, {
-      name: String(name).trim(),
+      name: name.trim(),
       category: String(category).trim(),
-      duration: Number(duration),
+      duration: durationNum,
       requiresAppointment: requiresAppointment !== false,
     });
     res.status(201).json(service);
@@ -573,7 +597,20 @@ router.post("/services", async (req, res) => {
 router.patch("/services/:id", async (req, res) => {
   try {
     const { id } = req.params;
+    const { tenantId, isSuperAdmin } = req.tenant;
     const { name, category, duration, requiresAppointment, active } = req.body ?? {};
+
+    // Verify ownership (unless super admin with no tenant filter)
+    if (!isSuperAdmin || tenantId) {
+      const owned = await prisma.service.findFirst({
+        where: { id, tenantId: tenantId ?? null },
+        select: { id: true },
+      });
+      if (!owned) {
+        return res.status(404).json({ error: "Service not found" });
+      }
+    }
+
     const data = {};
     if (name !== undefined) data.name = String(name).trim();
     if (category !== undefined) data.category = String(category).trim();
@@ -592,6 +629,19 @@ router.patch("/services/:id", async (req, res) => {
 router.delete("/services/:id", async (req, res) => {
   try {
     const { id } = req.params;
+    const { tenantId, isSuperAdmin } = req.tenant;
+
+    // Verify ownership (unless super admin with no tenant filter)
+    if (!isSuperAdmin || tenantId) {
+      const owned = await prisma.service.findFirst({
+        where: { id, tenantId: tenantId ?? null },
+        select: { id: true },
+      });
+      if (!owned) {
+        return res.status(404).json({ error: "Service not found" });
+      }
+    }
+
     await deleteService(id);
     res.status(204).end();
   } catch (error) {
@@ -626,7 +676,7 @@ router.patch("/pets/:id", async (req, res) => {
 
 router.get("/clients/inactive", async (req, res) => {
   try {
-    const { tenantId } = req.query;
+    const { tenantId } = req.tenant;
     const clients = await listInactiveClients(tenantId);
     res.json(clients);
   } catch (error) {
