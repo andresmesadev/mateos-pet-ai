@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EscalationsPanel } from "@/components/dashboard/escalations-panel";
+import { MetricsCards } from "@/components/dashboard/metrics-cards";
 import { TodaySchedule } from "@/components/dashboard/today-schedule";
 import { apiUrl, makeServerHeaders } from "@/lib/api";
 import {
@@ -16,6 +17,18 @@ import {
 import { getPetEmoji } from "@/lib/pets";
 
 type UpcomingAppointment = TodayAppointment;
+
+type MetricsData = {
+  appointmentsThisWeek: { count: number; prev: number; delta: number };
+  confirmationRate: { rate: number; prev: number; delta: number };
+  newClientsThisMonth: { count: number; prev: number; delta: number };
+};
+
+const METRICS_FALLBACK: MetricsData = {
+  appointmentsThisWeek: { count: 0, prev: 0, delta: 0 },
+  confirmationRate: { rate: 0, prev: 0, delta: 0 },
+  newClientsThisMonth: { count: 0, prev: 0, delta: 0 },
+};
 
 async function fetchToday(
   headers: Record<string, string>
@@ -65,6 +78,21 @@ async function fetchInactiveCount(
   }
 }
 
+async function fetchMetrics(
+  headers: Record<string, string>
+): Promise<MetricsData> {
+  try {
+    const res = await fetch(apiUrl("/api/dashboard/metrics"), {
+      cache: "no-store",
+      headers,
+    });
+    if (!res.ok) return METRICS_FALLBACK;
+    return (await res.json()) as MetricsData;
+  } catch {
+    return METRICS_FALLBACK;
+  }
+}
+
 type DashboardPageProps = {
   searchParams: Promise<{ tenant?: string }>;
 };
@@ -73,14 +101,18 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const { tenant } = await searchParams;
   const session = await auth();
   const headers = makeServerHeaders(session, tenant);
-  const [today, upcoming, inactiveCount] = await Promise.all([
+  const [today, upcoming, inactiveCount, metrics] = await Promise.all([
     fetchToday(headers),
     fetchUpcoming(headers),
     fetchInactiveCount(headers),
+    fetchMetrics(headers),
   ]);
 
   return (
     <div className="space-y-8">
+      {/* MÉTRICAS */}
+      <MetricsCards metrics={metrics} />
+
       {/* HOY */}
       <TodaySchedule appointments={today} />
 

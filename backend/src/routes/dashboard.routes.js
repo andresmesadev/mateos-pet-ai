@@ -836,4 +836,81 @@ router.patch("/clients/:id", async (req, res) => {
   }
 });
 
+router.get("/metrics", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    const tenantFilter = tenantId ? { tenantId } : {};
+
+    const now = new Date();
+    const weekAgo = new Date(now.getTime() - 7 * 86_400_000);
+    const twoWeeksAgo = new Date(now.getTime() - 14 * 86_400_000);
+
+    // Month boundaries in Bogotá (UTC-5)
+    const bogotaNow = new Date(now.getTime() - 5 * 3600 * 1000);
+    const y = bogotaNow.getUTCFullYear();
+    const m = bogotaNow.getUTCMonth();
+    const thisMonthStart = new Date(Date.UTC(y, m, 1, 5, 0, 0));
+    const prevMonthStart = new Date(Date.UTC(y, m - 1, 1, 5, 0, 0));
+
+    const [
+      apptThisWeek,
+      apptPrevWeek,
+      confirmedThisWeek,
+      confirmedPrevWeek,
+      clientsThisMonth,
+      clientsPrevMonth,
+    ] = await Promise.all([
+      prisma.appointment.count({
+        where: { ...tenantFilter, date: { gte: weekAgo } },
+      }),
+      prisma.appointment.count({
+        where: { ...tenantFilter, date: { gte: twoWeeksAgo, lt: weekAgo } },
+      }),
+      prisma.appointment.count({
+        where: { ...tenantFilter, date: { gte: weekAgo }, status: "confirmed" },
+      }),
+      prisma.appointment.count({
+        where: {
+          ...tenantFilter,
+          date: { gte: twoWeeksAgo, lt: weekAgo },
+          status: "confirmed",
+        },
+      }),
+      prisma.user.count({
+        where: { ...tenantFilter, createdAt: { gte: thisMonthStart } },
+      }),
+      prisma.user.count({
+        where: {
+          ...tenantFilter,
+          createdAt: { gte: prevMonthStart, lt: thisMonthStart },
+        },
+      }),
+    ]);
+
+    const rate = apptThisWeek > 0 ? Math.round((confirmedThisWeek / apptThisWeek) * 100) : 0;
+    const prevRate = apptPrevWeek > 0 ? Math.round((confirmedPrevWeek / apptPrevWeek) * 100) : 0;
+
+    res.json({
+      appointmentsThisWeek: {
+        count: apptThisWeek,
+        prev: apptPrevWeek,
+        delta: apptThisWeek - apptPrevWeek,
+      },
+      confirmationRate: {
+        rate,
+        prev: prevRate,
+        delta: rate - prevRate,
+      },
+      newClientsThisMonth: {
+        count: clientsThisMonth,
+        prev: clientsPrevMonth,
+        delta: clientsThisMonth - clientsPrevMonth,
+      },
+    });
+  } catch (error) {
+    console.error("[Dashboard] Metrics error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 module.exports = router;
