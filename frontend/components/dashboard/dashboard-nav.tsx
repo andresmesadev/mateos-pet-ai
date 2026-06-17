@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/clients", label: "Clientes", exact: false },
   { href: "/dashboard/conversations", label: "Conversaciones", exact: false },
   { href: "/dashboard/pets", label: "Mascotas", exact: false },
+  { href: "/dashboard/opportunities", label: "Oportunidades", exact: false },
   { href: "/dashboard/reactivation", label: "Reactivar", exact: false },
   { href: "/dashboard/services", label: "Servicios", exact: false },
   { href: "/dashboard/staff", label: "Staff", exact: false },

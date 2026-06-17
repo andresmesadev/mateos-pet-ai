@@ -117,38 +117,43 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       {/* ALERTAS */}
       <EscalationsPanel />
 
-      {/* PRÓXIMAS ACCIONES — widget TAREA 12 */}
+      {/* BANDEJA DE OPORTUNIDADES — widget */}
       {actionsSummary.total > 0 && (
-        <Card className={actionsSummary.overduePets > 0
-          ? "border-2 border-amber-200 bg-amber-50/40 dark:border-amber-900 dark:bg-amber-950/10"
-          : "border-2 border-blue-200 bg-blue-50/40 dark:border-blue-900 dark:bg-blue-950/10"
-        }>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              📌 Mascotas con acciones pendientes
-              <Badge className={actionsSummary.overduePets > 0
-                ? "border-amber-200 bg-amber-100 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300"
-                : "border-blue-200 bg-blue-100 text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300"
-              }>
-                {actionsSummary.total}
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-              {Object.entries(actionsSummary.byType).map(([type, count]) => (
-                <span key={type}>
-                  {count} {TYPE_LABELS[type] ?? type}
-                </span>
-              ))}
-            </div>
-            {actionsSummary.overduePets > 0 && (
-              <p className="mt-2 text-sm font-medium text-amber-700 dark:text-amber-400">
-                ⚠️ {actionsSummary.overduePets} mascota{actionsSummary.overduePets === 1 ? "" : "s"} con acción vencida
-              </p>
-            )}
-          </CardContent>
-        </Card>
+        <Link href="/dashboard/opportunities" className="block">
+          <Card className={`transition-colors ${actionsSummary.overduePets > 0
+            ? "border-2 border-amber-200 bg-amber-50/40 hover:bg-amber-50/70 dark:border-amber-900 dark:bg-amber-950/10"
+            : "border-2 border-blue-200 bg-blue-50/40 hover:bg-blue-50/70 dark:border-blue-900 dark:bg-blue-950/10"
+          }`}>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                📌 Mascotas con acciones pendientes
+                <Badge className={actionsSummary.overduePets > 0
+                  ? "border-amber-200 bg-amber-100 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300"
+                  : "border-blue-200 bg-blue-100 text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300"
+                }>
+                  {actionsSummary.total}
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                {Object.entries(actionsSummary.byType).map(([type, count]) => (
+                  <span key={type}>
+                    {count} {TYPE_LABELS[type] ?? type}
+                  </span>
+                ))}
+              </div>
+              {actionsSummary.overduePets > 0 && (
+                <p className="mt-2 text-sm font-medium text-amber-700 dark:text-amber-400">
+                  ⚠️ {actionsSummary.overduePets} mascota{actionsSummary.overduePets === 1 ? "" : "s"} con acción vencida → Ver bandeja
+                </p>
+              )}
+              {actionsSummary.overduePets === 0 && (
+                <p className="mt-1 text-xs text-muted-foreground">Ver bandeja de oportunidades →</p>
+              )}
+            </CardContent>
+          </Card>
+        </Link>
       )}
 
       {/* PRÓXIMAS CITAS */}
