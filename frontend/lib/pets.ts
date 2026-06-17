@@ -10,6 +10,12 @@ export type DashboardPet = {
   id: string;
   name: string;
   type: PetType;
+  breed: string | null;
+  gender: string | null;
+  birthDate: string | null;
+  weight: number | null;
+  sterilized: boolean | null;
+  notes: string | null;
   owner: {
     phone: string;
   };

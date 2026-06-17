@@ -87,9 +87,24 @@ const getUserPets = async (ownerId) => {
   }
 };
 
+const updatePet = async (id, { breed, gender, birthDate, weight, sterilized, notes }) => {
+  return prisma.pet.update({
+    where: { id },
+    data: {
+      breed: breed ?? undefined,
+      gender: gender ?? undefined,
+      birthDate: birthDate ? new Date(birthDate) : undefined,
+      weight: weight != null ? Number(weight) : undefined,
+      sterilized: sterilized ?? undefined,
+      notes: notes ?? undefined,
+    },
+  });
+};
+
 module.exports = {
   findPetByNameAndOwner,
   createPet,
   findOrCreatePet,
   getUserPets,
+  updatePet,
 };

@@ -61,6 +61,15 @@ type PetMedicalSheetContentProps = {
   onRecordAdded?: () => void;
 };
 
+type PetProfileForm = {
+  breed: string;
+  gender: string;
+  birthDate: string;
+  weight: string;
+  sterilized: string;
+  notes: string;
+};
+
 function PetMedicalSheetContent({
   pet,
   onRecordAdded,
@@ -72,6 +81,50 @@ function PetMedicalSheetContent({
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<AddRecordForm>(INITIAL_FORM);
   const [formError, setFormError] = useState<string | null>(null);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profile, setProfile] = useState<Partial<DashboardPet>>({
+    breed: pet.breed,
+    gender: pet.gender,
+    birthDate: pet.birthDate,
+    weight: pet.weight,
+    sterilized: pet.sterilized,
+    notes: pet.notes,
+  });
+  const [profileForm, setProfileForm] = useState<PetProfileForm>({
+    breed: pet.breed ?? "",
+    gender: pet.gender ?? "",
+    birthDate: pet.birthDate ? pet.birthDate.slice(0, 10) : "",
+    weight: pet.weight != null ? String(pet.weight) : "",
+    sterilized: pet.sterilized != null ? String(pet.sterilized) : "",
+    notes: pet.notes ?? "",
+  });
+
+  const handleSaveProfile = async () => {
+    setSavingProfile(true);
+    try {
+      const res = await fetch(apiUrl(`/api/dashboard/pets/${pet.id}`), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          breed: profileForm.breed || null,
+          gender: profileForm.gender || null,
+          birthDate: profileForm.birthDate || null,
+          weight: profileForm.weight ? Number(profileForm.weight) : null,
+          sterilized: profileForm.sterilized === "true" ? true : profileForm.sterilized === "false" ? false : null,
+          notes: profileForm.notes || null,
+        }),
+      });
+      if (!res.ok) throw new Error("Error al guardar");
+      const updated = await res.json();
+      setProfile(updated);
+      setEditingProfile(false);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   const reloadRecords = useCallback(async () => {
     const response = await fetch(
@@ -189,6 +242,58 @@ function PetMedicalSheetContent({
             {pet._count.medicalRecords} registros médicos
           </Badge>
           <Badge variant="outline">{pet._count.appointments} citas</Badge>
+        </div>
+
+        {/* Ficha de la mascota */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-muted-foreground">Ficha</p>
+            {!editingProfile && (
+              <Button size="sm" variant="outline" onClick={() => setEditingProfile(true)}>Editar</Button>
+            )}
+          </div>
+          {editingProfile ? (
+            <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
+              <Input placeholder="Raza" value={profileForm.breed} onChange={(e) => setProfileForm((f) => ({ ...f, breed: e.target.value }))} />
+              <select
+                value={profileForm.gender}
+                onChange={(e) => setProfileForm((f) => ({ ...f, gender: e.target.value }))}
+                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+              >
+                <option value="">Sexo</option>
+                <option value="male">Macho</option>
+                <option value="female">Hembra</option>
+              </select>
+              <Input type="date" placeholder="Fecha de nacimiento" value={profileForm.birthDate} onChange={(e) => setProfileForm((f) => ({ ...f, birthDate: e.target.value }))} />
+              <Input type="number" placeholder="Peso (kg)" value={profileForm.weight} onChange={(e) => setProfileForm((f) => ({ ...f, weight: e.target.value }))} />
+              <select
+                value={profileForm.sterilized}
+                onChange={(e) => setProfileForm((f) => ({ ...f, sterilized: e.target.value }))}
+                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+              >
+                <option value="">Esterilizado/a</option>
+                <option value="true">Sí</option>
+                <option value="false">No</option>
+              </select>
+              <Input placeholder="Notas" value={profileForm.notes} onChange={(e) => setProfileForm((f) => ({ ...f, notes: e.target.value }))} />
+              <div className="flex gap-2">
+                <Button size="sm" onClick={handleSaveProfile} disabled={savingProfile}>{savingProfile ? "Guardando…" : "Guardar"}</Button>
+                <Button size="sm" variant="outline" onClick={() => setEditingProfile(false)} disabled={savingProfile}>Cancelar</Button>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-lg border bg-muted/30 px-3 py-3 text-sm space-y-1">
+              {profile.breed && <p><span className="text-muted-foreground">Raza: </span>{profile.breed}</p>}
+              {profile.gender && <p><span className="text-muted-foreground">Sexo: </span>{profile.gender === "male" ? "Macho" : "Hembra"}</p>}
+              {profile.birthDate && <p><span className="text-muted-foreground">Nacimiento: </span>{new Date(profile.birthDate).toLocaleDateString("es-CO")}</p>}
+              {profile.weight != null && <p><span className="text-muted-foreground">Peso: </span>{profile.weight} kg</p>}
+              {profile.sterilized != null && <p><span className="text-muted-foreground">Esterilizado/a: </span>{profile.sterilized ? "Sí" : "No"}</p>}
+              {profile.notes && <p><span className="text-muted-foreground">Notas: </span>{profile.notes}</p>}
+              {!profile.breed && !profile.gender && !profile.birthDate && profile.weight == null && profile.sterilized == null && !profile.notes && (
+                <p className="text-muted-foreground">Sin datos adicionales.</p>
+              )}
+            </div>
+          )}
         </div>
 
         {!showForm ? (

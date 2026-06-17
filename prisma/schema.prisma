@@ -85,6 +85,13 @@ model Pet {
   ownerId   String
   owner     User @relation(fields: [ownerId], references: [id])
 
+  breed      String?
+  gender     String?
+  birthDate  DateTime?
+  weight     Float?
+  sterilized Boolean?
+  notes      String?
+
   appointments Appointment[]
   medicalRecords MedicalRecord[]
 

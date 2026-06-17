@@ -1,5 +1,6 @@
 const express = require("express");
 const prisma = require("../lib/prisma");
+const { updatePet } = require("../services/pet.service");
 const {
   getPendingEscalations,
   resolveEscalation,
@@ -218,6 +219,12 @@ router.get("/pets", async (req, res) => {
         id: pet.id,
         name: pet.name,
         type: pet.type,
+        breed: pet.breed ?? null,
+        gender: pet.gender ?? null,
+        birthDate: pet.birthDate ?? null,
+        weight: pet.weight ?? null,
+        sterilized: pet.sterilized ?? null,
+        notes: pet.notes ?? null,
         owner: {
           phone: pet.owner.phone,
         },
@@ -419,6 +426,29 @@ router.get("/clients/:id", async (req, res) => {
     res.status(500).json({
       error: "Internal server error",
     });
+  }
+});
+
+router.patch("/pets/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { breed, gender, birthDate, weight, sterilized, notes } = req.body ?? {};
+    const updated = await updatePet(id, { breed, gender, birthDate, weight, sterilized, notes });
+    res.json({
+      id: updated.id,
+      breed: updated.breed,
+      gender: updated.gender,
+      birthDate: updated.birthDate,
+      weight: updated.weight,
+      sterilized: updated.sterilized,
+      notes: updated.notes,
+    });
+  } catch (error) {
+    console.error("[Dashboard] Update pet error:", error);
+    if (error.code === "P2025") {
+      return res.status(404).json({ error: "Pet not found" });
+    }
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
