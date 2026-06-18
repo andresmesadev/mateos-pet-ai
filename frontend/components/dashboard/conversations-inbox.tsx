@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { ConversationSheet } from "@/components/dashboard/conversation-sheet";
+import { EmptyState } from "@/components/dashboard/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -130,12 +131,12 @@ export function ConversationsInbox({
               {error}
             </div>
           ) : conversations.length === 0 ? (
-            <div className="px-4 py-10 text-center">
-              <p className="font-medium">No hay conversaciones</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Aparecerán aquí cuando los clientes escriban por WhatsApp.
-              </p>
-            </div>
+            <EmptyState
+              icon="💬"
+              title="No hay conversaciones"
+              description="Cada chat de WhatsApp con un cliente aparecerá aquí en tiempo real, con su historial y estado."
+              hint="El agente WhatsApp está activo"
+            />
           ) : (
             <div className="divide-y">
               {conversations.map((conversation) => (

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useTenant, tenantQuery } from "@/lib/use-tenant";
 
 import { ClientSheet } from "@/components/dashboard/client-sheet";
+import { EmptyState } from "@/components/dashboard/empty-state";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -118,12 +119,12 @@ export function ClientsTable() {
               {error}
             </div>
           ) : clients.length === 0 ? (
-            <div className="rounded-lg border border-dashed px-4 py-10 text-center">
-              <p className="font-medium">No hay clientes registrados</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Aparecerán aquí cuando alguien escriba por WhatsApp.
-              </p>
-            </div>
+            <EmptyState
+              icon="👋"
+              title="No hay clientes registrados"
+              description="Los clientes aparecerán automáticamente aquí cuando alguien escriba por WhatsApp y el agente registre su conversación."
+              hint="El agente WhatsApp está activo"
+            />
           ) : (
             <Table>
               <TableHeader>

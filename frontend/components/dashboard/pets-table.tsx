@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTenant, tenantQuery } from "@/lib/use-tenant";
 
 import { PetMedicalSheet } from "@/components/dashboard/pet-medical-sheet";
+import { EmptyState } from "@/components/dashboard/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -169,13 +170,12 @@ export function PetsTable({
               {error}
             </div>
           ) : pets.length === 0 ? (
-            <div className="rounded-lg border border-dashed px-4 py-10 text-center">
-              <p className="font-medium">No hay mascotas registradas</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Las mascotas aparecerán aquí cuando los clientes conversen por
-                WhatsApp.
-              </p>
-            </div>
+            <EmptyState
+              icon="🐾"
+              title="No hay mascotas registradas"
+              description="Las mascotas se registran solas cuando los clientes conversan por WhatsApp y mencionan a sus compañeros peludos."
+              hint="El agente WhatsApp está activo"
+            />
           ) : (
             <Table>
               <TableHeader>
