@@ -151,7 +151,7 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved }: Pro
     })();
 
     return () => { cancelled = true; };
-  }, [open, appointment.id]);
+  }, [open, appointment.id, appointment.petId]);
 
   function handleOpenChange(next: boolean) {
     if (!next && dirtyRef.current && !saved) {

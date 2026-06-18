@@ -24,10 +24,7 @@ export default async function BillingPage({ searchParams }: PageProps) {
 
   const res = await fetch(apiUrl(`/api/billing/status/${session?.user?.tenantId ?? "none"}`), {
     cache: "no-store",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Internal-Token": process.env.INTERNAL_API_SECRET ?? "",
-    },
+    headers,
   });
 
   const status: BillingStatus | null = res.ok ? await res.json() : null;

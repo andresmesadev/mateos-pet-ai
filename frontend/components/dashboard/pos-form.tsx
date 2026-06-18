@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { proxyUrl } from "@/lib/api";
 import { getPetEmoji } from "@/lib/pets";
 import {
@@ -33,9 +32,11 @@ function ClientSearch({ onSelect }: { onSelect: (c: ClientResult | null) => void
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (query.length < 2) { setResults([]); return; }
     if (debounce.current) clearTimeout(debounce.current);
+    // El clear de resultados ocurre dentro del timeout (no síncrono en el effect)
+    // para evitar el cascading render que marca react-hooks/set-state-in-effect.
     debounce.current = setTimeout(async () => {
+      if (query.length < 2) { setResults([]); return; }
       setSearching(true);
       try {
         const res = await fetch(proxyUrl(`/api/dashboard/clients?search=${encodeURIComponent(query)}&limit=8`), { cache: "no-store" });
@@ -48,7 +49,8 @@ function ClientSearch({ onSelect }: { onSelect: (c: ClientResult | null) => void
         // Búsqueda en vivo (debounced): un fallo puntual no necesita toast,
         // el usuario sigue escribiendo y se reintenta solo.
       } finally { setSearching(false); }
-    }, 300);
+    }, query.length < 2 ? 0 : 300);
+    return () => { if (debounce.current) clearTimeout(debounce.current); };
   }, [query]);
 
   return (
@@ -177,7 +179,7 @@ export function PosForm() {
       <div className="space-y-3">
         <p className="text-sm font-semibold">Ítems del cobro</p>
         <div className="space-y-2">
-          {lines.map((line, idx) => (
+          {lines.map((line) => (
             <div key={line.id} className="grid grid-cols-[1fr_60px_100px_auto] gap-2 items-center">
               <Input
                 placeholder={`Descripción (ej. Baño + corte)`}

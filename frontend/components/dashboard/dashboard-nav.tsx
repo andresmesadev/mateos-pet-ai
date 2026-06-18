@@ -87,9 +87,6 @@ function NavDropdown({ group, pathname }: { group: NavGroup; pathname: string })
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Close on navigation
-  useEffect(() => { setOpen(false); }, [pathname]);
-
   return (
     <div ref={ref} className="relative">
       <Button
@@ -121,6 +118,7 @@ function NavDropdown({ group, pathname }: { group: NavGroup; pathname: string })
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={() => setOpen(false)}
                 className={cn(
                   "block px-3 py-2 text-sm transition-colors hover:bg-muted",
                   itemActive ? "font-semibold text-foreground bg-muted/60" : "text-muted-foreground"
