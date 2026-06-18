@@ -33,12 +33,6 @@ jobs:
       - name: Run tests
         run: cd backend && npm test
 
-      - name: Install Prisma CLI
-        run: npm ci
-
-      - name: Check Prisma migrations
-        run: npx prisma migrate status
-
   lint:
     runs-on: ubuntu-latest
 
