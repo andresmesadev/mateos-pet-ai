@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { useTenant, tenantQuery } from "@/lib/use-tenant";
 
 import { ClientSheet } from "@/components/dashboard/client-sheet";
+import { NewClientSheet } from "@/components/dashboard/new-client-sheet";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Card,
@@ -47,6 +49,8 @@ export function ClientsTable() {
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [newOpen, setNewOpen] = useState(false);
+  const [version, setVersion] = useState(0);
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
@@ -98,7 +102,7 @@ export function ClientsTable() {
     return () => {
       cancelled = true;
     };
-  }, [tenant]);
+  }, [tenant, version]);
 
   const handleOpenClient = (client: DashboardClient) => {
     setSelectedId(client.id);
@@ -125,17 +129,23 @@ export function ClientsTable() {
               </Badge>
             )}
           </div>
-          {!loading && !error && clients.length > 0 && (
-            <div className="relative w-full sm:w-64">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Buscar por nombre o teléfono…"
-                className="pl-9"
-              />
-            </div>
-          )}
+          <div className="flex w-full items-center gap-2 sm:w-auto">
+            {!loading && !error && clients.length > 0 && (
+              <div className="relative w-full sm:w-64">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Buscar por nombre o teléfono…"
+                  className="pl-9"
+                />
+              </div>
+            )}
+            <Button size="sm" className="shrink-0 gap-1" onClick={() => setNewOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Nuevo cliente
+            </Button>
+          </div>
         </CardHeader>
 
         <CardContent className="pt-2">
@@ -211,6 +221,12 @@ export function ClientsTable() {
         clientId={selectedId}
         open={sheetOpen}
         onOpenChange={handleSheetOpenChange}
+      />
+
+      <NewClientSheet
+        open={newOpen}
+        onOpenChange={setNewOpen}
+        onCreated={() => setVersion((v) => v + 1)}
       />
     </>
   );

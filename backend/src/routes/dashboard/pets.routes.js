@@ -76,6 +76,65 @@ router.get("/pets", async (req, res) => {
   }
 });
 
+const VALID_PET_TYPES = ["dog", "cat", "other"];
+
+// Crear mascota manualmente. El dueño se resuelve por teléfono dentro del
+// tenant; si no existe, se crea (find-or-create), respetando el modelo en que
+// los clientes están identificados por su número.
+router.post("/pets", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    const { name, type, ownerPhone, ownerName, breed, notes } = req.body ?? {};
+
+    const cleanName = typeof name === "string" ? name.trim() : "";
+    const cleanType = typeof type === "string" ? type.trim().toLowerCase() : "";
+    const cleanPhone = typeof ownerPhone === "string" ? ownerPhone.replace(/\s+/g, "").trim() : "";
+
+    if (!cleanName) return res.status(400).json({ error: "El nombre de la mascota es requerido" });
+    if (!VALID_PET_TYPES.includes(cleanType)) {
+      return res.status(400).json({ error: `Tipo inválido. Valores: ${VALID_PET_TYPES.join(", ")}` });
+    }
+    if (!cleanPhone) return res.status(400).json({ error: "El teléfono del dueño es requerido" });
+
+    // find-or-create del dueño (scoped al tenant)
+    let owner = await prisma.user.findFirst({
+      where: { phone: cleanPhone, ...(tenantId ? { tenantId } : {}) },
+      select: { id: true },
+    });
+
+    if (!owner) {
+      try {
+        owner = await prisma.user.create({
+          data: { phone: cleanPhone, tenantId: tenantId ?? null, name: ownerName?.trim() || null },
+          select: { id: true },
+        });
+      } catch (error) {
+        if (error.code === "P2002") {
+          return res.status(409).json({ error: "Ese teléfono pertenece a otro cliente" });
+        }
+        throw error;
+      }
+    }
+
+    const pet = await prisma.pet.create({
+      data: {
+        name: cleanName,
+        type: cleanType,
+        tenantId: tenantId ?? null,
+        ownerId: owner.id,
+        breed: breed?.trim() || null,
+        notes: notes?.trim() || null,
+      },
+      select: { id: true, name: true, type: true },
+    });
+
+    res.status(201).json(pet);
+  } catch (error) {
+    console.error("[Dashboard] Create pet error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.get("/pets/:id/records", async (req, res) => {
   try {
     const { id } = req.params;

@@ -47,6 +47,39 @@ router.get("/clients", async (req, res) => {
   }
 });
 
+// Crear cliente manualmente desde el dashboard.
+router.post("/clients", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    const { name, phone, email, address, notes } = req.body ?? {};
+
+    const cleanPhone = typeof phone === "string" ? phone.replace(/\s+/g, "").trim() : "";
+    if (!cleanPhone) {
+      return res.status(400).json({ error: "El teléfono es requerido" });
+    }
+
+    const created = await prisma.user.create({
+      data: {
+        phone: cleanPhone,
+        tenantId: tenantId ?? null,
+        name: name?.trim() || null,
+        email: email?.trim() || null,
+        address: address?.trim() || null,
+        notes: notes?.trim() || null,
+      },
+      select: { id: true, name: true, phone: true },
+    });
+
+    res.status(201).json(created);
+  } catch (error) {
+    if (error.code === "P2002") {
+      return res.status(409).json({ error: "Ya existe un cliente con ese teléfono" });
+    }
+    console.error("[Dashboard] Create client error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.get("/clients/:id", async (req, res) => {
   try {
     const { id } = req.params;

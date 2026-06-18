@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { useTenant, tenantQuery } from "@/lib/use-tenant";
 
 import { PetMedicalSheet } from "@/components/dashboard/pet-medical-sheet";
+import { NewPetSheet } from "@/components/dashboard/new-pet-sheet";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -53,6 +54,7 @@ export function PetsTable({
   const [selectedPet, setSelectedPet] = useState<DashboardPet | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [openedFromQuery, setOpenedFromQuery] = useState(false);
+  const [newOpen, setNewOpen] = useState(false);
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
@@ -176,17 +178,23 @@ export function PetsTable({
               </Badge>
             )}
           </div>
-          {!loading && !error && pets.length > 0 && (
-            <div className="relative w-full sm:w-64">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Buscar por mascota o teléfono…"
-                className="pl-9"
-              />
-            </div>
-          )}
+          <div className="flex w-full items-center gap-2 sm:w-auto">
+            {!loading && !error && pets.length > 0 && (
+              <div className="relative w-full sm:w-64">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Buscar por mascota o teléfono…"
+                  className="pl-9"
+                />
+              </div>
+            )}
+            <Button size="sm" className="shrink-0 gap-1" onClick={() => setNewOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Nueva mascota
+            </Button>
+          </div>
         </CardHeader>
 
         <CardContent className="pt-2">
@@ -269,6 +277,12 @@ export function PetsTable({
         open={sheetOpen}
         onOpenChange={setSheetOpen}
         onRecordAdded={handleRecordAdded}
+      />
+
+      <NewPetSheet
+        open={newOpen}
+        onOpenChange={setNewOpen}
+        onCreated={() => { void loadPets(); }}
       />
     </>
   );
