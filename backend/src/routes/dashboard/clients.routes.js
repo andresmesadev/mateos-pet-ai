@@ -1,0 +1,151 @@
+const express = require("express");
+const router = express.Router();
+const prisma = require("../../lib/prisma");
+const {
+  listClients,
+  getClientById,
+  updateClient,
+  listInactiveClients,
+} = require("../../services/dashboard-client.service");
+const { sendWhatsAppMessage } = require("../../services/whatsapp-api.service");
+const { sendNextActionReminders } = require("../../services/next-action.service");
+
+router.get("/clients", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    const { search, limit } = req.query;
+
+    // Quick search mode for POS autocomplete
+    if (search && typeof search === "string" && search.trim().length >= 2) {
+      const tenantFilter = tenantId ? { tenantId } : {};
+      const term = search.trim();
+      const take = Math.min(parseInt(limit) || 8, 20);
+      const users = await prisma.user.findMany({
+        where: {
+          ...tenantFilter,
+          OR: [
+            { name: { contains: term, mode: "insensitive" } },
+            { phone: { contains: term } },
+          ],
+        },
+        take,
+        orderBy: { createdAt: "desc" },
+        include: {
+          pets: { select: { id: true, name: true, type: true }, orderBy: { createdAt: "desc" }, take: 5 },
+        },
+      });
+      return res.json(users.map((u) => ({
+        id: u.id, name: u.name, phone: u.phone, pets: u.pets,
+      })));
+    }
+
+    const clients = await listClients(tenantId);
+    res.json(clients);
+  } catch (error) {
+    console.error("[Dashboard] Clients error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get("/clients/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const client = await getClientById(id);
+
+    if (!client) {
+      return res.status(404).json({
+        error: "Client not found",
+      });
+    }
+
+    res.json(client);
+  } catch (error) {
+    console.error("[Dashboard] Client detail error:", error);
+
+    res.status(500).json({
+      error: "Internal server error",
+    });
+  }
+});
+
+router.patch("/clients/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email, address, notes } = req.body ?? {};
+    const updated = await updateClient(id, { name, email, address, notes });
+    res.json({ id: updated.id, name: updated.name, email: updated.email, address: updated.address, notes: updated.notes });
+  } catch (error) {
+    console.error("[Dashboard] Update client error:", error);
+    if (error.code === "P2025") {
+      return res.status(404).json({ error: "Client not found" });
+    }
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get("/clients/inactive", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    const clients = await listInactiveClients(tenantId);
+    res.json(clients);
+  } catch (error) {
+    console.error("[Dashboard] Inactive clients error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/campaigns/reactivation", async (req, res) => {
+  try {
+    const { clientIds, message } = req.body ?? {};
+
+    if (!Array.isArray(clientIds) || clientIds.length === 0) {
+      return res.status(400).json({ error: "clientIds es requerido" });
+    }
+
+    if (!message || typeof message !== "string" || !message.trim()) {
+      return res.status(400).json({ error: "message es requerido" });
+    }
+
+    const users = await prisma.user.findMany({
+      where: { id: { in: clientIds } },
+      select: { id: true, phone: true, name: true },
+    });
+
+    let sent = 0;
+    let failed = 0;
+
+    const now = new Date();
+    for (const user of users) {
+      const text = message.replace(/\{nombre\}/g, user.name ?? "cliente");
+      const result = await sendWhatsAppMessage(user.phone, text);
+      if (result) {
+        sent++;
+        await prisma.user.update({ where: { id: user.id }, data: { lastReminderSentAt: now } });
+      } else {
+        failed++;
+      }
+    }
+
+    res.json({ sent, failed, total: users.length });
+  } catch (error) {
+    console.error("[Dashboard] Reactivation campaign error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── Automatizaciones — envío masivo por tipo de acción (TAREA 14) ────────────
+router.post("/campaigns/next-actions", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    const { type } = req.body ?? {};
+    if (!type) return res.status(400).json({ error: "type es requerido" });
+    const result = await sendNextActionReminders({ tenantId, type });
+    res.json(result);
+  } catch (error) {
+    console.error("[Dashboard] Next-action campaign error:", error.message);
+    if (error.message.includes("inválido")) return res.status(400).json({ error: error.message });
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+module.exports = router;
