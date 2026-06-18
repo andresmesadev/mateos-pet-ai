@@ -91,6 +91,10 @@ model User {
   appointments      Appointment[]
   memoryEmbeddings  MemoryEmbedding[]
   transactions      Transaction[]
+
+  // listClients (orderBy createdAt) y recovery (filtro lastReminderSentAt)
+  @@index([tenantId, createdAt])
+  @@index([tenantId, lastReminderSentAt])
 }
 
 model Pet {
@@ -118,6 +122,10 @@ model Pet {
   groomingReminderSent Boolean @default(false)
 
   createdAt DateTime @default(now())
+
+  // listPets (filtro tenantId, orderBy createdAt) y joins por dueño
+  @@index([tenantId, createdAt])
+  @@index([ownerId])
 }
 
 // status: "pending" | "done" | "dismissed"
@@ -142,6 +150,10 @@ model PetNextAction {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // opportunities/summary (tenantId + status, orderBy dueAt) y listNextActions por pet
+  @@index([tenantId, status, dueAt])
+  @@index([petId, status])
 }
 
 model MedicalRecord {
@@ -175,6 +187,9 @@ model MedicalRecord {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // timeline/records por mascota (standaloneRecords where petId)
+  @@index([petId])
 }
 
 model Conversation {
@@ -194,6 +209,10 @@ model Conversation {
 
   messages          Message[]
   memoryEmbeddings  MemoryEmbedding[]
+
+  // listConversations (tenantId, orderBy updatedAt) y lookup por usuario
+  @@index([tenantId, updatedAt])
+  @@index([userId])
 }
 
 model Message {
@@ -207,6 +226,9 @@ model Message {
   createdAt       DateTime @default(now())
 
   memoryEmbeddings MemoryEmbedding[]
+
+  // getConversationMessages (where conversationId)
+  @@index([conversationId])
 }
 
 /// Embeddings semánticos (pgvector). Dimensión 1536 = text-embedding-3-small / similar.
@@ -271,6 +293,13 @@ model Appointment {
   transaction   Transaction?
 
   createdAt   DateTime @default(now())
+
+  // today/upcoming/week (tenantId + rango de date), métricas por status,
+  // recovery/churn (userId + date), y timeline por mascota (petId)
+  @@index([tenantId, date])
+  @@index([tenantId, status])
+  @@index([userId, date])
+  @@index([petId])
 }
 
 // ── POS / Facturación (TAREA 17) ──────────────────────────────
@@ -293,6 +322,9 @@ model Transaction {
   createdAt     DateTime @default(now())
 
   items         TransactionItem[]
+
+  // listTransactions y /metrics/revenue (tenantId + rango de paidAt)
+  @@index([tenantId, paidAt])
 }
 
 model TransactionItem {
@@ -304,4 +336,7 @@ model TransactionItem {
   quantity      Int     @default(1)
   unitPrice     Decimal @db.Decimal(10, 2)
   total         Decimal @db.Decimal(10, 2)
+
+  // mapeo de items por transacción (revenue byItem)
+  @@index([transactionId])
 }
