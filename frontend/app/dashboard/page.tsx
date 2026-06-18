@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 
 import { auth } from "@/auth";
-import { EscalationsPanel } from "@/components/dashboard/escalations-panel";
 import { QuickActions } from "@/components/dashboard/quick-actions";
 import { makeServerHeaders } from "@/lib/api";
 import {
@@ -49,8 +48,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <RemindersSection headers={headers} />
         </Suspense>
       </div>
-
-      <EscalationsPanel />
 
       {/* Bandejas de oportunidad / riesgo */}
       <div className="grid gap-4 lg:grid-cols-3">

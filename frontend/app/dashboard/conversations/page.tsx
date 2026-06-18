@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { MessageSquare } from "lucide-react";
 
 import { ConversationsInbox } from "@/components/dashboard/conversations-inbox";
+import { EscalationsPanel } from "@/components/dashboard/escalations-panel";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -29,15 +30,19 @@ export default async function DashboardConversationsPage({
   return (
     <section>
       <PageHeader
-        title="Conversaciones"
-        description="Revisa qué escribió cada cliente y el historial completo del chat"
+        title="WhatsApp"
+        description="Atención humana e historial completo de los chats"
         icon={MessageSquare}
         tint="bg-emerald-500/15 text-emerald-400"
       />
 
-      <Suspense fallback={<ConversationsLoading />}>
-        <ConversationsInbox initialConversationId={params.conversation ?? null} />
-      </Suspense>
+      <div className="space-y-6">
+        <EscalationsPanel />
+
+        <Suspense fallback={<ConversationsLoading />}>
+          <ConversationsInbox initialConversationId={params.conversation ?? null} />
+        </Suspense>
+      </div>
     </section>
   );
 }
