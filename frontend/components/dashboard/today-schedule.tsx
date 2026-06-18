@@ -16,6 +16,7 @@ import {
 } from "@/lib/appointments";
 import { getPetEmoji } from "@/lib/pets";
 import { proxyUrl } from "@/lib/api";
+import { useToast } from "@/components/ui/toast";
 
 const VET_SERVICE_TYPES = ["vet", "consultation", "veterinary_consultation"];
 
@@ -53,6 +54,7 @@ type Props = {
 const POLL_INTERVAL_MS = 30_000;
 
 export function TodaySchedule({ appointments: initial }: Props) {
+  const { toast } = useToast();
   const [appointments, setAppointments] = useState(initial);
   const [updating, setUpdating] = useState<string | null>(null);
   const [recordingAppt, setRecordingAppt] = useState<TodayAppointment | null>(null);
@@ -106,7 +108,8 @@ export function TodaySchedule({ appointments: initial }: Props) {
       const updated: TodayAppointment = await res.json();
       setAppointments((all) => all.map((a) => (a.id === id ? updated : a)));
     } catch {
-      setAppointments(prev);
+      setAppointments(prev); // revierte el cambio optimista
+      toast("No se pudo actualizar el estado de la cita.", "error");
     } finally {
       setUpdating(null);
     }

@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { proxyUrl } from "@/lib/api";
+import { useToast } from "@/components/ui/toast";
 import { useTenant } from "@/lib/use-tenant";
 
 type DaySlot = { open: string; close: string; active: boolean };
@@ -60,6 +61,7 @@ function AvailabilityPanel({ staffId, initial, onSaved }: {
   initial: Availability | null;
   onSaved: (av: Availability) => void;
 }) {
+  const { toast } = useToast();
   const [av, setAv] = useState<Availability>(() => initial ?? buildDefaultAvailability());
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -78,11 +80,12 @@ function AvailabilityPanel({ staffId, initial, onSaved }: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ availability: av }),
       });
-      if (res.ok) {
-        setSaved(true);
-        onSaved(av);
-      }
-    } catch { /* noop */ } finally { setSaving(false); }
+      if (!res.ok) throw new Error();
+      setSaved(true);
+      onSaved(av);
+    } catch {
+      toast("No se pudo guardar el horario. Intenta de nuevo.", "error");
+    } finally { setSaving(false); }
   }
 
   return (
@@ -144,6 +147,7 @@ const EMPTY_FORM: NewForm = { name: "", role: "vet", phone: "", email: "" };
 
 export function StaffManager() {
   const tenant = useTenant();
+  const { toast } = useToast();
   const [members, setMembers] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
@@ -255,14 +259,15 @@ export function StaffManager() {
 
   async function handleToggleActive(m: StaffMember) {
     try {
-      await fetch(proxyUrl(`/api/dashboard/staff/${m.id}`), {
+      const res = await fetch(proxyUrl(`/api/dashboard/staff/${m.id}`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ active: !m.active }),
       });
+      if (!res.ok) throw new Error();
       await reload();
     } catch {
-      // silently ignore
+      toast(`No se pudo ${m.active ? "desactivar" : "activar"} a ${m.name}`, "error");
     }
   }
 

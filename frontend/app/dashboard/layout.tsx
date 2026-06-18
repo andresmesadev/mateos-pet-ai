@@ -2,6 +2,7 @@ import { Suspense } from "react";
 
 import { LogoutButton } from "@/components/auth/logout-button";
 import { DashboardNav } from "@/components/dashboard/dashboard-nav";
+import { ToastProvider } from "@/components/ui/toast";
 
 export default function DashboardLayout({
   children,
@@ -9,20 +10,22 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <main className="min-h-screen bg-muted/40 p-6">
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-4xl font-bold tracking-tight">Mateos Pet AI</h1>
-          <p className="mt-2 text-muted-foreground">
-            Dashboard administrativo inteligente
-          </p>
+    <ToastProvider>
+      <main className="min-h-screen bg-muted/40 p-6">
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-4xl font-bold tracking-tight">Mateos Pet AI</h1>
+            <p className="mt-2 text-muted-foreground">
+              Dashboard administrativo inteligente
+            </p>
+          </div>
+
+          <LogoutButton />
         </div>
 
-        <LogoutButton />
-      </div>
-
-      <DashboardNav />
-      <Suspense fallback={null}>{children}</Suspense>
-    </main>
+        <DashboardNav />
+        <Suspense fallback={null}>{children}</Suspense>
+      </main>
+    </ToastProvider>
   );
 }

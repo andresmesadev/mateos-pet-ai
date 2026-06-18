@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { proxyUrl } from "@/lib/api";
+import { useToast } from "@/components/ui/toast";
 import { formatCOP } from "@/lib/transactions";
 import { type TenantProfile, type ServiceRow } from "@/app/dashboard/settings/page";
 
@@ -170,6 +171,7 @@ function ProfileTab({ profile }: { profile: TenantProfile | null }) {
 // ── Service row ───────────────────────────────────────────────
 
 function ServiceCard({ service, onUpdated }: { service: ServiceRow; onUpdated: (s: ServiceRow) => void }) {
+  const { toast } = useToast();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(service.name);
   const [duration, setDuration] = useState(String(service.duration));
@@ -188,21 +190,27 @@ function ServiceCard({ service, onUpdated }: { service: ServiceRow; onUpdated: (
           basePrice: basePrice ? Number(basePrice) : null,
         }),
       });
-      if (res.ok) {
-        const updated = await res.json();
-        onUpdated({ ...service, ...updated, basePrice: updated.basePrice != null ? Number(updated.basePrice) : null });
-        setEditing(false);
-      }
-    } catch { /* noop */ } finally { setSaving(false); }
+      if (!res.ok) throw new Error();
+      const updated = await res.json();
+      onUpdated({ ...service, ...updated, basePrice: updated.basePrice != null ? Number(updated.basePrice) : null });
+      setEditing(false);
+    } catch {
+      toast("No se pudo guardar el servicio. Intenta de nuevo.", "error");
+    } finally { setSaving(false); }
   }
 
   async function toggleActive() {
-    const res = await fetch(proxyUrl(`/api/dashboard/services/${service.id}`), {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ active: !service.active }),
-    });
-    if (res.ok) onUpdated({ ...service, active: !service.active });
+    try {
+      const res = await fetch(proxyUrl(`/api/dashboard/services/${service.id}`), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active: !service.active }),
+      });
+      if (!res.ok) throw new Error();
+      onUpdated({ ...service, active: !service.active });
+    } catch {
+      toast(`No se pudo ${service.active ? "desactivar" : "activar"} el servicio`, "error");
+    }
   }
 
   return (

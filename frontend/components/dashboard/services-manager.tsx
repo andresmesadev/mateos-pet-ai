@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { proxyUrl } from "@/lib/api";
+import { useToast } from "@/components/ui/toast";
 import { useTenant, tenantQuery } from "@/lib/use-tenant";
 
 type Service = {
@@ -53,6 +54,7 @@ type EditForm = {
 
 export function ServicesManager() {
   const tenant = useTenant();
+  const { toast } = useToast();
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
@@ -160,14 +162,15 @@ export function ServicesManager() {
 
   async function handleToggleActive(svc: Service) {
     try {
-      await fetch(proxyUrl(`/api/dashboard/services/${svc.id}`), {
+      const res = await fetch(proxyUrl(`/api/dashboard/services/${svc.id}`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ active: !svc.active }),
       });
+      if (!res.ok) throw new Error();
       await load();
     } catch {
-      // silently ignore
+      toast(`No se pudo ${svc.active ? "desactivar" : "activar"} el servicio`, "error");
     }
   }
 

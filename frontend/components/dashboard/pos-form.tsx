@@ -44,7 +44,10 @@ function ClientSearch({ onSelect }: { onSelect: (c: ClientResult | null) => void
           // API returns array of clients; attach pets from nested structure
           setResults(Array.isArray(data) ? data.slice(0, 8) : []);
         }
-      } catch { /* noop */ } finally { setSearching(false); }
+      } catch {
+        // Búsqueda en vivo (debounced): un fallo puntual no necesita toast,
+        // el usuario sigue escribiendo y se reintenta solo.
+      } finally { setSearching(false); }
     }, 300);
   }, [query]);
 
