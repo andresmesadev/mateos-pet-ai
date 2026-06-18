@@ -11,13 +11,10 @@ import {
   ShoppingCart,
   Users,
   PawPrint,
-  MessageSquare,
   HeartPulse,
   UserCog,
-  Scissors,
   TrendingUp,
   Settings,
-  CreditCard,
   Building2,
   Bot,
   LogOut,
@@ -40,6 +37,7 @@ const SECTIONS: NavSection[] = [
       { href: "/dashboard", label: "Inicio", icon: Home, exact: true },
       { href: "/dashboard/calendar", label: "Agenda", icon: Calendar },
       { href: "/dashboard/pos", label: "Nueva venta", icon: ShoppingCart, exact: true },
+      { href: "/dashboard/recuperacion", label: "Recuperación", icon: HeartPulse },
     ],
   },
   {
@@ -50,20 +48,11 @@ const SECTIONS: NavSection[] = [
     ],
   },
   {
-    heading: "Comunicación",
-    items: [
-      { href: "/dashboard/conversations", label: "Conversaciones", icon: MessageSquare },
-      { href: "/dashboard/recuperacion", label: "Recuperación", icon: HeartPulse },
-    ],
-  },
-  {
     heading: "Gestión",
     items: [
       { href: "/dashboard/staff", label: "Staff", icon: UserCog },
-      { href: "/dashboard/services", label: "Servicios", icon: Scissors },
       { href: "/dashboard/revenue", label: "Ingresos", icon: TrendingUp },
       { href: "/dashboard/settings", label: "Configuración", icon: Settings },
-      { href: "/dashboard/billing", label: "Plan y facturación", icon: CreditCard },
     ],
   },
 ];
