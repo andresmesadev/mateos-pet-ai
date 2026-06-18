@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { apiUrl } from "@/lib/api";
+import { proxyUrl } from "@/lib/api";
 import {
   type ConversationDetail,
   type ConversationMessage,
@@ -89,7 +89,7 @@ function ConversationSheetContent({
     void (async () => {
       try {
         const response = await fetch(
-          apiUrl(`/api/dashboard/conversations/${conversationId}/messages`),
+          proxyUrl(`/api/dashboard/conversations/${conversationId}/messages`),
           { cache: "no-store" }
         );
 

@@ -14,7 +14,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
-import { apiUrl } from "@/lib/api";
+import { proxyUrl } from "@/lib/api";
 import {
   formatColombiaDateTime,
   formatService,
@@ -57,7 +57,7 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
 
     void (async () => {
       try {
-        const response = await fetch(apiUrl(`/api/dashboard/clients/${clientId}`), {
+        const response = await fetch(proxyUrl(`/api/dashboard/clients/${clientId}`), {
           cache: "no-store",
         });
 
@@ -117,7 +117,7 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
     if (!client) return;
     setSaving(true);
     try {
-      const res = await fetch(apiUrl(`/api/dashboard/clients/${client.id}`), {
+      const res = await fetch(proxyUrl(`/api/dashboard/clients/${client.id}`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editForm),

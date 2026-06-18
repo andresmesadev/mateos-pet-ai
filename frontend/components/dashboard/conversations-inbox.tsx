@@ -13,7 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { apiUrl } from "@/lib/api";
+import { proxyUrl } from "@/lib/api";
 import {
   type ConversationsResponse,
   type DashboardConversation,
@@ -59,7 +59,7 @@ export function ConversationsInbox({
     void (async () => {
       try {
         const response = await fetch(
-          apiUrl(`/api/dashboard/conversations?page=${page}&limit=20`),
+          proxyUrl(`/api/dashboard/conversations?page=${page}&limit=20`),
           { cache: "no-store" }
         );
 

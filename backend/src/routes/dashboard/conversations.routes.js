@@ -88,9 +88,11 @@ router.get("/opportunities", async (req, res) => {
     const now = new Date();
 
     // 1. Pending next-actions with pet + owner
+    // Cota de seguridad: ordenadas por vencimiento, las más urgentes primero.
     const actions = await prisma.petNextAction.findMany({
       where: { ...tenantFilter, status: "pending" },
       orderBy: { dueAt: "asc" },
+      take: 500,
       include: {
         pet: {
           select: {

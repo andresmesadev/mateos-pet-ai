@@ -22,7 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { apiUrl } from "@/lib/api";
+import { proxyUrl } from "@/lib/api";
 import {
   type Tenant,
   PLAN_LABELS,
@@ -62,7 +62,7 @@ function CreateTenantForm({ onCreated }: { onCreated: (t: Tenant) => void }) {
     setSaving(true);
 
     try {
-      const res = await fetch(apiUrl("/api/dashboard/tenants"), {
+      const res = await fetch(proxyUrl("/api/dashboard/tenants"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
@@ -173,7 +173,7 @@ export function TenantsTable() {
 
     void (async () => {
       try {
-        const res = await fetch(apiUrl("/api/dashboard/tenants"), {
+        const res = await fetch(proxyUrl("/api/dashboard/tenants"), {
           cache: "no-store",
         });
 

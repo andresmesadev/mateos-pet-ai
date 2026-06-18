@@ -13,7 +13,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
-import { apiUrl } from "@/lib/api";
+import { proxyUrl } from "@/lib/api";
 import {
   type Tenant,
   PLAN_LABELS,
@@ -60,7 +60,7 @@ function TenantSheetContent({
     void (async () => {
       setLoading(true);
       try {
-        const res = await fetch(apiUrl(`/api/dashboard/tenants/${tenantId}`), {
+        const res = await fetch(proxyUrl(`/api/dashboard/tenants/${tenantId}`), {
           cache: "no-store",
         });
 
@@ -88,7 +88,7 @@ function TenantSheetContent({
     if (!tenant) return;
     setSaving(true);
     try {
-      const res = await fetch(apiUrl(`/api/dashboard/tenants/${tenant.id}`), {
+      const res = await fetch(proxyUrl(`/api/dashboard/tenants/${tenant.id}`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),

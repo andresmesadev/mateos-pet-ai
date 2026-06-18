@@ -55,10 +55,16 @@ const mapClientSummary = (user) => {
   };
 };
 
+// Cota de seguridad: el dashboard reordena por actividad reciente en JS, así que
+// traemos como máximo los más recientes por createdAt para evitar OOM con tenants grandes.
+const CLIENTS_HARD_LIMIT = 500;
+
 const listClients = async (tenantId) => {
   const tenantFilter = tenantId ? { tenantId } : {};
   const users = await prisma.user.findMany({
     where: tenantFilter,
+    take: CLIENTS_HARD_LIMIT,
+    orderBy: { createdAt: "desc" },
     include: {
       _count: {
         select: {
@@ -179,6 +185,7 @@ const listInactiveClients = async (tenantId) => {
       },
     },
     orderBy: { createdAt: "asc" },
+    take: CLIENTS_HARD_LIMIT,
   });
 
   return users.map((u) => ({

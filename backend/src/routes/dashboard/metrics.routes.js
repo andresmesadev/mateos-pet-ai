@@ -93,18 +93,35 @@ router.get("/metrics/recovery", async (req, res) => {
       select: { id: true, lastReminderSentAt: true },
     });
 
-    // De esos, cuántos tienen al menos una cita posterior a lastReminderSentAt
+    // De esos, cuántos tienen al menos una cita posterior a SU lastReminderSentAt.
+    // Antes era un N+1 (un findFirst por usuario). Ahora son 2 queries:
+    // 1 para los contactados + 1 para todas sus citas válidas, y el cruce en JS.
     let reactivatedCount = 0;
-    for (const u of contactedUsers) {
-      const appt = await prisma.appointment.findFirst({
+    if (contactedUsers.length > 0) {
+      // Recordatorio más antiguo → cota inferior para acotar la query de citas
+      const earliestReminder = contactedUsers.reduce(
+        (min, u) => (u.lastReminderSentAt < min ? u.lastReminderSentAt : min),
+        contactedUsers[0].lastReminderSentAt
+      );
+
+      const appts = await prisma.appointment.findMany({
         where: {
-          userId: u.id,
-          date: { gt: u.lastReminderSentAt },
+          userId: { in: contactedUsers.map((u) => u.id) },
+          date: { gt: earliestReminder },
           status: { notIn: ["cancelled", "no_show"] },
         },
-        select: { id: true },
+        select: { userId: true, date: true },
       });
-      if (appt) reactivatedCount++;
+
+      const reminderByUser = new Map(
+        contactedUsers.map((u) => [u.id, u.lastReminderSentAt])
+      );
+      const reactivatedSet = new Set();
+      for (const a of appts) {
+        const reminderDate = reminderByUser.get(a.userId);
+        if (reminderDate && a.date > reminderDate) reactivatedSet.add(a.userId);
+      }
+      reactivatedCount = reactivatedSet.size;
     }
 
     const contactedCount = contactedUsers.length;
@@ -154,9 +171,17 @@ router.get("/metrics/churn", async (req, res) => {
     const { tenantId } = req.tenant;
     const limit = Math.min(parseInt(req.query.limit ?? "50") || 50, 200);
 
-    // Traer todos los clientes con >= 2 citas completadas
+    // Acotar el universo: solo clientes con al menos una cita completada en el
+    // último año. Quien no viene hace +1 año ya abandonó (no es "riesgo"), y así
+    // evitamos cargar toda la tabla de usuarios en memoria.
+    const oneYearAgo = new Date(Date.now() - 365 * 86400000);
     const users = await prisma.user.findMany({
-      where: { ...(tenantId ? { tenantId } : {}) },
+      where: {
+        ...(tenantId ? { tenantId } : {}),
+        appointments: {
+          some: { status: "completed", date: { gte: oneYearAgo } },
+        },
+      },
       select: {
         id: true,
         name: true,

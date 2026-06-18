@@ -20,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { apiUrl } from "@/lib/api";
+import { proxyUrl } from "@/lib/api";
 import {
   type Appointment,
   type DateFilter,
@@ -60,7 +60,7 @@ export function AppointmentsTable() {
 
     void (async () => {
       try {
-        const response = await fetch(apiUrl("/api/dashboard/appointments"), {
+        const response = await fetch(proxyUrl("/api/dashboard/appointments"), {
           cache: "no-store",
         });
 
