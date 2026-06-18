@@ -19,6 +19,7 @@ export type TodayAppointment = {
   petType: string;
   clientPhone: string;
   clientName: string | null;
+  petId: string | null;
   // Operational fields (TAREA 9)
   serviceName: string | null;
   staffName: string | null;

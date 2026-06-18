@@ -257,6 +257,7 @@ function mapAppointmentRow(a) {
     petType: a.pet?.type ?? a.petType,
     clientPhone: a.user?.phone ?? "",
     clientName: a.user?.name ?? null,
+    petId: a.petId ?? null,
     serviceName: a.service?.name ?? null,
     staffName: a.staff?.name ?? null,
     price: a.price !== null && a.price !== undefined ? Number(a.price) : null,
