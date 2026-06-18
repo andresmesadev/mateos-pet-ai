@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Bell, Calendar, MessageCircle, Search } from "lucide-react";
 
@@ -17,19 +18,29 @@ function todayLabel(): string {
 
 export function DashboardTopbar() {
   const { data: session } = useSession();
+  const pathname = usePathname();
+  const isHome = pathname === "/dashboard";
   const rawName = session?.user?.name ?? "";
   const firstName = rawName.split(" ")[0] || "de nuevo";
 
   return (
     <header className="sticky top-0 z-20 flex flex-col gap-4 border-b border-border bg-background/80 px-4 py-4 backdrop-blur md:flex-row md:items-center md:justify-between md:px-8 md:py-5">
-      {/* Saludo */}
+      {/* Saludo (solo en Inicio; en el resto cada página tiene su PageHeader) */}
       <div className="pl-12 lg:pl-0">
-        <h1 className="text-xl font-bold tracking-tight md:text-2xl">
-          ¡Hola, {firstName}! 👋
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Aquí tienes el resumen de tu operación de hoy.
-        </p>
+        {isHome ? (
+          <>
+            <h1 className="text-xl font-bold tracking-tight md:text-2xl">
+              ¡Hola, {firstName}! 👋
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Aquí tienes el resumen de tu operación de hoy.
+            </p>
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Mateos Pet AI · Panel operativo
+          </p>
+        )}
       </div>
 
       {/* Acciones */}

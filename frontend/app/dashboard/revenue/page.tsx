@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { TrendingUp } from "lucide-react";
 
 import { auth } from "@/auth";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -74,16 +76,16 @@ export default async function RevenuePage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Ingresos</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Historial de cobros y resumen mensual.</p>
-        </div>
+      <PageHeader
+        title="Ingresos"
+        description="Historial de cobros y resumen mensual"
+        icon={TrendingUp}
+        tint="bg-emerald-500/15 text-emerald-400"
+      >
         <Button asChild>
           <Link href="/dashboard/pos">+ Nueva venta</Link>
         </Button>
-      </div>
+      </PageHeader>
 
       {/* Period nav */}
       <div className="flex items-center gap-3">

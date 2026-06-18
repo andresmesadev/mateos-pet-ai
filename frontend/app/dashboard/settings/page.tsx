@@ -1,5 +1,8 @@
+import { Settings } from "lucide-react";
+
 import { auth } from "@/auth";
 import { apiUrl, makeServerHeaders } from "@/lib/api";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { SettingsView } from "@/components/dashboard/settings-view";
 
 export type TenantProfile = {
@@ -43,13 +46,13 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   const services: ServiceRow[] = servicesRes.ok ? await servicesRes.json() : [];
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Configuración</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Perfil del negocio, horarios y catálogo de servicios.
-        </p>
-      </div>
+    <div>
+      <PageHeader
+        title="Configuración"
+        description="Perfil del negocio, horarios y catálogo de servicios"
+        icon={Settings}
+        tint="bg-slate-500/15 text-slate-300"
+      />
       <SettingsView profile={profile} services={services} />
     </div>
   );

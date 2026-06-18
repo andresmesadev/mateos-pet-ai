@@ -1,5 +1,8 @@
+import { Calendar } from "lucide-react";
+
 import { auth } from "@/auth";
 import { apiUrl, makeServerHeaders } from "@/lib/api";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { WeekCalendar } from "@/components/dashboard/week-calendar";
 import { type TodayAppointment } from "@/lib/appointments";
 
@@ -35,13 +38,13 @@ export default async function CalendarPage({ searchParams }: PageProps) {
   } catch { /* fallback to empty */ }
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold">Calendario</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Vista semanal de citas — hora Bogotá.
-        </p>
-      </div>
+    <div>
+      <PageHeader
+        title="Agenda"
+        description="Vista semanal de citas — hora Bogotá"
+        icon={Calendar}
+        tint="bg-teal-500/15 text-teal-400"
+      />
       <WeekCalendar data={data} />
     </div>
   );

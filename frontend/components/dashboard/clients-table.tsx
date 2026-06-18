@@ -9,7 +9,6 @@ import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -104,14 +103,16 @@ export function ClientsTable() {
   return (
     <>
       <Card>
-        <CardHeader>
-          <CardTitle>Clientes</CardTitle>
-          <CardDescription>
-            Usuarios registrados por WhatsApp y su actividad reciente
-          </CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
+          <CardTitle className="text-base">Listado de clientes</CardTitle>
+          {!loading && !error && clients.length > 0 && (
+            <Badge variant="outline" className="font-normal">
+              {clients.length} {clients.length === 1 ? "cliente" : "clientes"}
+            </Badge>
+          )}
         </CardHeader>
 
-        <CardContent>
+        <CardContent className="pt-2">
           {loading ? (
             <TableSkeleton />
           ) : error ? (
@@ -139,18 +140,25 @@ export function ClientsTable() {
                 {clients.map((client) => (
                   <TableRow
                     key={client.id}
-                    className="cursor-pointer"
+                    className="cursor-pointer transition-colors hover:bg-accent/50"
                     onClick={() => handleOpenClient(client)}
                   >
                     <TableCell>
-                      <div className="font-medium">
-                        {formatPhone(client.phone)}
-                      </div>
-                      {client.name ? (
-                        <div className="text-sm text-muted-foreground">
-                          {client.name}
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-sm font-semibold text-violet-400">
+                          {(client.name?.trim()?.[0] ?? "#").toUpperCase()}
                         </div>
-                      ) : null}
+                        <div className="min-w-0">
+                          <div className="font-medium">
+                            {client.name ?? formatPhone(client.phone)}
+                          </div>
+                          {client.name ? (
+                            <div className="text-sm text-muted-foreground">
+                              {formatPhone(client.phone)}
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{client.petsCount}</Badge>

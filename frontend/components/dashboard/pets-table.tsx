@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -155,14 +154,16 @@ export function PetsTable({
   return (
     <>
       <Card>
-        <CardHeader>
-          <CardTitle>Expedientes médicos</CardTitle>
-          <CardDescription>
-            Mascotas registradas y su historial clínico
-          </CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
+          <CardTitle className="text-base">Expedientes médicos</CardTitle>
+          {!loading && !error && pets.length > 0 && (
+            <Badge variant="outline" className="font-normal">
+              {pets.length} {pets.length === 1 ? "mascota" : "mascotas"}
+            </Badge>
+          )}
         </CardHeader>
 
-        <CardContent>
+        <CardContent className="pt-2">
           {loading ? (
             <TableSkeleton />
           ) : error ? (
@@ -190,10 +191,18 @@ export function PetsTable({
               </TableHeader>
               <TableBody>
                 {pets.map((pet) => (
-                  <TableRow key={pet.id}>
+                  <TableRow
+                    key={pet.id}
+                    className="cursor-pointer transition-colors hover:bg-accent/50"
+                    onClick={() => handleSelectPet(pet)}
+                  >
                     <TableCell className="font-medium">
-                      <span className="mr-2">{getPetEmoji(pet.type)}</span>
-                      {pet.name}
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-base">
+                          {getPetEmoji(pet.type)}
+                        </div>
+                        {pet.name}
+                      </div>
                     </TableCell>
                     <TableCell>{formatPetType(pet.type)}</TableCell>
                     <TableCell>{formatPhone(pet.owner.phone)}</TableCell>

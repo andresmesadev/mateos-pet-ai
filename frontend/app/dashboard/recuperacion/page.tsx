@@ -1,5 +1,8 @@
+import { HeartPulse } from "lucide-react";
+
 import { auth } from "@/auth";
 import { apiUrl, makeServerHeaders } from "@/lib/api";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { RecuperacionView } from "@/components/dashboard/recuperacion-view";
 import { type OpportunitiesData } from "@/app/dashboard/opportunities/page";
 import { type ChurnClient } from "@/app/dashboard/churn/page";
@@ -49,12 +52,13 @@ export default async function RecuperacionPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Recuperación de clientes</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Acciones pendientes, reactivación de clientes inactivos y predicción de churn.
-        </p>
-      </div>
+      <PageHeader
+        title="Recuperación de clientes"
+        description="Acciones pendientes, reactivación de inactivos y predicción de churn"
+        icon={HeartPulse}
+        tint="bg-rose-500/15 text-rose-400"
+      />
+
 
       {/* Resumen rápido */}
       <div className="grid grid-cols-3 gap-4 max-w-lg">

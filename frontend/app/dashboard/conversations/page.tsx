@@ -1,11 +1,13 @@
 import { Suspense } from "react";
+import { MessageSquare } from "lucide-react";
 
 import { ConversationsInbox } from "@/components/dashboard/conversations-inbox";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 
 function ConversationsLoading() {
   return (
-    <div className="space-y-3 rounded-xl border p-4">
+    <div className="space-y-3 rounded-xl border border-border p-4">
       {Array.from({ length: 4 }).map((_, index) => (
         <Skeleton key={index} className="h-16 w-full" />
       ))}
@@ -26,12 +28,12 @@ export default async function DashboardConversationsPage({
 
   return (
     <section>
-      <div className="mb-6">
-        <h2 className="text-2xl font-semibold tracking-tight">Conversaciones</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Revisa qué escribió cada cliente y el historial completo del chat
-        </p>
-      </div>
+      <PageHeader
+        title="Conversaciones"
+        description="Revisa qué escribió cada cliente y el historial completo del chat"
+        icon={MessageSquare}
+        tint="bg-emerald-500/15 text-emerald-400"
+      />
 
       <Suspense fallback={<ConversationsLoading />}>
         <ConversationsInbox initialConversationId={params.conversation ?? null} />
