@@ -143,7 +143,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
       {/* BANDEJA DE OPORTUNIDADES — widget */}
       {actionsSummary.total > 0 && (
-        <Link href="/dashboard/opportunities" className="block">
+        <Link href="/dashboard/recuperacion?tab=oportunidades" className="block">
           <Card className={`transition-colors ${actionsSummary.overduePets > 0
             ? "border-2 border-amber-200 bg-amber-50/40 hover:bg-amber-50/70 dark:border-amber-900 dark:bg-amber-950/10"
             : "border-2 border-blue-200 bg-blue-50/40 hover:bg-blue-50/70 dark:border-blue-900 dark:bg-blue-950/10"
@@ -224,7 +224,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
       {/* CHURN PREDICTION WIDGET */}
       {churnAtRisk.length > 0 && (
-        <Link href="/dashboard/churn" className="block">
+        <Link href="/dashboard/recuperacion?tab=churn" className="block">
           <Card className="border-2 border-red-200 bg-red-50/40 transition-colors hover:bg-red-50/70 dark:border-red-900 dark:bg-red-950/10">
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-base">
@@ -247,7 +247,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
       {/* REACTIVAR PREVIEW */}
       {inactiveCount > 0 && (
-        <Link href="/dashboard/reactivation" className="block">
+        <Link href="/dashboard/recuperacion?tab=reactivar" className="block">
           <Card className="border-2 border-orange-200 bg-orange-50/50 transition-colors hover:bg-orange-50 dark:border-orange-900/50 dark:bg-orange-950/10 dark:hover:bg-orange-950/20">
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-base">
