@@ -80,6 +80,78 @@ router.get("/metrics", async (req, res) => {
   }
 });
 
+// ── Métricas diarias del Inicio (5 cards, vs ayer) ────────────────────────────
+// Citas de hoy · Clientes nuevos · Ingresos del día · Mascotas atendidas ·
+// Recordatorios enviados. Cada una con su valor de ayer y el delta.
+router.get("/metrics/daily", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    const tenantFilter = tenantId ? { tenantId } : {};
+
+    // Límites de día en hora Bogotá (UTC-5)
+    const todayStart = bogotaDayStart(getBogotaYmd());
+    const tomorrowStart = new Date(todayStart.getTime() + 86_400_000);
+    const yesterdayStart = new Date(todayStart.getTime() - 86_400_000);
+
+    const todayRange = { gte: todayStart, lt: tomorrowStart };
+    const yesterdayRange = { gte: yesterdayStart, lt: todayStart };
+
+    const [
+      apptToday,
+      apptYesterday,
+      clientsToday,
+      clientsYesterday,
+      revenueToday,
+      revenueYesterday,
+      attendedToday,
+      attendedYesterday,
+      remindersActionsToday,
+      remindersActionsYesterday,
+      remindersUsersToday,
+      remindersUsersYesterday,
+    ] = await Promise.all([
+      prisma.appointment.count({ where: { ...tenantFilter, date: todayRange } }),
+      prisma.appointment.count({ where: { ...tenantFilter, date: yesterdayRange } }),
+      prisma.user.count({ where: { ...tenantFilter, createdAt: todayRange } }),
+      prisma.user.count({ where: { ...tenantFilter, createdAt: yesterdayRange } }),
+      prisma.transaction.aggregate({ _sum: { total: true }, where: { ...tenantFilter, paidAt: todayRange } }),
+      prisma.transaction.aggregate({ _sum: { total: true }, where: { ...tenantFilter, paidAt: yesterdayRange } }),
+      prisma.appointment.findMany({
+        where: { ...tenantFilter, status: "completed", date: todayRange },
+        select: { petId: true },
+        distinct: ["petId"],
+      }),
+      prisma.appointment.findMany({
+        where: { ...tenantFilter, status: "completed", date: yesterdayRange },
+        select: { petId: true },
+        distinct: ["petId"],
+      }),
+      prisma.petNextAction.count({ where: { ...tenantFilter, reminderSentAt: todayRange } }),
+      prisma.petNextAction.count({ where: { ...tenantFilter, reminderSentAt: yesterdayRange } }),
+      prisma.user.count({ where: { ...tenantFilter, lastReminderSentAt: todayRange } }),
+      prisma.user.count({ where: { ...tenantFilter, lastReminderSentAt: yesterdayRange } }),
+    ]);
+
+    const revToday = Number(revenueToday._sum.total ?? 0);
+    const revYesterday = Number(revenueYesterday._sum.total ?? 0);
+    const remToday = remindersActionsToday + remindersUsersToday;
+    const remYesterday = remindersActionsYesterday + remindersUsersYesterday;
+
+    const metric = (count, prev) => ({ count, prev, delta: count - prev });
+
+    res.json({
+      appointmentsToday: metric(apptToday, apptYesterday),
+      newClientsToday: metric(clientsToday, clientsYesterday),
+      revenueToday: metric(revToday, revYesterday),
+      petsAttendedToday: metric(attendedToday.length, attendedYesterday.length),
+      remindersSentToday: metric(remToday, remYesterday),
+    });
+  } catch (error) {
+    console.error("[Dashboard] Daily metrics error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // ── Métricas de recuperación (TAREA 15) ───────────────────────────────────────
 router.get("/metrics/recovery", async (req, res) => {
   try {

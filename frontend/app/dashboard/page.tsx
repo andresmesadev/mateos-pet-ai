@@ -7,16 +7,15 @@ import { makeServerHeaders } from "@/lib/api";
 import {
   MetricsSection,
   TodaySection,
+  ConversationsActiveSection,
+  RemindersSection,
   OpportunitiesWidget,
-  RecoverySection,
-  UpcomingSection,
   ChurnWidget,
   ReactivarWidget,
 } from "@/components/dashboard/home/sections";
 import {
   MetricsSkeleton,
   ListCardSkeleton,
-  CardSkeleton,
 } from "@/components/dashboard/home/skeletons";
 
 type DashboardPageProps = {
@@ -33,22 +32,22 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   // skeletons que reservan el espacio, y cada bloque se rellena al estar listo.
   return (
     <div className="space-y-6">
+      {/* Fila superior: 5 métricas del día */}
       <Suspense fallback={<MetricsSkeleton />}>
         <MetricsSection headers={headers} />
       </Suspense>
 
-      {/* Agenda (ancha) + próximas citas (lateral) */}
+      {/* Tres paneles centrales */}
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <Suspense fallback={<ListCardSkeleton titleWidth="w-32" />}>
-            <TodaySection headers={headers} />
-          </Suspense>
-        </div>
-        <div>
-          <Suspense fallback={<ListCardSkeleton titleWidth="w-40" />}>
-            <UpcomingSection headers={headers} />
-          </Suspense>
-        </div>
+        <Suspense fallback={<ListCardSkeleton titleWidth="w-32" />}>
+          <TodaySection headers={headers} />
+        </Suspense>
+        <Suspense fallback={<ListCardSkeleton titleWidth="w-40" />}>
+          <ConversationsActiveSection headers={headers} />
+        </Suspense>
+        <Suspense fallback={<ListCardSkeleton titleWidth="w-44" />}>
+          <RemindersSection headers={headers} />
+        </Suspense>
       </div>
 
       <EscalationsPanel />
@@ -65,10 +64,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <ReactivarWidget headers={headers} />
         </Suspense>
       </div>
-
-      <Suspense fallback={<CardSkeleton />}>
-        <RecoverySection headers={headers} />
-      </Suspense>
 
       <QuickActions />
     </div>

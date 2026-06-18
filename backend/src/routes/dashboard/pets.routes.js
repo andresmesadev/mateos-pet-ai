@@ -289,6 +289,35 @@ router.get("/next-actions/summary", async (req, res) => {
   }
 });
 
+// Lista de recordatorios próximos (acciones pendientes) para el Inicio.
+router.get("/next-actions/upcoming", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    const limit = Math.min(parseInt(req.query.limit ?? "6") || 6, 50);
+
+    const actions = await prisma.petNextAction.findMany({
+      where: { ...(tenantId ? { tenantId } : {}), status: "pending" },
+      orderBy: { dueAt: "asc" },
+      take: limit,
+      include: { pet: { select: { name: true, type: true } } },
+    });
+
+    res.json(
+      actions.map((a) => ({
+        id: a.id,
+        type: a.type,
+        notes: a.notes ?? null,
+        dueAt: a.dueAt.toISOString(),
+        petName: a.pet?.name ?? "Mascota",
+        petType: a.pet?.type ?? null,
+      }))
+    );
+  } catch (error) {
+    console.error("[Dashboard] Upcoming next actions error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.get("/pets/:id/next-actions", async (req, res) => {
   try {
     const { id } = req.params;
