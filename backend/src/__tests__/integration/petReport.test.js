@@ -151,6 +151,31 @@ describe("GET /api/dashboard/pets/:id/report", () => {
     expect(res.body.timeline.nextActions[0].title).toContain("Vacuna");
   });
 
+  // B2: el report comparte la fuente de verdad con /timeline. Antes el report
+  // NO generaba la próxima acción de "Cita programada" para citas futuras; este
+  // test blinda esa paridad para que el PDF nunca vuelva a divergir de la pantalla.
+  it("includes a 'Cita programada' next action for future appointments (paridad con timeline)", async () => {
+    prisma.pet.findFirst.mockResolvedValue(PET);
+    const future = new Date(Date.now() + 7 * 86400000);
+    prisma.appointment.findMany.mockResolvedValue([
+      {
+        id: "appt-future",
+        petId: "pet-1",
+        tenantId: TENANT_ID,
+        date: future,
+        status: "confirmed",
+        serviceType: "grooming",
+        service: { name: "Baño y corte", category: "grooming" },
+        staff: { name: "Sara" },
+        medicalRecord: null,
+      },
+    ]);
+    const res = await request(app).get("/api/dashboard/pets/pet-1/report");
+    expect(res.status).toBe(200);
+    const titles = res.body.timeline.nextActions.map((a) => a.title);
+    expect(titles.some((t) => t.startsWith("Cita programada"))).toBe(true);
+  });
+
   it("returns 500 on database error", async () => {
     prisma.pet.findFirst.mockRejectedValue(new Error("db error"));
     const res = await request(app).get("/api/dashboard/pets/pet-1/report");
