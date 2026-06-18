@@ -11,10 +11,8 @@ import {
   ShoppingCart,
   Users,
   HeartPulse,
-  UserCog,
   TrendingUp,
   Settings,
-  Building2,
   Bot,
   LogOut,
   Menu,
@@ -38,22 +36,11 @@ const SECTIONS: NavSection[] = [
       { href: "/dashboard/contacto", label: "Contacto", icon: Users },
       { href: "/dashboard/pos", label: "Nueva venta", icon: ShoppingCart, exact: true },
       { href: "/dashboard/recuperacion", label: "Recuperación", icon: HeartPulse },
-    ],
-  },
-  {
-    heading: "Gestión",
-    items: [
-      { href: "/dashboard/staff", label: "Staff", icon: UserCog },
       { href: "/dashboard/revenue", label: "Ingresos", icon: TrendingUp },
       { href: "/dashboard/settings", label: "Configuración", icon: Settings },
     ],
   },
 ];
-
-const ADMIN_SECTION: NavSection = {
-  heading: "Admin",
-  items: [{ href: "/dashboard/admin/tenants", label: "Tenants", icon: Building2 }],
-};
 
 function isActive(item: NavItem, pathname: string) {
   return item.exact ? pathname === item.href : pathname.startsWith(item.href);
@@ -100,7 +87,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { data: session } = useSession();
 
-  const sections = session?.user?.isSuperAdmin ? [...SECTIONS, ADMIN_SECTION] : SECTIONS;
+  const sections = SECTIONS;
   const userName = session?.user?.name ?? session?.user?.email ?? "Usuario";
   const role = session?.user?.isSuperAdmin ? "Super administrador" : "Administrador";
 
