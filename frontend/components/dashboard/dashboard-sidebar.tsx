@@ -10,7 +10,6 @@ import {
   Calendar,
   ShoppingCart,
   Users,
-  PawPrint,
   HeartPulse,
   UserCog,
   TrendingUp,
@@ -36,15 +35,9 @@ const SECTIONS: NavSection[] = [
     items: [
       { href: "/dashboard", label: "Inicio", icon: Home, exact: true },
       { href: "/dashboard/calendar", label: "Agenda", icon: Calendar },
+      { href: "/dashboard/contacto", label: "Contacto", icon: Users },
       { href: "/dashboard/pos", label: "Nueva venta", icon: ShoppingCart, exact: true },
       { href: "/dashboard/recuperacion", label: "Recuperación", icon: HeartPulse },
-    ],
-  },
-  {
-    heading: "Contacto",
-    items: [
-      { href: "/dashboard/clients", label: "Clientes", icon: Users },
-      { href: "/dashboard/pets", label: "Mascotas", icon: PawPrint },
     ],
   },
   {
