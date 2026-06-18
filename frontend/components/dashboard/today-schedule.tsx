@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,13 @@ function canRecordVetAttention(appt: TodayAppointment): boolean {
   );
 }
 
+function formatTimeSince(date: Date): string {
+  const secs = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (secs < 10) return "justo ahora";
+  if (secs < 60) return `hace ${secs}s`;
+  return `hace ${Math.floor(secs / 60)}min`;
+}
+
 function formatTodayHeader(): string {
   return new Intl.DateTimeFormat("es-CO", {
     timeZone: "America/Bogota",
@@ -43,13 +50,45 @@ type Props = {
   appointments: TodayAppointment[];
 };
 
+const POLL_INTERVAL_MS = 30_000;
+
 export function TodaySchedule({ appointments: initial }: Props) {
   const [appointments, setAppointments] = useState(initial);
   const [updating, setUpdating] = useState<string | null>(null);
   const [recordingAppt, setRecordingAppt] = useState<TodayAppointment | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [polling, setPolling] = useState(false);
+  const updatingRef = useRef<string | null>(null);
 
   const header = formatTodayHeader();
   const capitalized = header.charAt(0).toUpperCase() + header.slice(1);
+
+  const refresh = useCallback(async (silent = true) => {
+    // Don't poll while a status update is in flight
+    if (updatingRef.current) return;
+    if (!silent) setPolling(true);
+    try {
+      const res = await fetch(proxyUrl("/api/dashboard/appointments/today"), {
+        cache: "no-store",
+      });
+      if (res.ok) {
+        const data: TodayAppointment[] = await res.json();
+        setAppointments(data);
+        setLastUpdated(new Date());
+      }
+    } catch { /* silently ignore network errors */ } finally {
+      if (!silent) setPolling(false);
+    }
+  }, []);
+
+  // Keep updatingRef in sync so the interval can check it
+  useEffect(() => { updatingRef.current = updating; }, [updating]);
+
+  // Auto-refresh every 30s
+  useEffect(() => {
+    const id = setInterval(() => refresh(true), POLL_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [refresh]);
 
   async function updateStatus(id: string, nextStatus: string) {
     setUpdating(id);
@@ -78,7 +117,31 @@ export function TodaySchedule({ appointments: initial }: Props) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-3">
           <CardTitle className="text-lg">Agenda de hoy</CardTitle>
-          <span className="text-sm text-muted-foreground">{capitalized}</span>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground">{capitalized}</span>
+            <button
+              onClick={() => refresh(false)}
+              disabled={polling}
+              title="Actualizar ahora"
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                className={`w-3.5 h-3.5 ${polling ? "animate-spin" : ""}`}
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M15.312 11.424a5.5 5.5 0 0 1-9.201 2.466l-.312-.311h2.433a.75.75 0 0 0 0-1.5H5.498a.75.75 0 0 0-.75.75v3.232a.75.75 0 0 0 1.5 0v-1.54l.308.31a7 7 0 0 0 11.494-3.353.75.75 0 1 0-1.454-.364zm-4.306-9.85a.75.75 0 0 0-.75.75v3.232a.75.75 0 0 0 1.5 0v-1.54l.308.31a7 7 0 0 0-11.494 3.353.75.75 0 0 0 1.454.364 5.5 5.5 0 0 1 9.201-2.466l.312.311h-2.433a.75.75 0 0 0 0 1.5h3.232a.75.75 0 0 0 .75-.75V2.324a.75.75 0 0 0-.75-.75z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <span className="hidden sm:inline">
+                {polling ? "Actualizando…" : `${formatTimeSince(lastUpdated)}`}
+              </span>
+            </button>
+          </div>
         </CardHeader>
 
         <CardContent>

@@ -51,6 +51,7 @@ const NAV: Entry[] = [
       { href: "/dashboard/services",    label: "Servicios" },
       { href: "/dashboard/revenue",     label: "Ingresos" },
       { href: "/dashboard/settings",    label: "Configuración" },
+      { href: "/dashboard/billing",     label: "Plan y facturación" },
     ],
   },
 ];
