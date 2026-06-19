@@ -93,6 +93,10 @@ export function TodaySchedule({ appointments: initial }: Props) {
   }, [refresh]);
 
   async function updateStatus(id: string, nextStatus: string) {
+    if (nextStatus === "cancelled") {
+      const confirmed = window.confirm("¿Cancelar esta cita? Esta acción no se puede deshacer.");
+      if (!confirmed) return;
+    }
     setUpdating(id);
     const prev = appointments;
     setAppointments((all) =>
@@ -125,7 +129,7 @@ export function TodaySchedule({ appointments: initial }: Props) {
             <button
               onClick={() => refresh(false)}
               disabled={polling}
-              title="Actualizar ahora"
+              aria-label="Actualizar ahora"
               className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
             >
               <svg

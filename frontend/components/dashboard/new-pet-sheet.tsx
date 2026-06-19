@@ -81,12 +81,13 @@ export function NewPetSheet({ open, onOpenChange, onCreated }: Props) {
 
         <form onSubmit={handleSubmit} className="space-y-4 px-4 pb-6">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Nombre de la mascota *</label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej. Max" autoFocus />
+            <label htmlFor="np-name" className="text-sm font-medium">Nombre de la mascota *</label>
+            <Input id="np-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej. Max" autoFocus />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Especie *</label>
+            <label htmlFor="np-type" className="text-sm font-medium">Especie *</label>
             <select
+              id="np-type"
               value={type}
               onChange={(e) => setType(e.target.value)}
               className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
@@ -97,12 +98,13 @@ export function NewPetSheet({ open, onOpenChange, onCreated }: Props) {
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Raza</label>
-            <Input value={breed} onChange={(e) => setBreed(e.target.value)} placeholder="opcional" />
+            <label htmlFor="np-breed" className="text-sm font-medium">Raza</label>
+            <Input id="np-breed" value={breed} onChange={(e) => setBreed(e.target.value)} placeholder="opcional" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Teléfono del dueño *</label>
+            <label htmlFor="np-owner-phone" className="text-sm font-medium">Teléfono del dueño *</label>
             <Input
+              id="np-owner-phone"
               value={ownerPhone}
               onChange={(e) => setOwnerPhone(e.target.value)}
               placeholder="573001234567"
@@ -110,8 +112,9 @@ export function NewPetSheet({ open, onOpenChange, onCreated }: Props) {
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Nombre del dueño</label>
+            <label htmlFor="np-owner-name" className="text-sm font-medium">Nombre del dueño</label>
             <Input
+              id="np-owner-name"
               value={ownerName}
               onChange={(e) => setOwnerName(e.target.value)}
               placeholder="opcional (si es cliente nuevo)"

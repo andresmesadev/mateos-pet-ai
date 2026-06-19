@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Bell, Calendar, MessageCircle, Search } from "lucide-react";
 
@@ -19,7 +20,18 @@ function todayLabel(): string {
 export function DashboardTopbar() {
   const { data: session } = useSession();
   const pathname = usePathname();
+  const router = useRouter();
   const isHome = pathname === "/dashboard";
+  const [searchQuery, setSearchQuery] = useState("");
+
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault();
+    const q = searchQuery.trim();
+    if (q) {
+      router.push(`/dashboard/clients?search=${encodeURIComponent(q)}`);
+      setSearchQuery("");
+    }
+  }
   const rawName = session?.user?.name ?? "";
   const firstName = rawName.split(" ")[0] || "de nuevo";
 
@@ -46,14 +58,17 @@ export function DashboardTopbar() {
       {/* Acciones */}
       <div className="flex items-center gap-2 md:gap-3">
         {/* Buscador */}
-        <div className="relative hidden sm:block">
+        <form onSubmit={handleSearch} className="relative hidden sm:block">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="search"
-            placeholder="Buscar clientes, mascotas, citas…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar clientes…"
+            aria-label="Buscar clientes"
             className="h-10 w-56 rounded-xl border border-input bg-card pl-9 pr-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring md:w-72"
           />
-        </div>
+        </form>
 
         <Link
           href="/dashboard/conversations"

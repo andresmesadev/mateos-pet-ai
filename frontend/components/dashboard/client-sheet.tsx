@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { proxyUrl } from "@/lib/api";
+import { useToast } from "@/components/ui/toast";
 import {
   formatColombiaDateTime,
   formatService,
@@ -45,6 +46,7 @@ function ClientSheetSkeleton() {
 }
 
 function ClientSheetContent({ clientId }: { clientId: string }) {
+  const { toast } = useToast();
   const [client, setClient] = useState<ClientDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -126,8 +128,10 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
       const updated = await res.json();
       setClient((prev) => prev ? { ...prev, ...updated } : prev);
       setEditing(false);
+      toast("Cambios guardados.", "success");
     } catch (err) {
       console.error(err);
+      toast("No se guardó. Intenta de nuevo.", "error");
     } finally {
       setSaving(false);
     }

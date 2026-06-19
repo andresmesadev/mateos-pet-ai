@@ -34,13 +34,14 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 // ── Textarea helper ───────────────────────────────────────────
 
-function Textarea({ label, value, onChange, placeholder }: {
-  label: string; value: string; onChange: (v: string) => void; placeholder?: string;
+function Textarea({ id, label, value, onChange, placeholder }: {
+  id: string; label: string; value: string; onChange: (v: string) => void; placeholder?: string;
 }) {
   return (
     <div className="space-y-1">
-      <label className="text-xs font-medium text-muted-foreground">{label}</label>
+      <label htmlFor={id} className="text-xs font-medium text-muted-foreground">{label}</label>
       <textarea
+        id={id}
         rows={2}
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -107,15 +108,15 @@ function ProfileTab({ profile }: { profile: TenantProfile | null }) {
         <CardHeader className="pb-3"><CardTitle className="text-sm">Datos del negocio</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Nombre del centro</label>
-            <Input value={name} onChange={(e) => { setName(e.target.value); setSaved(false); }} placeholder="Mateos Pet" />
+            <label htmlFor="profile-name" className="text-xs font-medium text-muted-foreground">Nombre del centro</label>
+            <Input id="profile-name" value={name} onChange={(e) => { setName(e.target.value); setSaved(false); }} placeholder="Mateos Pet" />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Correo electrónico</label>
-            <Input type="email" value={email} onChange={(e) => { setEmail(e.target.value); setSaved(false); }} placeholder="contacto@mateospet.com" />
+            <label htmlFor="profile-email" className="text-xs font-medium text-muted-foreground">Correo electrónico</label>
+            <Input id="profile-email" type="email" value={email} onChange={(e) => { setEmail(e.target.value); setSaved(false); }} placeholder="contacto@mateospet.com" />
           </div>
-          <Textarea label="Descripción" value={description} onChange={(v) => { setDescription(v); setSaved(false); }} placeholder="Clínica veterinaria y peluquería canina…" />
-          <Textarea label="Dirección" value={address} onChange={(v) => { setAddress(v); setSaved(false); }} placeholder="Calle 45 # 12-34, Bogotá" />
+          <Textarea id="profile-description" label="Descripción" value={description} onChange={(v) => { setDescription(v); setSaved(false); }} placeholder="Clínica veterinaria y peluquería canina…" />
+          <Textarea id="profile-address" label="Dirección" value={address} onChange={(v) => { setAddress(v); setSaved(false); }} placeholder="Calle 45 # 12-34, Bogotá" />
         </CardContent>
       </Card>
 
@@ -200,6 +201,10 @@ function ServiceCard({ service, onUpdated }: { service: ServiceRow; onUpdated: (
   }
 
   async function toggleActive() {
+    if (service.active) {
+      const confirmed = window.confirm(`¿Desactivar "${service.name}"? Los clientes no podrán agendarlo.`);
+      if (!confirmed) return;
+    }
     try {
       const res = await fetch(proxyUrl(`/api/dashboard/services/${service.id}`), {
         method: "PATCH",

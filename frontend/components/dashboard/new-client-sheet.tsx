@@ -75,8 +75,9 @@ export function NewClientSheet({ open, onOpenChange, onCreated }: Props) {
 
         <form onSubmit={handleSubmit} className="space-y-4 px-4 pb-6">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Teléfono *</label>
+            <label htmlFor="nc-phone" className="text-sm font-medium">Teléfono *</label>
             <Input
+              id="nc-phone"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="573001234567"
@@ -85,16 +86,16 @@ export function NewClientSheet({ open, onOpenChange, onCreated }: Props) {
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Nombre</label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre del cliente" />
+            <label htmlFor="nc-name" className="text-sm font-medium">Nombre</label>
+            <Input id="nc-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre del cliente" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Email</label>
-            <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="opcional" type="email" />
+            <label htmlFor="nc-email" className="text-sm font-medium">Email</label>
+            <Input id="nc-email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="opcional" type="email" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Notas</label>
-            <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="opcional" />
+            <label htmlFor="nc-notes" className="text-sm font-medium">Notas</label>
+            <Input id="nc-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="opcional" />
           </div>
 
           <div className="flex justify-end gap-2 pt-2">

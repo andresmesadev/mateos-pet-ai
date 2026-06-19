@@ -15,6 +15,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { PetTimeline } from "@/components/dashboard/pet-timeline";
 import { proxyUrl } from "@/lib/api";
+import { useToast } from "@/components/ui/toast";
 import {
   type DashboardPet,
   type MedicalRecordType,
@@ -70,6 +71,7 @@ type PetMedicalSheetContentProps = {
 };
 
 function PetMedicalSheetContent({ pet, onRecordAdded }: PetMedicalSheetContentProps) {
+  const { toast } = useToast();
   const [timeline, setTimeline] = useState<PetTimelineData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -144,8 +146,10 @@ function PetMedicalSheetContent({ pet, onRecordAdded }: PetMedicalSheetContentPr
       const updated = await res.json();
       setProfile(updated);
       setEditingProfile(false);
+      toast("Ficha guardada.", "success");
     } catch (err) {
       console.error(err);
+      toast("No se guardó. Intenta de nuevo.", "error");
     } finally {
       setSavingProfile(false);
     }

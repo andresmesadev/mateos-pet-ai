@@ -80,10 +80,22 @@ router.post("/clients", async (req, res) => {
   }
 });
 
+router.get("/clients/inactive", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    const clients = await listInactiveClients(tenantId);
+    res.json(clients);
+  } catch (error) {
+    console.error("[Dashboard] Inactive clients error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.get("/clients/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const client = await getClientById(id);
+    const { tenantId } = req.tenant;
+    const client = await getClientById(id, tenantId);
 
     if (!client) {
       return res.status(404).json({
@@ -104,6 +116,14 @@ router.get("/clients/:id", async (req, res) => {
 router.patch("/clients/:id", async (req, res) => {
   try {
     const { id } = req.params;
+    const { tenantId } = req.tenant;
+
+    const existing = await prisma.user.findFirst({
+      where: tenantId ? { id, tenantId } : { id },
+      select: { id: true },
+    });
+    if (!existing) return res.status(404).json({ error: "Client not found" });
+
     const { name, email, address, notes } = req.body ?? {};
     const updated = await updateClient(id, { name, email, address, notes });
     res.json({ id: updated.id, name: updated.name, email: updated.email, address: updated.address, notes: updated.notes });
@@ -112,17 +132,6 @@ router.patch("/clients/:id", async (req, res) => {
     if (error.code === "P2025") {
       return res.status(404).json({ error: "Client not found" });
     }
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-router.get("/clients/inactive", async (req, res) => {
-  try {
-    const { tenantId } = req.tenant;
-    const clients = await listInactiveClients(tenantId);
-    res.json(clients);
-  } catch (error) {
-    console.error("[Dashboard] Inactive clients error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });

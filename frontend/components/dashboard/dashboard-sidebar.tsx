@@ -157,7 +157,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <button
           type="button"
           onClick={() => signOut({ callbackUrl: "/login" })}
-          title="Cerrar sesión"
+          aria-label="Cerrar sesión"
           className="rounded-lg p-2 text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
         >
           <LogOut className="h-[18px] w-[18px]" />

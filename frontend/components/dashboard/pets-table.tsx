@@ -102,44 +102,13 @@ export function PetsTable({
     let cancelled = false;
 
     void (async () => {
-      try {
-        const response = await fetch(proxyUrl(`/api/dashboard/pets${tenantQuery(tenant)}`), {
-          cache: "no-store",
-        });
-
-        if (!response.ok) {
-          throw new Error("No se pudieron cargar las mascotas");
-        }
-
-        const data: DashboardPet[] = await response.json();
-
-        if (!cancelled) {
-          const nextPets = Array.isArray(data) ? data : [];
-          setPets(nextPets);
-          setError(null);
-
-          if (initialPetId && !openedFromQuery) {
-            const pet = nextPets.find((item) => item.id === initialPetId);
-
-            if (pet) {
-              setSelectedPet(pet);
-              setSheetOpen(true);
-              setOpenedFromQuery(true);
-            }
-          }
-        }
-      } catch (err) {
-        console.error(err);
-
-        if (!cancelled) {
-          setError(
-            err instanceof Error ? err.message : "Error al cargar mascotas"
-          );
-          setPets([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
+      const nextPets = await loadPets();
+      if (!cancelled && initialPetId && !openedFromQuery) {
+        const pet = nextPets.find((item) => item.id === initialPetId);
+        if (pet) {
+          setSelectedPet(pet);
+          setSheetOpen(true);
+          setOpenedFromQuery(true);
         }
       }
     })();
@@ -147,7 +116,7 @@ export function PetsTable({
     return () => {
       cancelled = true;
     };
-  }, [initialPetId, openedFromQuery, tenant]);
+  }, [initialPetId, openedFromQuery, tenant, loadPets]);
 
   const handleSelectPet = (pet: DashboardPet) => {
     setSelectedPet(pet);
@@ -216,6 +185,7 @@ export function PetsTable({
               Ninguna mascota coincide con “{query}”.
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -268,6 +238,7 @@ export function PetsTable({
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

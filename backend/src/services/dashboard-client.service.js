@@ -93,15 +93,15 @@ const listClients = async (tenantId) => {
     );
 };
 
-const getClientById = async (clientId) => {
+const getClientById = async (clientId, tenantId) => {
   const id = String(clientId || "").trim();
 
   if (!id) {
     return null;
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id },
+  const user = await prisma.user.findFirst({
+    where: tenantId ? { id, tenantId } : { id },
     include: {
       pets: {
         orderBy: { createdAt: "desc" },

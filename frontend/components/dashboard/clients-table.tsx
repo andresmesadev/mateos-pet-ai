@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Search } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useTenant, tenantQuery } from "@/lib/use-tenant";
 
 import { ClientSheet } from "@/components/dashboard/client-sheet";
@@ -44,6 +45,7 @@ function TableSkeleton() {
 
 export function ClientsTable() {
   const tenant = useTenant();
+  const searchParams = useSearchParams();
   const [clients, setClients] = useState<DashboardClient[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +53,7 @@ export function ClientsTable() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [version, setVersion] = useState(0);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(() => searchParams.get("search") ?? "");
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -167,6 +169,7 @@ export function ClientsTable() {
               Ningún cliente coincide con “{query}”.
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -213,6 +216,7 @@ export function ClientsTable() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

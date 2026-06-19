@@ -180,7 +180,10 @@ router.get("/clients/inactive-count", async (req, res) => {
 
 router.get("/appointments", async (req, res) => {
   try {
+    const { tenantId } = req.tenant;
+    const tenantFilter = tenantId ? { tenantId } : {};
     const rows = await prisma.appointment.findMany({
+      where: tenantFilter,
       orderBy: {
         date: "desc",
       },
