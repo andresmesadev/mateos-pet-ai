@@ -81,6 +81,75 @@ router.post("/clients", async (req, res) => {
   }
 });
 
+// Crear propietario + mascotas en una transacción atómica.
+// Debe estar antes de /:id para que Express no lo capture como parámetro.
+router.post("/clients/with-pets", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    const { name, phone, address, notes, pets } = req.body ?? {};
+
+    const cleanPhone = typeof phone === "string" ? phone.replace(/\s+/g, "").trim() : "";
+    const cleanName = typeof name === "string" ? name.trim() : "";
+
+    if (!cleanName) return res.status(400).json({ error: ERRORS.REQUIRED("El nombre del propietario") });
+    if (!cleanPhone) return res.status(400).json({ error: ERRORS.REQUIRED("El teléfono") });
+
+    const VALID_PET_TYPES = ["dog", "cat", "other"];
+    const petsArr = Array.isArray(pets) ? pets : [];
+
+    for (let i = 0; i < petsArr.length; i++) {
+      const p = petsArr[i];
+      if (!p.name?.trim()) {
+        return res.status(400).json({ error: `Mascota ${i + 1}: el nombre es requerido` });
+      }
+      if (!VALID_PET_TYPES.includes(p.type?.toLowerCase())) {
+        return res.status(400).json({ error: `Mascota ${i + 1}: tipo inválido` });
+      }
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const owner = await tx.user.create({
+        data: {
+          phone: cleanPhone,
+          tenantId: tenantId ?? null,
+          name: cleanName || null,
+          address: address?.trim() || null,
+          notes: notes?.trim() || null,
+        },
+        select: { id: true, name: true, phone: true },
+      });
+
+      const createdPets = await Promise.all(
+        petsArr.map((p) =>
+          tx.pet.create({
+            data: {
+              name: p.name.trim(),
+              type: p.type.toLowerCase(),
+              breed: p.breed?.trim() || null,
+              gender: p.gender?.trim() || null,
+              weight: p.weight != null ? Number(p.weight) : null,
+              notes: p.notes?.trim() || null,
+              tenantId: tenantId ?? null,
+              ownerId: owner.id,
+            },
+            select: { id: true, name: true, type: true },
+          })
+        )
+      );
+
+      return { owner, pets: createdPets };
+    });
+
+    res.status(201).json(result);
+  } catch (error) {
+    if (error.code === "P2002") {
+      return res.status(409).json({ error: "Ya existe un cliente con ese teléfono" });
+    }
+    console.error("[Dashboard] Create client+pets error:", error);
+    res.status(500).json({ error: ERRORS.INTERNAL });
+  }
+});
+
 router.get("/clients/inactive", async (req, res) => {
   try {
     const { tenantId } = req.tenant;

@@ -6,7 +6,7 @@ import { ChevronRight, Home } from "lucide-react";
 
 const PATH_LABELS: Record<string, string> = {
   calendar: "Agenda",
-  contacto: "Contacto",
+  contacto: "Clientes",
   conversations: "WhatsApp",
   pos: "Nueva venta",
   recuperacion: "Recuperación",

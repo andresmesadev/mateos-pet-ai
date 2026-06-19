@@ -5,7 +5,7 @@ import { Plus, Search } from "lucide-react";
 import { useTenant, tenantQuery } from "@/lib/use-tenant";
 
 import { PetMedicalSheet } from "@/components/dashboard/pet-medical-sheet";
-import { NewPetSheet } from "@/components/dashboard/new-pet-sheet";
+import { AddPetToOwnerFlow } from "@/components/dashboard/add-pet-to-owner-flow";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -117,6 +117,12 @@ export function PetsTable({
       cancelled = true;
     };
   }, [initialPetId, openedFromQuery, tenant, loadPets]);
+
+  useEffect(() => {
+    const handler = () => { void loadPets(); };
+    window.addEventListener("pets:refresh", handler);
+    return () => window.removeEventListener("pets:refresh", handler);
+  }, [loadPets]);
 
   const handleSelectPet = (pet: DashboardPet) => {
     setSelectedPet(pet);
@@ -250,7 +256,7 @@ export function PetsTable({
         onRecordAdded={handleRecordAdded}
       />
 
-      <NewPetSheet
+      <AddPetToOwnerFlow
         open={newOpen}
         onOpenChange={setNewOpen}
         onCreated={() => { void loadPets(); }}

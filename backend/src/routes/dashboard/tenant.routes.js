@@ -43,7 +43,18 @@ router.put("/tenant/profile", async (req, res) => {
     if (description !== undefined) data.description = description?.trim() || null;
     if (address !== undefined) data.address = address?.trim() || null;
     if (logoUrl !== undefined) data.logoUrl = logoUrl?.trim() || null;
-    if (businessHours !== undefined) data.businessHours = businessHours;
+    if (businessHours !== undefined) {
+      if (typeof businessHours === "object" && businessHours !== null) {
+        for (const [, val] of Object.entries(businessHours)) {
+          if (val?.active && typeof val.open === "string" && typeof val.close === "string") {
+            if (val.open >= val.close) {
+              return res.status(400).json({ error: "La hora de apertura debe ser anterior a la hora de cierre" });
+            }
+          }
+        }
+      }
+      data.businessHours = businessHours;
+    }
 
     const updated = await prisma.tenant.update({
       where: { id: tenantId },

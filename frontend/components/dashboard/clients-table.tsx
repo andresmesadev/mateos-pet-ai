@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { useTenant, tenantQuery } from "@/lib/use-tenant";
 
 import { ClientSheet } from "@/components/dashboard/client-sheet";
-import { NewClientSheet } from "@/components/dashboard/new-client-sheet";
+import { NewOwnerPetsSheet } from "@/components/dashboard/new-owner-pets-sheet";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -146,7 +146,7 @@ export function ClientsTable() {
             )}
             <Button size="sm" className="shrink-0 gap-1" onClick={() => setNewOpen(true)}>
               <Plus className="h-4 w-4" />
-              Nuevo cliente
+              Nuevo propietario
             </Button>
           </div>
         </CardHeader>
@@ -228,7 +228,7 @@ export function ClientsTable() {
         onOpenChange={handleSheetOpenChange}
       />
 
-      <NewClientSheet
+      <NewOwnerPetsSheet
         open={newOpen}
         onOpenChange={setNewOpen}
         onCreated={() => setVersion((v) => v + 1)}

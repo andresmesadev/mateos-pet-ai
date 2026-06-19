@@ -58,6 +58,7 @@ type BusinessHours = Record<string, { open: string; close: string; active: boole
 
 function ProfileTab({ profile }: { profile: TenantProfile | null }) {
   const router = useRouter();
+  const { toast } = useToast();
   const [name, setName] = useState(profile?.name ?? "");
   const [email, setEmail] = useState(profile?.email ?? "");
   const [description, setDescription] = useState(profile?.description ?? "");
@@ -93,9 +94,13 @@ function ProfileTab({ profile }: { profile: TenantProfile | null }) {
         throw new Error(p?.error ?? "Error al guardar");
       }
       setSaved(true);
+      setError(null);
+      toast("Cambios guardados.", "success");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al guardar");
+      const msg = err instanceof Error ? err.message : "Error al guardar";
+      setError(msg);
+      toast(msg, "error");
     } finally {
       setSaving(false);
     }

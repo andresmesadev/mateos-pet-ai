@@ -14,8 +14,8 @@ export default async function ContactoPage({ searchParams }: ContactoPageProps) 
   return (
     <section>
       <PageHeader
-        title="Contacto"
-        description="Clientes y mascotas registrados por el agente de WhatsApp"
+        title="Clientes"
+        description="Propietarios y mascotas registrados"
         icon={Users}
         tint="bg-violet-500/15 text-violet-400"
       />
