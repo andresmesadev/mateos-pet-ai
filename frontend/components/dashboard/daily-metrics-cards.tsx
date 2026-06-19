@@ -4,10 +4,9 @@ import {
   DollarSign,
   PawPrint,
   Bell,
-  type LucideIcon,
 } from "lucide-react";
 
-import { Card } from "@/components/ui/card";
+import { MetricCard } from "@/components/dashboard/metric-card";
 import { type DailyMetrics } from "@/components/dashboard/home/fetchers";
 
 function formatCOP(value: number): string {
@@ -35,80 +34,49 @@ function DeltaPct({ count, prev }: { count: number; prev: number }) {
   );
 }
 
-function MetricCard({
-  icon: Icon,
-  tint,
-  label,
-  value,
-  count,
-  prev,
-}: {
-  icon: LucideIcon;
-  tint: string;
-  label: string;
-  value: string;
-  count: number;
-  prev: number;
-}) {
-  return (
-    <Card className="p-4">
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-xs font-medium text-muted-foreground">{label}</p>
-        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${tint}`}>
-          <Icon className="h-[18px] w-[18px]" />
-        </div>
-      </div>
-      <p className="mt-2 text-2xl font-bold tracking-tight">{value}</p>
-      <div className="mt-1">
-        <DeltaPct count={count} prev={prev} />
-      </div>
-    </Card>
-  );
-}
-
 export function DailyMetricsCards({ metrics }: { metrics: DailyMetrics }) {
   const m = metrics;
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
       <MetricCard
+        size="sm"
         icon={CalendarDays}
         tint="bg-teal-500/15 text-teal-400"
         label="Citas de hoy"
         value={String(m.appointmentsToday.count)}
-        count={m.appointmentsToday.count}
-        prev={m.appointmentsToday.prev}
+        delta={<DeltaPct count={m.appointmentsToday.count} prev={m.appointmentsToday.prev} />}
       />
       <MetricCard
+        size="sm"
         icon={UserPlus}
         tint="bg-violet-500/15 text-violet-400"
         label="Clientes nuevos"
         value={String(m.newClientsToday.count)}
-        count={m.newClientsToday.count}
-        prev={m.newClientsToday.prev}
+        delta={<DeltaPct count={m.newClientsToday.count} prev={m.newClientsToday.prev} />}
       />
       <MetricCard
+        size="sm"
         icon={DollarSign}
         tint="bg-amber-500/15 text-amber-400"
         label="Ingresos del día"
         value={formatCOP(m.revenueToday.count)}
-        count={m.revenueToday.count}
-        prev={m.revenueToday.prev}
+        delta={<DeltaPct count={m.revenueToday.count} prev={m.revenueToday.prev} />}
       />
       <MetricCard
+        size="sm"
         icon={PawPrint}
         tint="bg-sky-500/15 text-sky-400"
         label="Mascotas atendidas"
         value={String(m.petsAttendedToday.count)}
-        count={m.petsAttendedToday.count}
-        prev={m.petsAttendedToday.prev}
+        delta={<DeltaPct count={m.petsAttendedToday.count} prev={m.petsAttendedToday.prev} />}
       />
       <MetricCard
+        size="sm"
         icon={Bell}
         tint="bg-rose-500/15 text-rose-400"
         label="Recordatorios enviados"
         value={String(m.remindersSentToday.count)}
-        count={m.remindersSentToday.count}
-        prev={m.remindersSentToday.prev}
+        delta={<DeltaPct count={m.remindersSentToday.count} prev={m.remindersSentToday.prev} />}
       />
     </div>
   );

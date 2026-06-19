@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const prisma = require("../../lib/prisma");
+const ERRORS = require("../../constants/errors");
 const {
   listClients,
   getClientById,
@@ -40,10 +41,10 @@ router.get("/clients", async (req, res) => {
     }
 
     const clients = await listClients(tenantId);
-    res.json(clients);
+    res.json({ data: clients, total: clients.length });
   } catch (error) {
     console.error("[Dashboard] Clients error:", error);
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ error: ERRORS.INTERNAL });
   }
 });
 
@@ -76,7 +77,7 @@ router.post("/clients", async (req, res) => {
       return res.status(409).json({ error: "Ya existe un cliente con ese teléfono" });
     }
     console.error("[Dashboard] Create client error:", error);
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ error: ERRORS.INTERNAL });
   }
 });
 
@@ -87,7 +88,7 @@ router.get("/clients/inactive", async (req, res) => {
     res.json(clients);
   } catch (error) {
     console.error("[Dashboard] Inactive clients error:", error);
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ error: ERRORS.INTERNAL });
   }
 });
 
@@ -98,9 +99,7 @@ router.get("/clients/:id", async (req, res) => {
     const client = await getClientById(id, tenantId);
 
     if (!client) {
-      return res.status(404).json({
-        error: "Client not found",
-      });
+      return res.status(404).json({ error: ERRORS.NOT_FOUND("Cliente") });
     }
 
     res.json(client);
@@ -122,7 +121,7 @@ router.patch("/clients/:id", async (req, res) => {
       where: tenantId ? { id, tenantId } : { id },
       select: { id: true },
     });
-    if (!existing) return res.status(404).json({ error: "Client not found" });
+    if (!existing) return res.status(404).json({ error: ERRORS.NOT_FOUND("Cliente") });
 
     const { name, email, address, notes } = req.body ?? {};
     const updated = await updateClient(id, { name, email, address, notes });
@@ -130,9 +129,9 @@ router.patch("/clients/:id", async (req, res) => {
   } catch (error) {
     console.error("[Dashboard] Update client error:", error);
     if (error.code === "P2025") {
-      return res.status(404).json({ error: "Client not found" });
+      return res.status(404).json({ error: ERRORS.NOT_FOUND("Cliente") });
     }
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ error: ERRORS.INTERNAL });
   }
 });
 
@@ -171,7 +170,7 @@ router.post("/campaigns/reactivation", async (req, res) => {
     res.json({ sent, failed, total: users.length });
   } catch (error) {
     console.error("[Dashboard] Reactivation campaign error:", error);
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ error: ERRORS.INTERNAL });
   }
 });
 
@@ -186,7 +185,7 @@ router.post("/campaigns/next-actions", async (req, res) => {
   } catch (error) {
     console.error("[Dashboard] Next-action campaign error:", error.message);
     if (error.message.includes("inválido")) return res.status(400).json({ error: error.message });
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ error: ERRORS.INTERNAL });
   }
 });
 

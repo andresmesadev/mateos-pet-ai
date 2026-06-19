@@ -79,10 +79,11 @@ export function ClientsTable() {
           throw new Error("No se pudieron cargar los clientes");
         }
 
-        const data: DashboardClient[] = await response.json();
+        const payload = await response.json() as { data: DashboardClient[]; total: number };
+        const data = Array.isArray(payload) ? payload : (payload.data ?? []);
 
         if (!cancelled) {
-          setClients(Array.isArray(data) ? data : []);
+          setClients(data);
           setError(null);
         }
       } catch (err) {

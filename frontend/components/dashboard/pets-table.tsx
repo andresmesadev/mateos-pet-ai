@@ -82,8 +82,8 @@ export function PetsTable({
         throw new Error("No se pudieron cargar las mascotas");
       }
 
-      const data: DashboardPet[] = await response.json();
-      const nextPets = Array.isArray(data) ? data : [];
+      const payload = await response.json() as { data: DashboardPet[]; total: number };
+      const nextPets = Array.isArray(payload) ? payload : (payload.data ?? []);
       setPets(nextPets);
       return nextPets;
     } catch (err) {

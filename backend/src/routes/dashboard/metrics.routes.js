@@ -261,7 +261,10 @@ router.get("/metrics/churn", async (req, res) => {
         appointments: {
           where: { status: "completed", ...(tenantId ? { tenantId } : {}) },
           select: { date: true, petName: true },
-          orderBy: { date: "asc" },
+          // Tomamos las 30 más recientes (desc) y las invertimos en JS para
+          // calcular intervalos. Limita la carga en memoria por usuario.
+          orderBy: { date: "desc" },
+          take: 30,
         },
       },
     });
@@ -272,7 +275,9 @@ router.get("/metrics/churn", async (req, res) => {
     const atRisk = [];
 
     for (const u of users) {
-      const appts = u.appointments;
+      // Ordenar ascendente en JS para que los intervalos sean positivos,
+      // independientemente del orderBy que haya usado Prisma.
+      const appts = u.appointments.slice().sort((a, b) => new Date(a.date) - new Date(b.date));
       if (appts.length < 2) continue;
 
       // Calcular intervalo promedio entre citas consecutivas

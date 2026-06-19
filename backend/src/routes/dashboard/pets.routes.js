@@ -50,8 +50,7 @@ router.get("/pets", async (req, res) => {
       },
     });
 
-    res.json(
-      pets.map((pet) => ({
+    const mapped = pets.map((pet) => ({
         id: pet.id,
         name: pet.name,
         type: pet.type,
@@ -65,8 +64,8 @@ router.get("/pets", async (req, res) => {
           phone: pet.owner.phone,
         },
         _count: pet._count,
-      }))
-    );
+      }));
+    res.json({ data: mapped, total: mapped.length });
   } catch (error) {
     console.error("[Dashboard] Pets error:", error);
 

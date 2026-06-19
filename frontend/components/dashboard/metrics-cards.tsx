@@ -1,6 +1,6 @@
-import { CalendarCheck, CheckCircle2, UserPlus, type LucideIcon } from "lucide-react";
+import { CalendarCheck, CheckCircle2, UserPlus } from "lucide-react";
 
-import { Card } from "@/components/ui/card";
+import { MetricCard } from "@/components/dashboard/metric-card";
 
 type MetricsData = {
   appointmentsThisWeek: { count: number; prev: number; delta: number };
@@ -20,33 +20,6 @@ function Delta({ value, suffix = "" }: { value: number; suffix?: string }) {
       {value}
       {suffix} vs periodo anterior
     </span>
-  );
-}
-
-function MetricCard({
-  icon: Icon,
-  tint,
-  label,
-  value,
-  delta,
-}: {
-  icon: LucideIcon;
-  tint: string;
-  label: string;
-  value: string;
-  delta: React.ReactNode;
-}) {
-  return (
-    <Card className="p-5">
-      <div className="flex items-start justify-between">
-        <p className="text-sm font-medium text-muted-foreground">{label}</p>
-        <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${tint}`}>
-          <Icon className="h-5 w-5" />
-        </div>
-      </div>
-      <p className="mt-3 text-3xl font-bold tracking-tight">{value}</p>
-      <div className="mt-1">{delta}</div>
-    </Card>
   );
 }
 
