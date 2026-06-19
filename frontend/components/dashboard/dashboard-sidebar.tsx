@@ -35,7 +35,7 @@ const SECTIONS: NavSection[] = [
       { href: "/dashboard", label: "Inicio", icon: Home, exact: true },
       { href: "/dashboard/calendar", label: "Agenda", icon: Calendar },
       { href: "/dashboard/contacto", label: "Contacto", icon: Users },
-      { href: "/dashboard/conversations", label: "WPP", icon: MessageCircle },
+      { href: "/dashboard/conversations", label: "WhatsApp", icon: MessageCircle },
       { href: "/dashboard/pos", label: "Nueva venta", icon: ShoppingCart, exact: true },
       { href: "/dashboard/recuperacion", label: "Recuperación", icon: HeartPulse },
       { href: "/dashboard/revenue", label: "Ingresos", icon: TrendingUp },
