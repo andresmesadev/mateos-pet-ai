@@ -9,10 +9,25 @@ const BACKEND_URL = (
 
 const INTERNAL_API_SECRET = process.env.INTERNAL_API_SECRET ?? "";
 
+if (!INTERNAL_API_SECRET) {
+  console.error(
+    "[Proxy] ⚠️  INTERNAL_API_SECRET is not set in environment. " +
+    "All backend requests will be rejected with 401. " +
+    "Add INTERNAL_API_SECRET=<value> to frontend/.env.local and restart Next.js."
+  );
+}
+
 async function handler(
   req: NextRequest,
   context: { params: Promise<{ path: string[] }> }
 ) {
+  if (!INTERNAL_API_SECRET) {
+    return NextResponse.json(
+      { error: "Server misconfiguration: INTERNAL_API_SECRET not set" },
+      { status: 503 }
+    );
+  }
+
   const session = await auth();
 
   if (!session?.user) {
