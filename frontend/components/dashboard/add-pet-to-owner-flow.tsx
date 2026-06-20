@@ -6,12 +6,12 @@ import { ArrowLeft, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { proxyUrl } from "@/lib/api";
 import { useTenant } from "@/lib/use-tenant";
@@ -137,16 +137,16 @@ export function AddPetToOwnerFlow({ open, onOpenChange, onCreated }: Props) {
 
   return (
     <>
-      <Sheet open={open} onOpenChange={handleClose}>
-        <SheetContent className="overflow-y-auto sm:max-w-md">
+      <Dialog open={open} onOpenChange={handleClose}>
+        <DialogContent className="flex max-h-[90vh] w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-md">
           {step === "search" && (
             <>
-              <SheetHeader>
-                <SheetTitle>Agregar mascota</SheetTitle>
-                <SheetDescription>
+              <DialogHeader>
+                <DialogTitle>Agregar mascota</DialogTitle>
+                <DialogDescription>
                   Busca al propietario por teléfono o nombre.
-                </SheetDescription>
-              </SheetHeader>
+                </DialogDescription>
+              </DialogHeader>
 
               <form onSubmit={handleSearch} className="space-y-4 px-4 pb-6">
                 <div className="space-y-1.5">
@@ -192,12 +192,12 @@ export function AddPetToOwnerFlow({ open, onOpenChange, onCreated }: Props) {
 
           {step === "found" && owner && (
             <>
-              <SheetHeader>
-                <SheetTitle>Nueva mascota</SheetTitle>
-                <SheetDescription>
+              <DialogHeader>
+                <DialogTitle>Nueva mascota</DialogTitle>
+                <DialogDescription>
                   Agregando mascota a este propietario.
-                </SheetDescription>
-              </SheetHeader>
+                </DialogDescription>
+              </DialogHeader>
 
               <div className="px-4 pb-6 space-y-5">
                 {/* Tarjeta del propietario */}
@@ -322,12 +322,12 @@ export function AddPetToOwnerFlow({ open, onOpenChange, onCreated }: Props) {
 
           {step === "not-found" && (
             <>
-              <SheetHeader>
-                <SheetTitle>Propietario no encontrado</SheetTitle>
-                <SheetDescription>
+              <DialogHeader>
+                <DialogTitle>Propietario no encontrado</DialogTitle>
+                <DialogDescription>
                   No existe un propietario con &ldquo;{phoneQuery}&rdquo; en este tenant.
-                </SheetDescription>
-              </SheetHeader>
+                </DialogDescription>
+              </DialogHeader>
 
               <div className="space-y-4 px-4 pb-6">
                 <Button
@@ -358,8 +358,8 @@ export function AddPetToOwnerFlow({ open, onOpenChange, onCreated }: Props) {
               </div>
             </>
           )}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
       <NewOwnerPetsSheet
         open={newOwnerOpen}

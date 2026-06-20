@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, MessageCircle } from "lucide-react";
+import { AlertTriangle, ArrowRight, MessageCircle, Pin, RotateCcw } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -58,16 +58,17 @@ export async function OpportunitiesWidget({ headers }: { headers: Headers }) {
   const hasOverdue = actionsSummary.overduePets > 0;
   return (
     <Link href="/dashboard/recuperacion?tab=oportunidades" className="block">
-      <Card className={`transition-colors ${hasOverdue
-        ? "border-2 border-amber-200 bg-amber-50/40 hover:bg-amber-50/70 dark:border-amber-900 dark:bg-amber-950/10"
-        : "border-2 border-blue-200 bg-blue-50/40 hover:bg-blue-50/70 dark:border-blue-900 dark:bg-blue-950/10"
+      <Card className={`group transition-all duration-200 hover:-translate-y-0.5 ${hasOverdue
+        ? "border border-amber-500/25 bg-amber-500/5 hover:border-amber-500/40 hover:bg-amber-500/8"
+        : "border border-sky-500/20 bg-sky-500/5 hover:border-sky-500/35 hover:bg-sky-500/8"
       }`}>
         <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-base">
-            📌 Mascotas con acciones pendientes
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+            <Pin className={`h-4 w-4 shrink-0 ${hasOverdue ? "text-amber-400" : "text-sky-400"}`} />
+            Mascotas con acciones pendientes
             <Badge className={hasOverdue
-              ? "border-amber-200 bg-amber-100 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300"
-              : "border-blue-200 bg-blue-100 text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300"
+              ? "border-amber-500/30 bg-amber-500/15 text-amber-300"
+              : "border-sky-500/30 bg-sky-500/15 text-sky-300"
             }>
               {actionsSummary.total}
             </Badge>
@@ -80,11 +81,15 @@ export async function OpportunitiesWidget({ headers }: { headers: Headers }) {
             ))}
           </div>
           {hasOverdue ? (
-            <p className="mt-2 text-sm font-medium text-amber-700 dark:text-amber-400">
-              ⚠️ {actionsSummary.overduePets} mascota{actionsSummary.overduePets === 1 ? "" : "s"} con acción vencida → Ver bandeja
+            <p className="mt-2 flex items-center gap-1.5 text-sm font-medium text-amber-400">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              {actionsSummary.overduePets} mascota{actionsSummary.overduePets === 1 ? "" : "s"} con acción vencida
+              <ArrowRight className="h-3.5 w-3.5 opacity-70" />
             </p>
           ) : (
-            <p className="mt-1 text-xs text-muted-foreground">Ver bandeja de oportunidades →</p>
+            <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+              Ver bandeja de oportunidades <ArrowRight className="h-3 w-3" />
+            </p>
           )}
         </CardContent>
       </Card>
@@ -95,14 +100,14 @@ export async function OpportunitiesWidget({ headers }: { headers: Headers }) {
 // ── Encabezado de panel con enlace "Ver todas" ────────────────
 function PanelHeader({ title, href, linkLabel }: { title: string; href: string; linkLabel: string }) {
   return (
-    <CardHeader className="flex flex-row items-center justify-between border-b pb-3">
-      <CardTitle className="text-base">{title}</CardTitle>
+    <CardHeader className="flex flex-row items-center justify-between border-b border-white/[0.06] pb-3">
+      <CardTitle className="text-sm font-semibold tracking-tight">{title}</CardTitle>
       <Link
         href={href}
-        className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+        className="flex items-center gap-1 text-xs font-medium text-primary/70 transition-colors hover:text-primary"
       >
         {linkLabel}
-        <ArrowRight className="h-3.5 w-3.5" />
+        <ArrowRight className="h-3 w-3" />
       </Link>
     </CardHeader>
   );
@@ -112,7 +117,7 @@ function PanelHeader({ title, href, linkLabel }: { title: string; href: string; 
 export async function ConversationsActiveSection({ headers }: { headers: Headers }) {
   const conversations = await fetchActiveConversations(headers);
   return (
-    <Card className="h-full">
+    <Card className="h-full border-white/[0.06]">
       <PanelHeader title="Conversaciones activas" href="/dashboard/conversations" linkLabel="Ver todas" />
       <CardContent className="p-0">
         {conversations.length === 0 ? (
@@ -187,7 +192,7 @@ function reminderDate(dueAt: string): string {
 export async function RemindersSection({ headers }: { headers: Headers }) {
   const reminders: UpcomingReminder[] = await fetchUpcomingReminders(headers);
   return (
-    <Card className="h-full">
+    <Card className="h-full border-white/[0.06]">
       <PanelHeader title="Recordatorios próximos" href="/dashboard/recuperacion" linkLabel="Ver todos" />
       <CardContent className="p-0">
         {reminders.length === 0 ? (
@@ -231,20 +236,21 @@ export async function ChurnWidget({ headers }: { headers: Headers }) {
   const churnHigh = churnAtRisk.filter((c) => c.riskLevel === "high").length;
   return (
     <Link href="/dashboard/recuperacion?tab=churn" className="block">
-      <Card className="border-2 border-red-200 bg-red-50/40 transition-colors hover:bg-red-50/70 dark:border-red-900 dark:bg-red-950/10">
+      <Card className="group border border-red-500/25 bg-red-500/5 transition-all duration-200 hover:-translate-y-0.5 hover:border-red-500/40 hover:bg-red-500/8">
         <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-base">
-            ⚠️ Clientes en riesgo de abandono
-            <Badge className="border-red-200 bg-red-100 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-red-400" />
+            Clientes en riesgo de abandono
+            <Badge className="border-red-500/30 bg-red-500/15 text-red-300">
               {churnAtRisk.length}
             </Badge>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">
-            {churnAtRisk.length} cliente{churnAtRisk.length === 1 ? "" : "s"} llevan más tiempo del habitual sin visitar.
-            {churnHigh > 0 && ` ${churnHigh} en riesgo alto.`}
-            {" "}Ver predicción de churn →
+          <p className="flex items-center gap-1 text-sm text-muted-foreground">
+            {churnAtRisk.length} cliente{churnAtRisk.length === 1 ? "" : "s"} sin visitar en más tiempo del habitual.
+            {churnHigh > 0 && <span className="ml-1 font-medium text-red-400">{churnHigh} en riesgo alto.</span>}
+            <ArrowRight className="ml-auto h-3.5 w-3.5 shrink-0 opacity-50" />
           </p>
         </CardContent>
       </Card>
@@ -259,19 +265,20 @@ export async function ReactivarWidget({ headers }: { headers: Headers }) {
 
   return (
     <Link href="/dashboard/recuperacion?tab=reactivar" className="block">
-      <Card className="border-2 border-orange-200 bg-orange-50/50 transition-colors hover:bg-orange-50 dark:border-orange-900/50 dark:bg-orange-950/10 dark:hover:bg-orange-950/20">
+      <Card className="group border border-orange-500/20 bg-orange-500/5 transition-all duration-200 hover:-translate-y-0.5 hover:border-orange-500/35 hover:bg-orange-500/8">
         <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-base">
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+            <RotateCcw className="h-4 w-4 shrink-0 text-orange-400" />
             Clientes a reactivar
-            <Badge className="border-orange-200 bg-orange-100 text-orange-800 dark:border-orange-900 dark:bg-orange-950 dark:text-orange-300">
+            <Badge className="border-orange-500/30 bg-orange-500/15 text-orange-300">
               {inactiveCount}
             </Badge>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">
-            {inactiveCount} cliente{inactiveCount === 1 ? "" : "s"} sin cita
-            en más de 60 días. Envíales un WhatsApp para recuperarlos →
+          <p className="flex items-center gap-1 text-sm text-muted-foreground">
+            {inactiveCount} cliente{inactiveCount === 1 ? "" : "s"} sin cita en más de 60 días.
+            <ArrowRight className="ml-auto h-3.5 w-3.5 shrink-0 opacity-50" />
           </p>
         </CardContent>
       </Card>

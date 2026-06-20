@@ -1,16 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import { PawPrint } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { proxyUrl } from "@/lib/api";
 
@@ -19,6 +21,14 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   onCreated: () => void;
 };
+
+const PET_TYPES = [
+  { value: "dog",   label: "🐶 Perro" },
+  { value: "cat",   label: "🐱 Gato" },
+  { value: "bird",  label: "🐦 Ave" },
+  { value: "rabbit",label: "🐰 Conejo" },
+  { value: "other", label: "🐾 Otro" },
+];
 
 export function NewPetSheet({ open, onOpenChange, onCreated }: Props) {
   const { toast } = useToast();
@@ -70,67 +80,123 @@ export function NewPetSheet({ open, onOpenChange, onCreated }: Props) {
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent>
-        <SheetHeader>
-          <SheetTitle>Nueva mascota</SheetTitle>
-          <SheetDescription>
-            Si el dueño no existe, se crea automáticamente con su teléfono.
-          </SheetDescription>
-        </SheetHeader>
+    <Dialog open={open} onOpenChange={(v) => { if (!saving) onOpenChange(v); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <div className="mb-1 flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/15 ring-1 ring-amber-500/25">
+              <PawPrint className="h-4 w-4 text-amber-400" />
+            </div>
+            <div>
+              <DialogTitle>Nueva mascota</DialogTitle>
+              <DialogDescription>
+                Si el dueño no existe se crea automáticamente.
+              </DialogDescription>
+            </div>
+          </div>
+        </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 px-4 pb-6">
-          <div className="space-y-1.5">
-            <label htmlFor="np-name" className="text-sm font-medium">Nombre de la mascota *</label>
-            <Input id="np-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej. Max" autoFocus />
-          </div>
-          <div className="space-y-1.5">
-            <label htmlFor="np-type" className="text-sm font-medium">Especie *</label>
-            <select
-              id="np-type"
-              value={type}
-              onChange={(e) => setType(e.target.value)}
-              className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="dog">Perro</option>
-              <option value="cat">Gato</option>
-              <option value="other">Otro</option>
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <label htmlFor="np-breed" className="text-sm font-medium">Raza</label>
-            <Input id="np-breed" value={breed} onChange={(e) => setBreed(e.target.value)} placeholder="opcional" />
-          </div>
-          <div className="space-y-1.5">
-            <label htmlFor="np-owner-phone" className="text-sm font-medium">Teléfono del dueño *</label>
-            <Input
-              id="np-owner-phone"
-              value={ownerPhone}
-              onChange={(e) => setOwnerPhone(e.target.value)}
-              placeholder="573001234567"
-              inputMode="tel"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label htmlFor="np-owner-name" className="text-sm font-medium">Nombre del dueño</label>
-            <Input
-              id="np-owner-name"
-              value={ownerName}
-              onChange={(e) => setOwnerName(e.target.value)}
-              placeholder="opcional (si es cliente nuevo)"
-            />
-          </div>
+        <form id="new-pet-form" onSubmit={handleSubmit}>
+          <div className="space-y-4 px-6 py-5">
+            {/* Nombre */}
+            <div className="space-y-1.5">
+              <label htmlFor="np-name" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Nombre de la mascota *
+              </label>
+              <Input
+                id="np-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Ej. Max"
+                autoFocus
+              />
+            </div>
 
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? "Guardando…" : "Crear mascota"}
-            </Button>
+            {/* Especie */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Especie *
+              </label>
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                {PET_TYPES.map((pt) => (
+                  <button
+                    key={pt.value}
+                    type="button"
+                    onClick={() => setType(pt.value)}
+                    className={`flex flex-col items-center gap-1 rounded-xl border py-2.5 text-xs font-medium transition-all duration-150 ${
+                      type === pt.value
+                        ? "border-amber-500/40 bg-amber-500/10 text-amber-300"
+                        : "border-white/[0.06] text-muted-foreground hover:border-white/15 hover:bg-accent"
+                    }`}
+                  >
+                    <span className="text-base">{pt.label.split(" ")[0]}</span>
+                    <span>{pt.label.split(" ")[1]}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Raza */}
+            <div className="space-y-1.5">
+              <label htmlFor="np-breed" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Raza <span className="normal-case font-normal text-muted-foreground/60">(opcional)</span>
+              </label>
+              <Input
+                id="np-breed"
+                value={breed}
+                onChange={(e) => setBreed(e.target.value)}
+                placeholder="ej. Golden Retriever"
+              />
+            </div>
+
+            {/* Separador dueño */}
+            <div className="border-t border-white/[0.06] pt-1">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Dueño
+              </p>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <label htmlFor="np-owner-phone" className="text-xs font-medium text-muted-foreground">
+                    Teléfono *
+                  </label>
+                  <Input
+                    id="np-owner-phone"
+                    value={ownerPhone}
+                    onChange={(e) => setOwnerPhone(e.target.value)}
+                    placeholder="573001234567"
+                    inputMode="tel"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label htmlFor="np-owner-name" className="text-xs font-medium text-muted-foreground">
+                    Nombre <span className="font-normal text-muted-foreground/60">(opcional)</span>
+                  </label>
+                  <Input
+                    id="np-owner-name"
+                    value={ownerName}
+                    onChange={(e) => setOwnerName(e.target.value)}
+                    placeholder="ej. Ana García"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         </form>
-      </SheetContent>
-    </Sheet>
+
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={saving}
+          >
+            Cancelar
+          </Button>
+          <Button type="submit" form="new-pet-form" disabled={saving}>
+            {saving ? "Guardando…" : "Crear mascota"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -3,31 +3,21 @@ const cron = require("node-cron");
 
 
 const {
-
   getAppointmentsForReminder,
-
   getUpcomingVaccineReminders,
-
+  getUpcomingDewormingReminders,
   getUpcomingGroomingReminders,
-
   getConsultationsForFollowUp,
-
   sendReminder,
-
   sendVaccineReminder,
-
+  sendDewormingReminder,
   sendGroomingReminder,
-
   sendFollowUp,
-
   markReminderSent,
-
   markVaccineReminderSent,
-
+  markDewormingReminderSent,
   markGroomingReminderSent,
-
   markFollowUpSent,
-
 } = require("../services/reminder.service");
 
 const { TIMEZONE } = require("../lib/timezone");
@@ -124,42 +114,34 @@ const processReminders = async () => {
 
 
 
-  const groomingReminders = await getUpcomingGroomingReminders();
+  const dewormingRecords = await getUpcomingDewormingReminders();
+  let dewormingSentCount = 0;
 
+  for (const record of dewormingRecords) {
+    try {
+      const sent = await sendDewormingReminder(record);
+      if (sent) {
+        await markDewormingReminderSent(record.id);
+        dewormingSentCount += 1;
+      }
+    } catch (error) {
+      console.error("[ReminderJob] Error processing deworming reminder:", record.id, error.message);
+    }
+  }
+
+  const groomingReminders = await getUpcomingGroomingReminders();
   let groomingSentCount = 0;
 
-
-
-  for (const reminder of groomingReminders) {
-
+  for (const record of groomingReminders) {
     try {
-
-      const sent = await sendGroomingReminder(reminder);
-
-
-
+      const sent = await sendGroomingReminder(record);
       if (sent) {
-
-        await markGroomingReminderSent(reminder.pet.id);
-
+        await markGroomingReminderSent(record.id);
         groomingSentCount += 1;
-
       }
-
     } catch (error) {
-
-      console.error(
-
-        "[ReminderJob] Error processing grooming reminder:",
-
-        reminder.pet.id,
-
-        error.message
-
-      );
-
+      console.error("[ReminderJob] Error processing grooming reminder:", record.id, error.message);
     }
-
   }
 
 
@@ -170,17 +152,9 @@ const processReminders = async () => {
 
   );
 
-  console.log(
-
-    `[ReminderJob] Vaccine reminders sent: ${vaccineSentCount}/${vaccineRecords.length}`
-
-  );
-
-  console.log(
-
-    `[ReminderJob] Grooming reminders sent: ${groomingSentCount}/${groomingReminders.length}`
-
-  );
+  console.log(`[ReminderJob] Vaccine reminders sent: ${vaccineSentCount}/${vaccineRecords.length}`);
+  console.log(`[ReminderJob] Deworming reminders sent: ${dewormingSentCount}/${dewormingRecords.length}`);
+  console.log(`[ReminderJob] Grooming reminders sent: ${groomingSentCount}/${groomingReminders.length}`);
 
 
 
@@ -242,21 +216,9 @@ const processReminders = async () => {
 
     },
 
-    vaccines: {
-
-      total: vaccineRecords.length,
-
-      sent: vaccineSentCount,
-
-    },
-
-    grooming: {
-
-      total: groomingReminders.length,
-
-      sent: groomingSentCount,
-
-    },
+    vaccines: { total: vaccineRecords.length, sent: vaccineSentCount },
+    deworming: { total: dewormingRecords.length, sent: dewormingSentCount },
+    grooming: { total: groomingReminders.length, sent: groomingSentCount },
 
     followUps: {
 

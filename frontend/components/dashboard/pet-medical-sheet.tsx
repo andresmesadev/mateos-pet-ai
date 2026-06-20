@@ -7,21 +7,21 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PetTimeline } from "@/components/dashboard/pet-timeline";
+import { VetConsultationDialog } from "@/components/dashboard/vet-consultation-dialog";
 import { proxyUrl } from "@/lib/api";
 import { useToast } from "@/components/ui/toast";
 import {
   type DashboardPet,
   type MedicalRecordType,
   type PetTimeline as PetTimelineData,
-  MEDICAL_SECTIONS,
   formatPetType,
   getPetEmoji,
 } from "@/lib/pets";
@@ -76,9 +76,11 @@ function PetMedicalSheetContent({ pet, onRecordAdded }: PetMedicalSheetContentPr
   const [timeline, setTimeline] = useState<PetTimelineData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(false);
+  const [activeForm, setActiveForm] = useState<"vaccine" | "deworming" | "grooming" | "allergy" | "note" | null>(null);
+  const [showConsultation, setShowConsultation] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<AddRecordForm>(INITIAL_FORM);
+  const [vaccineNextDate, setVaccineNextDate] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [editingProfile, setEditingProfile] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -171,6 +173,7 @@ function PetMedicalSheetContent({ pet, onRecordAdded }: PetMedicalSheetContentPr
           title,
           detail: form.detail.trim() || null,
           date: form.date || null,
+          nextControlAt: (form.type === "vaccine" || form.type === "deworming" || form.type === "grooming") && vaccineNextDate ? vaccineNextDate : null,
         }),
       });
       if (!res.ok) {
@@ -178,7 +181,8 @@ function PetMedicalSheetContent({ pet, onRecordAdded }: PetMedicalSheetContentPr
         throw new Error(payload?.error || "No se pudo guardar el registro");
       }
       setForm(INITIAL_FORM);
-      setShowForm(false);
+      setVaccineNextDate("");
+      setActiveForm(null);
       const data = await reloadTimeline();
       setTimeline(data);
       onRecordAdded?.();
@@ -193,17 +197,17 @@ function PetMedicalSheetContent({ pet, onRecordAdded }: PetMedicalSheetContentPr
 
   return (
     <>
-      <SheetHeader className="border-b pb-4">
-        <SheetTitle className="flex items-center gap-2 text-xl">
+      <DialogHeader className="shrink-0 border-b px-4 py-4">
+        <DialogTitle className="flex items-center gap-2 text-xl">
           <span>{getPetEmoji(pet.type)}</span>
           <span>{pet.name}</span>
-        </SheetTitle>
-        <SheetDescription>
+        </DialogTitle>
+        <DialogDescription>
           {formatPetType(pet.type)} · Dueño: {pet.owner.phone}
-        </SheetDescription>
-      </SheetHeader>
+        </DialogDescription>
+      </DialogHeader>
 
-      <div className="flex flex-col gap-4 px-4 pb-4">
+      <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-4 pt-2">
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline">{totalItems} eventos en historial</Badge>
           <Badge variant="outline">{pet._count.appointments} citas</Badge>
@@ -322,75 +326,159 @@ function PetMedicalSheetContent({ pet, onRecordAdded }: PetMedicalSheetContentPr
           )}
         </div>
 
-        {/* Agregar nota / registro manual */}
-        {!showForm ? (
-          <Button type="button" size="sm" variant="outline" onClick={() => setShowForm(true)}>
-            + Agregar nota
-          </Button>
-        ) : (
-          <form
-            onSubmit={handleSubmit}
-            className="space-y-3 rounded-lg border bg-muted/30 p-4"
-          >
-            <p className="text-sm font-medium">Nuevo registro</p>
+        {/* Botones de registro */}
+        {!activeForm && (
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" size="sm" onClick={() => setShowConsultation(true)} className="gap-1.5">
+              🩺 Consulta
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => { setActiveForm("vaccine"); setForm({ ...INITIAL_FORM, type: "vaccine" }); }} className="gap-1.5">
+              💉 Vacuna
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => { setActiveForm("deworming"); setForm({ ...INITIAL_FORM, type: "deworming" }); }} className="gap-1.5">
+              💊 Desparasitación
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => { setActiveForm("allergy"); setForm({ ...INITIAL_FORM, type: "allergy" }); }} className="gap-1.5">
+              🤧 Alergia
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => { setActiveForm("grooming"); setForm({ ...INITIAL_FORM, type: "note" }); }} className="gap-1.5">
+              ✂️ Peluquería
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => { setActiveForm("note"); setForm({ ...INITIAL_FORM, type: "note" }); }} className="gap-1.5">
+              📝 Nota
+            </Button>
+          </div>
+        )}
+
+        {activeForm === "vaccine" && (
+          <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border bg-muted/30 p-4">
+            <p className="text-sm font-semibold">💉 Nueva vacuna</p>
             <div className="space-y-1">
-              <label htmlFor="record-type" className="text-xs text-muted-foreground">Tipo</label>
-              <select
-                id="record-type"
-                value={form.type}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, type: e.target.value as MedicalRecordType }))
-                }
-                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-              >
-                {MEDICAL_SECTIONS.map((s) => (
-                  <option key={s.type} value={s.type}>
-                    {s.emoji} {s.label}
-                  </option>
-                ))}
-              </select>
+              <label className="text-xs text-muted-foreground">Nombre de la vacuna *</label>
+              <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="Ej. Antirrábica, Parvovirus, Moquillo…" autoFocus disabled={saving} />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Fecha de aplicación</label>
+                <Input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} disabled={saving} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Próxima vacunación</label>
+                <Input type="date" value={vaccineNextDate} onChange={(e) => setVaccineNextDate(e.target.value)} disabled={saving} />
+              </div>
             </div>
             <div className="space-y-1">
-              <label htmlFor="record-title" className="text-xs text-muted-foreground">Título</label>
-              <Input
-                id="record-title"
-                value={form.title}
-                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                placeholder="Ej. Vacuna antirrábica"
-              />
-            </div>
-            <div className="space-y-1">
-              <label htmlFor="record-detail" className="text-xs text-muted-foreground">Detalle (opcional)</label>
-              <Input
-                id="record-detail"
-                value={form.detail}
-                onChange={(e) => setForm((f) => ({ ...f, detail: e.target.value }))}
-                placeholder="Descripción adicional"
-              />
-            </div>
-            <div className="space-y-1">
-              <label htmlFor="record-date" className="text-xs text-muted-foreground">Fecha (opcional)</label>
-              <Input
-                id="record-date"
-                type="date"
-                value={form.date}
-                onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
-              />
+              <label className="text-xs text-muted-foreground">Laboratorio / Lote (opcional)</label>
+              <Input value={form.detail} onChange={(e) => setForm((f) => ({ ...f, detail: e.target.value }))} placeholder="Ej. Nobivac, Lote 1234…" disabled={saving} />
             </div>
             {formError && <p className="text-sm text-destructive">{formError}</p>}
             <div className="flex gap-2">
-              <Button type="submit" size="sm" disabled={saving}>
-                {saving ? "Guardando…" : "Guardar"}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                disabled={saving}
-                onClick={() => { setShowForm(false); setForm(INITIAL_FORM); setFormError(null); }}
-              >
-                Cancelar
-              </Button>
+              <Button type="submit" size="sm" disabled={saving}>{saving ? "Guardando…" : "Guardar vacuna"}</Button>
+              <Button type="button" size="sm" variant="ghost" disabled={saving} onClick={() => { setActiveForm(null); setForm(INITIAL_FORM); setVaccineNextDate(""); setFormError(null); }}>Cancelar</Button>
+            </div>
+          </form>
+        )}
+
+        {activeForm === "deworming" && (
+          <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border bg-muted/30 p-4">
+            <p className="text-sm font-semibold">💊 Nueva desparasitación</p>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Producto / Nombre *</label>
+              <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="Ej. Milbemax, Drontal, Nexgard Spectra…" autoFocus disabled={saving} />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Fecha de aplicación</label>
+                <Input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} disabled={saving} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Próxima desparasitación</label>
+                <Input type="date" value={vaccineNextDate} onChange={(e) => setVaccineNextDate(e.target.value)} disabled={saving} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Dosis / Observaciones (opcional)</label>
+              <Input value={form.detail} onChange={(e) => setForm((f) => ({ ...f, detail: e.target.value }))} placeholder="Ej. 1 tableta, vía oral, peso 10 kg…" disabled={saving} />
+            </div>
+            {formError && <p className="text-sm text-destructive">{formError}</p>}
+            <div className="flex gap-2">
+              <Button type="submit" size="sm" disabled={saving}>{saving ? "Guardando…" : "Guardar desparasitación"}</Button>
+              <Button type="button" size="sm" variant="ghost" disabled={saving} onClick={() => { setActiveForm(null); setForm(INITIAL_FORM); setVaccineNextDate(""); setFormError(null); }}>Cancelar</Button>
+            </div>
+          </form>
+        )}
+
+        {activeForm === "grooming" && (
+          <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border bg-muted/30 p-4">
+            <p className="text-sm font-semibold">✂️ Peluquería / Grooming</p>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Servicio realizado *</label>
+              <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="Ej. Baño y corte, baño, corte de uñas…" autoFocus disabled={saving} />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Fecha del servicio</label>
+                <Input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} disabled={saving} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Próxima visita recomendada</label>
+                <Input type="date" value={vaccineNextDate} onChange={(e) => setVaccineNextDate(e.target.value)} disabled={saving} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Observaciones (opcional)</label>
+              <Input value={form.detail} onChange={(e) => setForm((f) => ({ ...f, detail: e.target.value }))} placeholder="Ej. Pelaje en buen estado, solicitó corte estilo…" disabled={saving} />
+            </div>
+            {formError && <p className="text-sm text-destructive">{formError}</p>}
+            <div className="flex gap-2">
+              <Button type="submit" size="sm" disabled={saving}>{saving ? "Guardando…" : "Guardar peluquería"}</Button>
+              <Button type="button" size="sm" variant="ghost" disabled={saving} onClick={() => { setActiveForm(null); setForm(INITIAL_FORM); setVaccineNextDate(""); setFormError(null); }}>Cancelar</Button>
+            </div>
+          </form>
+        )}
+
+        {activeForm === "allergy" && (
+          <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border bg-muted/30 p-4">
+            <p className="text-sm font-semibold">🤧 Nueva alergia</p>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Alergia / Sustancia *</label>
+              <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="Ej. Pollo, penicilina, pasto…" autoFocus disabled={saving} />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Reacción / descripción (opcional)</label>
+              <Input value={form.detail} onChange={(e) => setForm((f) => ({ ...f, detail: e.target.value }))} placeholder="Ej. Urticaria, vómito, dificultad respiratoria…" disabled={saving} />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Fecha detectada (opcional)</label>
+              <Input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} disabled={saving} />
+            </div>
+            {formError && <p className="text-sm text-destructive">{formError}</p>}
+            <div className="flex gap-2">
+              <Button type="submit" size="sm" disabled={saving}>{saving ? "Guardando…" : "Guardar alergia"}</Button>
+              <Button type="button" size="sm" variant="ghost" disabled={saving} onClick={() => { setActiveForm(null); setForm(INITIAL_FORM); setFormError(null); }}>Cancelar</Button>
+            </div>
+          </form>
+        )}
+
+        {activeForm === "note" && (
+          <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border bg-muted/30 p-4">
+            <p className="text-sm font-semibold">📝 Nueva nota</p>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Título *</label>
+              <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="Ej. Desparasitación interna" autoFocus disabled={saving} />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Detalle (opcional)</label>
+              <Input value={form.detail} onChange={(e) => setForm((f) => ({ ...f, detail: e.target.value }))} placeholder="Descripción adicional" disabled={saving} />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Fecha (opcional)</label>
+              <Input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} disabled={saving} />
+            </div>
+            {formError && <p className="text-sm text-destructive">{formError}</p>}
+            <div className="flex gap-2">
+              <Button type="submit" size="sm" disabled={saving}>{saving ? "Guardando…" : "Guardar nota"}</Button>
+              <Button type="button" size="sm" variant="ghost" disabled={saving} onClick={() => { setActiveForm(null); setForm(INITIAL_FORM); setFormError(null); }}>Cancelar</Button>
             </div>
           </form>
         )}
@@ -403,9 +491,21 @@ function PetMedicalSheetContent({ pet, onRecordAdded }: PetMedicalSheetContentPr
             {error}
           </div>
         ) : timeline ? (
-          <PetTimeline items={timeline.items} nextActions={timeline.nextActions} onReload={reloadTimeline} />
+          <PetTimeline items={timeline.items} nextActions={timeline.nextActions} petId={pet.id} onReload={reloadTimeline} />
         ) : null}
       </div>
+
+      <VetConsultationDialog
+        open={showConsultation}
+        onOpenChange={setShowConsultation}
+        petId={pet.id}
+        petName={pet.name}
+        onSaved={async () => {
+          const data = await reloadTimeline();
+          setTimeline(data);
+          onRecordAdded?.();
+        }}
+      />
     </>
   );
 }
@@ -417,12 +517,12 @@ export function PetMedicalSheet({
   onRecordAdded,
 }: PetMedicalSheetProps) {
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[90vh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
         {open && pet ? (
           <PetMedicalSheetContent key={pet.id} pet={pet} onRecordAdded={onRecordAdded} />
         ) : null}
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

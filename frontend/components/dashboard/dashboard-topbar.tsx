@@ -129,7 +129,7 @@ export function DashboardTopbar() {
         {isHome ? (
           <>
             <h1 className="text-xl font-bold tracking-tight md:text-2xl">
-              ¡Hola, {firstName}! 👋
+              Hola, <span className="text-primary">{firstName}</span>
             </h1>
             <p className="text-sm text-muted-foreground">
               Aquí tienes el resumen de tu operación de hoy.

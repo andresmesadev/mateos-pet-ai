@@ -4,6 +4,8 @@ export type MedicalRecordType =
   | "allergy"
   | "vaccine"
   | "consultation"
+  | "deworming"
+  | "grooming"
   | "note";
 
 export type DashboardPet = {
@@ -185,6 +187,8 @@ export function groupRecordsByType(
     allergy: [],
     vaccine: [],
     consultation: [],
+    deworming: [],
+    grooming: [],
     note: [],
   };
 

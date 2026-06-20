@@ -4,7 +4,6 @@ import { auth } from "@/auth";
 import { apiUrl, makeServerHeaders } from "@/lib/api";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { SettingsTabs } from "@/components/dashboard/settings-tabs";
-import { SettingsView } from "@/components/dashboard/settings-view";
 
 export type TenantProfile = {
   id: string;
@@ -47,16 +46,14 @@ export default async function SettingsPage({ searchParams }: PageProps) {
   const services: ServiceRow[] = servicesRes.ok ? await servicesRes.json() : [];
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
-        title="Configuración"
-        description="Perfil del negocio, servicios, equipo y tenants"
+        title="Administración"
+        description="Información del negocio, servicios, horarios y equipo"
         icon={Settings}
         tint="bg-slate-500/15 text-slate-300"
       />
-      <SettingsTabs isSuperAdmin={Boolean(session?.user?.isSuperAdmin)}>
-        <SettingsView profile={profile} services={services} />
-      </SettingsTabs>
+      <SettingsTabs profile={profile} services={services} />
     </div>
   );
 }

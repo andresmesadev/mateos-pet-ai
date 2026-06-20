@@ -189,7 +189,11 @@ router.get("/pets/:id/records", async (req, res) => {
 router.post("/pets/:id/records", async (req, res) => {
   try {
     const { id } = req.params;
-    const { type, title, detail, date } = req.body ?? {};
+    const {
+      type, title, detail, date,
+      reason, findings, diagnosis, treatment, recommendations,
+      weight, nextControlAt, staffId,
+    } = req.body ?? {};
 
     const pet = await prisma.pet.findUnique({
       where: { id },
@@ -197,18 +201,19 @@ router.post("/pets/:id/records", async (req, res) => {
     });
 
     if (!pet) {
-      return res.status(404).json({
-        error: "Pet not found",
-      });
+      return res.status(404).json({ error: "Pet not found" });
     }
 
-    const record = await createRecord(
-      id,
-      type || "note",
-      title,
-      detail,
-      date
-    );
+    const record = await createRecord(id, type || "note", title, detail, date, {
+      reason: reason || null,
+      findings: findings || null,
+      diagnosis: diagnosis || null,
+      treatment: treatment || null,
+      recommendations: recommendations || null,
+      weight: weight != null ? Number(weight) : null,
+      nextControlAt: nextControlAt || null,
+      staffId: staffId || null,
+    });
 
     res.status(201).json({
       id: record.id,
@@ -216,6 +221,13 @@ router.post("/pets/:id/records", async (req, res) => {
       title: record.title,
       detail: record.detail,
       date: record.date,
+      reason: record.reason,
+      findings: record.findings,
+      diagnosis: record.diagnosis,
+      treatment: record.treatment,
+      recommendations: record.recommendations,
+      weight: record.weight,
+      nextControlAt: record.nextControlAt,
       createdAt: record.createdAt,
     });
   } catch (error) {
@@ -234,6 +246,66 @@ router.post("/pets/:id/records", async (req, res) => {
     res.status(500).json({
       error: "Internal server error",
     });
+  }
+});
+
+router.patch("/pets/:petId/records/:recordId", async (req, res) => {
+  try {
+    const { petId, recordId } = req.params;
+    const {
+      title, detail, date,
+      reason, findings, diagnosis, treatment, recommendations,
+      weight, nextControlAt,
+    } = req.body ?? {};
+
+    const existing = await prisma.medicalRecord.findFirst({
+      where: { id: recordId, petId },
+      select: { id: true },
+    });
+    if (!existing) return res.status(404).json({ error: "Record not found" });
+
+    const normalizeDate = (d) => {
+      if (!d) return null;
+      const parsed = new Date(d);
+      return isNaN(parsed.getTime()) ? null : parsed;
+    };
+
+    const updated = await prisma.medicalRecord.update({
+      where: { id: recordId },
+      data: {
+        ...(title != null && { title: String(title).trim() }),
+        ...(detail !== undefined && { detail: detail ? String(detail).trim() : null }),
+        ...(date !== undefined && { date: normalizeDate(date) }),
+        ...(reason !== undefined && { reason: reason ? String(reason).trim() : null }),
+        ...(findings !== undefined && { findings: findings ? String(findings).trim() : null }),
+        ...(diagnosis !== undefined && { diagnosis: diagnosis ? String(diagnosis).trim() : null }),
+        ...(treatment !== undefined && { treatment: treatment ? String(treatment).trim() : null }),
+        ...(recommendations !== undefined && { recommendations: recommendations ? String(recommendations).trim() : null }),
+        ...(weight !== undefined && { weight: weight != null ? Number(weight) : null }),
+        ...(nextControlAt !== undefined && { nextControlAt: normalizeDate(nextControlAt) }),
+      },
+    });
+
+    res.json(updated);
+  } catch (error) {
+    console.error("[Dashboard] Patch record error:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.delete("/pets/:petId/records/:recordId", async (req, res) => {
+  try {
+    const { petId, recordId } = req.params;
+    const existing = await prisma.medicalRecord.findFirst({
+      where: { id: recordId, petId },
+      select: { id: true },
+    });
+    if (!existing) return res.status(404).json({ error: "Record not found" });
+    await prisma.medicalRecord.delete({ where: { id: recordId } });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("[Dashboard] Delete record error:", error.message);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 

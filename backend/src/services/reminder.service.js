@@ -253,7 +253,7 @@ const getUpcomingVaccineReminders = async () => {
 
         reminderSent: false,
 
-        date: {
+        nextControlAt: {
 
           not: null,
 
@@ -331,154 +331,113 @@ const getUpcomingVaccineReminders = async () => {
 
 
 
-const getUpcomingGroomingReminders = async () => {
-
+const getUpcomingDewormingReminders = async () => {
   try {
-
     const todayKey = toDateKey(new Date());
+    const endKey = addDaysToKey(todayKey, VACCINE_LOOKAHEAD_DAYS);
+    if (!todayKey || !endKey) return [];
+    const { start } = dayBoundsInTimezone(todayKey);
+    const { end } = dayBoundsInTimezone(endKey);
 
-    const { end: todayEnd } = dayBoundsInTimezone(todayKey);
-
-
-
-    const pets = await prisma.pet.findMany({
-
+    const records = await prisma.medicalRecord.findMany({
       where: {
-
-        groomingReminderSent: false,
-
+        type: "deworming",
+        reminderSent: false,
+        nextControlAt: { not: null, gte: start, lte: end },
       },
-
       include: {
-
-        owner: {
-
+        pet: {
           select: {
-
             id: true,
-
-            phone: true,
-
+            name: true,
+            owner: { select: { id: true, phone: true } },
           },
-
         },
-
-        appointments: {
-
-          where: {
-
-            serviceType: "grooming",
-
-            status: { in: ACTIVE_APPOINTMENT_STATUSES },
-
-          },
-
-          orderBy: {
-
-            date: "desc",
-
-          },
-
-        },
-
       },
-
+      orderBy: { nextControlAt: "asc" },
     });
 
-
-
-    const reminders = [];
-
-
-
-    for (const pet of pets) {
-
-      const futureGrooming = pet.appointments.find(
-
-        (appointment) => new Date(appointment.date) > todayEnd
-
-      );
-
-
-
-      if (futureGrooming) {
-
-        continue;
-
-      }
-
-
-
-      const lastGrooming = pet.appointments.find(
-
-        (appointment) => new Date(appointment.date) <= todayEnd
-
-      );
-
-
-
-      if (!lastGrooming) {
-
-        continue;
-
-      }
-
-
-
-      const lastKey = toDateKey(lastGrooming.date);
-
-      const daysSince = daysBetweenDateKeys(lastKey, todayKey);
-
-
-
-      if (daysSince == null || daysSince < GROOMING_INTERVAL_DAYS) {
-
-        continue;
-
-      }
-
-
-
-      reminders.push({
-
-        pet,
-
-        user: pet.owner,
-
-        lastGrooming,
-
-        daysSince,
-
-      });
-
-    }
-
-
-
-    logger.info(
-
-      `[ReminderService] Grooming reminders due (>= ${GROOMING_INTERVAL_DAYS} days): ${reminders.length}`
-
-    );
-
-
-
-    return reminders;
-
+    logger.info(`[ReminderService] Deworming reminders due (${todayKey} → ${endKey}): ${records.length}`);
+    return records;
   } catch (error) {
-
-    logger.error(
-
-      "[ReminderService] getUpcomingGroomingReminders error:",
-
-      error.message
-
-    );
-
+    logger.error("[ReminderService] getUpcomingDewormingReminders error:", error.message);
     throw error;
-
   }
+};
 
+const buildDewormingReminderMessage = (record) => {
+  const petName = String(record?.pet?.name || "tu mascota").trim();
+  const productName = String(record?.title || "desparasitante").trim();
+  const dueDate = record?.nextControlAt ? new Date(record.nextControlAt) : null;
+  const todayKey = toDateKey(new Date());
+  const dueKey = dueDate ? toDateKey(dueDate) : null;
+  const daysUntil = daysBetweenDateKeys(todayKey, dueKey);
+  const daysLabel = daysUntil === 0 ? "hoy" : daysUntil === 1 ? "1 día" : `${daysUntil} días`;
+  const dateLabel = dueDate ? formatDateLabel(dueDate) : "próximamente";
+
+  return `Hola 👋
+
+La próxima desparasitación de ${petName} con *${productName}* es en ${daysLabel} (el ${dateLabel}) 💊
+
+¿Deseas que te la apliquemos en la clínica? Escríbenos aquí mismo 🐾`;
+};
+
+const sendDewormingReminder = async (record) => {
+  const phone = String(record?.pet?.owner?.phone || "").trim();
+  if (!phone) {
+    logger.warn("[ReminderService] Skipped deworming reminder — missing phone:", record?.id);
+    return false;
+  }
+  const message = buildDewormingReminderMessage(record);
+  const response = await sendWhatsAppMessage(phone, message);
+  if (!response) {
+    logger.error("[ReminderService] Failed to send deworming reminder:", record.id, phone);
+    return false;
+  }
+  logger.info("[ReminderService] Deworming reminder sent:", record.id, phone);
+  return true;
+};
+
+const markDewormingReminderSent = async (recordId) => {
+  const id = String(recordId || "").trim();
+  if (!id) throw new Error("recordId is required");
+  await prisma.medicalRecord.update({ where: { id }, data: { reminderSent: true } });
+  logger.info("[ReminderService] Deworming reminder marked sent:", id);
+};
+
+const getUpcomingGroomingReminders = async () => {
+  try {
+    const todayKey = toDateKey(new Date());
+    const endKey = addDaysToKey(todayKey, VACCINE_LOOKAHEAD_DAYS);
+    if (!todayKey || !endKey) return [];
+    const { start } = dayBoundsInTimezone(todayKey);
+    const { end } = dayBoundsInTimezone(endKey);
+
+    // Recordatorios basados en nextControlAt de registros de peluquería
+    const records = await prisma.medicalRecord.findMany({
+      where: {
+        type: "grooming",
+        reminderSent: false,
+        nextControlAt: { not: null, gte: start, lte: end },
+      },
+      include: {
+        pet: {
+          select: {
+            id: true,
+            name: true,
+            owner: { select: { id: true, phone: true } },
+          },
+        },
+      },
+      orderBy: { nextControlAt: "asc" },
+    });
+
+    logger.info(`[ReminderService] Grooming reminders due (${todayKey} → ${endKey}): ${records.length}`);
+    return records;
+  } catch (error) {
+    logger.error("[ReminderService] getUpcomingGroomingReminders error:", error.message);
+    throw error;
+  }
 };
 
 
@@ -525,7 +484,7 @@ const buildVaccineReminderMessage = (record, user) => {
 
   const vaccineName = String(record?.title || "vacuna").trim();
 
-  const dueDate = record?.date ? new Date(record.date) : null;
+  const dueDate = record?.nextControlAt ? new Date(record.nextControlAt) : null;
 
   const todayKey = toDateKey(new Date());
 
@@ -551,30 +510,30 @@ const buildVaccineReminderMessage = (record, user) => {
 
   return `Hola 👋
 
-La vacuna ${vaccineName} de ${petName} vence en ${daysLabel} (el ${dateLabel}).
+La próxima vacuna *${vaccineName}* de ${petName} es en ${daysLabel} (el ${dateLabel}) 💉
 
-¿Deseas agendar una cita de vacunación? Escríbenos aquí mismo.`;
+¿Deseas agendar la cita? Escríbenos aquí mismo y te buscamos el mejor horario 🐾`;
 
 };
 
 
 
-const buildGroomingReminderMessage = ({ pet, daysSince }) => {
-
-  const petName = String(pet?.name || "tu mascota").trim();
-
-  const daysLabel =
-
-    daysSince === 1 ? "1 día" : `${daysSince} días`;
-
-
+const buildGroomingReminderMessage = (record) => {
+  const petName = String(record?.pet?.name || "tu mascota").trim();
+  const serviceName = String(record?.title || "baño y peluquería").trim();
+  const dueDate = record?.nextControlAt ? new Date(record.nextControlAt) : null;
+  const todayKey = toDateKey(new Date());
+  const dueKey = dueDate ? toDateKey(dueDate) : null;
+  const daysUntil = daysBetweenDateKeys(todayKey, dueKey);
+  const daysLabel = daysUntil === 0 ? "hoy" : daysUntil === 1 ? "mañana" : `en ${daysUntil} días`;
+  const dateLabel = dueDate ? formatDateLabel(dueDate) : "próximamente";
 
   return `Hola 👋
 
-Hace ${daysLabel} que ${petName} no recibe baño y peluquería en Mateos Pet 🛁
+Es hora de la próxima visita de *${petName}* para *${serviceName}* ✂️
+Fecha recomendada: ${daysLabel} (${dateLabel})
 
-¿Deseas agendar un turno de grooming? Escríbenos aquí mismo.`;
-
+¿Agendamos el turno? Escríbenos aquí mismo 🛁`;
 };
 
 
@@ -705,72 +664,20 @@ const sendVaccineReminder = async (record, user) => {
 
 
 
-/**
-
- * @param {object} payload — { pet, user, daysSince }
-
- * @returns {Promise<boolean>}
-
- */
-
-const sendGroomingReminder = async (payload) => {
-
-  const phone = String(payload?.user?.phone || "").trim();
-
-
-
+const sendGroomingReminder = async (record) => {
+  const phone = String(record?.pet?.owner?.phone || "").trim();
   if (!phone) {
-
-    logger.warn(
-
-      "[ReminderService] Skipped grooming reminder — missing phone:",
-
-      payload?.pet?.id
-
-    );
-
+    logger.warn("[ReminderService] Skipped grooming reminder — missing phone:", record?.id);
     return false;
-
   }
-
-
-
-  const message = buildGroomingReminderMessage(payload);
-
+  const message = buildGroomingReminderMessage(record);
   const response = await sendWhatsAppMessage(phone, message);
-
-
-
   if (!response) {
-
-    logger.error(
-
-      "[ReminderService] Failed to send grooming reminder:",
-
-      payload.pet.id,
-
-      phone
-
-    );
-
+    logger.error("[ReminderService] Failed to send grooming reminder:", record.id, phone);
     return false;
-
   }
-
-
-
-  logger.info(
-
-    "[ReminderService] Grooming reminder sent:",
-
-    payload.pet.id,
-
-    phone
-
-  );
-
+  logger.info("[ReminderService] Grooming reminder sent:", record.id, phone);
   return true;
-
 };
 
 
@@ -835,32 +742,11 @@ const markVaccineReminderSent = async (recordId) => {
 
 
 
-const markGroomingReminderSent = async (petId) => {
-
-  const id = String(petId || "").trim();
-
-
-
-  if (!id) {
-
-    throw new Error("petId is required");
-
-  }
-
-
-
-  await prisma.pet.update({
-
-    where: { id },
-
-    data: { groomingReminderSent: true },
-
-  });
-
-
-
+const markGroomingReminderSent = async (recordId) => {
+  const id = String(recordId || "").trim();
+  if (!id) throw new Error("recordId is required");
+  await prisma.medicalRecord.update({ where: { id }, data: { reminderSent: true } });
   logger.info("[ReminderService] Grooming reminder marked sent:", id);
-
 };
 
 
@@ -981,41 +867,27 @@ const resetGroomingReminderForPet = async (petId) => {
 
 
 module.exports = {
-
   getAppointmentsForReminder,
-
   getUpcomingVaccineReminders,
-
+  getUpcomingDewormingReminders,
   getUpcomingGroomingReminders,
-
   getConsultationsForFollowUp,
-
   sendReminder,
-
   sendVaccineReminder,
-
+  sendDewormingReminder,
   sendGroomingReminder,
-
   sendFollowUp,
-
   markReminderSent,
-
   markVaccineReminderSent,
-
+  markDewormingReminderSent,
   markGroomingReminderSent,
-
   markFollowUpSent,
-
   resetGroomingReminderForPet,
-
   buildReminderMessage,
-
   buildVaccineReminderMessage,
-
+  buildDewormingReminderMessage,
   buildGroomingReminderMessage,
-
   buildFollowUpMessage,
-
 };
 
 

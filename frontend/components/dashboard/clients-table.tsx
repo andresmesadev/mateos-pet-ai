@@ -125,7 +125,7 @@ export function ClientsTable() {
       <Card>
         <CardHeader className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
-            <CardTitle className="text-base">Clientes</CardTitle>
+            <CardTitle className="text-base">Propietarios</CardTitle>
             {!loading && !error && clients.length > 0 && (
               <Badge variant="outline" className="font-normal">
                 {query ? `${filtered.length} de ${clients.length}` : clients.length}
@@ -161,20 +161,20 @@ export function ClientsTable() {
           ) : clients.length === 0 ? (
             <EmptyState
               icon="👋"
-              title="No hay clientes registrados"
-              description="Los clientes aparecerán automáticamente aquí cuando alguien escriba por WhatsApp y el agente registre su conversación."
+              title="No hay propietarios registrados"
+              description="Los propietarios aparecerán automáticamente aquí cuando alguien escriba por WhatsApp y el agente registre su conversación."
               hint="El agente WhatsApp está activo"
             />
           ) : filtered.length === 0 ? (
             <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-              Ningún cliente coincide con “{query}”.
+              Ningún propietario coincide con “{query}”.
             </div>
           ) : (
             <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Cliente</TableHead>
+                  <TableHead>Propietario</TableHead>
                   <TableHead>Mascotas</TableHead>
                   <TableHead>Citas</TableHead>
                   <TableHead>Última actividad</TableHead>

@@ -7,12 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { proxyUrl } from "@/lib/api";
 import { useToast } from "@/components/ui/toast";
@@ -97,9 +97,9 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
   if (loading) {
     return (
       <>
-        <SheetHeader className="border-b px-4 py-4">
-          <SheetTitle>Cargando…</SheetTitle>
-        </SheetHeader>
+        <DialogHeader className="border-b px-4 py-4">
+          <DialogTitle>Cargando…</DialogTitle>
+        </DialogHeader>
         <ClientSheetSkeleton />
       </>
     );
@@ -140,9 +140,9 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
   if (error || !client) {
     return (
       <>
-        <SheetHeader className="border-b px-4 py-4">
-          <SheetTitle>Cliente</SheetTitle>
-        </SheetHeader>
+        <DialogHeader className="border-b px-4 py-4">
+          <DialogTitle>Cliente</DialogTitle>
+        </DialogHeader>
         <div className="px-4 py-8 text-sm text-destructive">
           {error ?? "Cliente no encontrado"}
         </div>
@@ -152,19 +152,19 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
 
   return (
     <>
-      <SheetHeader className="border-b px-4 py-4">
-        <SheetTitle className="flex flex-col items-start gap-1">
+      <DialogHeader className="border-b px-4 py-4">
+        <DialogTitle className="flex flex-col items-start gap-1">
           <span>{formatPhone(client.phone)}</span>
           {client.name ? (
             <span className="text-base font-normal text-muted-foreground">
               {client.name}
             </span>
           ) : null}
-        </SheetTitle>
-        <SheetDescription>
+        </DialogTitle>
+        <DialogDescription>
           Cliente desde {formatClientRegisteredAt(client.createdAt)}
-        </SheetDescription>
-      </SheetHeader>
+        </DialogDescription>
+      </DialogHeader>
 
       <div className="flex flex-col gap-6 overflow-y-auto px-4 pb-6">
         {/* Ficha del cliente */}
@@ -316,12 +316,12 @@ export function ClientSheet({
   onOpenChange,
 }: ClientSheetProps) {
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="flex h-full w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[90vh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
         {open && clientId ? (
           <ClientSheetContent key={clientId} clientId={clientId} />
         ) : null}
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

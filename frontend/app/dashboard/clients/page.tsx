@@ -19,7 +19,7 @@ export default function DashboardClientsPage() {
   return (
     <section>
       <PageHeader
-        title="Clientes"
+        title="Propietarios"
         description="Perfiles registrados por WhatsApp y su actividad reciente"
         icon={Users}
         tint="bg-violet-500/15 text-violet-400"
