@@ -48,6 +48,81 @@ router.get("/clients", async (req, res) => {
   }
 });
 
+// ── Importar contactos desde CSV (parseado por el frontend) ──────────────────
+
+function normalizePhone(raw) {
+  if (!raw) return null;
+  let p = String(raw).replace(/[^\d+]/g, "");
+  if (p.startsWith("+")) p = p.slice(1);
+  if (/^57\d{10}$/.test(p)) return p;
+  if (/^\d{10}$/.test(p)) return "57" + p;
+  if (/^0\d{10}$/.test(p)) return "57" + p.slice(1);
+  if (p.replace(/\D/g, "").length < 7) return null;
+  return p;
+}
+
+router.post("/clients/import", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    const { contacts } = req.body ?? {};
+
+    if (!Array.isArray(contacts) || contacts.length === 0) {
+      return res.status(400).json({ error: "Se requiere un array de contactos no vacío" });
+    }
+    if (contacts.length > 500) {
+      return res.status(400).json({ error: "Máximo 500 contactos por importación" });
+    }
+
+    const results = [];
+    let created = 0, updated = 0, invalid = 0;
+
+    for (const c of contacts) {
+      const phone = normalizePhone(c.phone);
+      if (!phone) {
+        results.push({ name: c.name ?? "", phone: null, status: "invalid", reason: "Teléfono inválido" });
+        invalid++;
+        continue;
+      }
+
+      try {
+        const where = tenantId ? { phone, tenantId } : { phone };
+        const existing = await prisma.user.findFirst({ where });
+
+        if (existing) {
+          const patch = {};
+          if (!existing.name && c.name?.trim()) patch.name = c.name.trim();
+          if (!existing.email && c.email?.trim()) patch.email = c.email.trim();
+          if (Object.keys(patch).length) {
+            await prisma.user.update({ where: { id: existing.id }, data: patch });
+          }
+          results.push({ name: c.name ?? existing.name ?? "", phone, status: "updated" });
+          updated++;
+        } else {
+          await prisma.user.create({
+            data: {
+              phone,
+              name: c.name?.trim() || null,
+              email: c.email?.trim() || null,
+              notes: c.notes?.trim() || null,
+              ...(tenantId ? { tenantId } : {}),
+            },
+          });
+          results.push({ name: c.name ?? "", phone, status: "created" });
+          created++;
+        }
+      } catch {
+        results.push({ name: c.name ?? "", phone, status: "invalid", reason: "Error al guardar" });
+        invalid++;
+      }
+    }
+
+    res.json({ created, updated, invalid, results });
+  } catch (error) {
+    console.error("[Dashboard] Import contacts error:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // Crear cliente manualmente desde el dashboard.
 router.post("/clients", async (req, res) => {
   try {
