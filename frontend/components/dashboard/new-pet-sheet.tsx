@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PawPrint } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated: () => void;
+  defaultOwnerPhone?: string;
 };
 
 const PET_TYPES = [
@@ -30,12 +31,16 @@ const PET_TYPES = [
   { value: "other", label: "🐾 Otro" },
 ];
 
-export function NewPetSheet({ open, onOpenChange, onCreated }: Props) {
+export function NewPetSheet({ open, onOpenChange, onCreated, defaultOwnerPhone }: Props) {
   const { toast } = useToast();
   const [name, setName] = useState("");
   const [type, setType] = useState("dog");
-  const [ownerPhone, setOwnerPhone] = useState("");
+  const [ownerPhone, setOwnerPhone] = useState(defaultOwnerPhone ?? "");
   const [ownerName, setOwnerName] = useState("");
+
+  useEffect(() => {
+    if (open) setOwnerPhone(defaultOwnerPhone ?? "");
+  }, [open, defaultOwnerPhone]);
   const [breed, setBreed] = useState("");
   const [saving, setSaving] = useState(false);
 

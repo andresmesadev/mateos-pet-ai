@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Plus } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PetMedicalSheet } from "@/components/dashboard/pet-medical-sheet";
+import { NewPetSheet } from "@/components/dashboard/new-pet-sheet";
 import { proxyUrl } from "@/lib/api";
 import { useToast } from "@/components/ui/toast";
 import {
@@ -24,10 +27,27 @@ import {
 } from "@/lib/appointments";
 import {
   type ClientDetail,
+  type ClientPet,
   formatClientRegisteredAt,
   formatPhone,
 } from "@/lib/clients";
-import { formatPetType, getPetEmoji } from "@/lib/pets";
+import { type DashboardPet, formatPetType, getPetEmoji } from "@/lib/pets";
+
+function clientPetToDashboardPet(pet: ClientPet, ownerPhone: string): DashboardPet {
+  return {
+    id: pet.id,
+    name: pet.name,
+    type: pet.type,
+    breed: null,
+    gender: null,
+    birthDate: null,
+    weight: null,
+    sterilized: null,
+    notes: null,
+    owner: { phone: ownerPhone },
+    _count: { medicalRecords: 0, appointments: 0 },
+  };
+}
 
 type ClientSheetProps = {
   clientId: string | null;
@@ -53,6 +73,8 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editForm, setEditForm] = useState({ name: "", email: "", address: "", notes: "" });
+  const [expedientePet, setExpedientePet] = useState<DashboardPet | null>(null);
+  const [addingPet, setAddingPet] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -219,31 +241,41 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
         </section>
 
         <section className="space-y-2">
-          <h3 className="text-sm font-medium text-muted-foreground">Mascotas</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Mascotas</h3>
+            <button
+              type="button"
+              onClick={() => setAddingPet(true)}
+              className="flex items-center gap-1 text-xs text-primary hover:underline"
+            >
+              <Plus className="h-3 w-3" /> Agregar mascota
+            </button>
+          </div>
           {client.pets.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Sin mascotas registradas.
-            </p>
+            <p className="text-sm text-muted-foreground">Sin mascotas registradas.</p>
           ) : (
             <ul className="space-y-2">
               {client.pets.map((pet) => (
                 <li
                   key={pet.id}
-                  className="flex items-center justify-between rounded-lg border px-3 py-2"
+                  className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-card px-3 py-2.5"
                 >
-                  <div className="flex items-center gap-2">
-                    <span>{getPetEmoji(pet.type)}</span>
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-base ring-1 ring-amber-500/20">
+                      {getPetEmoji(pet.type)}
+                    </div>
                     <div>
-                      <p className="font-medium">{pet.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatPetType(pet.type)}
-                      </p>
+                      <p className="text-sm font-medium">{pet.name}</p>
+                      <p className="text-xs text-muted-foreground">{formatPetType(pet.type)}</p>
                     </div>
                   </div>
-                  <Button asChild size="sm" variant="outline">
-                    <Link href={`/dashboard/pets?pet=${pet.id}`}>
-                      Ver expediente
-                    </Link>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs"
+                    onClick={() => setExpedientePet(clientPetToDashboardPet(pet, client.phone))}
+                  >
+                    Ver expediente
                   </Button>
                 </li>
               ))}
@@ -294,9 +326,7 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
 
         {client.latestConversationId ? (
           <Button asChild className="w-full">
-            <Link
-              href={`/dashboard/conversations?conversation=${client.latestConversationId}`}
-            >
+            <Link href={`/dashboard/conversations?conversation=${client.latestConversationId}`}>
               Ver conversación
             </Link>
           </Button>
@@ -306,6 +336,25 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
           </Button>
         )}
       </div>
+
+      {/* Expediente de mascota inline */}
+      <PetMedicalSheet
+        pet={expedientePet}
+        open={expedientePet !== null}
+        onOpenChange={(v) => { if (!v) setExpedientePet(null); }}
+      />
+
+      {/* Agregar mascota con teléfono pre-llenado */}
+      <NewPetSheet
+        open={addingPet}
+        onOpenChange={setAddingPet}
+        defaultOwnerPhone={client.phone}
+        onCreated={() => {
+          setAddingPet(false);
+          setClient((prev) => prev ? { ...prev } : prev);
+          toast("Mascota agregada.", "success");
+        }}
+      />
     </>
   );
 }
