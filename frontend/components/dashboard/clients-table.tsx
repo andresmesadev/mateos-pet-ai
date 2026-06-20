@@ -178,6 +178,7 @@ export function ClientsTable() {
                   <TableHead>Mascotas</TableHead>
                   <TableHead>Citas</TableHead>
                   <TableHead>Última actividad</TableHead>
+                  <TableHead />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -212,6 +213,16 @@ export function ClientsTable() {
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {formatRelativeTime(client.lastActivityAt)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={(e) => { e.stopPropagation(); handleOpenClient(client); }}
+                      >
+                        Ver contacto
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
