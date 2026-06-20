@@ -9,6 +9,7 @@ const {
   listConversations,
   getConversationMessages,
 } = require("../../services/dashboard-conversation.service");
+const { sendWhatsAppMessage } = require("../../services/whatsapp-api.service");
 
 router.get("/escalations", async (req, res) => {
   try {
@@ -77,6 +78,49 @@ router.get("/conversations/:id/messages", async (req, res) => {
     res.status(500).json({
       error: "Internal server error",
     });
+  }
+});
+
+router.post("/conversations/:id/send", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { message } = req.body ?? {};
+
+    if (!message || !String(message).trim()) {
+      return res.status(400).json({ error: "El mensaje no puede estar vacío" });
+    }
+
+    const conversation = await prisma.conversation.findUnique({
+      where: { id },
+      include: { user: { select: { phone: true } } },
+    });
+
+    if (!conversation) {
+      return res.status(404).json({ error: "Conversación no encontrada" });
+    }
+
+    const phone = conversation.user?.phone;
+    if (!phone) {
+      return res.status(400).json({ error: "El cliente no tiene teléfono registrado" });
+    }
+
+    const sent = await sendWhatsAppMessage(phone, String(message).trim());
+    if (!sent) {
+      return res.status(502).json({ error: "No se pudo enviar el mensaje por WhatsApp. Verifica las credenciales." });
+    }
+
+    const saved = await prisma.message.create({
+      data: {
+        conversationId: id,
+        role: "assistant",
+        content: String(message).trim(),
+      },
+    });
+
+    res.json({ ok: true, message: saved });
+  } catch (error) {
+    console.error("[Dashboard] Send message error:", error.message);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
