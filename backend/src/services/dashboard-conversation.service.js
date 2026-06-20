@@ -84,7 +84,7 @@ const getConversationMessages = async (conversationId) => {
     where: { id },
     include: {
       user: {
-        select: { phone: true },
+        select: { phone: true, name: true },
       },
     },
   });
@@ -110,6 +110,7 @@ const getConversationMessages = async (conversationId) => {
     conversation: {
       id: conversation.id,
       phone: conversation.user?.phone ?? null,
+      name: conversation.user?.name ?? null,
       step: conversation.step ?? sessionData.step ?? null,
       requires_human_attention: sessionData.requires_human_attention === true,
       updatedAt: conversation.updatedAt,

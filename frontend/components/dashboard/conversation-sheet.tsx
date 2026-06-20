@@ -144,9 +144,10 @@ function ConversationContent({ conversationId }: { conversationId: string }) {
           </div>
           <div>
             <DialogTitle className="text-base font-semibold tracking-tight">
-              {formatPhone(conversation?.phone ?? null)}
+              {conversation?.name ?? formatPhone(conversation?.phone ?? null)}
             </DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
+              {conversation?.name ? formatPhone(conversation.phone) + " · " : ""}
               {conversation ? formatConversationStep(conversation.step) : "Historial de mensajes"}
             </DialogDescription>
           </div>
