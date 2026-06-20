@@ -18,6 +18,8 @@ import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
+  DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PetTimeline } from "@/components/dashboard/pet-timeline";
@@ -236,11 +238,11 @@ function PetMedicalSheetContent({
             {getPetEmoji(pet.type)}
           </div>
           <div>
-            <h2 className="text-base font-semibold tracking-tight">{pet.name}</h2>
-            <p className="text-sm text-muted-foreground">
+            <DialogTitle className="text-base font-semibold tracking-tight">{pet.name}</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
               {formatPetType(pet.type)}
               {pet.owner?.phone ? ` · ${pet.owner.phone}` : ""}
-            </p>
+            </DialogDescription>
           </div>
         </div>
         <div className="flex items-center gap-2">
