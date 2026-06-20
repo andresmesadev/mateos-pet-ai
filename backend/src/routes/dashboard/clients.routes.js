@@ -90,8 +90,9 @@ router.post("/clients/import", async (req, res) => {
 
         if (existing) {
           const patch = {};
-          if (!existing.name && c.name?.trim()) patch.name = c.name.trim();
-          if (!existing.email && c.email?.trim()) patch.email = c.email.trim();
+          if (!existing.name    && c.name?.trim())    patch.name    = c.name.trim();
+          if (!existing.address && c.address?.trim()) patch.address = c.address.trim();
+          if (!existing.notes   && c.notes?.trim())   patch.notes   = c.notes.trim();
           if (Object.keys(patch).length) {
             await prisma.user.update({ where: { id: existing.id }, data: patch });
           }
@@ -101,9 +102,9 @@ router.post("/clients/import", async (req, res) => {
           await prisma.user.create({
             data: {
               phone,
-              name: c.name?.trim() || null,
-              email: c.email?.trim() || null,
-              notes: c.notes?.trim() || null,
+              name:    c.name?.trim()    || null,
+              address: c.address?.trim() || null,
+              notes:   c.notes?.trim()   || null,
               ...(tenantId ? { tenantId } : {}),
             },
           });

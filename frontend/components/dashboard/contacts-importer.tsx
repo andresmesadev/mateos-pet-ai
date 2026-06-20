@@ -1,15 +1,15 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Upload, FileText, CheckCircle2, AlertCircle, RefreshCcw, Users } from "lucide-react";
+import { Upload, FileText, CheckCircle2, AlertCircle, RefreshCcw, Users, MapPin, StickyNote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { proxyUrl } from "@/lib/api";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
-// ── CSV parsers ────────────────────────────────────────────────────────────────
+// ── CSV parser ─────────────────────────────────────────────────────────────────
 
-type RawContact = { name: string; phone: string; email: string };
+type RawContact = { name: string; phone: string; address: string; notes: string };
 
 function parseCSVLine(line: string): string[] {
   const result: string[] = [];
@@ -41,6 +41,15 @@ function findCol(headers: string[], candidates: string[]): number {
   return -1;
 }
 
+/** Combina partes de dirección de Outlook en una sola línea. */
+function buildAddress(cols: string[], ...idxs: number[]): string {
+  return idxs
+    .filter((i) => i !== -1)
+    .map((i) => cols[i]?.trim() ?? "")
+    .filter(Boolean)
+    .join(", ");
+}
+
 function parseCSV(text: string): RawContact[] {
   const lines = text.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length < 2) return [];
@@ -48,50 +57,65 @@ function parseCSV(text: string): RawContact[] {
   const headers = parseCSVLine(lines[0]);
   const fmt = detectFormat(headers);
 
+  // ── Outlook ──────────────────────────────────────────────────────────────────
   if (fmt === "outlook") {
-    const first    = findCol(headers, ["first name"]);
-    const last     = findCol(headers, ["last name"]);
-    const phoneIdx = findCol(headers, ["mobile phone", "home phone", "business phone", "phone"]);
-    const emailIdx = findCol(headers, ["e-mail address", "email address", "email"]);
+    const first      = findCol(headers, ["first name"]);
+    const last       = findCol(headers, ["last name"]);
+    const phoneIdx   = findCol(headers, ["mobile phone", "home phone", "business phone", "phone"]);
+    // dirección: Outlook exporta en columnas separadas
+    const streetIdx  = findCol(headers, ["home street", "business street", "other street"]);
+    const cityIdx    = findCol(headers, ["home city", "business city", "other city"]);
+    const stateIdx   = findCol(headers, ["home state", "business state"]);
+    const notesIdx   = findCol(headers, ["notes"]);
+
     return lines.slice(1).map((line) => {
       const cols = parseCSVLine(line);
-      const firstName = first  !== -1 ? (cols[first]?.trim()  ?? "") : "";
-      const lastName  = last   !== -1 ? (cols[last]?.trim()   ?? "") : "";
+      const firstName = first !== -1 ? (cols[first]?.trim() ?? "") : "";
+      const lastName  = last  !== -1 ? (cols[last]?.trim()  ?? "") : "";
       return {
-        name:  [firstName, lastName].filter(Boolean).join(" "),
-        phone: phoneIdx !== -1 ? (cols[phoneIdx]?.trim() ?? "") : "",
-        email: emailIdx !== -1 ? (cols[emailIdx]?.trim() ?? "") : "",
+        name:    [firstName, lastName].filter(Boolean).join(" "),
+        phone:   phoneIdx !== -1 ? (cols[phoneIdx]?.trim() ?? "") : "",
+        address: buildAddress(cols, streetIdx, cityIdx, stateIdx),
+        notes:   notesIdx !== -1 ? (cols[notesIdx]?.trim() ?? "") : "",
       };
     }).filter((c) => c.name || c.phone);
   }
 
+  // ── Google Contacts ───────────────────────────────────────────────────────────
   if (fmt === "google") {
-    const given    = findCol(headers, ["given name"]);
-    const family   = findCol(headers, ["family name"]);
-    const phoneIdx = findCol(headers, ["phone 1 - value", "mobile", "phone"]);
-    const emailIdx = findCol(headers, ["e-mail 1 - value", "email 1 - value", "email"]);
+    const given      = findCol(headers, ["given name"]);
+    const family     = findCol(headers, ["family name"]);
+    const phoneIdx   = findCol(headers, ["phone 1 - value", "mobile", "phone"]);
+    const streetIdx  = findCol(headers, ["address 1 - street", "address 1 - formatted"]);
+    const cityIdx    = findCol(headers, ["address 1 - city"]);
+    const notesIdx   = findCol(headers, ["notes"]);
+
     return lines.slice(1).map((line) => {
       const cols = parseCSVLine(line);
       const g = given  !== -1 ? (cols[given]?.trim()  ?? "") : "";
       const f = family !== -1 ? (cols[family]?.trim() ?? "") : "";
       return {
-        name:  [g, f].filter(Boolean).join(" "),
-        phone: phoneIdx !== -1 ? (cols[phoneIdx]?.trim() ?? "") : "",
-        email: emailIdx !== -1 ? (cols[emailIdx]?.trim() ?? "") : "",
+        name:    [g, f].filter(Boolean).join(" "),
+        phone:   phoneIdx !== -1 ? (cols[phoneIdx]?.trim() ?? "") : "",
+        address: buildAddress(cols, streetIdx, cityIdx),
+        notes:   notesIdx !== -1 ? (cols[notesIdx]?.trim() ?? "") : "",
       };
     }).filter((c) => c.name || c.phone);
   }
 
-  // generic
-  const nameIdx  = findCol(headers, ["nombre", "name", "cliente", "propietario"]);
-  const phoneIdx = findCol(headers, ["telefono", "teléfono", "phone", "celular", "movil", "móvil"]);
-  const emailIdx = findCol(headers, ["email", "correo", "e-mail"]);
+  // ── Genérico ──────────────────────────────────────────────────────────────────
+  const nameIdx    = findCol(headers, ["nombre", "name", "cliente", "propietario"]);
+  const phoneIdx   = findCol(headers, ["telefono", "teléfono", "phone", "celular", "movil", "móvil"]);
+  const addressIdx = findCol(headers, ["direccion", "dirección", "address", "domicilio"]);
+  const notesIdx   = findCol(headers, ["notas", "notes", "observaciones"]);
+
   return lines.slice(1).map((line) => {
     const cols = parseCSVLine(line);
     return {
-      name:  nameIdx  !== -1 ? (cols[nameIdx]?.trim()  ?? "") : "",
-      phone: phoneIdx !== -1 ? (cols[phoneIdx]?.trim() ?? "") : "",
-      email: emailIdx !== -1 ? (cols[emailIdx]?.trim() ?? "") : "",
+      name:    nameIdx    !== -1 ? (cols[nameIdx]?.trim()    ?? "") : "",
+      phone:   phoneIdx   !== -1 ? (cols[phoneIdx]?.trim()   ?? "") : "",
+      address: addressIdx !== -1 ? (cols[addressIdx]?.trim() ?? "") : "",
+      notes:   notesIdx   !== -1 ? (cols[notesIdx]?.trim()   ?? "") : "",
     };
   }).filter((c) => c.name || c.phone);
 }
@@ -134,7 +158,7 @@ export function ContactsImporter() {
       const text = e.target?.result as string;
       const parsed = parseCSV(text);
       if (parsed.length === 0) {
-        toast("No se detectaron contactos en el archivo. Verifica el formato.", "error");
+        toast("No se detectaron contactos. Verifica el formato del archivo.", "error");
         return;
       }
       setContacts(parsed);
@@ -231,6 +255,9 @@ export function ContactsImporter() {
 
   // ── Vista: preview ─────────────────────────────────────────────────────────
   if (contacts.length > 0) {
+    const withAddress = contacts.filter((c) => c.address).length;
+    const withNotes   = contacts.filter((c) => c.notes).length;
+
     return (
       <div className="max-w-xl space-y-4">
         <div className="rounded-xl border border-white/[0.06] bg-card p-4">
@@ -241,19 +268,39 @@ export function ContactsImporter() {
             </div>
             <span className="text-xs text-muted-foreground">{contacts.length} contactos</span>
           </div>
-          <div className="max-h-52 divide-y divide-white/[0.04] overflow-y-auto rounded-lg border border-white/[0.06]">
+
+          {/* Mini stats */}
+          <div className="mb-3 flex gap-3">
+            {withAddress > 0 && (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <MapPin className="h-3 w-3 text-sky-400" />
+                {withAddress} con dirección
+              </div>
+            )}
+            {withNotes > 0 && (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <StickyNote className="h-3 w-3 text-amber-400" />
+                {withNotes} con notas
+              </div>
+            )}
+          </div>
+
+          <div className="max-h-56 divide-y divide-white/[0.04] overflow-y-auto rounded-lg border border-white/[0.06]">
             {contacts.slice(0, 50).map((c, i) => (
-              <div key={i} className="flex items-center gap-3 px-3 py-2 text-sm">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-xs font-semibold text-violet-400">
+              <div key={i} className="flex items-start gap-3 px-3 py-2.5 text-sm">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-xs font-semibold text-violet-400 mt-0.5">
                   {(c.name?.[0] ?? "#").toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{c.name || <span className="text-muted-foreground italic">Sin nombre</span>}</p>
+                  <p className="truncate font-medium">{c.name || <span className="italic text-muted-foreground">Sin nombre</span>}</p>
                   <p className="truncate text-xs text-muted-foreground">{c.phone || "Sin teléfono"}</p>
+                  {c.address && (
+                    <p className="truncate text-xs text-sky-400/80 mt-0.5">📍 {c.address}</p>
+                  )}
+                  {c.notes && (
+                    <p className="truncate text-xs text-amber-400/80">📝 {c.notes}</p>
+                  )}
                 </div>
-                {c.email && (
-                  <p className="hidden max-w-32 truncate text-xs text-muted-foreground sm:block">{c.email}</p>
-                )}
               </div>
             ))}
             {contacts.length > 50 && (
@@ -269,12 +316,10 @@ export function ContactsImporter() {
             <Users className="h-4 w-4" />
             {importing ? "Importando…" : `Importar ${contacts.length} contactos`}
           </Button>
-          <Button variant="outline" onClick={reset} disabled={importing}>
-            Cancelar
-          </Button>
+          <Button variant="outline" onClick={reset} disabled={importing}>Cancelar</Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          Si el teléfono ya existe no se crea duplicado — solo se actualiza el nombre si estaba vacío.
+          Si el número ya existe no se duplica — solo se completan dirección y notas si estaban vacías.
         </p>
       </div>
     );
@@ -317,9 +362,22 @@ export function ContactsImporter() {
         onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
       />
 
-      <div className="rounded-xl border border-white/[0.06] bg-card p-4 text-sm space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Cómo exportar</p>
-        <div className="space-y-1.5 text-muted-foreground">
+      <div className="rounded-xl border border-white/[0.06] bg-card p-4 space-y-3 text-sm">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Campos que se importan</p>
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          {[
+            { icon: "👤", label: "Nombre completo" },
+            { icon: "📱", label: "Teléfono (WhatsApp)" },
+            { icon: "📍", label: "Dirección / Domicilio" },
+            { icon: "📝", label: "Notas (historial peluquería)" },
+          ].map(({ icon, label }) => (
+            <div key={label} className="flex items-center gap-2 text-muted-foreground">
+              <span>{icon}</span>{label}
+            </div>
+          ))}
+        </div>
+        <div className="border-t border-white/[0.06] pt-3 space-y-1.5 text-muted-foreground text-xs">
+          <p className="font-medium text-foreground text-xs uppercase tracking-wider">Cómo exportar</p>
           <p><span className="font-medium text-foreground">Outlook:</span> Personas → Administrar → Exportar contactos → CSV</p>
           <p><span className="font-medium text-foreground">Google:</span> contacts.google.com → Exportar → Google CSV</p>
           <p><span className="font-medium text-foreground">iPhone:</span> icloud.com/contacts → Seleccionar todos → Exportar vCard → convertir a CSV</p>
