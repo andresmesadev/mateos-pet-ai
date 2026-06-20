@@ -302,6 +302,7 @@ router.delete("/pets/:petId/records/:recordId", async (req, res) => {
     });
     if (!existing) return res.status(404).json({ error: "Record not found" });
     await prisma.medicalRecord.delete({ where: { id: recordId } });
+    await prisma.petNextAction.deleteMany({ where: { sourceRecordId: recordId } });
     res.json({ ok: true });
   } catch (error) {
     console.error("[Dashboard] Delete record error:", error.message);
