@@ -1,7 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Download } from "lucide-react";
+import {
+  Download,
+  Syringe,
+  Pill,
+  Scissors,
+  AlertCircle,
+  StickyNote,
+  Stethoscope,
+  ChevronLeft,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,9 +18,6 @@ import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PetTimeline } from "@/components/dashboard/pet-timeline";
@@ -25,6 +31,7 @@ import {
   formatPetType,
   getPetEmoji,
 } from "@/lib/pets";
+import { cn } from "@/lib/utils";
 
 type PetMedicalSheetProps = {
   pet: DashboardPet | null;
@@ -40,12 +47,37 @@ type AddRecordForm = {
   date: string;
 };
 
-const INITIAL_FORM: AddRecordForm = {
-  type: "note",
-  title: "",
-  detail: "",
-  date: "",
+const INITIAL_FORM: AddRecordForm = { type: "note", title: "", detail: "", date: "" };
+
+type ActiveForm = "vaccine" | "deworming" | "grooming" | "allergy" | "note" | "consultation";
+
+const ACTION_BUTTONS: {
+  id: ActiveForm;
+  label: string;
+  icon: React.ElementType;
+  color: string;
+  bg: string;
+  ring: string;
+}[] = [
+  { id: "consultation", label: "Consulta",        icon: Stethoscope, color: "text-sky-400",    bg: "bg-sky-500/10",    ring: "ring-sky-500/25 border-sky-500/20" },
+  { id: "vaccine",      label: "Vacuna",           icon: Syringe,     color: "text-emerald-400",bg: "bg-emerald-500/10",ring: "ring-emerald-500/25 border-emerald-500/20" },
+  { id: "deworming",    label: "Desparasitación",  icon: Pill,        color: "text-violet-400", bg: "bg-violet-500/10", ring: "ring-violet-500/25 border-violet-500/20" },
+  { id: "grooming",     label: "Peluquería",       icon: Scissors,    color: "text-amber-400",  bg: "bg-amber-500/10",  ring: "ring-amber-500/25 border-amber-500/20" },
+  { id: "allergy",      label: "Alergia",          icon: AlertCircle, color: "text-rose-400",   bg: "bg-rose-500/10",   ring: "ring-rose-500/25 border-rose-500/20" },
+  { id: "note",         label: "Nota",             icon: StickyNote,  color: "text-muted-foreground", bg: "bg-accent/40", ring: "ring-white/10 border-white/[0.06]" },
+];
+
+const FORM_LABELS: Record<ActiveForm, { title: string; titlePlaceholder: string; detailLabel: string; detailPlaceholder: string; nextLabel?: string }> = {
+  consultation: { title: "", titlePlaceholder: "", detailLabel: "", detailPlaceholder: "" },
+  vaccine:   { title: "Nombre de la vacuna *",   titlePlaceholder: "Ej. Antirrábica, Parvovirus…", detailLabel: "Laboratorio / Lote (opcional)", detailPlaceholder: "Ej. Nobivac, Lote 1234…",         nextLabel: "Próxima vacunación" },
+  deworming: { title: "Producto / Nombre *",      titlePlaceholder: "Ej. Milbemax, Drontal…",       detailLabel: "Dosis / Observaciones (opcional)", detailPlaceholder: "Ej. 1 tableta, vía oral…",   nextLabel: "Próxima desparasitación" },
+  grooming:  { title: "Servicio realizado *",     titlePlaceholder: "Ej. Baño y corte, uñas…",      detailLabel: "Observaciones (opcional)",          detailPlaceholder: "Ej. Pelaje en buen estado…", nextLabel: "Próxima visita" },
+  allergy:   { title: "Alergia / Sustancia *",    titlePlaceholder: "Ej. Pollo, penicilina…",       detailLabel: "Reacción / descripción (opcional)", detailPlaceholder: "Ej. Urticaria, vómito…" },
+  note:      { title: "Título *",                 titlePlaceholder: "Ej. Observación post-cirugía", detailLabel: "Detalle (opcional)",                detailPlaceholder: "Descripción adicional" },
 };
+
+const SELECT_CLASS =
+  "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring";
 
 function TimelineSkeleton() {
   return (
@@ -58,53 +90,44 @@ function TimelineSkeleton() {
 }
 
 type PetProfileForm = {
-  breed: string;
-  gender: string;
-  birthDate: string;
-  weight: string;
-  sterilized: string;
-  notes: string;
+  breed: string; gender: string; birthDate: string;
+  weight: string; sterilized: string; notes: string;
 };
 
-type PetMedicalSheetContentProps = {
+function PetMedicalSheetContent({
+  pet,
+  onRecordAdded,
+}: {
   pet: DashboardPet;
   onRecordAdded?: () => void;
-};
-
-function PetMedicalSheetContent({ pet, onRecordAdded }: PetMedicalSheetContentProps) {
+}) {
   const { toast } = useToast();
-  const [timeline, setTimeline] = useState<PetTimelineData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [activeForm, setActiveForm] = useState<"vaccine" | "deworming" | "grooming" | "allergy" | "note" | null>(null);
+  const [timeline, setTimeline]           = useState<PetTimelineData | null>(null);
+  const [loading, setLoading]             = useState(true);
+  const [error, setError]                 = useState<string | null>(null);
+  const [activeForm, setActiveForm]       = useState<ActiveForm | null>(null);
   const [showConsultation, setShowConsultation] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState<AddRecordForm>(INITIAL_FORM);
-  const [vaccineNextDate, setVaccineNextDate] = useState("");
-  const [formError, setFormError] = useState<string | null>(null);
-  const [editingProfile, setEditingProfile] = useState(false);
-  const [savingProfile, setSavingProfile] = useState(false);
-  const [profile, setProfile] = useState<Partial<DashboardPet>>({
-    breed: pet.breed,
-    gender: pet.gender,
-    birthDate: pet.birthDate,
-    weight: pet.weight,
-    sterilized: pet.sterilized,
-    notes: pet.notes,
+  const [saving, setSaving]               = useState(false);
+  const [form, setForm]                   = useState<AddRecordForm>(INITIAL_FORM);
+  const [nextDate, setNextDate]           = useState("");
+  const [formError, setFormError]         = useState<string | null>(null);
+  const [editingProfile, setEditingProfile]   = useState(false);
+  const [savingProfile, setSavingProfile]     = useState(false);
+  const [profile, setProfile]             = useState<Partial<DashboardPet>>({
+    breed: pet.breed, gender: pet.gender, birthDate: pet.birthDate,
+    weight: pet.weight, sterilized: pet.sterilized, notes: pet.notes,
   });
-  const [profileForm, setProfileForm] = useState<PetProfileForm>({
-    breed: pet.breed ?? "",
-    gender: pet.gender ?? "",
-    birthDate: pet.birthDate ? pet.birthDate.slice(0, 10) : "",
-    weight: pet.weight != null ? String(pet.weight) : "",
+  const [profileForm, setProfileForm]     = useState<PetProfileForm>({
+    breed:      pet.breed ?? "",
+    gender:     pet.gender ?? "",
+    birthDate:  pet.birthDate ? pet.birthDate.slice(0, 10) : "",
+    weight:     pet.weight != null ? String(pet.weight) : "",
     sterilized: pet.sterilized != null ? String(pet.sterilized) : "",
-    notes: pet.notes ?? "",
+    notes:      pet.notes ?? "",
   });
 
   const reloadTimeline = useCallback(async () => {
-    const res = await fetch(proxyUrl(`/api/dashboard/pets/${pet.id}/timeline`), {
-      cache: "no-store",
-    });
+    const res = await fetch(proxyUrl(`/api/dashboard/pets/${pet.id}/timeline`), { cache: "no-store" });
     if (!res.ok) throw new Error("No se pudo cargar el historial");
     return (await res.json()) as PetTimelineData;
   }, [pet.id]);
@@ -125,24 +148,34 @@ function PetMedicalSheetContent({ pet, onRecordAdded }: PetMedicalSheetContentPr
     return () => { cancelled = true; };
   }, [reloadTimeline]);
 
-  const handleSaveProfile = async () => {
+  function openForm(id: ActiveForm) {
+    if (id === "consultation") { setShowConsultation(true); return; }
+    setActiveForm(id);
+    setForm({ ...INITIAL_FORM, type: id as MedicalRecordType });
+    setNextDate("");
+    setFormError(null);
+  }
+
+  function closeForm() {
+    setActiveForm(null);
+    setForm(INITIAL_FORM);
+    setNextDate("");
+    setFormError(null);
+  }
+
+  async function handleSaveProfile() {
     setSavingProfile(true);
     try {
       const res = await fetch(proxyUrl(`/api/dashboard/pets/${pet.id}`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          breed: profileForm.breed || null,
-          gender: profileForm.gender || null,
-          birthDate: profileForm.birthDate || null,
-          weight: profileForm.weight ? Number(profileForm.weight) : null,
-          sterilized:
-            profileForm.sterilized === "true"
-              ? true
-              : profileForm.sterilized === "false"
-                ? false
-                : null,
-          notes: profileForm.notes || null,
+          breed:      profileForm.breed || null,
+          gender:     profileForm.gender || null,
+          birthDate:  profileForm.birthDate || null,
+          weight:     profileForm.weight ? Number(profileForm.weight) : null,
+          sterilized: profileForm.sterilized === "true" ? true : profileForm.sterilized === "false" ? false : null,
+          notes:      profileForm.notes || null,
         }),
       });
       if (!res.ok) throw new Error("Error al guardar");
@@ -150,16 +183,15 @@ function PetMedicalSheetContent({ pet, onRecordAdded }: PetMedicalSheetContentPr
       setProfile(updated);
       setEditingProfile(false);
       toast("Ficha guardada.", "success");
-    } catch (err) {
-      console.error(err);
+    } catch {
       toast("No se guardó. Intenta de nuevo.", "error");
     } finally {
       setSavingProfile(false);
     }
-  };
+  }
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
     const title = form.title.trim();
     if (!title) { setFormError("El título es obligatorio"); return; }
     setSaving(true);
@@ -169,330 +201,278 @@ function PetMedicalSheetContent({ pet, onRecordAdded }: PetMedicalSheetContentPr
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          type: form.type,
+          type:           form.type,
           title,
-          detail: form.detail.trim() || null,
-          date: form.date || null,
-          nextControlAt: (form.type === "vaccine" || form.type === "deworming" || form.type === "grooming") && vaccineNextDate ? vaccineNextDate : null,
+          detail:         form.detail.trim() || null,
+          date:           form.date || null,
+          nextControlAt:  (form.type === "vaccine" || form.type === "deworming" || form.type === "grooming") && nextDate ? nextDate : null,
         }),
       });
       if (!res.ok) {
         const payload = await res.json().catch(() => null);
         throw new Error(payload?.error || "No se pudo guardar el registro");
       }
-      setForm(INITIAL_FORM);
-      setVaccineNextDate("");
-      setActiveForm(null);
+      closeForm();
       const data = await reloadTimeline();
       setTimeline(data);
       onRecordAdded?.();
+      toast("Registro guardado.", "success");
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Error al guardar registro");
     } finally {
       setSaving(false);
     }
-  };
+  }
 
-  const totalItems = (timeline?.items.length ?? 0);
+  const activeBtn = ACTION_BUTTONS.find((b) => b.id === activeForm);
+  const labels    = activeForm && activeForm !== "consultation" ? FORM_LABELS[activeForm] : null;
 
   return (
-    <>
-      <DialogHeader className="shrink-0 border-b px-4 py-4">
-        <DialogTitle className="flex items-center gap-2 text-xl">
-          <span>{getPetEmoji(pet.type)}</span>
-          <span>{pet.name}</span>
-        </DialogTitle>
-        <DialogDescription>
-          {formatPetType(pet.type)} · Dueño: {pet.owner.phone}
-        </DialogDescription>
-      </DialogHeader>
-
-      <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-4 pt-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline">{totalItems} eventos en historial</Badge>
-          <Badge variant="outline">{pet._count.appointments} citas</Badge>
-          <a
-            href={`/print/pets/${pet.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="ml-auto"
-          >
-            <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5">
+    <div className="flex h-full flex-col overflow-hidden">
+      {/* Header */}
+      <div className="flex shrink-0 items-start justify-between border-b border-white/[0.06] px-6 py-5">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-xl ring-1 ring-amber-500/25">
+            {getPetEmoji(pet.type)}
+          </div>
+          <div>
+            <h2 className="text-base font-semibold tracking-tight">{pet.name}</h2>
+            <p className="text-sm text-muted-foreground">
+              {formatPetType(pet.type)}
+              {pet.owner?.phone ? ` · ${pet.owner.phone}` : ""}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="text-xs tabular-nums">
+            {timeline?.items.length ?? "–"} eventos
+          </Badge>
+          <Badge variant="outline" className="text-xs tabular-nums">
+            {pet._count.appointments} citas
+          </Badge>
+          <a href={`/print/pets/${pet.id}`} target="_blank" rel="noopener noreferrer">
+            <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs">
               <Download className="h-3.5 w-3.5" />
-              Exportar ficha PDF
+              PDF
             </Button>
           </a>
         </div>
+      </div>
 
-        {/* Ficha de la mascota */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-muted-foreground">Ficha</p>
+      {/* Body */}
+      <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-6 py-5">
+
+        {/* Ficha */}
+        <div className="rounded-xl border border-white/[0.06] bg-card">
+          <div className="flex items-center justify-between border-b border-white/[0.04] px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ficha clínica</p>
             {!editingProfile && (
-              <Button size="sm" variant="outline" onClick={() => setEditingProfile(true)}>
+              <button
+                type="button"
+                onClick={() => setEditingProfile(true)}
+                className="text-xs text-primary hover:underline"
+              >
                 Editar
-              </Button>
+              </button>
             )}
           </div>
+
           {editingProfile ? (
-            <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
-              <Input
-                placeholder="Raza"
-                value={profileForm.breed}
-                onChange={(e) => setProfileForm((f) => ({ ...f, breed: e.target.value }))}
-              />
-              <select
-                value={profileForm.gender}
-                onChange={(e) => setProfileForm((f) => ({ ...f, gender: e.target.value }))}
-                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-              >
-                <option value="">Sexo</option>
-                <option value="male">Macho</option>
-                <option value="female">Hembra</option>
-              </select>
-              <Input
-                type="date"
-                value={profileForm.birthDate}
-                onChange={(e) => setProfileForm((f) => ({ ...f, birthDate: e.target.value }))}
-              />
-              <Input
-                type="number"
-                placeholder="Peso (kg)"
-                value={profileForm.weight}
-                onChange={(e) => setProfileForm((f) => ({ ...f, weight: e.target.value }))}
-              />
-              <select
-                value={profileForm.sterilized}
-                onChange={(e) => setProfileForm((f) => ({ ...f, sterilized: e.target.value }))}
-                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-              >
-                <option value="">Esterilizado/a</option>
-                <option value="true">Sí</option>
-                <option value="false">No</option>
-              </select>
-              <Input
-                placeholder="Notas"
-                value={profileForm.notes}
-                onChange={(e) => setProfileForm((f) => ({ ...f, notes: e.target.value }))}
-              />
-              <div className="flex gap-2">
+            <div className="space-y-3 p-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Raza</label>
+                  <Input placeholder="Ej. Golden Retriever" value={profileForm.breed}
+                    onChange={(e) => setProfileForm((f) => ({ ...f, breed: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Sexo</label>
+                  <select value={profileForm.gender}
+                    onChange={(e) => setProfileForm((f) => ({ ...f, gender: e.target.value }))}
+                    className={SELECT_CLASS}>
+                    <option value="">Sin especificar</option>
+                    <option value="male">Macho</option>
+                    <option value="female">Hembra</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Fecha de nacimiento</label>
+                  <Input type="date" value={profileForm.birthDate}
+                    onChange={(e) => setProfileForm((f) => ({ ...f, birthDate: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Peso (kg)</label>
+                  <Input type="number" step="0.1" min="0" placeholder="Ej. 12.5" value={profileForm.weight}
+                    onChange={(e) => setProfileForm((f) => ({ ...f, weight: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Esterilizado/a</label>
+                  <select value={profileForm.sterilized}
+                    onChange={(e) => setProfileForm((f) => ({ ...f, sterilized: e.target.value }))}
+                    className={SELECT_CLASS}>
+                    <option value="">Sin especificar</option>
+                    <option value="true">Sí</option>
+                    <option value="false">No</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Notas</label>
+                  <Input placeholder="Observaciones generales" value={profileForm.notes}
+                    onChange={(e) => setProfileForm((f) => ({ ...f, notes: e.target.value }))} />
+                </div>
+              </div>
+              <div className="flex gap-2 pt-1">
                 <Button size="sm" onClick={handleSaveProfile} disabled={savingProfile}>
-                  {savingProfile ? "Guardando…" : "Guardar"}
+                  {savingProfile ? "Guardando…" : "Guardar ficha"}
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setEditingProfile(false)}
-                  disabled={savingProfile}
-                >
+                <Button size="sm" variant="outline" onClick={() => setEditingProfile(false)} disabled={savingProfile}>
                   Cancelar
                 </Button>
               </div>
             </div>
           ) : (
-            <div className="rounded-lg border bg-muted/30 px-3 py-3 text-sm space-y-1">
-              {profile.breed && (
-                <p><span className="text-muted-foreground">Raza: </span>{profile.breed}</p>
-              )}
-              {profile.gender && (
-                <p>
-                  <span className="text-muted-foreground">Sexo: </span>
-                  {profile.gender === "male" ? "Macho" : "Hembra"}
-                </p>
-              )}
-              {profile.birthDate && (
-                <p>
-                  <span className="text-muted-foreground">Nacimiento: </span>
-                  {new Date(profile.birthDate).toLocaleDateString("es-CO")}
-                </p>
-              )}
-              {profile.weight != null && (
-                <p><span className="text-muted-foreground">Peso: </span>{profile.weight} kg</p>
-              )}
-              {profile.sterilized != null && (
-                <p>
-                  <span className="text-muted-foreground">Esterilizado/a: </span>
-                  {profile.sterilized ? "Sí" : "No"}
-                </p>
-              )}
-              {profile.notes && (
-                <p><span className="text-muted-foreground">Notas: </span>{profile.notes}</p>
-              )}
+            <div className="divide-y divide-white/[0.04]">
+              {(
+                [
+                  profile.breed      ? ["Raza",           profile.breed] : null,
+                  profile.gender     ? ["Sexo",           profile.gender === "male" ? "Macho" : "Hembra"] : null,
+                  profile.birthDate  ? ["Nacimiento",     new Date(profile.birthDate).toLocaleDateString("es-CO")] : null,
+                  profile.weight != null ? ["Peso",       `${profile.weight} kg`] : null,
+                  profile.sterilized != null ? ["Esterilizado/a", profile.sterilized ? "Sí" : "No"] : null,
+                  profile.notes      ? ["Notas",          profile.notes] : null,
+                ] as ([string, string] | null)[]
+              ).filter((row): row is [string, string] => row !== null).map(([label, value]) => (
+                <div key={label} className="flex items-center gap-4 px-4 py-2.5 text-sm">
+                  <span className="w-32 shrink-0 text-muted-foreground">{label}</span>
+                  <span className="font-medium">{value}</span>
+                </div>
+              ))}
               {!profile.breed && !profile.gender && !profile.birthDate &&
                 profile.weight == null && profile.sterilized == null && !profile.notes && (
-                <p className="text-muted-foreground">Sin datos adicionales.</p>
+                <p className="px-4 py-3 text-sm text-muted-foreground">Sin datos adicionales.</p>
               )}
             </div>
           )}
         </div>
 
-        {/* Botones de registro */}
+        {/* Botones de acción */}
         {!activeForm && (
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" size="sm" onClick={() => setShowConsultation(true)} className="gap-1.5">
-              🩺 Consulta
-            </Button>
-            <Button type="button" size="sm" variant="outline" onClick={() => { setActiveForm("vaccine"); setForm({ ...INITIAL_FORM, type: "vaccine" }); }} className="gap-1.5">
-              💉 Vacuna
-            </Button>
-            <Button type="button" size="sm" variant="outline" onClick={() => { setActiveForm("deworming"); setForm({ ...INITIAL_FORM, type: "deworming" }); }} className="gap-1.5">
-              💊 Desparasitación
-            </Button>
-            <Button type="button" size="sm" variant="outline" onClick={() => { setActiveForm("allergy"); setForm({ ...INITIAL_FORM, type: "allergy" }); }} className="gap-1.5">
-              🤧 Alergia
-            </Button>
-            <Button type="button" size="sm" variant="outline" onClick={() => { setActiveForm("grooming"); setForm({ ...INITIAL_FORM, type: "note" }); }} className="gap-1.5">
-              ✂️ Peluquería
-            </Button>
-            <Button type="button" size="sm" variant="outline" onClick={() => { setActiveForm("note"); setForm({ ...INITIAL_FORM, type: "note" }); }} className="gap-1.5">
-              📝 Nota
-            </Button>
+          <div>
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Agregar registro</p>
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+              {ACTION_BUTTONS.map((btn) => {
+                const Icon = btn.icon;
+                return (
+                  <button
+                    key={btn.id}
+                    type="button"
+                    onClick={() => openForm(btn.id)}
+                    className={cn(
+                      "group flex flex-col items-center gap-2 rounded-xl border p-3 transition-all duration-150",
+                      "hover:-translate-y-0.5 hover:shadow-[0_4px_16px_-4px_rgba(0,0,0,0.4)]",
+                      btn.ring,
+                      btn.bg
+                    )}
+                  >
+                    <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg ring-1 transition-transform group-hover:scale-110", btn.bg, btn.ring)}>
+                      <Icon className={cn("h-4 w-4", btn.color)} />
+                    </div>
+                    <span className={cn("text-[11px] font-medium leading-tight", btn.color)}>
+                      {btn.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 
-        {activeForm === "vaccine" && (
-          <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border bg-muted/30 p-4">
-            <p className="text-sm font-semibold">💉 Nueva vacuna</p>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Nombre de la vacuna *</label>
-              <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="Ej. Antirrábica, Parvovirus, Moquillo…" autoFocus disabled={saving} />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">Fecha de aplicación</label>
-                <Input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} disabled={saving} />
+        {/* Formulario activo */}
+        {activeForm && activeForm !== "consultation" && activeBtn && labels && (
+          <div className={cn("rounded-xl border p-5", activeBtn.bg, activeBtn.ring)}>
+            <div className="mb-4 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={closeForm}
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <div className={cn("flex h-7 w-7 items-center justify-center rounded-lg ring-1", activeBtn.bg, activeBtn.ring)}>
+                <activeBtn.icon className={cn("h-3.5 w-3.5", activeBtn.color)} />
               </div>
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">Próxima vacunación</label>
-                <Input type="date" value={vaccineNextDate} onChange={(e) => setVaccineNextDate(e.target.value)} disabled={saving} />
-              </div>
+              <p className="text-sm font-semibold">{activeBtn.label}</p>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Laboratorio / Lote (opcional)</label>
-              <Input value={form.detail} onChange={(e) => setForm((f) => ({ ...f, detail: e.target.value }))} placeholder="Ej. Nobivac, Lote 1234…" disabled={saving} />
-            </div>
-            {formError && <p className="text-sm text-destructive">{formError}</p>}
-            <div className="flex gap-2">
-              <Button type="submit" size="sm" disabled={saving}>{saving ? "Guardando…" : "Guardar vacuna"}</Button>
-              <Button type="button" size="sm" variant="ghost" disabled={saving} onClick={() => { setActiveForm(null); setForm(INITIAL_FORM); setVaccineNextDate(""); setFormError(null); }}>Cancelar</Button>
-            </div>
-          </form>
-        )}
 
-        {activeForm === "deworming" && (
-          <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border bg-muted/30 p-4">
-            <p className="text-sm font-semibold">💊 Nueva desparasitación</p>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Producto / Nombre *</label>
-              <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="Ej. Milbemax, Drontal, Nexgard Spectra…" autoFocus disabled={saving} />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">Fecha de aplicación</label>
-                <Input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} disabled={saving} />
+            <form id="medical-record-form" onSubmit={handleSubmit} className="space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">{labels.title}</label>
+                <Input
+                  value={form.title}
+                  onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                  placeholder={labels.titlePlaceholder}
+                  autoFocus
+                  disabled={saving}
+                />
               </div>
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">Próxima desparasitación</label>
-                <Input type="date" value={vaccineNextDate} onChange={(e) => setVaccineNextDate(e.target.value)} disabled={saving} />
+
+              {labels.nextLabel ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Fecha</label>
+                    <Input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} disabled={saving} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">{labels.nextLabel}</label>
+                    <Input type="date" value={nextDate} onChange={(e) => setNextDate(e.target.value)} disabled={saving} />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Fecha (opcional)</label>
+                  <Input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} disabled={saving} />
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">{labels.detailLabel}</label>
+                <Input
+                  value={form.detail}
+                  onChange={(e) => setForm((f) => ({ ...f, detail: e.target.value }))}
+                  placeholder={labels.detailPlaceholder}
+                  disabled={saving}
+                />
               </div>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Dosis / Observaciones (opcional)</label>
-              <Input value={form.detail} onChange={(e) => setForm((f) => ({ ...f, detail: e.target.value }))} placeholder="Ej. 1 tableta, vía oral, peso 10 kg…" disabled={saving} />
-            </div>
-            {formError && <p className="text-sm text-destructive">{formError}</p>}
-            <div className="flex gap-2">
-              <Button type="submit" size="sm" disabled={saving}>{saving ? "Guardando…" : "Guardar desparasitación"}</Button>
-              <Button type="button" size="sm" variant="ghost" disabled={saving} onClick={() => { setActiveForm(null); setForm(INITIAL_FORM); setVaccineNextDate(""); setFormError(null); }}>Cancelar</Button>
-            </div>
-          </form>
-        )}
 
-        {activeForm === "grooming" && (
-          <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border bg-muted/30 p-4">
-            <p className="text-sm font-semibold">✂️ Peluquería / Grooming</p>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Servicio realizado *</label>
-              <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="Ej. Baño y corte, baño, corte de uñas…" autoFocus disabled={saving} />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">Fecha del servicio</label>
-                <Input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} disabled={saving} />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">Próxima visita recomendada</label>
-                <Input type="date" value={vaccineNextDate} onChange={(e) => setVaccineNextDate(e.target.value)} disabled={saving} />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Observaciones (opcional)</label>
-              <Input value={form.detail} onChange={(e) => setForm((f) => ({ ...f, detail: e.target.value }))} placeholder="Ej. Pelaje en buen estado, solicitó corte estilo…" disabled={saving} />
-            </div>
-            {formError && <p className="text-sm text-destructive">{formError}</p>}
-            <div className="flex gap-2">
-              <Button type="submit" size="sm" disabled={saving}>{saving ? "Guardando…" : "Guardar peluquería"}</Button>
-              <Button type="button" size="sm" variant="ghost" disabled={saving} onClick={() => { setActiveForm(null); setForm(INITIAL_FORM); setVaccineNextDate(""); setFormError(null); }}>Cancelar</Button>
-            </div>
-          </form>
-        )}
+              {formError && (
+                <p className="text-sm text-destructive">{formError}</p>
+              )}
+            </form>
 
-        {activeForm === "allergy" && (
-          <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border bg-muted/30 p-4">
-            <p className="text-sm font-semibold">🤧 Nueva alergia</p>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Alergia / Sustancia *</label>
-              <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="Ej. Pollo, penicilina, pasto…" autoFocus disabled={saving} />
+            <div className="mt-4 flex gap-2">
+              <Button type="submit" form="medical-record-form" size="sm" disabled={saving}>
+                {saving ? "Guardando…" : `Guardar ${activeBtn.label.toLowerCase()}`}
+              </Button>
+              <Button type="button" size="sm" variant="outline" onClick={closeForm} disabled={saving}>
+                Cancelar
+              </Button>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Reacción / descripción (opcional)</label>
-              <Input value={form.detail} onChange={(e) => setForm((f) => ({ ...f, detail: e.target.value }))} placeholder="Ej. Urticaria, vómito, dificultad respiratoria…" disabled={saving} />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Fecha detectada (opcional)</label>
-              <Input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} disabled={saving} />
-            </div>
-            {formError && <p className="text-sm text-destructive">{formError}</p>}
-            <div className="flex gap-2">
-              <Button type="submit" size="sm" disabled={saving}>{saving ? "Guardando…" : "Guardar alergia"}</Button>
-              <Button type="button" size="sm" variant="ghost" disabled={saving} onClick={() => { setActiveForm(null); setForm(INITIAL_FORM); setFormError(null); }}>Cancelar</Button>
-            </div>
-          </form>
-        )}
-
-        {activeForm === "note" && (
-          <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border bg-muted/30 p-4">
-            <p className="text-sm font-semibold">📝 Nueva nota</p>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Título *</label>
-              <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="Ej. Desparasitación interna" autoFocus disabled={saving} />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Detalle (opcional)</label>
-              <Input value={form.detail} onChange={(e) => setForm((f) => ({ ...f, detail: e.target.value }))} placeholder="Descripción adicional" disabled={saving} />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Fecha (opcional)</label>
-              <Input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} disabled={saving} />
-            </div>
-            {formError && <p className="text-sm text-destructive">{formError}</p>}
-            <div className="flex gap-2">
-              <Button type="submit" size="sm" disabled={saving}>{saving ? "Guardando…" : "Guardar nota"}</Button>
-              <Button type="button" size="sm" variant="ghost" disabled={saving} onClick={() => { setActiveForm(null); setForm(INITIAL_FORM); setFormError(null); }}>Cancelar</Button>
-            </div>
-          </form>
-        )}
-
-        {/* Línea de tiempo */}
-        {loading ? (
-          <TimelineSkeleton />
-        ) : error ? (
-          <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-6 text-center text-sm text-destructive">
-            {error}
           </div>
-        ) : timeline ? (
-          <PetTimeline items={timeline.items} nextActions={timeline.nextActions} petId={pet.id} onReload={reloadTimeline} />
-        ) : null}
+        )}
+
+        {/* Timeline */}
+        <div>
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Historial</p>
+          {loading ? (
+            <TimelineSkeleton />
+          ) : error ? (
+            <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-6 text-center text-sm text-destructive">
+              {error}
+            </div>
+          ) : timeline ? (
+            <PetTimeline items={timeline.items} nextActions={timeline.nextActions} petId={pet.id} onReload={reloadTimeline} />
+          ) : null}
+        </div>
       </div>
 
       <VetConsultationDialog
@@ -506,19 +486,17 @@ function PetMedicalSheetContent({ pet, onRecordAdded }: PetMedicalSheetContentPr
           onRecordAdded?.();
         }}
       />
-    </>
+    </div>
   );
 }
 
-export function PetMedicalSheet({
-  pet,
-  open,
-  onOpenChange,
-  onRecordAdded,
-}: PetMedicalSheetProps) {
+export function PetMedicalSheet({ pet, open, onOpenChange, onRecordAdded }: PetMedicalSheetProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+      <DialogContent
+        showClose
+        className="flex max-h-[90vh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
+      >
         {open && pet ? (
           <PetMedicalSheetContent key={pet.id} pet={pet} onRecordAdded={onRecordAdded} />
         ) : null}
