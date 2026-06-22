@@ -48,7 +48,7 @@ router.get("/pets", async (req, res) => {
         take: limit,
         orderBy: { createdAt: "desc" },
         include: {
-          owner: { select: { phone: true } },
+          owner: { select: { phone: true, name: true } },
           _count: { select: { medicalRecords: true, appointments: true } },
         },
       }),
@@ -64,7 +64,7 @@ router.get("/pets", async (req, res) => {
       weight: pet.weight ?? null,
       sterilized: pet.sterilized ?? null,
       notes: pet.notes ?? null,
-      owner: { phone: pet.owner.phone },
+      owner: { phone: pet.owner.phone, name: pet.owner.name ?? null },
       _count: pet._count,
     }));
 

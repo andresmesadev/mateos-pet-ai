@@ -241,6 +241,7 @@ function PetMedicalSheetContent({
             <DialogTitle className="text-base font-semibold tracking-tight">{pet.name}</DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
               {formatPetType(pet.type)}
+              {pet.owner?.name ? ` · ${pet.owner.name}` : ""}
               {pet.owner?.phone ? ` · ${pet.owner.phone}` : ""}
             </DialogDescription>
           </div>

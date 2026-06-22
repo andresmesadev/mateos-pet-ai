@@ -20,6 +20,7 @@ export type DashboardPet = {
   notes: string | null;
   owner: {
     phone: string;
+    name?: string | null;
   };
   _count: {
     medicalRecords: number;

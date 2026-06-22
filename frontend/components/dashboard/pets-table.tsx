@@ -228,7 +228,10 @@ export function PetsTable({
                       </div>
                     </TableCell>
                     <TableCell>{formatPetType(pet.type)}</TableCell>
-                    <TableCell>{formatPhone(pet.owner.phone)}</TableCell>
+                    <TableCell>
+                      <div className="font-medium">{pet.owner.name ?? "Sin nombre"}</div>
+                      <div className="text-xs text-muted-foreground">{formatPhone(pet.owner.phone)}</div>
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline">
                         {pet._count.medicalRecords}
