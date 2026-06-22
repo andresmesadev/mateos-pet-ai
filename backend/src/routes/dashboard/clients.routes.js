@@ -124,6 +124,161 @@ router.post("/clients/import", async (req, res) => {
   }
 });
 
+// ── Importar contactos COMPLETOS (propietario + mascotas + historial peluquería) ──
+
+router.post("/clients/import/full", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    const { contacts } = req.body ?? {};
+
+    if (!Array.isArray(contacts) || contacts.length === 0) {
+      return res.status(400).json({ error: "Se requiere un array de contactos no vacío" });
+    }
+    if (contacts.length > 3000) {
+      return res.status(400).json({ error: "Máximo 3000 contactos por importación" });
+    }
+
+    let ownersCreated = 0, ownersUpdated = 0, petsCreated = 0, recordsCreated = 0, invalid = 0;
+    const errors = [];
+
+    for (const c of contacts) {
+      const phone = normalizePhone(c.phone);
+
+      // Un registro válido necesita teléfono O al menos una mascota con nombre
+      const hasPets = Array.isArray(c.pets) && c.pets.some((p) => p.name?.trim());
+      if (!phone && !hasPets) {
+        errors.push({ name: c.owner_name ?? "", reason: "Sin teléfono ni mascota" });
+        invalid++;
+        continue;
+      }
+
+      try {
+        // ── 1. Upsert propietario ───────────────────────────────────────────────
+        let owner;
+        if (phone) {
+          const existing = await prisma.user.findFirst({
+            where: tenantId ? { phone, tenantId } : { phone },
+          });
+
+          if (existing) {
+            const patch = {};
+            if (!existing.name    && c.owner_name?.trim()) patch.name    = c.owner_name.trim();
+            if (!existing.address && c.address?.trim())    patch.address = c.address.trim();
+            if (!existing.notes   && c.notes?.trim())      patch.notes   = c.notes.trim();
+            if (Object.keys(patch).length) {
+              await prisma.user.update({ where: { id: existing.id }, data: patch });
+            }
+            owner = existing;
+            ownersUpdated++;
+          } else {
+            owner = await prisma.user.create({
+              data: {
+                phone,
+                name:    c.owner_name?.trim() || null,
+                address: c.address?.trim()    || null,
+                notes:   c.notes?.trim()      || null,
+                ...(tenantId ? { tenantId } : {}),
+              },
+            });
+            ownersCreated++;
+          }
+        }
+
+        // ── 2. Mascotas ────────────────────────────────────────────────────────
+        if (!owner || !Array.isArray(c.pets)) continue;
+
+        for (const petData of c.pets) {
+          if (!petData.name?.trim()) continue;
+
+          // Upsert mascota por nombre + dueño
+          let pet = await prisma.pet.findFirst({
+            where: { ownerId: owner.id, name: { equals: petData.name.trim(), mode: "insensitive" } },
+          });
+
+          if (!pet) {
+            pet = await prisma.pet.create({
+              data: {
+                name:     petData.name.trim(),
+                type:     "dog",
+                breed:    petData.breed?.trim() || null,
+                notes:    petData.price?.trim() || null,
+                ownerId:  owner.id,
+                ...(tenantId ? { tenantId } : {}),
+              },
+            });
+            petsCreated++;
+          } else if (!pet.breed && petData.breed?.trim()) {
+            await prisma.pet.update({
+              where: { id: pet.id },
+              data: { breed: petData.breed.trim() },
+            });
+          }
+
+          // ── 3. Registros de peluquería ────────────────────────────────────────
+          // Recopila todas las fechas: last_visit + visit_history
+          const allDates = new Set();
+
+          if (petData.last_visit?.trim()) {
+            allDates.add(petData.last_visit.trim());
+          }
+          if (petData.visit_history?.trim()) {
+            petData.visit_history.split("|").forEach((d) => {
+              const clean = d.trim();
+              if (clean) allDates.add(clean);
+            });
+          }
+
+          if (allDates.size === 0) continue;
+
+          // Busca registros de peluquería ya existentes para esta mascota
+          const existingRecords = await prisma.medicalRecord.findMany({
+            where: { petId: pet.id, type: "grooming" },
+            select: { date: true },
+          });
+          const existingDates = new Set(
+            existingRecords
+              .filter((r) => r.date)
+              .map((r) => r.date.toISOString().split("T")[0])
+          );
+
+          for (const dateStr of allDates) {
+            // Soporta YYYY-MM-DD
+            const parsed = new Date(dateStr);
+            if (isNaN(parsed.getTime())) continue;
+
+            const key = parsed.toISOString().split("T")[0];
+            if (existingDates.has(key)) continue;
+
+            const title = petData.price?.trim()
+              ? `Peluquería — ${petData.price.trim()}`
+              : "Peluquería";
+
+            await prisma.medicalRecord.create({
+              data: {
+                petId: pet.id,
+                type:  "grooming",
+                title,
+                date:  parsed,
+              },
+            });
+            existingDates.add(key);
+            recordsCreated++;
+          }
+        }
+      } catch (err) {
+        console.error("[import/full] row error:", err.message, c.owner_name);
+        errors.push({ name: c.owner_name ?? "", reason: "Error al guardar" });
+        invalid++;
+      }
+    }
+
+    res.json({ ownersCreated, ownersUpdated, petsCreated, recordsCreated, invalid, errors });
+  } catch (error) {
+    console.error("[Dashboard] Import full error:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // Crear cliente manualmente desde el dashboard.
 router.post("/clients", async (req, res) => {
   try {
