@@ -56,7 +56,9 @@ export function ClientsTable() {
   const [query, setQuery] = useState(() => searchParams.get("search") ?? "");
 
   const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const PAGE_SIZE = 50;
+  const totalPages = Math.ceil(total / PAGE_SIZE);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -68,11 +70,8 @@ export function ClientsTable() {
     );
   }, [clients, query]);
 
-  // Reset page when search changes
+  // Al buscar, volvemos a la página 1
   useEffect(() => { setPage(1); }, [query]);
-
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,19 +79,20 @@ export function ClientsTable() {
     void (async () => {
       if (!cancelled) setLoading(true);
       try {
-        const response = await fetch(proxyUrl(`/api/dashboard/clients${tenantQuery(tenant)}`), {
-          cache: "no-store",
-        });
+        const sep = tenantQuery(tenant) ? `${tenantQuery(tenant)}&` : "?";
+        const url = proxyUrl(`/api/dashboard/clients${sep}page=${page}&limit=${PAGE_SIZE}`);
+        const response = await fetch(url, { cache: "no-store" });
 
         if (!response.ok) {
           throw new Error("No se pudieron cargar los clientes");
         }
 
-        const payload = await response.json() as { data: DashboardClient[]; total: number };
+        const payload = await response.json() as { data: DashboardClient[]; total: number; totalPages: number };
         const data = Array.isArray(payload) ? payload : (payload.data ?? []);
 
         if (!cancelled) {
           setClients(data);
+          setTotal(payload.total ?? data.length);
           setError(null);
         }
       } catch (err) {
@@ -114,7 +114,7 @@ export function ClientsTable() {
     return () => {
       cancelled = true;
     };
-  }, [tenant, version]);
+  }, [tenant, version, page]);
 
   const handleOpenClient = (client: DashboardClient) => {
     setSelectedId(client.id);
@@ -135,9 +135,9 @@ export function ClientsTable() {
         <CardHeader className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
             <CardTitle className="text-base">Propietarios</CardTitle>
-            {!loading && !error && clients.length > 0 && (
+            {!loading && !error && total > 0 && (
               <Badge variant="outline" className="font-normal">
-                {query ? `${filtered.length} de ${clients.length}` : clients.length} propietarios
+                {total.toLocaleString()} propietarios
               </Badge>
             )}
           </div>
@@ -191,7 +191,7 @@ export function ClientsTable() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginated.map((client) => (
+                {filtered.map((client) => (
                   <TableRow
                     key={client.id}
                     className="cursor-pointer transition-colors hover:bg-accent/50"
@@ -244,7 +244,7 @@ export function ClientsTable() {
           {!loading && !error && totalPages > 1 && (
             <div className="mt-4 flex items-center justify-between border-t border-white/[0.06] pt-4">
               <p className="text-xs text-muted-foreground">
-                Página {page} de {totalPages} · mostrando {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} de {filtered.length}
+                Página {page} de {totalPages} · mostrando {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, total)} de {total.toLocaleString()}
               </p>
               <div className="flex items-center gap-1">
                 <Button

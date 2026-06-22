@@ -58,7 +58,9 @@ export function PetsTable({
   const [query, setQuery] = useState("");
 
   const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const PAGE_SIZE = 50;
+  const totalPages = Math.ceil(total / PAGE_SIZE);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -72,27 +74,26 @@ export function PetsTable({
 
   useEffect(() => { setPage(1); }, [query]);
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
   const tenant = useTenant();
 
-  const loadPets = useCallback(async () => {
+  const loadPets = useCallback(async (overridePage?: number) => {
+    const currentPage = overridePage ?? page;
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(proxyUrl(`/api/dashboard/pets${tenantQuery(tenant)}`), {
-        cache: "no-store",
-      });
+      const sep = tenantQuery(tenant) ? `${tenantQuery(tenant)}&` : "?";
+      const url = proxyUrl(`/api/dashboard/pets${sep}page=${currentPage}&limit=${PAGE_SIZE}`);
+      const response = await fetch(url, { cache: "no-store" });
 
       if (!response.ok) {
         throw new Error("No se pudieron cargar las mascotas");
       }
 
-      const payload = await response.json() as { data: DashboardPet[]; total: number };
+      const payload = await response.json() as { data: DashboardPet[]; total: number; totalPages: number };
       const nextPets = Array.isArray(payload) ? payload : (payload.data ?? []);
       setPets(nextPets);
+      setTotal(payload.total ?? nextPets.length);
       return nextPets;
     } catch (err) {
       console.error(err);
@@ -104,7 +105,7 @@ export function PetsTable({
     } finally {
       setLoading(false);
     }
-  }, [tenant]);
+  }, [tenant, page]);
 
   useEffect(() => {
     let cancelled = false;
@@ -124,7 +125,7 @@ export function PetsTable({
     return () => {
       cancelled = true;
     };
-  }, [initialPetId, openedFromQuery, tenant, loadPets]);
+  }, [initialPetId, openedFromQuery, tenant, loadPets, page]);
 
   useEffect(() => {
     const handler = () => { void loadPets(); };
@@ -155,9 +156,9 @@ export function PetsTable({
         <CardHeader className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
             <CardTitle className="text-base">Mascotas</CardTitle>
-            {!loading && !error && pets.length > 0 && (
+            {!loading && !error && total > 0 && (
               <Badge variant="outline" className="font-normal">
-                {query ? `${filtered.length} de ${pets.length}` : pets.length} mascotas
+                {total.toLocaleString()} mascotas
               </Badge>
             )}
           </div>
@@ -212,7 +213,7 @@ export function PetsTable({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginated.map((pet) => (
+                {filtered.map((pet) => (
                   <TableRow
                     key={pet.id}
                     className="cursor-pointer transition-colors hover:bg-accent/50"
@@ -259,7 +260,7 @@ export function PetsTable({
           {!loading && !error && totalPages > 1 && (
             <div className="mt-4 flex items-center justify-between border-t border-white/[0.06] pt-4">
               <p className="text-xs text-muted-foreground">
-                Página {page} de {totalPages} · mostrando {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} de {filtered.length}
+                Página {page} de {totalPages} · mostrando {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, total)} de {total.toLocaleString()}
               </p>
               <div className="flex items-center gap-1">
                 <Button

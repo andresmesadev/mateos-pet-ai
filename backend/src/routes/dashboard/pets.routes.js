@@ -34,44 +34,44 @@ router.get("/pets", async (req, res) => {
   try {
     const { tenantId } = req.tenant;
     const tenantFilter = tenantId ? { tenantId } : {};
-    const pets = await prisma.pet.findMany({
-      where: tenantFilter,
-      orderBy: { createdAt: "desc" },
-      include: {
-        owner: {
-          select: { phone: true },
-        },
-        _count: {
-          select: {
-            medicalRecords: true,
-            appointments: true,
-          },
-        },
-      },
-    });
 
-    const mapped = pets.map((pet) => ({
-        id: pet.id,
-        name: pet.name,
-        type: pet.type,
-        breed: pet.breed ?? null,
-        gender: pet.gender ?? null,
-        birthDate: pet.birthDate ?? null,
-        weight: pet.weight ?? null,
-        sterilized: pet.sterilized ?? null,
-        notes: pet.notes ?? null,
-        owner: {
-          phone: pet.owner.phone,
+    const PAGE_SIZE = 50;
+    const page  = Math.max(parseInt(req.query.page)  || 1, 1);
+    const limit = Math.min(parseInt(req.query.limit) || PAGE_SIZE, 200);
+    const skip  = (page - 1) * limit;
+
+    const [total, pets] = await Promise.all([
+      prisma.pet.count({ where: tenantFilter }),
+      prisma.pet.findMany({
+        where: tenantFilter,
+        skip,
+        take: limit,
+        orderBy: { createdAt: "desc" },
+        include: {
+          owner: { select: { phone: true } },
+          _count: { select: { medicalRecords: true, appointments: true } },
         },
-        _count: pet._count,
-      }));
-    res.json({ data: mapped, total: mapped.length });
+      }),
+    ]);
+
+    const data = pets.map((pet) => ({
+      id: pet.id,
+      name: pet.name,
+      type: pet.type,
+      breed: pet.breed ?? null,
+      gender: pet.gender ?? null,
+      birthDate: pet.birthDate ?? null,
+      weight: pet.weight ?? null,
+      sterilized: pet.sterilized ?? null,
+      notes: pet.notes ?? null,
+      owner: { phone: pet.owner.phone },
+      _count: pet._count,
+    }));
+
+    res.json({ data, total, page, totalPages: Math.ceil(total / limit) });
   } catch (error) {
     console.error("[Dashboard] Pets error:", error);
-
-    res.status(500).json({
-      error: "Internal server error",
-    });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 

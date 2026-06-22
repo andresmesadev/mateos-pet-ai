@@ -55,42 +55,33 @@ const mapClientSummary = (user) => {
   };
 };
 
-// Cota de seguridad: el dashboard reordena por actividad reciente en JS, así que
-// traemos como máximo los más recientes por createdAt para evitar OOM con tenants grandes.
-const CLIENTS_HARD_LIMIT = 500;
+const PAGE_SIZE = 50;
 
-const listClients = async (tenantId) => {
+const listClients = async (tenantId, { page = 1, limit = PAGE_SIZE } = {}) => {
   const tenantFilter = tenantId ? { tenantId } : {};
-  const users = await prisma.user.findMany({
-    where: tenantFilter,
-    take: CLIENTS_HARD_LIMIT,
-    orderBy: { createdAt: "desc" },
-    include: {
-      _count: {
-        select: {
-          pets: true,
-          appointments: true,
-        },
-      },
-      conversations: {
-        orderBy: { updatedAt: "desc" },
-        take: 1,
-        select: {
-          id: true,
-          updatedAt: true,
-          sessionData: true,
-        },
-      },
-    },
-  });
+  const take = Math.min(Number(limit) || PAGE_SIZE, 200);
+  const skip = (Math.max(Number(page) || 1, 1) - 1) * take;
 
-  return users
-    .map(mapClientSummary)
-    .sort(
-      (left, right) =>
-        new Date(right.lastActivityAt).getTime() -
-        new Date(left.lastActivityAt).getTime()
-    );
+  const [total, users] = await Promise.all([
+    prisma.user.count({ where: tenantFilter }),
+    prisma.user.findMany({
+      where: tenantFilter,
+      skip,
+      take,
+      orderBy: { createdAt: "desc" },
+      include: {
+        _count: { select: { pets: true, appointments: true } },
+        conversations: {
+          orderBy: { updatedAt: "desc" },
+          take: 1,
+          select: { id: true, updatedAt: true, sessionData: true },
+        },
+      },
+    }),
+  ]);
+
+  const data = users.map(mapClientSummary);
+  return { data, total, page: Math.max(Number(page) || 1, 1), totalPages: Math.ceil(total / take) };
 };
 
 const getClientById = async (clientId, tenantId) => {
