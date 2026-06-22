@@ -14,10 +14,10 @@ const { sendNextActionReminders } = require("../../services/next-action.service"
 router.get("/clients", async (req, res) => {
   try {
     const { tenantId } = req.tenant;
-    const { search, limit } = req.query;
+    const { search, limit, page } = req.query;
 
-    // Quick search mode for POS autocomplete
-    if (search && typeof search === "string" && search.trim().length >= 2) {
+    // Quick search mode para POS autocomplete (limit pequeño, retorna pets)
+    if (search && typeof search === "string" && search.trim().length >= 2 && parseInt(limit) <= 20) {
       const tenantFilter = tenantId ? { tenantId } : {};
       const term = search.trim();
       const take = Math.min(parseInt(limit) || 8, 20);
@@ -40,8 +40,7 @@ router.get("/clients", async (req, res) => {
       })));
     }
 
-    const { page, limit: lim, search } = req.query;
-    const result = await listClients(tenantId, { page, limit: lim, search });
+    const result = await listClients(tenantId, { page, limit, search });
     res.json(result);
   } catch (error) {
     console.error("[Dashboard] Clients error:", error);
