@@ -35,7 +35,7 @@ app.use("/api/webhook", webhookRateLimit, webhookRawParser, parseWebhookBody, we
 // Stripe webhook: raw body requerido para verificar firma (stripe-signature)
 app.post("/api/billing/webhook", webhookRawParser, webhookHandler);
 
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
 
 app.use("/api/test", testRateLimit);
 

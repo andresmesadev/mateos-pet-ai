@@ -57,6 +57,9 @@ export function PetsTable({
   const [newOpen, setNewOpen] = useState(false);
   const [query, setQuery] = useState("");
 
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 50;
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return pets;
@@ -66,6 +69,11 @@ export function PetsTable({
         (p.owner?.phone ?? "").toLowerCase().includes(q)
     );
   }, [pets, query]);
+
+  useEffect(() => { setPage(1); }, [query]);
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const tenant = useTenant();
 
@@ -149,7 +157,7 @@ export function PetsTable({
             <CardTitle className="text-base">Mascotas</CardTitle>
             {!loading && !error && pets.length > 0 && (
               <Badge variant="outline" className="font-normal">
-                {query ? `${filtered.length} de ${pets.length}` : pets.length}
+                {query ? `${filtered.length} de ${pets.length}` : pets.length} mascotas
               </Badge>
             )}
           </div>
@@ -204,7 +212,7 @@ export function PetsTable({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((pet) => (
+                {paginated.map((pet) => (
                   <TableRow
                     key={pet.id}
                     className="cursor-pointer transition-colors hover:bg-accent/50"
@@ -244,6 +252,57 @@ export function PetsTable({
                 ))}
               </TableBody>
             </Table>
+            </div>
+          )}
+
+          {/* Paginación */}
+          {!loading && !error && totalPages > 1 && (
+            <div className="mt-4 flex items-center justify-between border-t border-white/[0.06] pt-4">
+              <p className="text-xs text-muted-foreground">
+                Página {page} de {totalPages} · mostrando {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} de {filtered.length}
+              </p>
+              <div className="flex items-center gap-1">
+                <Button
+                  size="sm" variant="outline" className="h-7 px-2 text-xs"
+                  disabled={page === 1}
+                  onClick={() => setPage(1)}
+                >«</Button>
+                <Button
+                  size="sm" variant="outline" className="h-7 px-2 text-xs"
+                  disabled={page === 1}
+                  onClick={() => setPage((p) => p - 1)}
+                >‹ Anterior</Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((n) => n === 1 || n === totalPages || Math.abs(n - page) <= 2)
+                  .reduce<(number | "...")[]>((acc, n, i, arr) => {
+                    if (i > 0 && n - (arr[i - 1] as number) > 1) acc.push("...");
+                    acc.push(n);
+                    return acc;
+                  }, [])
+                  .map((n, i) =>
+                    n === "..." ? (
+                      <span key={`ellipsis-${i}`} className="px-1 text-xs text-muted-foreground">…</span>
+                    ) : (
+                      <Button
+                        key={n}
+                        size="sm"
+                        variant={page === n ? "default" : "outline"}
+                        className="h-7 w-7 p-0 text-xs"
+                        onClick={() => setPage(n as number)}
+                      >{n}</Button>
+                    )
+                  )}
+                <Button
+                  size="sm" variant="outline" className="h-7 px-2 text-xs"
+                  disabled={page === totalPages}
+                  onClick={() => setPage((p) => p + 1)}
+                >Siguiente ›</Button>
+                <Button
+                  size="sm" variant="outline" className="h-7 px-2 text-xs"
+                  disabled={page === totalPages}
+                  onClick={() => setPage(totalPages)}
+                >»</Button>
+              </div>
             </div>
           )}
         </CardContent>

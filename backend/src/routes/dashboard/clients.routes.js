@@ -141,135 +141,186 @@ router.post("/clients/import/full", async (req, res) => {
     let ownersCreated = 0, ownersUpdated = 0, petsCreated = 0, recordsCreated = 0, invalid = 0;
     const errors = [];
 
+    // ── FASE 1: normalizar y validar teléfonos ─────────────────────────────────
+    const valid = [];
     for (const c of contacts) {
       const phone = normalizePhone(c.phone);
-
-      // Un registro válido necesita teléfono O al menos una mascota con nombre
       const hasPets = Array.isArray(c.pets) && c.pets.some((p) => p.name?.trim());
       if (!phone && !hasPets) {
         errors.push({ name: c.owner_name ?? "", reason: "Sin teléfono ni mascota" });
         invalid++;
         continue;
       }
+      valid.push({ ...c, _phone: phone });
+    }
 
-      try {
-        // ── 1. Upsert propietario ───────────────────────────────────────────────
-        let owner;
-        if (phone) {
-          const existing = await prisma.user.findFirst({
-            where: tenantId ? { phone, tenantId } : { phone },
-          });
+    // ── FASE 2: bulk lookup de propietarios existentes ─────────────────────────
+    const phones = [...new Set(valid.map((c) => c._phone).filter(Boolean))];
+    const existingUsers = await prisma.user.findMany({
+      where: tenantId
+        ? { phone: { in: phones }, tenantId }
+        : { phone: { in: phones } },
+      select: { id: true, phone: true, name: true, address: true, notes: true },
+    });
+    const userByPhone = new Map(existingUsers.map((u) => [u.phone, u]));
 
-          if (existing) {
-            const patch = {};
-            if (!existing.name    && c.owner_name?.trim()) patch.name    = c.owner_name.trim();
-            if (!existing.address && c.address?.trim())    patch.address = c.address.trim();
-            if (!existing.notes   && c.notes?.trim())      patch.notes   = c.notes.trim();
-            if (Object.keys(patch).length) {
-              await prisma.user.update({ where: { id: existing.id }, data: patch });
-            }
-            owner = existing;
-            ownersUpdated++;
-          } else {
-            owner = await prisma.user.create({
-              data: {
-                phone,
-                name:    c.owner_name?.trim() || null,
-                address: c.address?.trim()    || null,
-                notes:   c.notes?.trim()      || null,
-                ...(tenantId ? { tenantId } : {}),
-              },
-            });
-            ownersCreated++;
-          }
-        }
-
-        // ── 2. Mascotas ────────────────────────────────────────────────────────
-        if (!owner || !Array.isArray(c.pets)) continue;
-
-        for (const petData of c.pets) {
-          if (!petData.name?.trim()) continue;
-
-          // Upsert mascota por nombre + dueño
-          let pet = await prisma.pet.findFirst({
-            where: { ownerId: owner.id, name: { equals: petData.name.trim(), mode: "insensitive" } },
-          });
-
-          if (!pet) {
-            pet = await prisma.pet.create({
-              data: {
-                name:     petData.name.trim(),
-                type:     "dog",
-                breed:    petData.breed?.trim() || null,
-                notes:    petData.price?.trim() || null,
-                ownerId:  owner.id,
-                ...(tenantId ? { tenantId } : {}),
-              },
-            });
-            petsCreated++;
-          } else if (!pet.breed && petData.breed?.trim()) {
-            await prisma.pet.update({
-              where: { id: pet.id },
-              data: { breed: petData.breed.trim() },
-            });
-          }
-
-          // ── 3. Registros de peluquería ────────────────────────────────────────
-          // Recopila todas las fechas: last_visit + visit_history
-          const allDates = new Set();
-
-          if (petData.last_visit?.trim()) {
-            allDates.add(petData.last_visit.trim());
-          }
-          if (petData.visit_history?.trim()) {
-            petData.visit_history.split("|").forEach((d) => {
-              const clean = d.trim();
-              if (clean) allDates.add(clean);
-            });
-          }
-
-          if (allDates.size === 0) continue;
-
-          // Busca registros de peluquería ya existentes para esta mascota
-          const existingRecords = await prisma.medicalRecord.findMany({
-            where: { petId: pet.id, type: "grooming" },
-            select: { date: true },
-          });
-          const existingDates = new Set(
-            existingRecords
-              .filter((r) => r.date)
-              .map((r) => r.date.toISOString().split("T")[0])
-          );
-
-          for (const dateStr of allDates) {
-            // Soporta YYYY-MM-DD
-            const parsed = new Date(dateStr);
-            if (isNaN(parsed.getTime())) continue;
-
-            const key = parsed.toISOString().split("T")[0];
-            if (existingDates.has(key)) continue;
-
-            const title = petData.price?.trim()
-              ? `Peluquería — ${petData.price.trim()}`
-              : "Peluquería";
-
-            await prisma.medicalRecord.create({
-              data: {
-                petId: pet.id,
-                type:  "grooming",
-                title,
-                date:  parsed,
-              },
-            });
-            existingDates.add(key);
-            recordsCreated++;
-          }
-        }
-      } catch (err) {
-        console.error("[import/full] row error:", err.message, c.owner_name);
-        errors.push({ name: c.owner_name ?? "", reason: "Error al guardar" });
-        invalid++;
+    // ── FASE 3: crear propietarios nuevos en lote ──────────────────────────────
+    const toCreate = valid.filter((c) => c._phone && !userByPhone.has(c._phone));
+    if (toCreate.length > 0) {
+      // createMany no devuelve IDs en PostgreSQL, así que insertamos en chunks
+      const CHUNK = 200;
+      for (let i = 0; i < toCreate.length; i += CHUNK) {
+        const chunk = toCreate.slice(i, i + CHUNK);
+        await prisma.user.createMany({
+          data: chunk.map((c) => ({
+            phone:    c._phone,
+            name:     c.owner_name?.trim() || null,
+            address:  c.address?.trim()    || null,
+            notes:    c.notes?.trim()      || null,
+            ...(tenantId ? { tenantId } : {}),
+          })),
+          skipDuplicates: true,
+        });
       }
+      ownersCreated = toCreate.length;
+
+      // Re-fetch para obtener IDs de los recién creados
+      const newUsers = await prisma.user.findMany({
+        where: tenantId
+          ? { phone: { in: toCreate.map((c) => c._phone) }, tenantId }
+          : { phone: { in: toCreate.map((c) => c._phone) } },
+        select: { id: true, phone: true, name: true, address: true, notes: true },
+      });
+      newUsers.forEach((u) => userByPhone.set(u.phone, u));
+    }
+
+    // ── FASE 4: actualizar propietarios existentes (solo campos vacíos) ─────────
+    const toUpdate = valid.filter((c) => c._phone && existingUsers.find((u) => u.phone === c._phone));
+    for (const c of toUpdate) {
+      const existing = userByPhone.get(c._phone);
+      if (!existing) continue;
+      const patch = {};
+      if (!existing.name    && c.owner_name?.trim()) patch.name    = c.owner_name.trim();
+      if (!existing.address && c.address?.trim())    patch.address = c.address.trim();
+      if (!existing.notes   && c.notes?.trim())      patch.notes   = c.notes.trim();
+      if (Object.keys(patch).length) {
+        await prisma.user.update({ where: { id: existing.id }, data: patch });
+      }
+    }
+    ownersUpdated = toUpdate.length;
+
+    // ── FASE 5: mascotas y registros de peluquería ─────────────────────────────
+    // Construir lista plana de mascotas a procesar
+    const petRows = []; // { owner, petData }
+    for (const c of valid) {
+      const owner = c._phone ? userByPhone.get(c._phone) : null;
+      if (!owner || !Array.isArray(c.pets)) continue;
+      for (const petData of c.pets) {
+        if (petData.name?.trim()) petRows.push({ owner, petData });
+      }
+    }
+
+    // Bulk lookup de mascotas existentes por ownerId
+    const ownerIds = [...new Set(petRows.map((r) => r.owner.id))];
+    const existingPets = await prisma.pet.findMany({
+      where: { ownerId: { in: ownerIds } },
+      select: { id: true, ownerId: true, name: true, breed: true },
+    });
+    // Map: "ownerId|petName_lower" → pet
+    const petKey = (ownerId, name) => `${ownerId}|${name.toLowerCase()}`;
+    const petByKey = new Map(existingPets.map((p) => [petKey(p.ownerId, p.name), p]));
+
+    // Crear mascotas nuevas en lote
+    const petsToCreate = petRows.filter(
+      ({ owner, petData }) => !petByKey.has(petKey(owner.id, petData.name.trim()))
+    );
+
+    if (petsToCreate.length > 0) {
+      const CHUNK = 200;
+      for (let i = 0; i < petsToCreate.length; i += CHUNK) {
+        const chunk = petsToCreate.slice(i, i + CHUNK);
+        await prisma.pet.createMany({
+          data: chunk.map(({ owner, petData }) => ({
+            name:    petData.name.trim(),
+            type:    "dog",
+            breed:   petData.breed?.trim()  || null,
+            notes:   petData.price?.trim()  || null,
+            ownerId: owner.id,
+            ...(tenantId ? { tenantId } : {}),
+          })),
+          skipDuplicates: true,
+        });
+      }
+      petsCreated = petsToCreate.length;
+
+      // Re-fetch mascotas recién creadas
+      const newPets = await prisma.pet.findMany({
+        where: { ownerId: { in: ownerIds } },
+        select: { id: true, ownerId: true, name: true, breed: true },
+      });
+      newPets.forEach((p) => petByKey.set(petKey(p.ownerId, p.name), p));
+    }
+
+    // ── FASE 6: registros de peluquería en lote ────────────────────────────────
+    // Recopilar todos los petIds que tienen visitas
+    const petIdsWithVisits = new Set(
+      petRows
+        .filter(({ petData }) => petData.last_visit || petData.visit_history)
+        .map(({ owner, petData }) => {
+          const p = petByKey.get(petKey(owner.id, petData.name.trim()));
+          return p?.id;
+        })
+        .filter(Boolean)
+    );
+
+    // Bulk lookup de registros grooming existentes
+    const existingGrooming = await prisma.medicalRecord.findMany({
+      where: { petId: { in: [...petIdsWithVisits] }, type: "grooming" },
+      select: { petId: true, date: true },
+    });
+    // Set de "petId|YYYY-MM-DD" ya existentes
+    const groomingSet = new Set(
+      existingGrooming
+        .filter((r) => r.date)
+        .map((r) => `${r.petId}|${r.date.toISOString().split("T")[0]}`)
+    );
+
+    // Construir registros nuevos
+    const groomingToCreate = [];
+    for (const { owner, petData } of petRows) {
+      const pet = petByKey.get(petKey(owner.id, petData.name.trim()));
+      if (!pet) continue;
+
+      const allDates = new Set();
+      if (petData.last_visit?.trim()) allDates.add(petData.last_visit.trim());
+      if (petData.visit_history?.trim()) {
+        petData.visit_history.split("|").forEach((d) => {
+          const clean = d.trim();
+          if (clean) allDates.add(clean);
+        });
+      }
+
+      const title = petData.price?.trim() ? `Peluquería — ${petData.price.trim()}` : "Peluquería";
+
+      for (const dateStr of allDates) {
+        const parsed = new Date(dateStr);
+        if (isNaN(parsed.getTime())) continue;
+        const key = `${pet.id}|${parsed.toISOString().split("T")[0]}`;
+        if (groomingSet.has(key)) continue;
+        groomingSet.add(key);
+        groomingToCreate.push({ petId: pet.id, type: "grooming", title, date: parsed });
+      }
+    }
+
+    if (groomingToCreate.length > 0) {
+      const CHUNK = 500;
+      for (let i = 0; i < groomingToCreate.length; i += CHUNK) {
+        await prisma.medicalRecord.createMany({
+          data: groomingToCreate.slice(i, i + CHUNK),
+          skipDuplicates: true,
+        });
+      }
+      recordsCreated = groomingToCreate.length;
     }
 
     res.json({ ownersCreated, ownersUpdated, petsCreated, recordsCreated, invalid, errors });
