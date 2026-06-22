@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Plus, Search } from "lucide-react";
 import { useTenant, tenantQuery } from "@/lib/use-tenant";
 
@@ -59,20 +59,17 @@ export function PetsTable({
 
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [debouncedQuery, setDebouncedQuery] = useState(query);
   const PAGE_SIZE = 50;
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return pets;
-    return pets.filter(
-      (p) =>
-        (p.name ?? "").toLowerCase().includes(q) ||
-        (p.owner?.phone ?? "").toLowerCase().includes(q)
-    );
-  }, [pets, query]);
-
-  useEffect(() => { setPage(1); }, [query]);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedQuery(query);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [query]);
 
   const tenant = useTenant();
 
@@ -83,7 +80,8 @@ export function PetsTable({
 
     try {
       const sep = tenantQuery(tenant) ? `${tenantQuery(tenant)}&` : "?";
-      const url = proxyUrl(`/api/dashboard/pets${sep}page=${currentPage}&limit=${PAGE_SIZE}`);
+      const searchParam = debouncedQuery.trim() ? `&search=${encodeURIComponent(debouncedQuery.trim())}` : "";
+      const url = proxyUrl(`/api/dashboard/pets${sep}page=${currentPage}&limit=${PAGE_SIZE}${searchParam}`);
       const response = await fetch(url, { cache: "no-store" });
 
       if (!response.ok) {
@@ -105,7 +103,7 @@ export function PetsTable({
     } finally {
       setLoading(false);
     }
-  }, [tenant, page]);
+  }, [tenant, page, debouncedQuery]);
 
   useEffect(() => {
     let cancelled = false;
@@ -156,9 +154,11 @@ export function PetsTable({
         <CardHeader className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
             <CardTitle className="text-base">Mascotas</CardTitle>
-            {!loading && !error && total > 0 && (
+            {!loading && !error && (
               <Badge variant="outline" className="font-normal">
-                {total.toLocaleString()} mascotas
+                {debouncedQuery.trim()
+                  ? `${total.toLocaleString()} encontradas`
+                  : `${total.toLocaleString()} mascotas`}
               </Badge>
             )}
           </div>
@@ -195,9 +195,9 @@ export function PetsTable({
               description="Las mascotas se registran solas cuando los clientes conversan por WhatsApp y mencionan a sus compañeros peludos."
               hint="El agente WhatsApp está activo"
             />
-          ) : filtered.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-              Ninguna mascota coincide con “{query}”.
+          ) : pets.length === 0 && debouncedQuery.trim() ? (
+            <div className=”px-4 py-8 text-center text-sm text-muted-foreground”>
+              {`Ninguna mascota coincide con “${debouncedQuery}”.`}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -213,7 +213,7 @@ export function PetsTable({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((pet) => (
+                {pets.map((pet) => (
                   <TableRow
                     key={pet.id}
                     className="cursor-pointer transition-colors hover:bg-accent/50"

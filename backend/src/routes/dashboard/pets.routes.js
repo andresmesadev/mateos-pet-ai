@@ -36,14 +36,28 @@ router.get("/pets", async (req, res) => {
     const tenantFilter = tenantId ? { tenantId } : {};
 
     const PAGE_SIZE = 50;
-    const page  = Math.max(parseInt(req.query.page)  || 1, 1);
-    const limit = Math.min(parseInt(req.query.limit) || PAGE_SIZE, 200);
-    const skip  = (page - 1) * limit;
+    const page   = Math.max(parseInt(req.query.page)  || 1, 1);
+    const limit  = Math.min(parseInt(req.query.limit) || PAGE_SIZE, 200);
+    const skip   = (page - 1) * limit;
+    const search = req.query.search?.trim() ?? "";
+
+    const searchFilter = search
+      ? {
+          OR: [
+            { name:          { contains: search, mode: "insensitive" } },
+            { breed:         { contains: search, mode: "insensitive" } },
+            { owner: { name: { contains: search, mode: "insensitive" } } },
+            { owner: { phone:{ contains: search } } },
+          ],
+        }
+      : {};
+
+    const where = { ...tenantFilter, ...searchFilter };
 
     const [total, pets] = await Promise.all([
-      prisma.pet.count({ where: tenantFilter }),
+      prisma.pet.count({ where }),
       prisma.pet.findMany({
-        where: tenantFilter,
+        where,
         skip,
         take: limit,
         orderBy: { createdAt: "desc" },
