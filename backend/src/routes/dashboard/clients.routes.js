@@ -40,8 +40,8 @@ router.get("/clients", async (req, res) => {
       })));
     }
 
-    const { page, limit: lim } = req.query;
-    const result = await listClients(tenantId, { page, limit: lim });
+    const { page, limit: lim, search } = req.query;
+    const result = await listClients(tenantId, { page, limit: lim, search });
     res.json(result);
   } catch (error) {
     console.error("[Dashboard] Clients error:", error);

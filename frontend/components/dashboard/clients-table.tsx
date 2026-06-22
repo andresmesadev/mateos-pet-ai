@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, Search } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useTenant, tenantQuery } from "@/lib/use-tenant";
@@ -57,21 +57,18 @@ export function ClientsTable() {
 
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [debouncedQuery, setDebouncedQuery] = useState(query);
   const PAGE_SIZE = 50;
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return clients;
-    return clients.filter(
-      (c) =>
-        (c.name ?? "").toLowerCase().includes(q) ||
-        (c.phone ?? "").toLowerCase().includes(q)
-    );
-  }, [clients, query]);
-
-  // Al buscar, volvemos a la página 1
-  useEffect(() => { setPage(1); }, [query]);
+  // Debounce 300ms — al escribir vuelve a pág 1
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedQuery(query);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [query]);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,12 +77,11 @@ export function ClientsTable() {
       if (!cancelled) setLoading(true);
       try {
         const sep = tenantQuery(tenant) ? `${tenantQuery(tenant)}&` : "?";
-        const url = proxyUrl(`/api/dashboard/clients${sep}page=${page}&limit=${PAGE_SIZE}`);
+        const searchParam = debouncedQuery.trim() ? `&search=${encodeURIComponent(debouncedQuery.trim())}` : "";
+        const url = proxyUrl(`/api/dashboard/clients${sep}page=${page}&limit=${PAGE_SIZE}${searchParam}`);
         const response = await fetch(url, { cache: "no-store" });
 
-        if (!response.ok) {
-          throw new Error("No se pudieron cargar los clientes");
-        }
+        if (!response.ok) throw new Error("No se pudieron cargar los clientes");
 
         const payload = await response.json() as { data: DashboardClient[]; total: number; totalPages: number };
         const data = Array.isArray(payload) ? payload : (payload.data ?? []);
@@ -97,24 +93,17 @@ export function ClientsTable() {
         }
       } catch (err) {
         console.error(err);
-
         if (!cancelled) {
-          setError(
-            err instanceof Error ? err.message : "Error al cargar clientes"
-          );
+          setError(err instanceof Error ? err.message : "Error al cargar clientes");
           setClients([]);
         }
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
     })();
 
-    return () => {
-      cancelled = true;
-    };
-  }, [tenant, version, page]);
+    return () => { cancelled = true; };
+  }, [tenant, version, page, debouncedQuery]);
 
   const handleOpenClient = (client: DashboardClient) => {
     setSelectedId(client.id);
@@ -135,9 +124,11 @@ export function ClientsTable() {
         <CardHeader className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
             <CardTitle className="text-base">Propietarios</CardTitle>
-            {!loading && !error && total > 0 && (
+            {!loading && !error && (
               <Badge variant="outline" className="font-normal">
-                {total.toLocaleString()} propietarios
+                {debouncedQuery.trim()
+                  ? `${total.toLocaleString()} encontrados`
+                  : `${total.toLocaleString()} propietarios`}
               </Badge>
             )}
           </div>
@@ -174,9 +165,9 @@ export function ClientsTable() {
               description="Los propietarios aparecerán automáticamente aquí cuando alguien escriba por WhatsApp y el agente registre su conversación."
               hint="El agente WhatsApp está activo"
             />
-          ) : filtered.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-              Ningún propietario coincide con “{query}”.
+          ) : clients.length === 0 && debouncedQuery.trim() ? (
+            <div className=”px-4 py-8 text-center text-sm text-muted-foreground”>
+              Ningún propietario coincide con &quot;{debouncedQuery}&quot;.
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -191,7 +182,7 @@ export function ClientsTable() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((client) => (
+                {clients.map((client) => (
                   <TableRow
                     key={client.id}
                     className="cursor-pointer transition-colors hover:bg-accent/50"

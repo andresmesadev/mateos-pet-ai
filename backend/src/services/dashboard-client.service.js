@@ -57,15 +57,27 @@ const mapClientSummary = (user) => {
 
 const PAGE_SIZE = 50;
 
-const listClients = async (tenantId, { page = 1, limit = PAGE_SIZE } = {}) => {
-  const tenantFilter = tenantId ? { tenantId } : {};
+const listClients = async (tenantId, { page = 1, limit = PAGE_SIZE, search = "" } = {}) => {
   const take = Math.min(Number(limit) || PAGE_SIZE, 200);
-  const skip = (Math.max(Number(page) || 1, 1) - 1) * take;
+  const currentPage = Math.max(Number(page) || 1, 1);
+  const skip = (currentPage - 1) * take;
+
+  const searchFilter = search?.trim()
+    ? {
+        OR: [
+          { name: { contains: search.trim(), mode: "insensitive" } },
+          { phone: { contains: search.trim() } },
+        ],
+      }
+    : {};
+
+  const tenantFilter = tenantId ? { tenantId } : {};
+  const where = { ...tenantFilter, ...searchFilter };
 
   const [total, users] = await Promise.all([
-    prisma.user.count({ where: tenantFilter }),
+    prisma.user.count({ where }),
     prisma.user.findMany({
-      where: tenantFilter,
+      where,
       skip,
       take,
       orderBy: { createdAt: "desc" },
@@ -81,7 +93,7 @@ const listClients = async (tenantId, { page = 1, limit = PAGE_SIZE } = {}) => {
   ]);
 
   const data = users.map(mapClientSummary);
-  return { data, total, page: Math.max(Number(page) || 1, 1), totalPages: Math.ceil(total / take) };
+  return { data, total, page: currentPage, totalPages: Math.ceil(total / take) };
 };
 
 const getClientById = async (clientId, tenantId) => {
