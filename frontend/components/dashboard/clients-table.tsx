@@ -166,8 +166,8 @@ export function ClientsTable() {
               hint="El agente WhatsApp está activo"
             />
           ) : clients.length === 0 && debouncedQuery.trim() ? (
-            <div className=”px-4 py-8 text-center text-sm text-muted-foreground”>
-              {'Ningún propietario coincide con “'}{debouncedQuery}{'”.'}
+            <div className={['px-4 py-8 text-center text-sm text-muted-foreground'].join('')}>
+              {`Ningún propietario coincide con “${debouncedQuery}”.`}
             </div>
           ) : (
             <div className="overflow-x-auto">
