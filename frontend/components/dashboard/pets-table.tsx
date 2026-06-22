@@ -196,8 +196,8 @@ export function PetsTable({
               hint="El agente WhatsApp está activo"
             />
           ) : pets.length === 0 && debouncedQuery.trim() ? (
-            <div className=”px-4 py-8 text-center text-sm text-muted-foreground”>
-              {`Ninguna mascota coincide con “${debouncedQuery}”.`}
+            <div className={['px-4 py-8 text-center text-sm text-muted-foreground'].join('')}>
+              {['Ninguna mascota coincide con “', debouncedQuery, '”.'].join('')}
             </div>
           ) : (
             <div className="overflow-x-auto">
