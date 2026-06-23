@@ -33,6 +33,7 @@ const mapConversationSummary = (conversation) => {
   return {
     id: conversation.id,
     phone: conversation.user?.phone ?? null,
+    name: conversation.user?.name ?? null,
     lastMessage: lastMessage?.content ?? null,
     lastMessageAt: lastMessage?.createdAt ?? conversation.updatedAt,
     step: conversation.step ?? sessionData.step ?? null,
@@ -43,15 +44,18 @@ const mapConversationSummary = (conversation) => {
 
 const listConversations = async (query = {}) => {
   const { page, limit, skip } = parsePagination(query);
+  const tenantId = query.tenantId ?? null;
+  const where = tenantId ? { tenantId } : {};
 
   const [conversations, total] = await Promise.all([
     prisma.conversation.findMany({
+      where,
       orderBy: { updatedAt: "desc" },
       skip,
       take: limit,
       include: {
         user: {
-          select: { phone: true },
+          select: { phone: true, name: true },
         },
         messages: {
           orderBy: { createdAt: "desc" },
@@ -59,7 +63,7 @@ const listConversations = async (query = {}) => {
         },
       },
     }),
-    prisma.conversation.count(),
+    prisma.conversation.count({ where }),
   ]);
 
   return {

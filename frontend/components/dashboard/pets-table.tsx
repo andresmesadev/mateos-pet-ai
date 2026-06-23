@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Search } from "lucide-react";
+import { Eye, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { useTenant, tenantQuery } from "@/lib/use-tenant";
 
 import { PetMedicalSheet } from "@/components/dashboard/pet-medical-sheet";
@@ -60,6 +60,7 @@ export function PetsTable({
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [debouncedQuery, setDebouncedQuery] = useState(query);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const PAGE_SIZE = 50;
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
@@ -136,6 +137,21 @@ export function PetsTable({
     setSheetOpen(true);
   };
 
+  const handleDeletePet = async (e: React.MouseEvent, pet: DashboardPet) => {
+    e.stopPropagation();
+    if (!window.confirm(`¿Eliminar a "${pet.name}"? Esta acción no se puede deshacer.`)) return;
+    setDeleting(pet.id);
+    try {
+      const sep = tenantQuery(tenant) ? `${tenantQuery(tenant)}&` : "?";
+      await fetch(proxyUrl(`/api/dashboard/pets/${pet.id}${sep.replace("&", "")}`), { method: "DELETE" });
+      void loadPets();
+    } catch {
+      alert("No se pudo eliminar la mascota. Inténtalo de nuevo.");
+    } finally {
+      setDeleting(null);
+    }
+  };
+
   const handleRecordAdded = async () => {
     const nextPets = await loadPets();
     const petId = selectedPet?.id;
@@ -170,8 +186,17 @@ export function PetsTable({
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Buscar por mascota o teléfono…"
-                  className="pl-9"
+                  className="pl-9 pr-8"
                 />
+                {query && (
+                  <button
+                    onClick={() => setQuery("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    aria-label="Limpiar búsqueda"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             )}
             <Button size="sm" className="shrink-0 gap-1" onClick={() => setNewOpen(true)}>
@@ -243,14 +268,30 @@ export function PetsTable({
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleSelectPet(pet)}
-                      >
-                        Ver expediente
-                      </Button>
+                      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          title="Ver expediente"
+                          onClick={() => handleSelectPet(pet)}
+                          className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                        <button
+                          title="Editar mascota"
+                          onClick={() => handleSelectPet(pet)}
+                          className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          title="Eliminar mascota"
+                          disabled={deleting === pet.id}
+                          onClick={(e) => handleDeletePet(e, pet)}
+                          className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors disabled:opacity-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

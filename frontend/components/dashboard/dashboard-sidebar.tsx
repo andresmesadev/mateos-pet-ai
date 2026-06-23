@@ -33,7 +33,7 @@ const SECTIONS: NavSection[] = [
     items: [
       { href: "/dashboard", label: "Inicio", icon: Home, exact: true },
       { href: "/dashboard/calendar", label: "Agenda", icon: Calendar },
-      { href: "/dashboard/contacto", label: "Propietarios", icon: Users },
+      { href: "/dashboard/contacto", label: "Clientes", icon: Users },
       { href: "/dashboard/conversations", label: "WhatsApp", icon: MessageCircle },
       { href: "/dashboard/pos", label: "Caja / Ventas", icon: Wallet },
       { href: "/dashboard/recuperacion", label: "Recuperación", icon: HeartPulse },

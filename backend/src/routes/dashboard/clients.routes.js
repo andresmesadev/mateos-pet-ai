@@ -50,14 +50,33 @@ router.get("/clients", async (req, res) => {
 
 // ── Importar contactos desde CSV (parseado por el frontend) ──────────────────
 
+function cleanField(val) {
+  if (!val) return null;
+  const s = String(val).trim();
+  if (s === "" || s.toLowerCase() === "nan" || s.toLowerCase() === "null") return null;
+  return s;
+}
+
 function normalizePhone(raw) {
   if (!raw) return null;
-  let p = String(raw).replace(/[^\d+]/g, "");
-  if (p.startsWith("+")) p = p.slice(1);
-  if (/^57\d{10}$/.test(p)) return p;
-  if (/^\d{10}$/.test(p)) return "57" + p;
-  if (/^0\d{10}$/.test(p)) return "57" + p.slice(1);
-  if (p.replace(/\D/g, "").length < 7) return null;
+  let p = String(raw).replace(/[\s+\-()]/g, "").trim();
+
+  // Ya correcto: celular con 57
+  if (/^573\d{9}$/.test(p)) return p;
+
+  // Fijo Medellín con 57 prefijo incorrecto (ej: 576045XXXXXXX) → quitar 57
+  if (/^576\d{9}$/.test(p)) return p.slice(2);
+
+  // Fijo Medellín 604 → sin 57
+  if (/^604\d{7}$/.test(p)) return p;
+
+  // Celular sin 57
+  if (/^3\d{9}$/.test(p)) return "57" + p;
+
+  // Fijo 7 dígitos → agregar 604 (sin 57)
+  if (/^[2-8]\d{6}$/.test(p)) return "604" + p;
+
+  if (p.length < 7) return null;
   return p;
 }
 
@@ -145,13 +164,14 @@ router.post("/clients/import/full", async (req, res) => {
     const valid = [];
     for (const c of contacts) {
       const phone = normalizePhone(c.phone);
-      const hasPets = Array.isArray(c.pets) && c.pets.some((p) => p.name?.trim());
+      const hasPets = Array.isArray(c.pets) && c.pets.some((p) => cleanField(p.name));
+      const ownerName = cleanField(c.owner_name) ?? cleanField(c.pets?.[0]?.name) ?? "Sin nombre";
       if (!phone && !hasPets) {
-        errors.push({ name: c.owner_name ?? "", reason: "Sin teléfono ni mascota" });
+        errors.push({ name: ownerName, reason: "Sin teléfono ni mascota" });
         invalid++;
         continue;
       }
-      valid.push({ ...c, _phone: phone });
+      valid.push({ ...c, _phone: phone, _ownerName: ownerName });
     }
 
     // ── FASE 2: bulk lookup de propietarios existentes ─────────────────────────
@@ -160,9 +180,52 @@ router.post("/clients/import/full", async (req, res) => {
       where: tenantId
         ? { phone: { in: phones }, tenantId }
         : { phone: { in: phones } },
-      select: { id: true, phone: true, name: true, address: true, notes: true },
+      select: { id: true, phone: true, phoneAlt: true, name: true, address: true, notes: true },
     });
     const userByPhone = new Map(existingUsers.map((u) => [u.phone, u]));
+
+    // ── FASE 2b: asignar placeholder para registros sin teléfono ──────────────
+    // Necesitamos un phone único para cada User. Para registros sin teléfono
+    // usamos un placeholder estable derivado del nombre para evitar duplicados
+    // en re-importaciones del mismo CSV.
+    const noPhoneByKey = new Map(); // key → user (cargado de DB)
+    const noPhoneToCreate = [];
+    for (const c of valid) {
+      if (c._phone) continue; // ya tiene teléfono, manejo normal
+      const petName = c.pets?.[0]?.name ?? "";
+      const key = `NOPHONE_${(c._ownerName + "_" + petName).toLowerCase().replace(/\s+/g, "_").slice(0, 40)}`;
+      c._placeholderPhone = key;
+      noPhoneToCreate.push(c);
+    }
+    if (noPhoneToCreate.length > 0) {
+      const placeholders = noPhoneToCreate.map((c) => c._placeholderPhone);
+      const existing = await prisma.user.findMany({
+        where: tenantId ? { phone: { in: placeholders }, tenantId } : { phone: { in: placeholders } },
+        select: { id: true, phone: true, name: true, address: true, notes: true },
+      });
+      existing.forEach((u) => noPhoneByKey.set(u.phone, u));
+      // Crear los que no existen
+      const toCreateNP = noPhoneToCreate.filter((c) => !noPhoneByKey.has(c._placeholderPhone));
+      if (toCreateNP.length > 0) {
+        await prisma.user.createMany({
+          data: toCreateNP.map((c) => ({
+            phone:    c._placeholderPhone,
+            phoneAlt: normalizePhone(c.phones_alt) ?? null,
+            name:     c._ownerName ?? null,
+            address:  cleanField(c.address) ?? null,
+            notes:    cleanField(c.notes)   ?? null,
+            ...(tenantId ? { tenantId } : {}),
+          })),
+          skipDuplicates: true,
+        });
+        ownersCreated += toCreateNP.length;
+        const refetch = await prisma.user.findMany({
+          where: tenantId ? { phone: { in: toCreateNP.map((c) => c._placeholderPhone) }, tenantId } : { phone: { in: toCreateNP.map((c) => c._placeholderPhone) } },
+          select: { id: true, phone: true, name: true, address: true, notes: true },
+        });
+        refetch.forEach((u) => noPhoneByKey.set(u.phone, u));
+      }
+    }
 
     // ── FASE 3: crear propietarios nuevos en lote ──────────────────────────────
     const toCreate = valid.filter((c) => c._phone && !userByPhone.has(c._phone));
@@ -174,9 +237,10 @@ router.post("/clients/import/full", async (req, res) => {
         await prisma.user.createMany({
           data: chunk.map((c) => ({
             phone:    c._phone,
-            name:     c.owner_name?.trim() || null,
-            address:  c.address?.trim()    || null,
-            notes:    c.notes?.trim()      || null,
+            phoneAlt: normalizePhone(c.phones_alt) ?? null,
+            name:     c._ownerName ?? null,
+            address:  cleanField(c.address) ?? null,
+            notes:    cleanField(c.notes)   ?? null,
             ...(tenantId ? { tenantId } : {}),
           })),
           skipDuplicates: true,
@@ -200,23 +264,26 @@ router.post("/clients/import/full", async (req, res) => {
       const existing = userByPhone.get(c._phone);
       if (!existing) continue;
       const patch = {};
-      if (!existing.name    && c.owner_name?.trim()) patch.name    = c.owner_name.trim();
-      if (!existing.address && c.address?.trim())    patch.address = c.address.trim();
-      if (!existing.notes   && c.notes?.trim())      patch.notes   = c.notes.trim();
+      if (!existing.name    && c._ownerName)                      patch.name     = c._ownerName;
+      if (!existing.phoneAlt && normalizePhone(c.phones_alt))     patch.phoneAlt = normalizePhone(c.phones_alt);
+      if (!existing.address && cleanField(c.address))             patch.address  = cleanField(c.address);
+      if (!existing.notes   && cleanField(c.notes))               patch.notes    = cleanField(c.notes);
       if (Object.keys(patch).length) {
         await prisma.user.update({ where: { id: existing.id }, data: patch });
+        ownersUpdated++;
       }
     }
-    ownersUpdated = toUpdate.length;
 
     // ── FASE 5: mascotas y registros de peluquería ─────────────────────────────
     // Construir lista plana de mascotas a procesar
     const petRows = []; // { owner, petData }
     for (const c of valid) {
-      const owner = c._phone ? userByPhone.get(c._phone) : null;
+      const owner = c._phone
+        ? userByPhone.get(c._phone)
+        : noPhoneByKey.get(c._placeholderPhone);
       if (!owner || !Array.isArray(c.pets)) continue;
       for (const petData of c.pets) {
-        if (petData.name?.trim()) petRows.push({ owner, petData });
+        if (cleanField(petData.name)) petRows.push({ owner, petData: { ...petData, name: cleanField(petData.name) } });
       }
     }
 
@@ -241,10 +308,10 @@ router.post("/clients/import/full", async (req, res) => {
         const chunk = petsToCreate.slice(i, i + CHUNK);
         await prisma.pet.createMany({
           data: chunk.map(({ owner, petData }) => ({
-            name:    petData.name.trim(),
+            name:    petData.name,
             type:    "dog",
-            breed:   petData.breed?.trim()  || null,
-            notes:   petData.price?.trim()  || null,
+            breed:   cleanField(petData.breed)  ?? null,
+            notes:   cleanField(petData.price)  ?? null,
             ownerId: owner.id,
             ...(tenantId ? { tenantId } : {}),
           })),
@@ -474,9 +541,9 @@ router.patch("/clients/:id", async (req, res) => {
     });
     if (!existing) return res.status(404).json({ error: ERRORS.NOT_FOUND("Cliente") });
 
-    const { name, email, address, notes } = req.body ?? {};
-    const updated = await updateClient(id, { name, email, address, notes });
-    res.json({ id: updated.id, name: updated.name, email: updated.email, address: updated.address, notes: updated.notes });
+    const { name, phone, phoneAlt, email, address, notes } = req.body ?? {};
+    const updated = await updateClient(id, { name, phone, phoneAlt, email, address, notes });
+    res.json({ id: updated.id, name: updated.name, phone: updated.phone, phoneAlt: updated.phoneAlt ?? null, email: updated.email, address: updated.address, notes: updated.notes });
   } catch (error) {
     console.error("[Dashboard] Update client error:", error);
     if (error.code === "P2025") {
@@ -494,22 +561,36 @@ router.post("/campaigns/reactivation", async (req, res) => {
       return res.status(400).json({ error: "clientIds es requerido" });
     }
 
+    if (clientIds.length > 500) {
+      return res.status(400).json({ error: "Máximo 500 clientes por campaña" });
+    }
+
     if (!message || typeof message !== "string" || !message.trim()) {
       return res.status(400).json({ error: "message es requerido" });
     }
 
+    const { tenantId } = req.tenant;
     const users = await prisma.user.findMany({
-      where: { id: { in: clientIds } },
+      where: {
+        id: { in: clientIds },
+        ...(tenantId ? { tenantId } : {}),
+      },
       select: { id: true, phone: true, name: true },
     });
 
     let sent = 0;
     let failed = 0;
+    let noPhone = 0;
 
     const now = new Date();
     for (const user of users) {
+      const phone = user.phone ?? "";
+      if (!phone || phone.toUpperCase().startsWith("NOPHONE")) {
+        noPhone++;
+        continue;
+      }
       const text = message.replace(/\{nombre\}/g, user.name ?? "cliente");
-      const result = await sendWhatsAppMessage(user.phone, text);
+      const result = await sendWhatsAppMessage(phone, text);
       if (result) {
         sent++;
         await prisma.user.update({ where: { id: user.id }, data: { lastReminderSentAt: now } });
@@ -518,7 +599,7 @@ router.post("/campaigns/reactivation", async (req, res) => {
       }
     }
 
-    res.json({ sent, failed, total: users.length });
+    res.json({ sent, failed, noPhone, total: users.length });
   } catch (error) {
     console.error("[Dashboard] Reactivation campaign error:", error);
     res.status(500).json({ error: ERRORS.INTERNAL });
@@ -537,6 +618,57 @@ router.post("/campaigns/next-actions", async (req, res) => {
     console.error("[Dashboard] Next-action campaign error:", error.message);
     if (error.message.includes("inválido")) return res.status(400).json({ error: error.message });
     res.status(500).json({ error: ERRORS.INTERNAL });
+  }
+});
+
+router.delete("/clients/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { tenantId } = req.tenant;
+    const where = tenantId ? { id, tenantId } : { id };
+    const existing = await prisma.user.findFirst({ where });
+    if (!existing) return res.status(404).json({ error: ERRORS.NOT_FOUND("Cliente") });
+
+    // Eliminar en orden respetando foreign keys (sin cascade en schema)
+    await prisma.$transaction(async (tx) => {
+      // 1. Pets del usuario → sus medicalRecords, nextActions, transactions
+      const pets = await tx.pet.findMany({ where: { ownerId: id }, select: { id: true } });
+      const petIds = pets.map((p) => p.id);
+      if (petIds.length > 0) {
+        await tx.medicalRecord.deleteMany({ where: { petId: { in: petIds } } });
+        await tx.petNextAction.deleteMany({ where: { petId: { in: petIds } } });
+        await tx.transaction.deleteMany({ where: { petId: { in: petIds } } });
+        await tx.appointment.deleteMany({ where: { petId: { in: petIds } } });
+      }
+      await tx.pet.deleteMany({ where: { ownerId: id } });
+
+      // 2. Conversaciones → mensajes y embeddings
+      const convs = await tx.conversation.findMany({ where: { userId: id }, select: { id: true } });
+      const convIds = convs.map((c) => c.id);
+      if (convIds.length > 0) {
+        await tx.memoryEmbedding.deleteMany({ where: { conversationId: { in: convIds } } });
+        await tx.message.deleteMany({ where: { conversationId: { in: convIds } } });
+      }
+      await tx.conversation.deleteMany({ where: { userId: id } });
+
+      // 3. Citas directas del usuario (sin mascota)
+      await tx.appointment.deleteMany({ where: { userId: id } });
+
+      // 4. Embeddings de memoria del usuario
+      await tx.memoryEmbedding.deleteMany({ where: { userId: id } });
+
+      // 5. Transacciones directas del usuario
+      await tx.transaction.deleteMany({ where: { userId: id } });
+
+      // 6. El usuario
+      await tx.user.delete({ where: { id } });
+    });
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("[Dashboard] Delete client error:", error);
+    if (error.code === "P2025") return res.status(404).json({ error: "No encontrado" });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 

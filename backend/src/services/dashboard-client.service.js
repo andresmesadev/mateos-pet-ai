@@ -80,7 +80,7 @@ const listClients = async (tenantId, { page = 1, limit = PAGE_SIZE, search = "" 
       where,
       skip,
       take,
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ name: "asc" }, { createdAt: "asc" }],
       include: {
         _count: { select: { pets: true, appointments: true } },
         conversations: {
@@ -151,6 +151,7 @@ const getClientById = async (clientId, tenantId) => {
   return {
     id: user.id,
     phone: user.phone,
+    phoneAlt: user.phoneAlt ?? null,
     name: user.name ?? extractNameFromSession(latestConversation?.sessionData),
     email: user.email ?? null,
     address: user.address ?? null,
@@ -163,6 +164,11 @@ const getClientById = async (clientId, tenantId) => {
   };
 };
 
+// Clientes de peluquería cuya última visita fue hace más de 60 días.
+// Carga en batches de 500 para no agotar la memoria con bases de datos grandes.
+const INACTIVE_BATCH = 500;
+const INACTIVE_MAX = 1000;
+
 const listInactiveClients = async (tenantId) => {
   const cutoff = new Date(Date.now() - 60 * 86_400_000);
   const tenantFilter = tenantId ? { tenantId } : {};
@@ -170,41 +176,68 @@ const listInactiveClients = async (tenantId) => {
   const users = await prisma.user.findMany({
     where: {
       ...tenantFilter,
-      AND: [
-        { appointments: { some: {} } },
-        { appointments: { none: { date: { gte: cutoff } } } },
-      ],
+      pets: { some: { medicalRecords: { some: { type: "grooming" } } } },
     },
     include: {
       pets: {
-        select: { name: true, type: true },
+        select: {
+          name: true,
+          type: true,
+          medicalRecords: {
+            where: { type: "grooming" },
+            orderBy: { date: "desc" },
+            take: 1,
+            select: { date: true },
+          },
+        },
         orderBy: { createdAt: "desc" },
-        take: 3,
-      },
-      appointments: {
-        orderBy: { date: "desc" },
-        take: 1,
-        select: { date: true },
       },
     },
-    orderBy: { createdAt: "asc" },
-    take: CLIENTS_HARD_LIMIT,
+    take: INACTIVE_BATCH,
   });
 
-  return users.map((u) => ({
-    id: u.id,
-    phone: u.phone,
-    name: u.name ?? null,
-    pets: u.pets,
-    lastAppointmentDate: u.appointments[0]?.date ?? null,
-  }));
+  const result = [];
+  for (const u of users) {
+    const groomingDates = u.pets
+      .flatMap((p) => p.medicalRecords.map((r) => r.date))
+      .filter(Boolean)
+      .map((d) => new Date(d));
+    const lastGrooming = groomingDates.length
+      ? new Date(Math.max(...groomingDates.map((d) => d.getTime())))
+      : null;
+
+    // Solo inactivos: última visita de grooming anterior al cutoff (60 días)
+    if (lastGrooming && lastGrooming >= cutoff) continue;
+
+    result.push({
+      id: u.id,
+      phone: u.phone,
+      name: u.name ?? null,
+      pets: u.pets.slice(0, 3).map(({ name, type }) => ({ name, type })),
+      lastVisitDate: lastGrooming ? lastGrooming.toISOString() : null,
+    });
+
+    if (result.length >= INACTIVE_MAX) break;
+  }
+
+  // Ordenar: menos inactivo primero (última visita más reciente = mayor fecha)
+  result.sort((a, b) => {
+    if (!a.lastVisitDate && !b.lastVisitDate) return 0;
+    if (!a.lastVisitDate) return 1;
+    if (!b.lastVisitDate) return -1;
+    return new Date(b.lastVisitDate).getTime() - new Date(a.lastVisitDate).getTime();
+  });
+
+  return result;
 };
 
-const updateClient = async (id, { name, email, address, notes }) => {
+const updateClient = async (id, { name, phone, phoneAlt, email, address, notes }) => {
   return prisma.user.update({
     where: { id },
     data: {
       name: name ?? undefined,
+      phone: phone ?? undefined,
+      phoneAlt: phoneAlt ?? undefined,
       email: email ?? undefined,
       address: address ?? undefined,
       notes: notes ?? undefined,

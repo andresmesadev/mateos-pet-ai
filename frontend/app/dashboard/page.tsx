@@ -50,7 +50,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       </div>
 
       {/* Bandejas de oportunidad / riesgo */}
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-3 items-stretch">
         <Suspense fallback={null}>
           <OpportunitiesWidget headers={headers} />
         </Suspense>

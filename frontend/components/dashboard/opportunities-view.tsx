@@ -60,10 +60,8 @@ function ActionRow({
   async function handleDismiss() {
     setDismissing(true);
     try {
-      await fetch(proxyUrl(`/api/dashboard/next-actions/${entry.actionId}`), {
+      await fetch(proxyUrl(`/api/dashboard/medical-records/${entry.actionId}/dismiss`), {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "dismissed" }),
       });
       onDismiss(entry.actionId);
     } catch {
@@ -215,99 +213,25 @@ function ActionSection({
   );
 }
 
-// ── Inactive clients section ──────────────────────────────────
-
-type InactiveEntry = {
-  ownerId: string;
-  ownerName: string | null;
-  ownerPhone: string;
-  pets: { id: string; name: string; type: string }[];
-  lastAppointmentDate: string | null;
-  daysSince: number | null;
-};
-
-function inactiveWhatsApp(entry: InactiveEntry): string {
-  const owner = entry.ownerName ?? "cliente";
-  const petNames = entry.pets.map((p) => p.name).join(", ");
-  return `Hola ${owner}, te echamos de menos por aquí. ¿Cómo están ${petNames}? ¿Los agendamos pronto?`;
-}
-
-function InactiveSection({ entries }: { entries: InactiveEntry[] }) {
-  if (entries.length === 0) return null;
-  return (
-    <Card className="border-2 border-orange-200 dark:border-orange-900">
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-base">
-          😴 Clientes sin cita reciente
-          <Badge variant="outline">{entries.length}</Badge>
-          <span className="text-xs font-normal text-muted-foreground">+60 días</span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ul className="divide-y">
-          {entries.map((e) => (
-            <li key={e.ownerId} className="flex flex-wrap items-center gap-2 py-2.5 text-sm">
-              <div className="flex gap-0.5">
-                {e.pets.map((p) => (
-                  <span key={p.id}>{getPetEmoji(p.type)}</span>
-                ))}
-              </div>
-              <div className="flex-1 min-w-0">
-                <span className="font-medium">{e.ownerName ?? e.ownerPhone}</span>
-                <div className="flex gap-x-2 mt-0.5">
-                  <span className="text-xs text-muted-foreground">
-                    {e.pets.map((p) => p.name).join(", ")}
-                  </span>
-                  {e.daysSince != null && (
-                    <span className="text-xs text-orange-600 dark:text-orange-400">
-                      · {e.daysSince} días sin cita
-                    </span>
-                  )}
-                </div>
-              </div>
-              <Button
-                asChild
-                size="sm"
-                variant="outline"
-                className="h-7 px-2.5 text-xs gap-1.5 text-green-700 border-green-200 hover:bg-green-50 dark:text-green-400 dark:border-green-900 dark:hover:bg-green-950 shrink-0"
-              >
-                <a
-                  href={whatsappUrl(e.ownerPhone, inactiveWhatsApp(e))}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  💬 WhatsApp
-                </a>
-              </Button>
-            </li>
-          ))}
-        </ul>
-      </CardContent>
-    </Card>
-  );
-}
-
 // ── Main view ─────────────────────────────────────────────────
 
 const TYPE_ORDER = ["control", "vaccine", "treatment", "exam", "grooming", "other"];
 
 export function OpportunitiesView({ data }: { data: OpportunitiesData }) {
-  const totalActions = Object.values(data.byType).reduce((s, arr) => s + arr.length, 0);
-  const totalInactive = data.inactive.length;
-  const total = totalActions + totalInactive;
+  const shown = Object.values(data.byType).reduce((s, arr) => s + arr.length, 0);
+  const total = data.total ?? shown;
 
   if (total === 0) {
     return (
       <div className="rounded-lg border border-dashed px-6 py-16 text-center">
-        <p className="text-lg font-medium">¡Todo en orden! 🎉</p>
+        <p className="text-lg font-medium">Sin acciones pendientes 🎉</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          No hay acciones pendientes ni clientes inactivos por ahora.
+          El agente no ha detectado recordatorios pendientes todavía.
         </p>
       </div>
     );
   }
 
-  // Sort types: defined order first, then any unknown types
   const orderedTypes = [
     ...TYPE_ORDER.filter((t) => data.byType[t]?.length),
     ...Object.keys(data.byType).filter((t) => !TYPE_ORDER.includes(t) && data.byType[t]?.length),
@@ -315,10 +239,14 @@ export function OpportunitiesView({ data }: { data: OpportunitiesData }) {
 
   return (
     <div className="space-y-4">
+      {total > shown && (
+        <p className="text-xs text-muted-foreground">
+          Mostrando las <strong>{shown}</strong> acciones más urgentes de <strong>{total}</strong> en total.
+        </p>
+      )}
       {orderedTypes.map((type) => (
         <ActionSection key={type} type={type} entries={data.byType[type] ?? []} />
       ))}
-      <InactiveSection entries={data.inactive} />
     </div>
   );
 }

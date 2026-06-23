@@ -124,92 +124,69 @@ router.post("/conversations/:id/send", async (req, res) => {
   }
 });
 
-// ── Bandeja de oportunidades (TAREA 13) ──────────────────────────────────────
+// ── Bandeja de oportunidades ──────────────────────────────────────────────────
+// Usa MedicalRecord.nextControlAt como fuente de recordatorios pendientes.
 router.get("/opportunities", async (req, res) => {
   try {
     const { tenantId } = req.tenant;
-    const tenantFilter = tenantId ? { tenantId } : {};
     const now = new Date();
+    // Ventana: vencidos en los últimos 180 días + próximos 60 días
+    const windowStart = new Date(now.getTime() - 180 * 86_400_000);
+    const windowEnd = new Date(now.getTime() + 60 * 86_400_000);
 
-    // 1. Pending next-actions with pet + owner
-    // Cota de seguridad: ordenadas por vencimiento, las más urgentes primero.
-    const actions = await prisma.petNextAction.findMany({
-      where: { ...tenantFilter, status: "pending" },
-      orderBy: { dueAt: "asc" },
-      take: 500,
-      include: {
-        pet: {
-          select: {
-            id: true,
-            name: true,
-            type: true,
-            owner: { select: { id: true, name: true, phone: true } },
+    const tenantWhere = tenantId
+      ? { pet: { owner: { tenantId } } }
+      : {};
+
+    const recordWhere = {
+      ...tenantWhere,
+      nextControlAt: { gte: windowStart, lte: windowEnd },
+    };
+
+    const [total, records] = await Promise.all([
+      prisma.medicalRecord.count({ where: recordWhere }),
+      prisma.medicalRecord.findMany({
+        where: recordWhere,
+        orderBy: { nextControlAt: "asc" },
+        take: 50,
+        select: {
+          id: true,
+          type: true,
+          title: true,
+          nextControlAt: true,
+          reminderSent: true,
+          pet: {
+            select: {
+              id: true,
+              name: true,
+              type: true,
+              owner: { select: { id: true, name: true, phone: true } },
+            },
           },
         },
-      },
-    });
+      }),
+    ]);
 
-    // Group by type
     const byType = {};
-    for (const a of actions) {
+    for (const r of records) {
       const entry = {
-        actionId: a.id,
-        petId: a.pet.id,
-        petName: a.pet.name,
-        petType: a.pet.type,
-        ownerId: a.pet.owner?.id ?? null,
-        ownerName: a.pet.owner?.name ?? null,
-        ownerPhone: a.pet.owner?.phone ?? null,
-        dueAt: a.dueAt,
-        notes: a.notes,
-        isOverdue: a.dueAt < now,
+        actionId: r.id,
+        petId: r.pet.id,
+        petName: r.pet.name,
+        petType: r.pet.type,
+        ownerId: r.pet.owner?.id ?? null,
+        ownerName: r.pet.owner?.name ?? null,
+        ownerPhone: r.pet.owner?.phone ?? null,
+        dueAt: r.nextControlAt,
+        notes: r.title,
+        isOverdue: r.nextControlAt < now,
       };
-      if (!byType[a.type]) byType[a.type] = [];
-      byType[a.type].push(entry);
+      const key = r.type || "other";
+      if (!byType[key]) byType[key] = [];
+      byType[key].push(entry);
     }
 
-    // 2. Inactive clients (no appointment ≥ 60 days)
-    const cutoff = new Date(Date.now() - 60 * 86_400_000);
-    const inactiveUsers = await prisma.user.findMany({
-      where: {
-        ...tenantFilter,
-        AND: [
-          { appointments: { some: {} } },
-          { appointments: { none: { date: { gte: cutoff } } } },
-        ],
-      },
-      include: {
-        pets: {
-          select: { id: true, name: true, type: true },
-          orderBy: { createdAt: "desc" },
-          take: 3,
-        },
-        appointments: {
-          orderBy: { date: "desc" },
-          take: 1,
-          select: { date: true },
-        },
-      },
-      orderBy: { createdAt: "asc" },
-      take: 50,
-    });
-
-    const inactive = inactiveUsers.map((u) => {
-      const lastDate = u.appointments[0]?.date ?? null;
-      const daysSince = lastDate
-        ? Math.floor((now - new Date(lastDate)) / 86_400_000)
-        : null;
-      return {
-        ownerId: u.id,
-        ownerName: u.name ?? null,
-        ownerPhone: u.phone,
-        pets: u.pets,
-        lastAppointmentDate: lastDate,
-        daysSince,
-      };
-    });
-
-    res.json({ byType, inactive });
+    res.json({ byType, total });
   } catch (error) {
     console.error("[Dashboard] Opportunities error:", error);
     res.status(500).json({ error: "Internal server error" });

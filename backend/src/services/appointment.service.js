@@ -260,7 +260,7 @@ const cancelAppointment = async (userId) => {
 
 const createAppointment = async (data) => {
   const {
-    userId, petName, petType, serviceType, date, status = "confirmed",
+    userId, tenantId = null, petName, petType, serviceType, date, status = "confirmed",
     address = null, groomingBreed = null, groomingSize = null,
   } = data || {};
 
@@ -297,6 +297,7 @@ const createAppointment = async (data) => {
       date: date instanceof Date ? date : new Date(date),
       status: String(status).trim(),
     };
+    if (tenantId) appointmentData.tenantId = String(tenantId);
     if (address) appointmentData.address = String(address).trim();
     if (groomingBreed) appointmentData.groomingBreed = String(groomingBreed).trim();
     if (groomingSize) appointmentData.groomingSize = String(groomingSize).trim();

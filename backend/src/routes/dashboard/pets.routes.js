@@ -60,9 +60,9 @@ router.get("/pets", async (req, res) => {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: "desc" },
+        orderBy: [{ name: "asc" }, { createdAt: "asc" }],
         include: {
-          owner: { select: { phone: true, name: true } },
+          owner: { select: { id: true, phone: true, name: true } },
           _count: { select: { medicalRecords: true, appointments: true } },
         },
       }),
@@ -151,9 +151,10 @@ router.post("/pets", async (req, res) => {
 router.get("/pets/:id/records", async (req, res) => {
   try {
     const { id } = req.params;
+    const { tenantId } = req.tenant;
 
-    const pet = await prisma.pet.findUnique({
-      where: { id },
+    const pet = await prisma.pet.findFirst({
+      where: tenantId ? { id, owner: { tenantId } } : { id },
       select: { id: true },
     });
 
@@ -307,6 +308,36 @@ router.patch("/pets/:petId/records/:recordId", async (req, res) => {
   }
 });
 
+// Dismiss a nextControl reminder from the opportunities view
+router.patch("/medical-records/:id/dismiss", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { tenantId } = req.tenant;
+
+    // Verificar que el registro pertenece al tenant antes de modificarlo
+    const existing = await prisma.medicalRecord.findFirst({
+      where: {
+        id,
+        ...(tenantId ? { pet: { owner: { tenantId } } } : {}),
+      },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ error: "Registro no encontrado" });
+    }
+
+    const updated = await prisma.medicalRecord.update({
+      where: { id },
+      data: { reminderSent: true },
+    });
+    res.json(updated);
+  } catch (error) {
+    console.error("[Dashboard] Dismiss record error:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.delete("/pets/:petId/records/:recordId", async (req, res) => {
   try {
     const { petId, recordId } = req.params;
@@ -399,8 +430,8 @@ router.get("/pets/:id/report", async (req, res) => {
 router.patch("/pets/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { breed, gender, birthDate, weight, sterilized, notes } = req.body ?? {};
-    const updated = await updatePet(id, { breed, gender, birthDate, weight, sterilized, notes });
+    const { name, breed, gender, birthDate, weight, sterilized, notes } = req.body ?? {};
+    const updated = await updatePet(id, { name, breed, gender, birthDate, weight, sterilized, notes });
     res.json({
       id: updated.id,
       breed: updated.breed,
@@ -520,6 +551,22 @@ router.patch("/next-actions/:id", async (req, res) => {
   } catch (error) {
     console.error("[Dashboard] Update next action error:", error.message);
     if (error.message.includes("inválido")) return res.status(400).json({ error: error.message });
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.delete("/pets/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { tenantId } = req.tenant;
+    const where = tenantId ? { id, tenantId } : { id };
+    const existing = await prisma.pet.findFirst({ where });
+    if (!existing) return res.status(404).json({ error: "Mascota no encontrada" });
+    await prisma.pet.delete({ where: { id } });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("[Dashboard] Delete pet error:", error);
+    if (error.code === "P2025") return res.status(404).json({ error: "No encontrado" });
     res.status(500).json({ error: "Internal server error" });
   }
 });

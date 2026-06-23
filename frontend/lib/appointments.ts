@@ -57,7 +57,11 @@ const PET_TYPE_LABELS: Record<string, string> = {
 
 const SERVICE_LABELS: Record<string, string> = {
   vet: "Consulta veterinaria",
+  veterinary_consultation: "Consulta veterinaria",
+  consultation: "Consulta veterinaria",
   grooming: "Baño / Grooming",
+  bath_grooming: "Baño / Grooming",
+  bath: "Baño / Grooming",
   general_appointment: "Cita general",
   medication: "Medicamentos",
 };
@@ -77,9 +81,9 @@ export function formatColombiaTime(iso: string): string {
   if (Number.isNaN(date.getTime())) return "—";
   return new Intl.DateTimeFormat("es-CO", {
     timeZone: BOGOTA_TIMEZONE,
-    hour: "2-digit",
+    hour: "numeric",
     minute: "2-digit",
-    hour12: false,
+    hour12: true,
   }).format(date);
 }
 

@@ -19,6 +19,7 @@ export type DashboardPet = {
   sterilized: boolean | null;
   notes: string | null;
   owner: {
+    id?: string;
     phone: string;
     name?: string | null;
   };
@@ -81,9 +82,19 @@ export function formatPetType(type: PetType): string {
   return PET_TYPE_LABELS[type?.toLowerCase()] ?? type ?? "Otro";
 }
 
-export function formatPhone(phone: string): string {
+export function formatPhone(phone: string | null): string {
   if (!phone) return "—";
-  if (phone.length <= 4) return phone;
+  if (phone.startsWith("NOPHONE_")) return "Sin teléfono";
+  if (/^573\d{9}$/.test(phone)) {
+    const n = phone.slice(2);
+    return `+57 ${n.slice(0, 3)} ${n.slice(3, 6)} ${n.slice(6)}`;
+  }
+  if (/^604\d{7}$/.test(phone)) {
+    return `(604) ${phone.slice(3, 6)} ${phone.slice(6)}`;
+  }
+  if (/^60\d{8}$/.test(phone)) {
+    return `(${phone.slice(0, 3)}) ${phone.slice(3, 6)} ${phone.slice(6)}`;
+  }
   return phone;
 }
 

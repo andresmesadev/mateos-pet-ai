@@ -319,6 +319,11 @@ export function WeekCalendar({
   const [clock, setClock] = useState<ClockMode>("12h");
   const [selected, setSelected] = useState<TodayAppointment | null>(null);
 
+  useEffect(() => {
+    const interval = setInterval(() => router.refresh(), 60_000);
+    return () => clearInterval(interval);
+  }, [router]);
+
   const { mondayYmd, appointments } = data;
   const today = todayYmd();
 

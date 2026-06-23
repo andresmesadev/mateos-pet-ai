@@ -18,6 +18,7 @@ const {
   createRecord,
   getRecordsByPet,
 } = require("../../services/medical-record.service");
+const { listInactiveClients } = require("../../services/dashboard-client.service");
 const {
   upsertControlFromRecord,
   createGroomingReminderIfNeeded,
@@ -161,18 +162,8 @@ router.get("/appointments/week", async (req, res) => {
 router.get("/clients/inactive-count", async (req, res) => {
   try {
     const { tenantId } = req.tenant;
-    const tenantFilter = tenantId ? { tenantId } : {};
-    const cutoff = new Date(Date.now() - 60 * 86_400_000);
-    const count = await prisma.user.count({
-      where: {
-        ...tenantFilter,
-        AND: [
-          { appointments: { some: {} } },
-          { appointments: { none: { date: { gte: cutoff } } } },
-        ],
-      },
-    });
-    res.json({ count });
+    const clients = await listInactiveClients(tenantId);
+    res.json({ count: clients.length });
   } catch (error) {
     console.error("[Dashboard] Inactive count error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -271,7 +262,7 @@ router.patch("/appointments/:id", async (req, res) => {
         if (!service) return res.status(404).json({ error: ERRORS.SERVICE_NOT_FOUND });
         // Auto-populate price from service if caller didn't send one and appointment has none
         if (price === undefined && existing.price === null) {
-          data.price = service.price ?? null;
+          data.price = service.basePrice ?? null;
         }
       }
       data.serviceId = serviceId || null;

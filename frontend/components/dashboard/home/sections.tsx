@@ -53,44 +53,49 @@ export async function RecoverySection({ headers }: { headers: Headers }) {
 // ── Bandeja de oportunidades (widget) ─────────────────────────
 export async function OpportunitiesWidget({ headers }: { headers: Headers }) {
   const actionsSummary = await fetchActionsSummary(headers);
-  if (actionsSummary.total === 0) return null;
-
   const hasOverdue = actionsSummary.overduePets > 0;
+  const isEmpty = actionsSummary.total === 0;
+
   return (
-    <Link href="/dashboard/recuperacion?tab=oportunidades" className="block">
-      <Card className={`group transition-all duration-200 hover:-translate-y-0.5 ${hasOverdue
-        ? "border border-amber-500/25 bg-amber-500/5 hover:border-amber-500/40 hover:bg-amber-500/8"
-        : "border border-sky-500/20 bg-sky-500/5 hover:border-sky-500/35 hover:bg-sky-500/8"
+    <Link href="/dashboard/recuperacion?tab=oportunidades" className="block h-full">
+      <Card className={`group h-full transition-all duration-200 hover:-translate-y-0.5 ${
+        isEmpty
+          ? "border border-border hover:border-border/80"
+          : hasOverdue
+            ? "border border-amber-500/25 bg-amber-500/5 hover:border-amber-500/40"
+            : "border border-sky-500/20 bg-sky-500/5 hover:border-sky-500/35"
       }`}>
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-            <Pin className={`h-4 w-4 shrink-0 ${hasOverdue ? "text-amber-400" : "text-sky-400"}`} />
-            Mascotas con acciones pendientes
-            <Badge className={hasOverdue
-              ? "border-amber-500/30 bg-amber-500/15 text-amber-300"
-              : "border-sky-500/30 bg-sky-500/15 text-sky-300"
-            }>
-              {actionsSummary.total}
-            </Badge>
+            <Pin className={`h-4 w-4 shrink-0 ${isEmpty ? "text-muted-foreground" : hasOverdue ? "text-amber-400" : "text-sky-400"}`} />
+            Recordatorios pendientes
+            {!isEmpty && (
+              <Badge className={hasOverdue
+                ? "border-amber-500/30 bg-amber-500/15 text-amber-300"
+                : "border-sky-500/30 bg-sky-500/15 text-sky-300"
+              }>
+                {actionsSummary.total}
+              </Badge>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-            {Object.entries(actionsSummary.byType).map(([type, count]) => (
-              <span key={type}>{count} {TYPE_LABELS[type] ?? type}</span>
-            ))}
-          </div>
-          {hasOverdue ? (
-            <p className="mt-2 flex items-center gap-1.5 text-sm font-medium text-amber-400">
-              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-              {actionsSummary.overduePets} mascota{actionsSummary.overduePets === 1 ? "" : "s"} con acción vencida
-              <ArrowRight className="h-3.5 w-3.5 opacity-70" />
-            </p>
+          {isEmpty ? (
+            <p className="text-sm text-muted-foreground">No hay recordatorios pendientes.</p>
           ) : (
-            <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-              Ver bandeja de oportunidades <ArrowRight className="h-3 w-3" />
-            </p>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+              {Object.entries(actionsSummary.byType).map(([type, count]) => (
+                <span key={type}>{count} {TYPE_LABELS[type] ?? type}</span>
+              ))}
+            </div>
           )}
+          <p className={`mt-2 flex items-center gap-1.5 text-xs ${hasOverdue && !isEmpty ? "font-medium text-amber-400" : "text-muted-foreground"}`}>
+            {hasOverdue && !isEmpty && <AlertTriangle className="h-3.5 w-3.5 shrink-0" />}
+            {hasOverdue && !isEmpty
+              ? `${actionsSummary.overduePets} mascota${actionsSummary.overduePets === 1 ? "" : "s"} con acción vencida`
+              : "Ver recordatorios"}
+            <ArrowRight className="ml-auto h-3.5 w-3.5 opacity-50" />
+          </p>
         </CardContent>
       </Card>
     </Link>
@@ -231,26 +236,39 @@ export async function RemindersSection({ headers }: { headers: Headers }) {
 // ── Widget de churn ───────────────────────────────────────────
 export async function ChurnWidget({ headers }: { headers: Headers }) {
   const churnAtRisk = await fetchChurnPreview(headers);
-  if (churnAtRisk.length === 0) return null;
-
   const churnHigh = churnAtRisk.filter((c) => c.riskLevel === "high").length;
+  const isEmpty = churnAtRisk.length === 0;
+
   return (
-    <Link href="/dashboard/recuperacion?tab=churn" className="block">
-      <Card className="group border border-red-500/25 bg-red-500/5 transition-all duration-200 hover:-translate-y-0.5 hover:border-red-500/40 hover:bg-red-500/8">
+    <Link href="/dashboard/recuperacion?tab=churn" className="block h-full">
+      <Card className={`group h-full transition-all duration-200 hover:-translate-y-0.5 ${
+        isEmpty
+          ? "border border-border hover:border-border/80"
+          : "border border-red-500/25 bg-red-500/5 hover:border-red-500/40"
+      }`}>
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-            <AlertTriangle className="h-4 w-4 shrink-0 text-red-400" />
-            Clientes en riesgo de abandono
-            <Badge className="border-red-500/30 bg-red-500/15 text-red-300">
-              {churnAtRisk.length}
-            </Badge>
+            <AlertTriangle className={`h-4 w-4 shrink-0 ${isEmpty ? "text-muted-foreground" : "text-red-400"}`} />
+            Riesgo de abandono
+            {!isEmpty && (
+              <Badge className="border-red-500/30 bg-red-500/15 text-red-300">
+                {churnAtRisk.length}
+              </Badge>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="flex items-center gap-1 text-sm text-muted-foreground">
-            {churnAtRisk.length} cliente{churnAtRisk.length === 1 ? "" : "s"} sin visitar en más tiempo del habitual.
-            {churnHigh > 0 && <span className="ml-1 font-medium text-red-400">{churnHigh} en riesgo alto.</span>}
-            <ArrowRight className="ml-auto h-3.5 w-3.5 shrink-0 opacity-50" />
+          {isEmpty ? (
+            <p className="text-sm text-muted-foreground">No hay clientes en riesgo.</p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {churnAtRisk.length} cliente{churnAtRisk.length === 1 ? "" : "s"} sin visitar en más tiempo del habitual.
+            </p>
+          )}
+          <p className={`mt-2 flex items-center gap-1.5 text-xs ${churnHigh > 0 ? "font-medium text-red-400" : "text-muted-foreground"}`}>
+            {churnHigh > 0 && <span className="inline-block h-2 w-2 rounded-full bg-red-400" />}
+            {churnHigh > 0 ? `${churnHigh} en riesgo alto` : "Ver análisis de churn"}
+            <ArrowRight className="ml-auto h-3.5 w-3.5 opacity-50" />
           </p>
         </CardContent>
       </Card>
@@ -261,24 +279,38 @@ export async function ChurnWidget({ headers }: { headers: Headers }) {
 // ── Widget de reactivación ────────────────────────────────────
 export async function ReactivarWidget({ headers }: { headers: Headers }) {
   const inactiveCount = await fetchInactiveCount(headers);
-  if (inactiveCount === 0) return null;
+  const isEmpty = inactiveCount === 0;
 
   return (
-    <Link href="/dashboard/recuperacion?tab=reactivar" className="block">
-      <Card className="group border border-orange-500/20 bg-orange-500/5 transition-all duration-200 hover:-translate-y-0.5 hover:border-orange-500/35 hover:bg-orange-500/8">
+    <Link href="/dashboard/recuperacion?tab=reactivar" className="block h-full">
+      <Card className={`group h-full transition-all duration-200 hover:-translate-y-0.5 ${
+        isEmpty
+          ? "border border-border hover:border-border/80"
+          : "border border-orange-500/20 bg-orange-500/5 hover:border-orange-500/35"
+      }`}>
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-            <RotateCcw className="h-4 w-4 shrink-0 text-orange-400" />
+            <RotateCcw className={`h-4 w-4 shrink-0 ${isEmpty ? "text-muted-foreground" : "text-orange-400"}`} />
             Clientes a reactivar
-            <Badge className="border-orange-500/30 bg-orange-500/15 text-orange-300">
-              {inactiveCount}
-            </Badge>
+            {!isEmpty && (
+              <Badge className="border-orange-500/30 bg-orange-500/15 text-orange-300">
+                {inactiveCount}
+              </Badge>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="flex items-center gap-1 text-sm text-muted-foreground">
-            {inactiveCount} cliente{inactiveCount === 1 ? "" : "s"} sin cita en más de 60 días.
-            <ArrowRight className="ml-auto h-3.5 w-3.5 shrink-0 opacity-50" />
+          {isEmpty ? (
+            <p className="text-sm text-muted-foreground">No hay clientes inactivos.</p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {inactiveCount.toLocaleString()} cliente{inactiveCount === 1 ? "" : "s"} de peluquería sin visita en más de 1 año.
+            </p>
+          )}
+          <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+            {!isEmpty && <span className="inline-block h-2 w-2 rounded-full bg-orange-400" />}
+            {isEmpty ? "Ver reactivación" : "Enviar campaña de reactivación"}
+            <ArrowRight className="ml-auto h-3.5 w-3.5 opacity-50" />
           </p>
         </CardContent>
       </Card>

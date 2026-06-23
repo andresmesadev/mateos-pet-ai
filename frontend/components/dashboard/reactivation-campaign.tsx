@@ -17,42 +17,74 @@ import { getPetEmoji } from "@/lib/pets";
 const DEFAULT_MESSAGE =
   "Hola {nombre} 👋 Te escribimos desde Mateos Pet. Hace tiempo no vemos a tu mascota por acá. ¿Todo bien? Escríbenos si quieres agendar una cita o tienes alguna duda 🐾";
 
+const PAGE_SIZE = 50;
+
 type InactiveClient = {
   id: string;
   phone: string;
   name: string | null;
   pets: { name: string; type: string }[];
-  lastAppointmentDate: string | null;
+  lastVisitDate: string | null;
 };
 
 type Props = {
   clients: InactiveClient[];
 };
 
-function daysSince(iso: string | null): string {
+function isNoPhone(phone: string): boolean {
+  return !phone || phone.toUpperCase().startsWith("NOPHONE");
+}
+
+function formatPhone(phone: string): string {
+  if (isNoPhone(phone)) return "Sin teléfono";
+  return phone;
+}
+
+function timeSince(iso: string | null): string {
   if (!iso) return "sin fecha";
-  const diff = Math.floor(
-    (Date.now() - new Date(iso).getTime()) / 86_400_000
-  );
-  if (diff < 30) return `hace ${diff} días`;
-  if (diff < 60) return "hace ~1 mes";
-  const months = Math.floor(diff / 30);
-  return `hace ~${months} meses`;
+  const diffDays = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+  if (diffDays < 1) return "hoy";
+  if (diffDays < 30) return `${diffDays} día${diffDays === 1 ? "" : "s"}`;
+
+  const years = Math.floor(diffDays / 365);
+  const months = Math.floor((diffDays % 365) / 30);
+  const days = diffDays % 30;
+
+  const parts: string[] = [];
+  if (years > 0) parts.push(`${years} año${years === 1 ? "" : "s"}`);
+  if (months > 0) parts.push(`${months} mes${months === 1 ? "" : "es"}`);
+  if (days > 0 && years === 0) parts.push(`${days} día${days === 1 ? "" : "s"}`);
+
+  return `hace ${parts.join(", ")}`;
 }
 
 export function ReactivationCampaign({ clients }: Props) {
+  const clientsWithPhone = clients.filter((c) => !isNoPhone(c.phone));
+  const clientsNoPhone = clients.length - clientsWithPhone.length;
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState(DEFAULT_MESSAGE);
   const [sending, setSending] = useState(false);
-  const [result, setResult] = useState<{
-    sent: number;
-    failed: number;
-    total: number;
-  } | null>(null);
+  const [result, setResult] = useState<{ sent: number; failed: number; noPhone: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
 
-  const allSelected =
-    clients.length > 0 && selected.size === clients.length;
+  const totalPages = Math.ceil(clients.length / PAGE_SIZE);
+  const paginated = clients.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const allOnPageSelected = paginated.length > 0 && paginated.every((c) => selected.has(c.id));
+  const allSelected = clients.length > 0 && selected.size === clients.length;
+
+  function togglePage() {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allOnPageSelected) {
+        paginated.forEach((c) => next.delete(c.id));
+      } else {
+        paginated.forEach((c) => next.add(c.id));
+      }
+      return next;
+    });
+  }
 
   function toggleAll() {
     if (allSelected) {
@@ -65,11 +97,8 @@ export function ReactivationCampaign({ clients }: Props) {
   function toggle(id: string) {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }
@@ -79,25 +108,16 @@ export function ReactivationCampaign({ clients }: Props) {
     setSending(true);
     setError(null);
     setResult(null);
-
     try {
-      const res = await fetch(
-        proxyUrl("/api/dashboard/campaigns/reactivation"),
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            clientIds: Array.from(selected),
-            message,
-          }),
-        }
-      );
-
+      const res = await fetch(proxyUrl("/api/dashboard/campaigns/reactivation"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientIds: Array.from(selected), message }),
+      });
       if (!res.ok) {
         const payload = await res.json().catch(() => null);
         throw new Error(payload?.error ?? "Error al enviar campaña");
       }
-
       const data = await res.json();
       setResult(data);
       setSelected(new Set());
@@ -114,7 +134,7 @@ export function ReactivationCampaign({ clients }: Props) {
         <CardContent className="py-16 text-center">
           <p className="text-lg font-medium">¡Todos activos! 🎉</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            No hay clientes sin cita en los últimos 60 días.
+            No hay clientes de peluquería sin visita en el último año.
           </p>
         </CardContent>
       </Card>
@@ -144,13 +164,17 @@ export function ReactivationCampaign({ clients }: Props) {
 
       {/* Resultado */}
       {result && (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm dark:border-green-900 dark:bg-green-950/20">
+        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm dark:border-green-900 dark:bg-green-950/20 space-y-0.5">
           <p className="font-medium text-green-800 dark:text-green-300">
-            Campaña enviada — {result.sent} exitosos · {result.failed} fallidos de {result.total}
+            ✓ Campaña enviada — {result.sent} mensaje{result.sent === 1 ? "" : "s"} enviado{result.sent === 1 ? "" : "s"}
+          </p>
+          <p className="text-green-700 dark:text-green-400 text-xs">
+            {result.failed > 0 && `${result.failed} fallidos · `}
+            {result.noPhone > 0 && `${result.noPhone} sin teléfono (omitidos) · `}
+            {result.total} seleccionados en total
           </p>
         </div>
       )}
-
       {error && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           {error}
@@ -160,80 +184,157 @@ export function ReactivationCampaign({ clients }: Props) {
       {/* Lista */}
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
               <CardTitle className="text-base">
-                Clientes inactivos
-                <Badge variant="secondary" className="ml-2">
-                  {clients.length}
-                </Badge>
+                Clientes de peluquería inactivos
+                <Badge variant="secondary" className="ml-2">{clients.length}</Badge>
               </CardTitle>
-              <CardDescription>Sin cita en más de 60 días</CardDescription>
+              <CardDescription>
+                Sin visita en más de 1 año · {clientsWithPhone.length} con teléfono
+                {clientsNoPhone > 0 && `, ${clientsNoPhone} sin teléfono`}
+              </CardDescription>
             </div>
-
-            <Button
-              size="sm"
-              onClick={handleSend}
-              disabled={selected.size === 0 || sending || !message.trim()}
-            >
-              {sending
-                ? "Enviando…"
-                : `Enviar a ${selected.size > 0 ? selected.size : "seleccionados"}`}
-            </Button>
+            <div className="flex items-center gap-2">
+              {selected.size > 0 && (
+                <span className="text-xs text-muted-foreground">{selected.size} seleccionado{selected.size === 1 ? "" : "s"}</span>
+              )}
+              <Button
+                size="sm"
+                onClick={handleSend}
+                disabled={selected.size === 0 || sending || !message.trim()}
+              >
+                {sending ? "Enviando…" : `Enviar a seleccionados`}
+              </Button>
+            </div>
           </div>
         </CardHeader>
 
         <CardContent className="p-0">
-          {/* Seleccionar todos */}
-          <label className="flex cursor-pointer items-center gap-3 border-b px-4 py-3 hover:bg-muted/40">
+          {/* Selección masiva */}
+          <div className="flex items-center gap-3 border-b px-4 py-2.5 bg-muted/30 text-sm">
             <input
               type="checkbox"
-              checked={allSelected}
-              onChange={toggleAll}
+              checked={allOnPageSelected}
+              onChange={togglePage}
               className="h-4 w-4 accent-primary"
             />
-            <span className="text-sm font-medium">
-              {allSelected ? "Deseleccionar todos" : `Seleccionar todos (${clients.length})`}
+            <span className="text-muted-foreground">
+              {allOnPageSelected ? "Deseleccionar página" : `Seleccionar página (${paginated.length})`}
             </span>
-          </label>
+            <span className="text-muted-foreground">·</span>
+            <button
+              onClick={toggleAll}
+              className="text-primary hover:underline text-xs"
+            >
+              {allSelected ? "Deseleccionar todos" : `Seleccionar todos (${clients.length})`}
+            </button>
+          </div>
 
           <ul className="divide-y">
-            {clients.map((client) => (
-              <li key={client.id}>
-                <label className="flex cursor-pointer items-start gap-3 px-4 py-3 hover:bg-muted/40">
-                  <input
-                    type="checkbox"
-                    checked={selected.has(client.id)}
-                    onChange={() => toggle(client.id)}
-                    className="mt-0.5 h-4 w-4 accent-primary"
-                    disabled={sending}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium">
-                        {client.name ?? client.phone}
-                      </span>
-                      {client.name && (
+            {paginated.map((client) => {
+              const phone = formatPhone(client.phone);
+              const hasPhone = !isNoPhone(client.phone);
+              return (
+                <li key={client.id}>
+                  <label className="flex cursor-pointer items-start gap-3 px-4 py-3 hover:bg-muted/40">
+                    <input
+                      type="checkbox"
+                      checked={selected.has(client.id)}
+                      onChange={() => toggle(client.id)}
+                      className="mt-0.5 h-4 w-4 accent-primary"
+                      disabled={sending}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium">
+                          {client.name ?? "Sin nombre"}
+                        </span>
+                        {hasPhone ? (
+                          <span className="text-xs text-muted-foreground">{phone}</span>
+                        ) : (
+                          <span className="text-xs text-orange-500 dark:text-orange-400">Sin teléfono</span>
+                        )}
+                      </div>
+                      <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
+                        {client.pets.map((pet, i) => (
+                          <span key={i} className="text-sm text-muted-foreground">
+                            {getPetEmoji(pet.type)} {pet.name}
+                          </span>
+                        ))}
                         <span className="text-xs text-muted-foreground">
-                          {client.phone}
+                          · Última visita: {timeSince(client.lastVisitDate)}
                         </span>
-                      )}
+                      </div>
                     </div>
-                    <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
-                      {client.pets.map((pet, i) => (
-                        <span key={i} className="text-sm text-muted-foreground">
-                          {getPetEmoji(pet.type)} {pet.name}
-                        </span>
-                      ))}
-                      <span className="text-xs text-muted-foreground">
-                        · Última cita: {daysSince(client.lastAppointmentDate)}
-                      </span>
-                    </div>
-                  </div>
-                </label>
-              </li>
-            ))}
+                  </label>
+                </li>
+              );
+            })}
           </ul>
+
+          {/* Paginación */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between border-t px-4 py-3">
+              <span className="text-xs text-muted-foreground">
+                Página {page} de {totalPages} · {clients.length} clientes en total
+              </span>
+              <div className="flex gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-2 text-xs"
+                  disabled={page === 1}
+                  onClick={() => setPage(1)}
+                >
+                  «
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-2 text-xs"
+                  disabled={page === 1}
+                  onClick={() => setPage((p) => p - 1)}
+                >
+                  ‹
+                </Button>
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  const start = Math.max(1, Math.min(page - 2, totalPages - 4));
+                  const p = start + i;
+                  if (p > totalPages) return null;
+                  return (
+                    <Button
+                      key={p}
+                      size="sm"
+                      variant={p === page ? "default" : "outline"}
+                      className="h-7 w-7 text-xs"
+                      onClick={() => setPage(p)}
+                    >
+                      {p}
+                    </Button>
+                  );
+                })}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-2 text-xs"
+                  disabled={page === totalPages}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  ›
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-2 text-xs"
+                  disabled={page === totalPages}
+                  onClick={() => setPage(totalPages)}
+                >
+                  »
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

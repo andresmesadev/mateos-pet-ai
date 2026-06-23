@@ -15,7 +15,7 @@ export default async function ContactoPage({ searchParams }: ContactoPageProps) 
     <section>
       <PageHeader
         title="Clientes"
-        description="Propietarios y mascotas registrados"
+        description="Clientes y mascotas registrados"
         icon={Users}
         tint="bg-violet-500/15 text-violet-400"
       />

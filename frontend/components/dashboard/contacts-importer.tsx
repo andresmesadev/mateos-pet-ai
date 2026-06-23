@@ -35,6 +35,13 @@ type ImportSummaryFull = {
   errors: { name: string; reason: string }[];
 };
 
+// ── Utilidades ──────────────────────────────────────────────────────────────────
+
+function cleanNan(val: string): string {
+  const s = val.trim();
+  return s === "" || s.toLowerCase() === "nan" || s.toLowerCase() === "null" ? "" : s;
+}
+
 // ── Parser CSV ──────────────────────────────────────────────────────────────────
 
 function parseCSVLine(line: string): string[] {
@@ -86,7 +93,7 @@ function parseFullCSV(text: string): RawContact[] {
 
   return lines.slice(1).map((line) => {
     const cols = parseCSVLine(line);
-    const get = (idx: number) => (idx !== -1 ? (cols[idx] ?? "") : "");
+    const get = (idx: number) => cleanNan(idx !== -1 ? (cols[idx] ?? "") : "");
 
     const pets: RawPet[] = petCols
       .map((pc) => ({
@@ -96,7 +103,7 @@ function parseFullCSV(text: string): RawContact[] {
         last_visit:    get(pc.last_visit),
         visit_history: get(pc.visit_history),
       }))
-      .filter((p) => p.name.trim() !== "");
+      .filter((p) => p.name !== "");
 
     return {
       owner_name: get(i.owner_name),
@@ -106,7 +113,7 @@ function parseFullCSV(text: string): RawContact[] {
       notes:      get(i.notes),
       pets,
     };
-  }).filter((c) => c.owner_name.trim() || c.phone.trim() || c.pets.length > 0);
+  }).filter((c) => c.owner_name || c.phone || c.pets.length > 0);
 }
 
 // ── Componente ──────────────────────────────────────────────────────────────────

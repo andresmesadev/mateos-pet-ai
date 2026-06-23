@@ -176,11 +176,19 @@ async function sendNextActionReminders({ tenantId, type }) {
     throw new Error(`Tipo inválido: ${type}`);
   }
 
-  const where = { status: "pending", type, reminderSentAt: null };
-  if (tenantId) where.tenantId = tenantId;
+  const now = new Date();
+  const windowStart = new Date(now.getTime() - 180 * 86_400_000);
+  const windowEnd = new Date(now.getTime() + 60 * 86_400_000);
 
-  const actions = await prisma.petNextAction.findMany({
-    where,
+  const tenantWhere = tenantId ? { pet: { owner: { tenantId } } } : {};
+
+  const records = await prisma.medicalRecord.findMany({
+    where: {
+      ...tenantWhere,
+      type,
+      reminderSent: false,
+      nextControlAt: { gte: windowStart, lte: windowEnd },
+    },
     include: {
       pet: {
         select: {
@@ -189,31 +197,31 @@ async function sendNextActionReminders({ tenantId, type }) {
         },
       },
     },
-    orderBy: { dueAt: "asc" },
+    orderBy: { nextControlAt: "asc" },
   });
 
   let sent = 0;
   let noPhone = 0;
 
-  for (const action of actions) {
-    const phone = action.pet?.owner?.phone;
+  for (const r of records) {
+    const phone = r.pet?.owner?.phone;
     if (!phone) { noPhone++; continue; }
 
-    const petName = action.pet.name ?? "tu mascota";
-    const ownerName = action.pet.owner?.name ?? null;
-    const message = buildActionMessage(action.type, petName, ownerName, action.dueAt, action.notes);
+    const petName = r.pet.name ?? "tu mascota";
+    const ownerName = r.pet.owner?.name ?? null;
+    const message = buildActionMessage(r.type, petName, ownerName, r.nextControlAt, r.title);
 
     const ok = await sendWhatsAppMessage(phone, message);
     if (ok) {
-      await prisma.petNextAction.update({
-        where: { id: action.id },
-        data: { reminderSentAt: new Date() },
+      await prisma.medicalRecord.update({
+        where: { id: r.id },
+        data: { reminderSent: true },
       });
       sent++;
     }
   }
 
-  return { sent, noPhone, total: actions.length };
+  return { sent, noPhone, total: records.length };
 }
 
 module.exports = {

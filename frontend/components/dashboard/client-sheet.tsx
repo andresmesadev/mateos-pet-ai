@@ -72,7 +72,7 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [editForm, setEditForm] = useState({ name: "", email: "", address: "", notes: "" });
+  const [editForm, setEditForm] = useState({ name: "", phone: "", phoneAlt: "", email: "", address: "", notes: "" });
   const [expedientePet, setExpedientePet] = useState<DashboardPet | null>(null);
   const [addingPet, setAddingPet] = useState(false);
 
@@ -130,6 +130,8 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
   const handleEdit = () => {
     setEditForm({
       name: client?.name ?? "",
+      phone: client?.phone ?? "",
+      phoneAlt: client?.phoneAlt ?? "",
       email: client?.email ?? "",
       address: client?.address ?? "",
       notes: client?.notes ?? "",
@@ -205,6 +207,18 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
                 onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
               />
               <Input
+                placeholder="Telefono principal"
+                type="tel"
+                value={editForm.phone}
+                onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
+              />
+              <Input
+                placeholder="Telefono alternativo (opcional)"
+                type="tel"
+                value={editForm.phoneAlt}
+                onChange={(e) => setEditForm((f) => ({ ...f, phoneAlt: e.target.value }))}
+              />
+              <Input
                 placeholder="Email"
                 value={editForm.email}
                 onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
@@ -230,10 +244,11 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
             </div>
           ) : (
             <div className="rounded-lg border bg-muted/30 px-3 py-3 text-sm space-y-1">
+              {client.phoneAlt && <p><span className="text-muted-foreground">Tel. alternativo: </span>{formatPhone(client.phoneAlt)}</p>}
               {client.email && <p><span className="text-muted-foreground">Email: </span>{client.email}</p>}
               {client.address && <p><span className="text-muted-foreground">Dirección: </span>{client.address}</p>}
               {client.notes && <p><span className="text-muted-foreground">Notas: </span>{client.notes}</p>}
-              {!client.email && !client.address && !client.notes && (
+              {!client.phoneAlt && !client.email && !client.address && !client.notes && (
                 <p className="text-muted-foreground">Sin datos adicionales.</p>
               )}
             </div>

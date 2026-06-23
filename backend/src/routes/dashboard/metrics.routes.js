@@ -165,17 +165,21 @@ router.get("/metrics/recovery", async (req, res) => {
       select: { id: true, lastReminderSentAt: true },
     });
 
-    // De esos, cuántos tienen al menos una cita posterior a SU lastReminderSentAt.
-    // Antes era un N+1 (un findFirst por usuario). Ahora son 2 queries:
-    // 1 para los contactados + 1 para todas sus citas válidas, y el cruce en JS.
+    // De esos, cuántos volvieron a peluquería después de recibir el recordatorio.
+    // Chequea medicalRecords (grooming) ya que la BD principal de visitas es esa.
     let reactivatedCount = 0;
     if (contactedUsers.length > 0) {
-      // Recordatorio más antiguo → cota inferior para acotar la query de citas
       const earliestReminder = contactedUsers.reduce(
         (min, u) => (u.lastReminderSentAt < min ? u.lastReminderSentAt : min),
         contactedUsers[0].lastReminderSentAt
       );
 
+      const reminderByUser = new Map(
+        contactedUsers.map((u) => [u.id, u.lastReminderSentAt])
+      );
+      const reactivatedSet = new Set();
+
+      // 1. Citas (appointments) posteriores al recordatorio
       const appts = await prisma.appointment.findMany({
         where: {
           userId: { in: contactedUsers.map((u) => u.id) },
@@ -184,15 +188,27 @@ router.get("/metrics/recovery", async (req, res) => {
         },
         select: { userId: true, date: true },
       });
-
-      const reminderByUser = new Map(
-        contactedUsers.map((u) => [u.id, u.lastReminderSentAt])
-      );
-      const reactivatedSet = new Set();
       for (const a of appts) {
         const reminderDate = reminderByUser.get(a.userId);
         if (reminderDate && a.date > reminderDate) reactivatedSet.add(a.userId);
       }
+
+      // 2. Registros médicos de grooming posteriores al recordatorio
+      const groomRecords = await prisma.medicalRecord.findMany({
+        where: {
+          type: "grooming",
+          date: { gt: earliestReminder },
+          pet: { ownerId: { in: contactedUsers.map((u) => u.id) } },
+        },
+        select: { pet: { select: { ownerId: true } }, date: true },
+      });
+      for (const r of groomRecords) {
+        const ownerId = r.pet?.ownerId;
+        if (!ownerId) continue;
+        const reminderDate = reminderByUser.get(ownerId);
+        if (reminderDate && r.date > reminderDate) reactivatedSet.add(ownerId);
+      }
+
       reactivatedCount = reactivatedSet.size;
     }
 
@@ -243,28 +259,32 @@ router.get("/metrics/churn", async (req, res) => {
     const { tenantId } = req.tenant;
     const limit = Math.min(parseInt(req.query.limit ?? "50") || 50, 200);
 
-    // Acotar el universo: solo clientes con al menos una cita completada en el
-    // último año. Quien no viene hace +1 año ya abandonó (no es "riesgo"), y así
-    // evitamos cargar toda la tabla de usuarios en memoria.
+    // Acotar el universo: clientes con al menos un registro médico en el
+    // último año. Quien no viene hace +1 año ya abandonó (no es "riesgo").
     const oneYearAgo = new Date(Date.now() - 365 * 86400000);
     const users = await prisma.user.findMany({
       where: {
         ...(tenantId ? { tenantId } : {}),
-        appointments: {
-          some: { status: "completed", date: { gte: oneYearAgo } },
+        pets: {
+          some: {
+            medicalRecords: { some: { type: "grooming", date: { gte: oneYearAgo } } },
+          },
         },
       },
       select: {
         id: true,
         name: true,
         phone: true,
-        appointments: {
-          where: { status: "completed", ...(tenantId ? { tenantId } : {}) },
-          select: { date: true, petName: true },
-          // Tomamos las 30 más recientes (desc) y las invertimos en JS para
-          // calcular intervalos. Limita la carga en memoria por usuario.
-          orderBy: { date: "desc" },
-          take: 30,
+        pets: {
+          select: {
+            name: true,
+            medicalRecords: {
+              where: { type: "grooming" },
+              select: { date: true },
+              orderBy: { date: "desc" },
+              take: 30,
+            },
+          },
         },
       },
     });
@@ -275,23 +295,26 @@ router.get("/metrics/churn", async (req, res) => {
     const atRisk = [];
 
     for (const u of users) {
-      // Ordenar ascendente en JS para que los intervalos sean positivos,
-      // independientemente del orderBy que haya usado Prisma.
-      const appts = u.appointments.slice().sort((a, b) => new Date(a.date) - new Date(b.date));
-      if (appts.length < 2) continue;
+      // Solo registros de grooming, ordenados asc para calcular intervalos
+      const visits = u.pets
+        .flatMap((p) => p.medicalRecords.map((r) => ({ date: r.date, petName: p.name })))
+        .filter((r) => r.date)
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
 
-      // Calcular intervalo promedio entre citas consecutivas
+      if (visits.length < 2) continue;
+
+      // Calcular intervalo promedio entre visitas consecutivas
       let totalInterval = 0;
-      for (let i = 1; i < appts.length; i++) {
-        totalInterval += new Date(appts[i].date) - new Date(appts[i - 1].date);
+      for (let i = 1; i < visits.length; i++) {
+        totalInterval += new Date(visits[i].date) - new Date(visits[i - 1].date);
       }
-      const avgIntervalMs = totalInterval / (appts.length - 1);
+      const avgIntervalMs = totalInterval / (visits.length - 1);
       const avgIntervalDays = Math.round(avgIntervalMs / MS_DAY);
 
       if (avgIntervalDays < 7) continue; // clientes diarios no son churn risk
 
-      const lastAppt = appts[appts.length - 1];
-      const daysSinceLast = Math.floor((now - new Date(lastAppt.date)) / MS_DAY);
+      const lastVisit = visits[visits.length - 1];
+      const daysSinceLast = Math.floor((now - new Date(lastVisit.date)) / MS_DAY);
       const overdueRatio = daysSinceLast / avgIntervalDays;
 
       if (overdueRatio < 1.0) continue; // aún dentro de su ventana normal
@@ -302,12 +325,12 @@ router.get("/metrics/churn", async (req, res) => {
         id: u.id,
         name: u.name ?? "Sin nombre",
         phone: u.phone,
-        petName: lastAppt.petName,
+        petName: lastVisit.petName,
         lastVisitDays: daysSinceLast,
         avgIntervalDays,
         overdueRatio: Math.round(overdueRatio * 10) / 10,
         riskLevel,
-        totalVisits: appts.length,
+        totalVisits: visits.length,
       });
     }
 

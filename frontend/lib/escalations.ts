@@ -39,8 +39,19 @@ export function formatRelativeTime(iso: string): string {
 
 export function formatPhone(phone: string | null): string {
   if (!phone) return "—";
-  if (phone.startsWith("57") && phone.length > 10) {
-    return `+${phone.slice(0, 2)} ${phone.slice(2)}`;
+  if (phone.startsWith("NOPHONE_")) return "Sin teléfono";
+  // Celular colombiano: 573XXXXXXXXX → +57 3XX XXX XXXX
+  if (/^573\d{9}$/.test(phone)) {
+    const n = phone.slice(2);
+    return `+57 ${n.slice(0, 3)} ${n.slice(3, 6)} ${n.slice(6)}`;
+  }
+  // Fijo Medellín 604XXXXXXX → (604) XXX XXXX
+  if (/^604\d{7}$/.test(phone)) {
+    return `(604) ${phone.slice(3, 6)} ${phone.slice(6)}`;
+  }
+  // Fijo otra área 60XXXXXXXX → (60X) XXX XXXX
+  if (/^60\d{8}$/.test(phone)) {
+    return `(${phone.slice(0, 3)}) ${phone.slice(3, 6)} ${phone.slice(6)}`;
   }
   return phone;
 }

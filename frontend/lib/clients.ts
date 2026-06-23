@@ -33,6 +33,7 @@ export type ClientAppointment = {
 export type ClientDetail = {
   id: string;
   phone: string;
+  phoneAlt: string | null;
   name: string | null;
   email: string | null;
   address: string | null;

@@ -92,6 +92,7 @@ function TimelineSkeleton() {
 }
 
 type PetProfileForm = {
+  petName: string; ownerName: string; ownerPhone: string;
   breed: string; gender: string; birthDate: string;
   weight: string; sterilized: string; notes: string;
 };
@@ -119,7 +120,13 @@ function PetMedicalSheetContent({
     breed: pet.breed, gender: pet.gender, birthDate: pet.birthDate,
     weight: pet.weight, sterilized: pet.sterilized, notes: pet.notes,
   });
+  const [petName, setPetName]             = useState(pet.name);
+  const [ownerName, setOwnerName]         = useState(pet.owner?.name ?? "");
+  const [ownerPhone, setOwnerPhone]       = useState(pet.owner?.phone ?? "");
   const [profileForm, setProfileForm]     = useState<PetProfileForm>({
+    petName:    pet.name,
+    ownerName:  pet.owner?.name ?? "",
+    ownerPhone: pet.owner?.phone ?? "",
     breed:      pet.breed ?? "",
     gender:     pet.gender ?? "",
     birthDate:  pet.birthDate ? pet.birthDate.slice(0, 10) : "",
@@ -168,10 +175,12 @@ function PetMedicalSheetContent({
   async function handleSaveProfile() {
     setSavingProfile(true);
     try {
-      const res = await fetch(proxyUrl(`/api/dashboard/pets/${pet.id}`), {
+      // Guardar mascota (nombre + datos clínicos)
+      const petRes = await fetch(proxyUrl(`/api/dashboard/pets/${pet.id}`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          name:       profileForm.petName.trim() || pet.name,
           breed:      profileForm.breed || null,
           gender:     profileForm.gender || null,
           birthDate:  profileForm.birthDate || null,
@@ -180,13 +189,30 @@ function PetMedicalSheetContent({
           notes:      profileForm.notes || null,
         }),
       });
-      if (!res.ok) throw new Error("Error al guardar");
-      const updated = await res.json();
-      setProfile(updated);
+      if (!petRes.ok) throw new Error("Error al guardar mascota");
+      const updatedPet = await petRes.json();
+      setProfile(updatedPet);
+      setPetName(profileForm.petName.trim() || pet.name);
+
+      // Guardar propietario si tiene id
+      if (pet.owner?.id) {
+        const ownerRes = await fetch(proxyUrl(`/api/dashboard/clients/${pet.owner.id}`), {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name:  profileForm.ownerName.trim() || null,
+            phone: profileForm.ownerPhone.trim() || null,
+          }),
+        });
+        if (!ownerRes.ok) throw new Error("Error al guardar propietario");
+        setOwnerName(profileForm.ownerName.trim());
+        setOwnerPhone(profileForm.ownerPhone.trim());
+      }
+
       setEditingProfile(false);
       toast("Ficha guardada.", "success");
-    } catch {
-      toast("No se guardó. Intenta de nuevo.", "error");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "No se guardó. Intenta de nuevo.", "error");
     } finally {
       setSavingProfile(false);
     }
@@ -238,11 +264,11 @@ function PetMedicalSheetContent({
             {getPetEmoji(pet.type)}
           </div>
           <div>
-            <DialogTitle className="text-base font-semibold tracking-tight">{pet.name}</DialogTitle>
+            <DialogTitle className="text-base font-semibold tracking-tight">{petName}</DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
               {formatPetType(pet.type)}
-              {pet.owner?.name ? ` · ${pet.owner.name}` : ""}
-              {pet.owner?.phone ? ` · ${pet.owner.phone}` : ""}
+              {ownerName ? ` · ${ownerName}` : ""}
+              {ownerPhone ? ` · ${ownerPhone}` : ""}
             </DialogDescription>
           </div>
         </div>
@@ -282,6 +308,32 @@ function PetMedicalSheetContent({
 
           {editingProfile ? (
             <div className="space-y-3 p-4">
+              {/* Identificación */}
+              <div className="grid grid-cols-1 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Nombre de la mascota</label>
+                  <Input value={profileForm.petName}
+                    onChange={(e) => setProfileForm((f) => ({ ...f, petName: e.target.value }))}
+                    placeholder="Ej. Max" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Nombre del propietario</label>
+                  <Input value={profileForm.ownerName}
+                    onChange={(e) => setProfileForm((f) => ({ ...f, ownerName: e.target.value }))}
+                    placeholder="Ej. María López" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Teléfono / WhatsApp</label>
+                  <Input value={profileForm.ownerPhone}
+                    onChange={(e) => setProfileForm((f) => ({ ...f, ownerPhone: e.target.value }))}
+                    placeholder="+57 300 000 0000" />
+                </div>
+              </div>
+              <div className="border-t border-white/[0.06] pt-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Datos clínicos</p>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground">Raza</label>

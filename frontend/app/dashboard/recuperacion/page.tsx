@@ -12,7 +12,7 @@ type InactiveClient = {
   phone: string;
   name: string | null;
   pets: { name: string; type: string }[];
-  lastAppointmentDate: string | null;
+  lastVisitDate: string | null;
 };
 
 export type RecuperacionData = {
@@ -39,13 +39,13 @@ export default async function RecuperacionPage({ searchParams }: PageProps) {
   const data: RecuperacionData = {
     opportunities: opportunitiesRes.ok
       ? await opportunitiesRes.json()
-      : { byType: {}, inactive: [] },
+      : { byType: {}, total: 0 },
     inactive: inactiveRes.ok ? await inactiveRes.json() : [],
     churn: churnRes.ok ? await churnRes.json() : [],
   };
 
   // Contadores para los tabs
-  const oppCount = Object.values(data.opportunities.byType).flat().length;
+  const oppCount = data.opportunities.total ?? Object.values(data.opportunities.byType).flat().length;
   const inactiveCount = data.inactive.length;
   const churnHighCount = data.churn.filter((c) => c.riskLevel === "high").length;
   const churnCount = data.churn.length;
