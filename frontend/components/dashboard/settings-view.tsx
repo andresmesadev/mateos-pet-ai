@@ -72,7 +72,7 @@ export function GeneralInfoSection({ profile }: { profile: TenantProfile | null 
 
   return (
     <div className="space-y-6 max-w-xl">
-      <Card className="border-t-2 border-t-slate-400/50 border-white/[0.10]">
+      <Card className="border border-white/[0.10] border-t-2 border-t-slate-400/50">
         <CardHeader className="pb-3 border-b border-white/[0.06]"><CardTitle className="text-sm">Datos del negocio</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1.5">
@@ -263,7 +263,7 @@ export function LocationServicesSection({ profile, services: initial }: { profil
 
   return (
     <div className="space-y-6 max-w-2xl">
-      <Card className="border-t-2 border-t-slate-400/50 border-white/[0.10]">
+      <Card className="border border-white/[0.10] border-t-2 border-t-slate-400/50">
         <CardHeader className="pb-3 border-b border-white/[0.06]"><CardTitle className="text-sm">Dirección</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Calle 123 # 45-67, Bogotá" />
@@ -271,7 +271,7 @@ export function LocationServicesSection({ profile, services: initial }: { profil
         </CardContent>
       </Card>
 
-      <Card className="border-t-2 border-t-slate-400/50 border-white/[0.10]">
+      <Card className="border border-white/[0.10] border-t-2 border-t-slate-400/50">
         <CardHeader className="pb-3 border-b border-white/[0.06]"><CardTitle className="text-sm">Servicios ofrecidos</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <AddServiceForm onAdded={(s) => setServices((prev) => [s, ...prev])} />
@@ -330,7 +330,7 @@ export function ScheduleSection({ profile }: { profile: TenantProfile | null }) 
 
   return (
     <div className="space-y-6 max-w-xl">
-      <Card className="border-t-2 border-t-slate-400/50 border-white/[0.10]">
+      <Card className="border border-white/[0.10] border-t-2 border-t-slate-400/50">
         <CardHeader className="pb-3 border-b border-white/[0.06]"><CardTitle className="text-sm">Horarios de atención</CardTitle></CardHeader>
         <CardContent>
           <div className="space-y-2">
@@ -361,7 +361,7 @@ export function ScheduleSection({ profile }: { profile: TenantProfile | null }) 
 export function FiscalSection({ profile }: { profile: TenantProfile | null }) {
   return (
     <div className="max-w-xl space-y-4">
-      <Card className="border-t-2 border-t-slate-400/50 border-white/[0.10]">
+      <Card className="border border-white/[0.10] border-t-2 border-t-slate-400/50">
         <CardHeader className="pb-3 border-b border-white/[0.06]"><CardTitle className="text-sm">Datos fiscales</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 p-4 text-center">

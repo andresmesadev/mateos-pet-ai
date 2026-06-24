@@ -153,11 +153,10 @@ export function TodaySchedule({ appointments: initial }: Props) {
 
         <CardContent>
           {appointments.length === 0 ? (
-            <div className="rounded-lg border border-dashed px-4 py-10 text-center">
-              <p className="text-lg font-medium">No hay citas para hoy 🐾</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                El agente WhatsApp irá agendando durante el día.
-              </p>
+            <div className="flex flex-col items-center gap-2 py-10 text-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-500/10 ring-1 ring-teal-500/20 text-2xl">🐾</div>
+              <p className="mt-1 text-base font-medium">No hay citas para hoy</p>
+              <p className="text-sm text-muted-foreground">El agente WhatsApp irá agendando durante el día.</p>
             </div>
           ) : (
             <ul className="divide-y">
