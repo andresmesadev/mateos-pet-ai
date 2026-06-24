@@ -58,12 +58,12 @@ export async function OpportunitiesWidget({ headers }: { headers: Headers }) {
 
   return (
     <Link href="/dashboard/recuperacion?tab=oportunidades" className="block h-full">
-      <Card className={`group h-full transition-all duration-200 hover:-translate-y-0.5 ${
+      <Card className={`group h-full glass-card transition-all duration-200 hover:-translate-y-0.5 ${
         isEmpty
-          ? "border border-border hover:border-border/80"
+          ? "border border-white/[0.08] hover:border-white/[0.12]"
           : hasOverdue
-            ? "border border-amber-500/25 bg-amber-500/5 hover:border-amber-500/40"
-            : "border border-sky-500/20 bg-sky-500/5 hover:border-sky-500/35"
+            ? "border border-white/[0.08] border-t-2 border-t-amber-500/50 bg-amber-500/[0.04] hover:border-amber-500/30 hover:shadow-[0_0_24px_rgba(245,158,11,0.12)]"
+            : "border border-white/[0.08] border-t-2 border-t-sky-500/50 bg-sky-500/[0.04] hover:border-sky-500/30 hover:shadow-[0_0_24px_rgba(14,165,233,0.12)]"
       }`}>
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-sm font-semibold">
@@ -118,16 +118,58 @@ function PanelHeader({ title, href, linkLabel }: { title: string; href: string; 
   );
 }
 
+// ── SVG ilustración mascota + IA ──────────────────────────────
+function PetAiIllustration() {
+  return (
+    <svg
+      viewBox="0 0 96 96"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="h-24 w-24 text-primary/60"
+      aria-hidden="true"
+    >
+      {/* Cuerpo */}
+      <ellipse cx="48" cy="62" rx="22" ry="17" stroke="currentColor" strokeWidth="1.5" />
+      {/* Cabeza */}
+      <circle cx="48" cy="34" r="16" stroke="currentColor" strokeWidth="1.5" />
+      {/* Orejas */}
+      <path d="M34 24 C29 14 21 16 23 26" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M62 24 C67 14 75 16 73 26" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      {/* Ojos */}
+      <circle cx="42" cy="32" r="2.5" fill="currentColor" />
+      <circle cx="54" cy="32" r="2.5" fill="currentColor" />
+      {/* Brillo en ojos */}
+      <circle cx="43" cy="31" r="0.8" fill="white" opacity="0.7" />
+      <circle cx="55" cy="31" r="0.8" fill="white" opacity="0.7" />
+      {/* Nariz */}
+      <ellipse cx="48" cy="38.5" rx="3" ry="2" fill="currentColor" opacity="0.5" />
+      {/* Circuitos — derecha */}
+      <path d="M76 18 L84 18 L84 30 L80 30" stroke="currentColor" strokeWidth="0.8" opacity="0.4" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="80" cy="30" r="1.5" fill="currentColor" opacity="0.4" />
+      <circle cx="84" cy="18" r="1.5" fill="currentColor" opacity="0.35" />
+      {/* Circuitos — izquierda */}
+      <path d="M20 22 L12 22 L12 36 L16 36" stroke="currentColor" strokeWidth="0.8" opacity="0.4" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="16" cy="36" r="1.5" fill="currentColor" opacity="0.4" />
+      {/* Sparkles */}
+      <path d="M10 60 L10 65 M7.5 62.5 L12.5 62.5" stroke="currentColor" strokeWidth="1.2" opacity="0.45" strokeLinecap="round" />
+      <path d="M82 56 L82 60 M80 58 L84 58" stroke="currentColor" strokeWidth="1.2" opacity="0.45" strokeLinecap="round" />
+      <path d="M86 30 L87 32.5 M84.5 31 L87.5 31" stroke="currentColor" strokeWidth="0.9" opacity="0.35" strokeLinecap="round" />
+      <path d="M8 42 L9 44" stroke="currentColor" strokeWidth="0.9" opacity="0.3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 // ── Conversaciones activas ────────────────────────────────────
 export async function ConversationsActiveSection({ headers }: { headers: Headers }) {
   const conversations = await fetchActiveConversations(headers);
   return (
-    <Card className="h-full border-t-2 border-t-emerald-500/50 border-white/[0.12]">
+    <Card className="h-full border-t-2 border-t-emerald-500/50 border-white/[0.10] glass-card bg-emerald-500/[0.03]">
       <PanelHeader title="Conversaciones activas" href="/dashboard/conversations" linkLabel="Ver todas" />
       <CardContent className="p-0">
         {conversations.length === 0 ? (
-          <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-            Las conversaciones de WhatsApp aparecerán aquí.
+          <div className="flex flex-col items-center gap-3 px-4 py-10 text-center">
+            <PetAiIllustration />
+            <p className="text-sm text-muted-foreground">Las conversaciones de WhatsApp aparecerán aquí.</p>
           </div>
         ) : (
           <ul className="divide-y">
@@ -197,12 +239,13 @@ function reminderDate(dueAt: string): string {
 export async function RemindersSection({ headers }: { headers: Headers }) {
   const reminders: UpcomingReminder[] = await fetchUpcomingReminders(headers);
   return (
-    <Card className="h-full border-t-2 border-t-amber-500/50 border-white/[0.12]">
+    <Card className="h-full border-t-2 border-t-amber-500/50 border-white/[0.10] glass-card bg-amber-500/[0.03]">
       <PanelHeader title="Recordatorios próximos" href="/dashboard/recuperacion" linkLabel="Ver todos" />
       <CardContent className="p-0">
         {reminders.length === 0 ? (
-          <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-            No hay recordatorios pendientes.
+          <div className="flex flex-col items-center gap-3 px-4 py-10 text-center">
+            <PetAiIllustration />
+            <p className="text-sm text-muted-foreground">No hay recordatorios pendientes.</p>
           </div>
         ) : (
           <ul className="divide-y">
@@ -241,10 +284,10 @@ export async function ChurnWidget({ headers }: { headers: Headers }) {
 
   return (
     <Link href="/dashboard/recuperacion?tab=churn" className="block h-full">
-      <Card className={`group h-full transition-all duration-200 hover:-translate-y-0.5 ${
+      <Card className={`group h-full glass-card transition-all duration-200 hover:-translate-y-0.5 ${
         isEmpty
-          ? "border border-border hover:border-border/80"
-          : "border border-red-500/25 bg-red-500/5 hover:border-red-500/40"
+          ? "border border-white/[0.08] hover:border-white/[0.12]"
+          : "border border-white/[0.08] border-t-2 border-t-rose-500/50 bg-rose-500/[0.04] hover:border-rose-500/30 hover:shadow-[0_0_24px_rgba(244,63,94,0.12)]"
       }`}>
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-sm font-semibold">
@@ -283,10 +326,10 @@ export async function ReactivarWidget({ headers }: { headers: Headers }) {
 
   return (
     <Link href="/dashboard/recuperacion?tab=reactivar" className="block h-full">
-      <Card className={`group h-full transition-all duration-200 hover:-translate-y-0.5 ${
+      <Card className={`group h-full glass-card transition-all duration-200 hover:-translate-y-0.5 ${
         isEmpty
-          ? "border border-border hover:border-border/80"
-          : "border border-orange-500/20 bg-orange-500/5 hover:border-orange-500/35"
+          ? "border border-white/[0.08] hover:border-white/[0.12]"
+          : "border border-white/[0.08] border-t-2 border-t-orange-500/50 bg-orange-500/[0.04] hover:border-orange-500/30 hover:shadow-[0_0_24px_rgba(249,115,22,0.12)]"
       }`}>
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-sm font-semibold">

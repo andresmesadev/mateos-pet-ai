@@ -64,21 +64,21 @@ function NavLink({
       href={item.href}
       onClick={onNavigate}
       className={cn(
-        "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
+        "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
         active
-          ? "bg-sidebar-primary/15 text-sidebar-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
-          : "text-sidebar-foreground/65 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+          ? "bg-gradient-to-r from-sidebar-primary/20 to-sidebar-primary/0 text-sidebar-primary"
+          : "text-sidebar-foreground/55 hover:bg-white/[0.05] hover:text-sidebar-foreground"
       )}
     >
       {active && (
-        <span className="absolute inset-y-2 left-0 w-[3px] rounded-r-full bg-sidebar-primary shadow-[0_0_6px_rgba(0,212,170,0.5)]" />
+        <span className="absolute inset-y-2 left-0 w-[3px] rounded-r-full bg-sidebar-primary shadow-[0_0_10px_2px_oklch(0.78_0.18_195_/_50%)]" />
       )}
       <Icon
         className={cn(
           "h-[18px] w-[18px] shrink-0 transition-colors",
           active
-            ? "text-sidebar-primary"
-            : "text-sidebar-foreground/45 group-hover:text-sidebar-foreground"
+            ? "text-sidebar-primary drop-shadow-[0_0_6px_oklch(0.78_0.18_195_/_60%)]"
+            : "text-sidebar-foreground/40 group-hover:text-sidebar-foreground"
         )}
       />
       <span className="truncate">{item.label}</span>
@@ -98,17 +98,20 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const initials = userName.slice(0, 2).toUpperCase();
 
   return (
-    <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
+    <div
+      className="flex h-full flex-col backdrop-blur-xl text-sidebar-foreground"
+      style={{ background: "var(--sidebar)" }}
+    >
       {/* Marca */}
       <div className="flex items-center gap-3 border-b border-sidebar-border px-4 py-4">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sidebar-primary/25 to-sidebar-primary/10 ring-1 ring-sidebar-primary/30 shadow-[0_0_12px_-2px_rgba(0,212,170,0.2)]">
-          <PawPrint className="h-5 w-5 text-sidebar-primary" />
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sidebar-primary/30 to-sidebar-primary/10 ring-1 ring-sidebar-primary/40 shadow-[0_0_16px_-2px_oklch(0.78_0.18_195_/_40%)]">
+          <PawPrint className="h-5 w-5 text-sidebar-primary drop-shadow-[0_0_6px_oklch(0.78_0.18_195_/_80%)]" />
         </div>
         <div className="min-w-0">
-          <p className="truncate text-sm font-bold leading-tight tracking-tight">
+          <p className="truncate text-sm font-bold leading-tight tracking-tight gradient-text">
             Mateos Pet AI
           </p>
-          <p className="truncate text-[11px] text-sidebar-foreground/45 font-medium">Panel operativo</p>
+          <p className="truncate text-[11px] text-sidebar-foreground/40 font-medium">Panel operativo</p>
         </div>
       </div>
 
@@ -117,7 +120,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         {sections.map((section, i) => (
           <div key={section.heading ?? i} className="space-y-0.5">
             {section.heading && (
-              <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/35">
+              <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/30">
                 {section.heading}
               </p>
             )}
@@ -130,34 +133,37 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
       {/* Card Agente IA activo */}
       <div className="px-3 pb-3">
-        <div className="rounded-xl border border-sidebar-primary/15 bg-gradient-to-br from-sidebar-primary/10 to-sidebar-accent/60 p-3">
+        <div className="rounded-xl border border-sidebar-primary/15 bg-gradient-to-br from-sidebar-primary/10 to-transparent p-3 shadow-[0_0_20px_-6px_oklch(0.78_0.18_195_/_25%)] backdrop-blur-sm">
           <div className="flex items-center gap-2">
             <div className="relative shrink-0">
-              <Bot className="h-4 w-4 text-sidebar-primary" />
-              <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+              <Bot className="h-4 w-4 text-sidebar-primary drop-shadow-[0_0_4px_oklch(0.78_0.18_195_/_80%)]" />
+              <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400 shadow-[0_0_4px_oklch(0.7_0.2_145_/_80%)]" />
             </div>
             <p className="text-xs font-semibold text-emerald-400">Agente IA activo</p>
           </div>
-          <p className="mt-1 text-[11px] leading-relaxed text-sidebar-foreground/55">
+          <p className="mt-1 text-[11px] leading-relaxed text-sidebar-foreground/50">
             Respondiendo en WhatsApp y agendando citas automáticamente.
           </p>
         </div>
       </div>
 
       {/* Perfil + logout */}
-      <div className="flex items-center gap-3 border-t border-sidebar-border px-4 py-3 bg-sidebar-accent/30">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sidebar-primary/25 text-[11px] font-bold text-sidebar-primary ring-1 ring-sidebar-primary/30">
+      <div
+        className="flex items-center gap-3 border-t border-sidebar-border px-4 py-3"
+        style={{ background: "oklch(1 0 0 / 3%)" }}
+      >
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sidebar-primary/30 to-sidebar-primary/10 text-[11px] font-bold text-sidebar-primary ring-1 ring-sidebar-primary/30">
           {initials}
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs font-semibold">{userName}</p>
-          <p className="truncate text-[11px] text-sidebar-foreground/50">{role}</p>
+          <p className="truncate text-[11px] text-sidebar-foreground/45">{role}</p>
         </div>
         <button
           type="button"
           onClick={() => signOut({ callbackUrl: "/login" })}
           aria-label="Cerrar sesión"
-          className="rounded-lg p-1.5 text-sidebar-foreground/50 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+          className="rounded-lg p-1.5 text-sidebar-foreground/40 transition-colors hover:bg-white/[0.06] hover:text-sidebar-foreground"
         >
           <LogOut className="h-4 w-4" />
         </button>
@@ -177,7 +183,7 @@ export function DashboardSidebar() {
       <button
         type="button"
         onClick={() => setMobileOpen(true)}
-        className="fixed left-4 top-4 z-40 rounded-lg border border-border bg-card p-2 text-foreground shadow-sm lg:hidden"
+        className="fixed left-4 top-4 z-40 rounded-lg border border-white/[0.08] bg-white/[0.06] p-2 text-foreground shadow-sm backdrop-blur-md lg:hidden"
         aria-label="Abrir menú"
       >
         <Menu className="h-5 w-5" />
@@ -192,14 +198,14 @@ export function DashboardSidebar() {
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
             onClick={() => setMobileOpen(false)}
           />
           <aside className="absolute inset-y-0 left-0 w-64 border-r border-sidebar-border shadow-2xl">
             <button
               type="button"
               onClick={() => setMobileOpen(false)}
-              className="absolute right-3 top-4 z-10 rounded-lg p-1.5 text-sidebar-foreground/60 hover:bg-sidebar-accent"
+              className="absolute right-3 top-4 z-10 rounded-lg p-1.5 text-sidebar-foreground/60 hover:bg-white/[0.06]"
               aria-label="Cerrar menú"
             >
               <X className="h-5 w-5" />

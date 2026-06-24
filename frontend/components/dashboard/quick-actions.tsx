@@ -14,14 +14,6 @@ type Action = {
   subtitle: string;
   icon: LucideIcon;
   tint: string;
-};
-
-type Action = {
-  href: string;
-  title: string;
-  subtitle: string;
-  icon: LucideIcon;
-  tint: string;
   border: string;
 };
 

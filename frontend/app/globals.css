@@ -84,45 +84,62 @@
 }
 
 .dark {
-  /* Slate profundo con tinte azulado (no negro plano) + acento teal/cian */
-  --background: oklch(0.198 0.02 258);
-  --foreground: oklch(0.97 0.005 250);
-  --card: oklch(0.255 0.022 256);
-  --card-foreground: oklch(0.97 0.005 250);
-  --popover: oklch(0.255 0.022 256);
-  --popover-foreground: oklch(0.97 0.005 250);
-  --primary: oklch(0.74 0.13 195);
-  --primary-foreground: oklch(0.18 0.03 230);
-  --secondary: oklch(0.31 0.022 255);
-  --secondary-foreground: oklch(0.97 0.005 250);
-  --muted: oklch(0.31 0.022 255);
-  --muted-foreground: oklch(0.72 0.018 250);
-  --accent: oklch(0.33 0.04 210);
-  --accent-foreground: oklch(0.97 0.005 250);
+  /* ── Space navy profundo ─────────────────────────────────── */
+  --background: oklch(0.115 0.025 258);
+  --foreground: oklch(0.96 0.006 250);
+
+  /* ── Cards semi-transparentes para glassmorphism ─────────── */
+  --card: oklch(0.22 0.022 256 / 70%);
+  --card-foreground: oklch(0.96 0.006 250);
+
+  /* ── Popovers/dropdowns opacos (legibilidad) ─────────────── */
+  --popover: oklch(0.19 0.022 258);
+  --popover-foreground: oklch(0.96 0.006 250);
+
+  /* ── Electric cyan primario más vibrante ─────────────────── */
+  --primary: oklch(0.78 0.18 195);
+  --primary-foreground: oklch(0.10 0.03 230);
+
+  --secondary: oklch(0.28 0.022 255 / 80%);
+  --secondary-foreground: oklch(0.96 0.006 250);
+  --muted: oklch(0.28 0.022 255 / 70%);
+  --muted-foreground: oklch(0.66 0.018 250);
+  --accent: oklch(0.30 0.04 210 / 80%);
+  --accent-foreground: oklch(0.96 0.006 250);
+
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 16%);
-  --ring: oklch(0.74 0.13 195);
-  --chart-1: oklch(0.74 0.13 195);
+  --border: oklch(1 0 0 / 8%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.78 0.18 195);
+
+  --chart-1: oklch(0.78 0.18 195);
   --chart-2: oklch(0.7 0.15 160);
-  --chart-3: oklch(0.65 0.18 280);
+  --chart-3: oklch(0.65 0.22 290);
   --chart-4: oklch(0.75 0.15 90);
   --chart-5: oklch(0.7 0.16 30);
-  --sidebar: oklch(0.18 0.018 258);
+
+  /* ── Sidebar semi-transparente ───────────────────────────── */
+  --sidebar: oklch(0.13 0.018 258 / 85%);
   --sidebar-foreground: oklch(0.92 0.008 250);
-  --sidebar-primary: oklch(0.74 0.13 195);
-  --sidebar-primary-foreground: oklch(0.18 0.03 230);
-  --sidebar-accent: oklch(0.28 0.025 255);
-  --sidebar-accent-foreground: oklch(0.97 0.005 250);
-  --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.74 0.13 195);
+  --sidebar-primary: oklch(0.78 0.18 195);
+  --sidebar-primary-foreground: oklch(0.10 0.03 230);
+  --sidebar-accent: oklch(0.25 0.025 255 / 70%);
+  --sidebar-accent-foreground: oklch(0.96 0.006 250);
+  --sidebar-border: oklch(1 0 0 / 6%);
+  --sidebar-ring: oklch(0.78 0.18 195);
+
+  /* ── Custom glow tokens ──────────────────────────────────── */
+  --glow-cyan: 0 0 20px oklch(0.78 0.18 195 / 40%), 0 0 40px oklch(0.78 0.18 195 / 15%);
+  --glow-violet: 0 0 20px oklch(0.65 0.25 290 / 35%), 0 0 40px oklch(0.65 0.25 290 / 12%);
+  --gradient-text-from: oklch(0.78 0.18 195);
+  --gradient-text-to: oklch(0.65 0.25 290);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
     scrollbar-width: thin;
-    scrollbar-color: oklch(0.32 0.02 255) transparent;
+    scrollbar-color: oklch(0.30 0.02 255) transparent;
   }
   *::-webkit-scrollbar {
     width: 5px;
@@ -132,14 +149,14 @@
     background: transparent;
   }
   *::-webkit-scrollbar-thumb {
-    background: oklch(0.32 0.02 255);
+    background: oklch(0.30 0.02 255);
     border-radius: 9999px;
   }
   *::-webkit-scrollbar-thumb:hover {
-    background: oklch(0.42 0.025 255);
+    background: oklch(0.40 0.025 255);
   }
   ::selection {
-    background: oklch(0.74 0.13 195 / 22%);
+    background: oklch(0.78 0.18 195 / 22%);
   }
   body {
     @apply bg-background text-foreground;
@@ -149,5 +166,58 @@
   }
   html {
     @apply font-sans;
+  }
+}
+
+/* ── Utilidades premium reutilizables ─────────────────────────── */
+@layer utilities {
+  /* Glassmorphism real: blur + bg mínimo + inset highlight */
+  .glass-card {
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow:
+      0 1px 0 oklch(1 0 0 / 7%) inset,
+      0 -1px 0 oklch(0 0 0 / 25%) inset,
+      0 8px 32px -8px oklch(0 0 0 / 55%);
+  }
+
+  /* Glow neon en el color primario (cyan) */
+  .glow-primary {
+    box-shadow: var(--glow-cyan);
+  }
+
+  /* Glow violet para elementos secundarios */
+  .glow-violet {
+    box-shadow: var(--glow-violet);
+  }
+
+  /* Texto con gradiente cyan → violet */
+  .gradient-text {
+    background: linear-gradient(
+      135deg,
+      var(--gradient-text-from, oklch(0.78 0.18 195)) 0%,
+      var(--gradient-text-to, oklch(0.65 0.25 290)) 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Texto con gradiente blanco → cyan sutil (para números) */
+  .gradient-text-value {
+    background: linear-gradient(
+      145deg,
+      oklch(0.98 0.005 250) 0%,
+      oklch(0.85 0.08 200) 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Borde luminoso cyan */
+  .neon-border-cyan {
+    border-color: oklch(0.78 0.18 195 / 40%);
+    box-shadow: 0 0 0 1px oklch(0.78 0.18 195 / 20%);
   }
 }

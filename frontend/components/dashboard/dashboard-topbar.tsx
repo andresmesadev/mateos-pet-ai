@@ -136,13 +136,13 @@ export function DashboardTopbar() {
   const firstName = rawName.split(" ")[0] || "de nuevo";
 
   return (
-    <header className="sticky top-0 z-20 flex flex-col gap-4 border-b border-white/[0.08] bg-background/90 px-4 py-4 backdrop-blur-md md:flex-row md:items-center md:justify-between md:px-8 md:py-4">
+    <header className="sticky top-0 z-20 flex flex-col gap-4 border-b border-white/[0.06] bg-background/70 px-4 py-4 backdrop-blur-xl md:flex-row md:items-center md:justify-between md:px-8 md:py-4" style={{ boxShadow: "0 1px 0 oklch(1 0 0 / 5%) inset, 0 1px 20px -4px rgba(0,0,0,0.4)" }}>
       {/* Saludo (solo en Inicio; en el resto cada página tiene su PageHeader) */}
       <div className="pl-12 lg:pl-0">
         {isHome ? (
           <>
             <h1 className="text-xl font-bold tracking-tight md:text-2xl">
-              Hola, <span className="text-primary">{firstName}</span>
+              Hola, <span className="gradient-text">{firstName}</span>
             </h1>
             <p className="text-sm text-muted-foreground">
               Aquí tienes el resumen de tu operación de hoy.
@@ -172,7 +172,7 @@ export function DashboardTopbar() {
             onFocus={() => { if (hasResults) setOpen(true); }}
             placeholder="Buscar clientes o mascotas…"
             aria-label="Buscar clientes o mascotas"
-            className="h-10 w-64 rounded-xl border border-input bg-card pl-9 pr-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring md:w-80"
+            className="h-10 w-64 rounded-xl border border-white/[0.08] bg-white/[0.05] pl-9 pr-3 text-sm placeholder:text-muted-foreground backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/40 transition-all md:w-80"
           />
 
           {/* Dropdown de resultados */}
@@ -251,7 +251,7 @@ export function DashboardTopbar() {
         <Link
           href="/dashboard/conversations"
           title="Conversaciones de WhatsApp"
-          className="flex h-10 w-10 items-center justify-center rounded-xl border border-input bg-card text-emerald-500 transition-colors hover:bg-accent"
+          className="flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/8 text-emerald-400 transition-all hover:bg-emerald-500/15 hover:shadow-[0_0_12px_rgba(16,185,129,0.25)]"
         >
           <MessageCircle className="h-5 w-5" />
         </Link>
@@ -259,7 +259,7 @@ export function DashboardTopbar() {
         <button
           type="button"
           title="Notificaciones"
-          className="flex h-10 w-10 items-center justify-center rounded-xl border border-input bg-card text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-muted-foreground transition-colors hover:bg-white/[0.08] hover:text-foreground"
         >
           <Bell className="h-5 w-5" />
         </button>
@@ -267,7 +267,7 @@ export function DashboardTopbar() {
         <Link
           href="/dashboard/calendar"
           title="Agenda"
-          className="flex h-10 items-center gap-2 rounded-xl border border-input bg-card px-3 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="flex h-10 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 text-sm text-muted-foreground transition-colors hover:bg-white/[0.08] hover:text-foreground"
         >
           <Calendar className="h-4 w-4" />
           <span className="hidden font-medium md:inline">{todayLabel()}</span>
