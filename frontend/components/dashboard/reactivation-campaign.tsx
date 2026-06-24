@@ -191,7 +191,7 @@ export function ReactivationCampaign({ clients }: Props) {
                 <Badge variant="secondary" className="ml-2">{clients.length}</Badge>
               </CardTitle>
               <CardDescription>
-                Sin visita en más de 1 año · {clientsWithPhone.length} con teléfono
+                Sin visita en más de 60 días · {clientsWithPhone.length} con teléfono
                 {clientsNoPhone > 0 && `, ${clientsNoPhone} sin teléfono`}
               </CardDescription>
             </div>
@@ -231,39 +231,44 @@ export function ReactivationCampaign({ clients }: Props) {
             </button>
           </div>
 
-          <ul className="divide-y">
+          <ul className="divide-y divide-white/[0.05]">
             {paginated.map((client) => {
               const phone = formatPhone(client.phone);
               const hasPhone = !isNoPhone(client.phone);
+              const isSelected = selected.has(client.id);
+              const initials = (client.name?.trim()?.[0] ?? "#").toUpperCase();
               return (
                 <li key={client.id}>
-                  <label className="flex cursor-pointer items-start gap-3 px-4 py-3 hover:bg-muted/40">
+                  <label className={`flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-primary/[0.05] ${isSelected ? "bg-orange-500/5" : ""}`}>
                     <input
                       type="checkbox"
-                      checked={selected.has(client.id)}
+                      checked={isSelected}
                       onChange={() => toggle(client.id)}
-                      className="mt-0.5 h-4 w-4 accent-primary"
+                      className="h-4 w-4 accent-primary shrink-0"
                       disabled={sending}
                     />
+                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold ring-1 ${isSelected ? "bg-orange-500/20 text-orange-300 ring-orange-500/30" : "bg-muted text-muted-foreground ring-white/[0.08]"}`}>
+                      {initials}
+                    </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium">
+                        <span className="font-medium text-sm">
                           {client.name ?? "Sin nombre"}
                         </span>
                         {hasPhone ? (
                           <span className="text-xs text-muted-foreground">{phone}</span>
                         ) : (
-                          <span className="text-xs text-orange-500 dark:text-orange-400">Sin teléfono</span>
+                          <span className="rounded-full bg-orange-500/10 px-2 py-0.5 text-[11px] font-medium text-orange-400">Sin teléfono</span>
                         )}
                       </div>
                       <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
                         {client.pets.map((pet, i) => (
-                          <span key={i} className="text-sm text-muted-foreground">
+                          <span key={i} className="text-xs text-muted-foreground">
                             {getPetEmoji(pet.type)} {pet.name}
                           </span>
                         ))}
                         <span className="text-xs text-muted-foreground">
-                          · Última visita: {timeSince(client.lastVisitDate)}
+                          · {timeSince(client.lastVisitDate)}
                         </span>
                       </div>
                     </div>

@@ -114,10 +114,10 @@ export function ConversationsInbox({
 
   return (
     <>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
+      <Card className="border-t-2 border-t-emerald-500/50 border-white/[0.12]">
+        <CardHeader className="flex flex-row items-center justify-between border-b border-white/[0.08] pb-4">
           <div>
-            <CardTitle className="text-base">Bandeja de conversaciones</CardTitle>
+            <CardTitle className="text-base font-semibold">Bandeja de conversaciones</CardTitle>
             <CardDescription>
               Historial completo de chats por WhatsApp (hora Colombia)
             </CardDescription>
@@ -146,9 +146,9 @@ export function ConversationsInbox({
                   type="button"
                   onClick={() => handleOpenConversation(conversation)}
                   className={cn(
-                    "flex w-full items-start gap-3 px-4 py-4 text-left transition-colors hover:bg-accent/50",
+                    "flex w-full items-start gap-3 px-4 py-4 text-left transition-colors hover:bg-primary/[0.05] border-b border-white/[0.04] last:border-b-0",
                     conversation.requires_human_attention &&
-                      "bg-red-50/60 hover:bg-red-50 dark:bg-red-950/20 dark:hover:bg-red-950/30"
+                      "bg-red-500/5 hover:bg-red-500/10 border-l-2 border-l-red-500/50"
                   )}
                 >
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-400">

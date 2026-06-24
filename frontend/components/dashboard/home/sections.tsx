@@ -122,7 +122,7 @@ function PanelHeader({ title, href, linkLabel }: { title: string; href: string; 
 export async function ConversationsActiveSection({ headers }: { headers: Headers }) {
   const conversations = await fetchActiveConversations(headers);
   return (
-    <Card className="h-full border-white/[0.12]">
+    <Card className="h-full border-t-2 border-t-emerald-500/50 border-white/[0.12]">
       <PanelHeader title="Conversaciones activas" href="/dashboard/conversations" linkLabel="Ver todas" />
       <CardContent className="p-0">
         {conversations.length === 0 ? (
@@ -197,7 +197,7 @@ function reminderDate(dueAt: string): string {
 export async function RemindersSection({ headers }: { headers: Headers }) {
   const reminders: UpcomingReminder[] = await fetchUpcomingReminders(headers);
   return (
-    <Card className="h-full border-white/[0.12]">
+    <Card className="h-full border-t-2 border-t-amber-500/50 border-white/[0.12]">
       <PanelHeader title="Recordatorios próximos" href="/dashboard/recuperacion" linkLabel="Ver todos" />
       <CardContent className="p-0">
         {reminders.length === 0 ? (

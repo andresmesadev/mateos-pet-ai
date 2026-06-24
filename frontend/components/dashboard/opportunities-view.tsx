@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/dashboard/empty-state";
 import { proxyUrl } from "@/lib/api";
 import { getPetEmoji, NEXT_ACTION_TYPES } from "@/lib/pets";
 import { type OpportunitiesData } from "@/app/dashboard/opportunities/page";
@@ -70,16 +71,22 @@ function ActionRow({
   }
 
   return (
-    <li className="flex flex-wrap items-center gap-2 py-2.5 text-sm">
-      <span className="text-base">{getPetEmoji(entry.petType)}</span>
+    <li className={`flex flex-wrap items-center gap-3 py-3 text-sm border-l-2 pl-3 -ml-px transition-colors hover:bg-muted/30 ${entry.isOverdue ? "border-l-red-500/60" : "border-l-transparent"}`}>
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted/60 text-base">
+        {getPetEmoji(entry.petType)}
+      </div>
       <div className="flex-1 min-w-0">
-        <span className="font-medium">{entry.petName}</span>
-        {entry.ownerName && (
-          <span className="text-muted-foreground"> · {entry.ownerName}</span>
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-medium">{entry.petName}</span>
+          {entry.ownerName && (
+            <span className="text-muted-foreground text-xs">· {entry.ownerName}</span>
+          )}
+          {entry.isOverdue && (
+            <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] font-medium text-red-400">Vencido</span>
+          )}
+        </div>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
-          <span className={`text-xs ${entry.isOverdue ? "text-red-500 dark:text-red-400 font-medium" : "text-muted-foreground"}`}>
-            {entry.isOverdue ? "⚠️ Venció " : ""}
+          <span className={`text-xs ${entry.isOverdue ? "text-red-400 font-medium" : "text-muted-foreground"}`}>
             {formatDate(entry.dueAt)}
           </span>
           {entry.notes && (
@@ -223,12 +230,11 @@ export function OpportunitiesView({ data }: { data: OpportunitiesData }) {
 
   if (total === 0) {
     return (
-      <div className="rounded-lg border border-dashed px-6 py-16 text-center">
-        <p className="text-lg font-medium">Sin acciones pendientes 🎉</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          El agente no ha detectado recordatorios pendientes todavía.
-        </p>
-      </div>
+      <EmptyState
+        icon="🎉"
+        title="Sin acciones pendientes"
+        description="El agente no ha detectado recordatorios pendientes todavía."
+      />
     );
   }
 
