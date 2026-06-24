@@ -74,18 +74,33 @@ export function RecuperacionView({ data, initialTab, oppCount, inactiveCount, ch
       {tab === "churn" && (
         <>
           {/* Resumen churn dentro del tab */}
-          <div className="grid grid-cols-3 gap-3 max-w-sm">
-            <div className="rounded-lg border bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900 p-3 text-center">
-              <div className="text-xl font-bold text-red-700 dark:text-red-400">{churnHigh}</div>
-              <div className="text-xs text-red-600 dark:text-red-500 mt-0.5">Alto</div>
+          <div className="flex gap-3 flex-wrap">
+            <div className="flex items-center gap-3 rounded-xl border-t-2 border-t-red-500/60 border border-red-500/20 bg-red-500/5 px-4 py-3 min-w-[110px]">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/15 shrink-0">
+                <span className="text-xs font-bold text-red-400">!</span>
+              </div>
+              <div>
+                <p className="text-2xl font-bold tabular-nums text-red-300 leading-none">{churnHigh}</p>
+                <p className="text-xs text-red-500 mt-0.5">Riesgo alto</p>
+              </div>
             </div>
-            <div className="rounded-lg border bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900 p-3 text-center">
-              <div className="text-xl font-bold text-amber-700 dark:text-amber-400">{churnMed}</div>
-              <div className="text-xs text-amber-600 dark:text-amber-500 mt-0.5">Medio</div>
+            <div className="flex items-center gap-3 rounded-xl border-t-2 border-t-amber-500/60 border border-amber-500/20 bg-amber-500/5 px-4 py-3 min-w-[110px]">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/15 shrink-0">
+                <span className="text-xs font-bold text-amber-400">~</span>
+              </div>
+              <div>
+                <p className="text-2xl font-bold tabular-nums text-amber-300 leading-none">{churnMed}</p>
+                <p className="text-xs text-amber-500 mt-0.5">Riesgo medio</p>
+              </div>
             </div>
-            <div className="rounded-lg border bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-900 p-3 text-center">
-              <div className="text-xl font-bold text-yellow-700 dark:text-yellow-400">{churnLow}</div>
-              <div className="text-xs text-yellow-600 dark:text-yellow-500 mt-0.5">Bajo</div>
+            <div className="flex items-center gap-3 rounded-xl border-t-2 border-t-yellow-500/60 border border-yellow-500/20 bg-yellow-500/5 px-4 py-3 min-w-[110px]">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-500/15 shrink-0">
+                <span className="text-xs font-bold text-yellow-400">↓</span>
+              </div>
+              <div>
+                <p className="text-2xl font-bold tabular-nums text-yellow-300 leading-none">{churnLow}</p>
+                <p className="text-xs text-yellow-500 mt-0.5">Riesgo bajo</p>
+              </div>
             </div>
           </div>
 

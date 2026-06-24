@@ -100,15 +100,15 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
       {/* Marca */}
-      <div className="flex items-center gap-3 border-b border-sidebar-border px-5 py-4">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sidebar-primary/15 ring-1 ring-sidebar-primary/25">
-          <PawPrint className="h-[18px] w-[18px] text-sidebar-primary" />
+      <div className="flex items-center gap-3 border-b border-sidebar-border px-4 py-4">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sidebar-primary/25 to-sidebar-primary/10 ring-1 ring-sidebar-primary/30 shadow-[0_0_12px_-2px_rgba(0,212,170,0.2)]">
+          <PawPrint className="h-5 w-5 text-sidebar-primary" />
         </div>
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold leading-tight tracking-tight">
+          <p className="truncate text-sm font-bold leading-tight tracking-tight">
             Mateos Pet AI
           </p>
-          <p className="truncate text-[11px] text-sidebar-foreground/40">Panel operativo</p>
+          <p className="truncate text-[11px] text-sidebar-foreground/45 font-medium">Panel operativo</p>
         </div>
       </div>
 
@@ -145,13 +145,13 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       {/* Perfil + logout */}
-      <div className="flex items-center gap-3 border-t border-sidebar-border px-4 py-3">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sidebar-primary/20 text-[11px] font-bold text-sidebar-primary ring-1 ring-sidebar-primary/20">
+      <div className="flex items-center gap-3 border-t border-sidebar-border px-4 py-3 bg-sidebar-accent/30">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sidebar-primary/25 text-[11px] font-bold text-sidebar-primary ring-1 ring-sidebar-primary/30">
           {initials}
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs font-semibold">{userName}</p>
-          <p className="truncate text-[11px] text-sidebar-foreground/45">{role}</p>
+          <p className="truncate text-[11px] text-sidebar-foreground/50">{role}</p>
         </div>
         <button
           type="button"
