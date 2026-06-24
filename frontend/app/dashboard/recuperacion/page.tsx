@@ -1,4 +1,4 @@
-import { HeartPulse } from "lucide-react";
+import { HeartPulse, Pin, UserX, AlertTriangle } from "lucide-react";
 
 import { auth } from "@/auth";
 import { apiUrl, makeServerHeaders } from "@/lib/api";
@@ -61,18 +61,36 @@ export default async function RecuperacionPage({ searchParams }: PageProps) {
 
 
       {/* Resumen rápido */}
-      <div className="grid grid-cols-3 gap-4 max-w-lg">
-        <div className="rounded-lg border bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-900 p-3 text-center">
-          <div className="text-2xl font-bold text-blue-700 dark:text-blue-400">{oppCount}</div>
-          <div className="text-xs text-blue-600 dark:text-blue-500 mt-0.5">Acciones pendientes</div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 max-w-2xl">
+        <div className="rounded-xl border-t-2 border-t-blue-500/70 border border-blue-500/20 bg-blue-500/5 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-medium text-blue-400 uppercase tracking-wide">Acciones pendientes</p>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/15">
+              <Pin className="h-4 w-4 text-blue-400" />
+            </div>
+          </div>
+          <p className="text-4xl font-bold tabular-nums text-blue-300">{oppCount}</p>
+          <p className="mt-1 text-xs text-blue-500">Recordatorios de mascotas</p>
         </div>
-        <div className="rounded-lg border bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-900 p-3 text-center">
-          <div className="text-2xl font-bold text-orange-700 dark:text-orange-400">{inactiveCount}</div>
-          <div className="text-xs text-orange-600 dark:text-orange-500 mt-0.5">Clientes inactivos</div>
+        <div className="rounded-xl border-t-2 border-t-orange-500/70 border border-orange-500/20 bg-orange-500/5 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-medium text-orange-400 uppercase tracking-wide">Clientes inactivos</p>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500/15">
+              <UserX className="h-4 w-4 text-orange-400" />
+            </div>
+          </div>
+          <p className="text-4xl font-bold tabular-nums text-orange-300">{inactiveCount}</p>
+          <p className="mt-1 text-xs text-orange-500">Sin grooming en +60 días</p>
         </div>
-        <div className="rounded-lg border bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900 p-3 text-center">
-          <div className="text-2xl font-bold text-red-700 dark:text-red-400">{churnHighCount}</div>
-          <div className="text-xs text-red-600 dark:text-red-500 mt-0.5">Churn riesgo alto</div>
+        <div className="rounded-xl border-t-2 border-t-red-500/70 border border-red-500/20 bg-red-500/5 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-medium text-red-400 uppercase tracking-wide">Churn riesgo alto</p>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/15">
+              <AlertTriangle className="h-4 w-4 text-red-400" />
+            </div>
+          </div>
+          <p className="text-4xl font-bold tabular-nums text-red-300">{churnHighCount}</p>
+          <p className="mt-1 text-xs text-red-500">De {churnCount} en riesgo total</p>
         </div>
       </div>
 

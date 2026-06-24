@@ -174,9 +174,15 @@ function TimeGrid({
         <div className="grid border-b sticky top-0 bg-background z-10" style={{ gridTemplateColumns: `3rem repeat(${columns.length}, 1fr)` }}>
           <div className="border-r" />
           {columns.map((col) => (
-            <div key={col.id} className={`border-r last:border-r-0 py-2.5 px-2 text-center ${col.isHighlight ? "bg-primary/5" : ""}`}>
-              <p className={`text-xs font-semibold ${col.isHighlight ? "text-primary" : "text-muted-foreground"}`}>{col.label}</p>
-              {col.sublabel && <p className={`text-xl font-bold mt-0.5 ${col.isHighlight ? "text-primary" : ""}`}>{col.sublabel}</p>}
+            <div key={col.id} className={`border-r last:border-r-0 py-3 px-2 text-center ${col.isHighlight ? "bg-primary/10 border-b-2 border-b-primary/50" : "border-b border-b-border"}`}>
+              <p className={`text-xs font-semibold uppercase tracking-wide ${col.isHighlight ? "text-primary" : "text-muted-foreground"}`}>{col.label}</p>
+              {col.sublabel && (
+                <p className={`text-2xl font-bold mt-0.5 leading-tight ${col.isHighlight ? "text-primary" : ""}`}>
+                  {col.isHighlight
+                    ? <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground">{col.sublabel}</span>
+                    : col.sublabel}
+                </p>
+              )}
             </div>
           ))}
         </div>
@@ -208,7 +214,7 @@ function TimeGrid({
             return (
               <div
                 key={col.id}
-                className={`relative border-r last:border-r-0 ${col.isHighlight ? "bg-primary/[0.03]" : ""}`}
+                className={`relative border-r last:border-r-0 ${col.isHighlight ? "bg-primary/[0.06]" : ""}`}
                 style={{ gridColumn: i + 2 }}
               >
                 {appts.map((appt) => {

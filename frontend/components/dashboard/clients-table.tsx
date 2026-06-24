@@ -199,11 +199,11 @@ export function ClientsTable() {
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Cliente</TableHead>
-                    <TableHead>Mascotas</TableHead>
-                    <TableHead>Citas</TableHead>
-                    <TableHead>Ultima actividad</TableHead>
+                  <TableRow className="bg-muted/30 hover:bg-muted/30 border-b border-white/[0.08]">
+                    <TableHead className="font-semibold text-foreground/70 uppercase text-[11px] tracking-wider">Cliente</TableHead>
+                    <TableHead className="font-semibold text-foreground/70 uppercase text-[11px] tracking-wider">Mascotas</TableHead>
+                    <TableHead className="font-semibold text-foreground/70 uppercase text-[11px] tracking-wider">Citas</TableHead>
+                    <TableHead className="font-semibold text-foreground/70 uppercase text-[11px] tracking-wider">Ultima actividad</TableHead>
                     <TableHead />
                   </TableRow>
                 </TableHeader>
@@ -211,7 +211,7 @@ export function ClientsTable() {
                   {clients.map((client) => (
                     <TableRow
                       key={client.id}
-                      className="cursor-pointer transition-colors hover:bg-accent/50"
+                      className="cursor-pointer transition-colors hover:bg-primary/[0.06] border-b border-white/[0.05]"
                       onClick={() => handleOpenClient(client)}
                     >
                       <TableCell>
