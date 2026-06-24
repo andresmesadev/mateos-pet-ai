@@ -1,6 +1,9 @@
+import { Settings } from "lucide-react";
+
 import { auth } from "@/auth";
 import { apiUrl, makeServerHeaders } from "@/lib/api";
-import { SettingsView } from "@/components/dashboard/settings-view";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { SettingsTabs } from "@/components/dashboard/settings-tabs";
 
 export type TenantProfile = {
   id: string;
@@ -44,13 +47,13 @@ export default async function SettingsPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Configuración</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Perfil del negocio, horarios y catálogo de servicios.
-        </p>
-      </div>
-      <SettingsView profile={profile} services={services} />
+      <PageHeader
+        title="Administración"
+        description="Información del negocio, servicios, horarios y equipo"
+        icon={Settings}
+        tint="bg-slate-500/15 text-slate-300"
+      />
+      <SettingsTabs profile={profile} services={services} />
     </div>
   );
 }

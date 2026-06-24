@@ -1,6 +1,6 @@
 const prisma = require("../lib/prisma");
 
-const VALID_TYPES = new Set(["allergy", "vaccine", "consultation", "note"]);
+const VALID_TYPES = new Set(["allergy", "vaccine", "consultation", "note", "deworming", "grooming"]);
 
 const normalizeType = (type) => String(type || "").trim().toLowerCase();
 
@@ -25,7 +25,7 @@ const normalizeDate = (date) => {
   return parsed;
 };
 
-const createRecord = async (petId, type, title, detail, date) => {
+const createRecord = async (petId, type, title, detail, date, clinical = {}) => {
   const pet = String(petId || "").trim();
   const recordType = normalizeType(type);
   const recordTitle = normalizeTitle(title);
@@ -36,13 +36,19 @@ const createRecord = async (petId, type, title, detail, date) => {
 
   if (!VALID_TYPES.has(recordType)) {
     throw new Error(
-      "type must be one of: allergy, vaccine, consultation, note"
+      "type must be one of: allergy, vaccine, consultation, note, deworming, grooming"
     );
   }
 
   if (!recordTitle) {
     throw new Error("title is required");
   }
+
+  const {
+    reason = null, findings = null, diagnosis = null,
+    treatment = null, recommendations = null,
+    weight = null, nextControlAt = null, staffId = null,
+  } = clinical;
 
   try {
     const record = await prisma.medicalRecord.create({
@@ -52,6 +58,14 @@ const createRecord = async (petId, type, title, detail, date) => {
         title: recordTitle,
         detail: normalizeDetail(detail),
         date: normalizeDate(date),
+        reason: reason ? String(reason).trim() : null,
+        findings: findings ? String(findings).trim() : null,
+        diagnosis: diagnosis ? String(diagnosis).trim() : null,
+        treatment: treatment ? String(treatment).trim() : null,
+        recommendations: recommendations ? String(recommendations).trim() : null,
+        weight: weight != null ? Number(weight) : null,
+        nextControlAt: normalizeDate(nextControlAt),
+        staffId: staffId || null,
       },
     });
 

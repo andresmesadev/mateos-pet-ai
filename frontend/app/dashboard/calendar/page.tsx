@@ -1,5 +1,8 @@
+import { Calendar } from "lucide-react";
+
 import { auth } from "@/auth";
 import { apiUrl, makeServerHeaders } from "@/lib/api";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { WeekCalendar } from "@/components/dashboard/week-calendar";
 import { type TodayAppointment } from "@/lib/appointments";
 
@@ -13,6 +16,25 @@ type WeekData = {
 type PageProps = {
   searchParams: Promise<{ date?: string; tenant?: string }>;
 };
+
+type BusinessHours = Record<string, { open: string; close: string; active: boolean }>;
+
+function parseHour(t: string): number {
+  const [h, m] = t.split(":").map(Number);
+  return h + (m ?? 0) / 60;
+}
+
+function resolveRange(bh: BusinessHours | null): { hourStart: number; hourEnd: number } {
+  if (!bh) return { hourStart: 7, hourEnd: 20 };
+  const active = Object.values(bh).filter((d) => d.active);
+  if (!active.length) return { hourStart: 7, hourEnd: 20 };
+  const opens = active.map((d) => parseHour(d.open));
+  const closes = active.map((d) => parseHour(d.close));
+  return {
+    hourStart: Math.floor(Math.min(...opens)),
+    hourEnd: Math.ceil(Math.max(...closes)),
+  };
+}
 
 export default async function CalendarPage({ searchParams }: PageProps) {
   const { date, tenant } = await searchParams;
@@ -29,20 +51,31 @@ export default async function CalendarPage({ searchParams }: PageProps) {
     appointments: [],
   };
 
+  let businessHours: BusinessHours | null = null;
+
   try {
-    const res = await fetch(url.toString(), { cache: "no-store", headers });
-    if (res.ok) data = await res.json();
-  } catch { /* fallback to empty */ }
+    const [apptRes, profileRes] = await Promise.all([
+      fetch(url.toString(), { cache: "no-store", headers }),
+      fetch(apiUrl("/api/dashboard/tenant/profile"), { cache: "no-store", headers }),
+    ]);
+    if (apptRes.ok) data = await apptRes.json();
+    if (profileRes.ok) {
+      const profile = await profileRes.json();
+      businessHours = profile.businessHours ?? null;
+    }
+  } catch { /* fallback to defaults */ }
+
+  const { hourStart, hourEnd } = resolveRange(businessHours);
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold">Calendario</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Vista semanal de citas — hora Bogotá.
-        </p>
-      </div>
-      <WeekCalendar data={data} />
+    <div>
+      <PageHeader
+        title="Agenda"
+        description="Vista semanal de citas — hora Bogotá"
+        icon={Calendar}
+        tint="bg-teal-500/15 text-teal-400"
+      />
+      <WeekCalendar data={data} hourStart={hourStart} hourEnd={hourEnd} />
     </div>
   );
 }

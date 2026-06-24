@@ -87,10 +87,11 @@ const getUserPets = async (ownerId) => {
   }
 };
 
-const updatePet = async (id, { breed, gender, birthDate, weight, sterilized, notes }) => {
+const updatePet = async (id, { name, breed, gender, birthDate, weight, sterilized, notes }) => {
   return prisma.pet.update({
     where: { id },
     data: {
+      name: name ? String(name).trim() : undefined,
       breed: breed ?? undefined,
       gender: gender ?? undefined,
       birthDate: birthDate ? new Date(birthDate) : undefined,

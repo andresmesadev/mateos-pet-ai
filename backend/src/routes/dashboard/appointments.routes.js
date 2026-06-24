@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const prisma = require("../../lib/prisma");
+const ERRORS = require("../../constants/errors");
 const {
   getBogotaYmd,
   bogotaDayStart,
@@ -17,6 +18,7 @@ const {
   createRecord,
   getRecordsByPet,
 } = require("../../services/medical-record.service");
+const { listInactiveClients } = require("../../services/dashboard-client.service");
 const {
   upsertControlFromRecord,
   createGroomingReminderIfNeeded,
@@ -160,18 +162,8 @@ router.get("/appointments/week", async (req, res) => {
 router.get("/clients/inactive-count", async (req, res) => {
   try {
     const { tenantId } = req.tenant;
-    const tenantFilter = tenantId ? { tenantId } : {};
-    const cutoff = new Date(Date.now() - 60 * 86_400_000);
-    const count = await prisma.user.count({
-      where: {
-        ...tenantFilter,
-        AND: [
-          { appointments: { some: {} } },
-          { appointments: { none: { date: { gte: cutoff } } } },
-        ],
-      },
-    });
-    res.json({ count });
+    const clients = await listInactiveClients(tenantId);
+    res.json({ count: clients.length });
   } catch (error) {
     console.error("[Dashboard] Inactive count error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -180,7 +172,10 @@ router.get("/clients/inactive-count", async (req, res) => {
 
 router.get("/appointments", async (req, res) => {
   try {
+    const { tenantId } = req.tenant;
+    const tenantFilter = tenantId ? { tenantId } : {};
     const rows = await prisma.appointment.findMany({
+      where: tenantFilter,
       orderBy: {
         date: "desc",
       },
@@ -229,18 +224,18 @@ router.patch("/appointments/:id", async (req, res) => {
     const existing = await prisma.appointment.findFirst({
       where: tenantId ? { id, tenantId } : { id },
     });
-    if (!existing) return res.status(404).json({ error: "Not found" });
+    if (!existing) return res.status(404).json({ error: ERRORS.NOT_FOUND("Cita") });
 
     const data = {};
 
     // Status transition
     if (status !== undefined) {
       if (!isValidStatus(status)) {
-        return res.status(400).json({ error: "Estado inválido" });
+        return res.status(400).json({ error: ERRORS.INVALID_STATUS });
       }
       if (!isAllowedTransition(existing.status, status)) {
         return res.status(422).json({
-          error: `Transición no permitida: ${existing.status} → ${status}`,
+          error: ERRORS.TRANSITION_NOT_ALLOWED(existing.status, status),
         });
       }
       data.status = status;
@@ -253,7 +248,7 @@ router.patch("/appointments/:id", async (req, res) => {
         const staff = await prisma.staff.findFirst({
           where: tenantId ? { id: staffId, tenantId } : { id: staffId },
         });
-        if (!staff) return res.status(404).json({ error: "Staff no encontrado en este tenant" });
+        if (!staff) return res.status(404).json({ error: ERRORS.STAFF_NOT_FOUND });
       }
       data.staffId = staffId || null;
     }
@@ -264,10 +259,10 @@ router.patch("/appointments/:id", async (req, res) => {
         const service = await prisma.service.findFirst({
           where: tenantId ? { id: serviceId, tenantId } : { id: serviceId },
         });
-        if (!service) return res.status(404).json({ error: "Servicio no encontrado en este tenant" });
+        if (!service) return res.status(404).json({ error: ERRORS.SERVICE_NOT_FOUND });
         // Auto-populate price from service if caller didn't send one and appointment has none
         if (price === undefined && existing.price === null) {
-          data.price = service.price ?? null;
+          data.price = service.basePrice ?? null;
         }
       }
       data.serviceId = serviceId || null;

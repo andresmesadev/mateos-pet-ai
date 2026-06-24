@@ -2,8 +2,36 @@
 // deben importarse desde Server Components (sections.tsx). No añadir "use client".
 import { apiUrl } from "@/lib/api";
 import { type TodayAppointment } from "@/lib/appointments";
+import { type DashboardConversation, type ConversationsResponse } from "@/lib/conversations";
 
 export type UpcomingAppointment = TodayAppointment;
+
+type DailyMetric = { count: number; prev: number; delta: number };
+
+export type DailyMetrics = {
+  appointmentsToday: DailyMetric;
+  newClientsToday: DailyMetric;
+  revenueToday: DailyMetric;
+  petsAttendedToday: DailyMetric;
+  remindersSentToday: DailyMetric;
+};
+
+export type UpcomingReminder = {
+  id: string;
+  type: string;
+  notes: string | null;
+  dueAt: string;
+  petName: string;
+  petType: string | null;
+};
+
+export const DAILY_METRICS_FALLBACK: DailyMetrics = {
+  appointmentsToday: { count: 0, prev: 0, delta: 0 },
+  newClientsToday: { count: 0, prev: 0, delta: 0 },
+  revenueToday: { count: 0, prev: 0, delta: 0 },
+  petsAttendedToday: { count: 0, prev: 0, delta: 0 },
+  remindersSentToday: { count: 0, prev: 0, delta: 0 },
+};
 
 export type MetricsData = {
   appointmentsThisWeek: { count: number; prev: number; delta: number };
@@ -88,6 +116,32 @@ export async function fetchRecoveryMetrics(headers: Headers): Promise<RecoveryMe
     if (!res.ok) return RECOVERY_FALLBACK;
     return (await res.json()) as RecoveryMetrics;
   } catch { return RECOVERY_FALLBACK; }
+}
+
+export async function fetchDailyMetrics(headers: Headers): Promise<DailyMetrics> {
+  try {
+    const res = await fetch(apiUrl("/api/dashboard/metrics/daily"), { cache: "no-store", headers });
+    if (!res.ok) return DAILY_METRICS_FALLBACK;
+    return (await res.json()) as DailyMetrics;
+  } catch { return DAILY_METRICS_FALLBACK; }
+}
+
+export async function fetchUpcomingReminders(headers: Headers): Promise<UpcomingReminder[]> {
+  try {
+    const res = await fetch(apiUrl("/api/dashboard/next-actions/upcoming?limit=6"), { cache: "no-store", headers });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch { return []; }
+}
+
+export async function fetchActiveConversations(headers: Headers): Promise<DashboardConversation[]> {
+  try {
+    const res = await fetch(apiUrl("/api/dashboard/conversations?page=1&limit=6"), { cache: "no-store", headers });
+    if (!res.ok) return [];
+    const payload: ConversationsResponse = await res.json();
+    return Array.isArray(payload.data) ? payload.data : [];
+  } catch { return []; }
 }
 
 export async function fetchChurnPreview(headers: Headers): Promise<ChurnPreview[]> {

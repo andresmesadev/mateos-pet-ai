@@ -14,7 +14,7 @@ const STEPS = {
 const scheduling = require("./scheduling.service");
 const { findNextAvailableGroomingSlot } = require("./availability-db.service");
 const { generateReply: generateReplyWithAI } = require("./openai.service");
-const { findPetByNameAndOwner } = require("./pet.service");
+const { findPetByNameAndOwner, getUserPets } = require("./pet.service");
 const { detectMedicalInfo } = require("./medical-detection.service");
 const {
   createRecord,
@@ -49,6 +49,12 @@ const BOOKING_STEPS = new Set([
   STEPS.AWAITING_DATE_TIME,
   STEPS.AWAITING_CONFIRMATION,
 ]);
+
+const HUMAN_TAKEOVER_PATTERNS = [
+  "hablar con lina", "hablar con una persona", "hablar con alguien",
+  "quiero hablar", "una persona real", "agente humano", "atencion humana",
+  "comunicarme con", "me comunicas con", "necesito hablar",
+];
 
 const CANCEL_PATTERNS = [
   "cancelar cita", "cancela mi cita", "quiero cancelar",
@@ -134,6 +140,9 @@ const detectQueryAppointmentsIntent = (text, intent) =>
 const detectQueryMedicalHistoryIntent = (text, intent) =>
   intent === "query_medical_history" ||
   QUERY_MEDICAL_HISTORY_PATTERNS.some((p) => normalizeText(text).includes(p));
+
+const detectHumanTakeoverIntent = (text) =>
+  HUMAN_TAKEOVER_PATTERNS.some((p) => normalizeText(text).includes(p));
 
 const detectNoAppointmentNeeded = (text) => {
   const n = normalizeText(text);
@@ -418,10 +427,20 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
   const currentStep = session.step ?? analysis?.step;
 
   if (!analysis || typeof analysis !== "object") {
-    return { reply: "¿En qué te puedo ayudar? 🐾", step: null, sessionPatch: {} };
+    return { reply: "¡Hola! Soy Lina 😊 ¿En qué te podemos colaborar? 🐾", step: null, sessionPatch: {} };
   }
 
   const intent = analysis.intent;
+
+  // ── 0. Transferencia a humano (prioridad absoluta) ────────────────────────────
+  if (detectHumanTakeoverIntent(userMessage)) {
+    return {
+      reply: "Con gusto 🐾 Te comunico con Lina, en un momento te atiende. También puedes escribirnos directamente si es urgente.",
+      step: "human_takeover",
+      sessionPatch: { requires_human_attention: true },
+      forceRuleReply: true,
+    };
+  }
 
   // ── 1. Gestión (máxima prioridad) ────────────────────────────────────────────
   if (detectRescheduleIntent(userMessage, intent)) return handleReschedule(userId, session);
@@ -431,7 +450,25 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
     return handleQueryMedicalHistory(userId, session, analysis, userMessage);
   }
 
-  // ── 2. Sin cita: vacunación / desparasitación ─────────────────────────────────
+  // ── 2. Saludo (siempre reinicia, sin importar el estado anterior) ────────────
+  if (intent === "greeting") {
+    const userName = options.userName ? `, ${options.userName.split(" ")[0]}` : "";
+    return {
+      reply: `¡Hola${userName}! Soy Lina 😊 ¿En qué te podemos colaborar hoy? 🐾`,
+      step: null,
+      sessionPatch: {
+        step: null,
+        requested_service: null,
+        scheduling_date_key: null,
+        scheduling_hour: null,
+        pet_name: null,
+        pet_type: null,
+      },
+      forceRuleReply: true,
+    };
+  }
+
+  // ── 2b. Sin cita: vacunación / desparasitación ────────────────────────────────
   if (detectNoAppointmentNeeded(userMessage)) {
     return {
       reply: "Para vacunación y desparasitación no necesitas cita 🐾 Puedes venir directamente cualquier día de 11am a 5pm. ¡Te esperamos!",
@@ -506,9 +543,10 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
   // ── 4. Flujo completado ───────────────────────────────────────────────────────
   if (analysis.step === STEPS.COMPLETED) {
     return {
-      reply: "¡Hola de nuevo! 😊 ¿En qué te puedo ayudar hoy? 🐾",
+      reply: "¡Hola de nuevo! 😊 Soy Lina, ¿en qué te podemos colaborar hoy? 🐾",
       step: null,
       sessionPatch: {},
+      forceRuleReply: true,
     };
   }
 
@@ -518,15 +556,7 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
   const date = analysis.date;
   const time = analysis.time;
 
-  // ── 5. Saludo / info ──────────────────────────────────────────────────────────
-  if (intent === "greeting") {
-    return {
-      reply: "¡Hola! 😊 Bienvenido a Mateos Pet 🐾 ¿En qué te puedo ayudar?",
-      step: null,
-      sessionPatch: {},
-    };
-  }
-
+  // ── 5. Info / otros ──────────────────────────────────────────────────────────
   if (intent === "ask_info") {
     return {
       reply:
@@ -558,6 +588,28 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
     }
 
     if (isMissing(petName)) {
+      // Si el usuario tiene varias mascotas registradas, listarlas
+      if (userId) {
+        try {
+          const userPets = await getUserPets(userId);
+          if (userPets && userPets.length > 1) {
+            const petList = userPets.map((p) => `• ${p.name}`).join("\n");
+            return {
+              reply: `¡Claro! ¿Para cuál de tus mascotas es? 🐾\n${petList}`,
+              step: STEPS.AWAITING_PET_NAME,
+              sessionPatch: {},
+            };
+          }
+          if (userPets && userPets.length === 1) {
+            // Solo una mascota registrada: usarla automáticamente
+            const onlyPet = userPets[0];
+            return buildRuleBasedReply(
+              { ...analysis, pet_name: onlyPet.name, pet_type: onlyPet.type },
+              options
+            );
+          }
+        } catch { /* si falla el lookup, caemos al flujo normal */ }
+      }
       const label = getPetLabel(petType);
       return {
         reply: service === "bath_grooming"
@@ -631,7 +683,7 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
   }
 
   return {
-    reply: "¡Hola! 😊 ¿En qué te puedo ayudar hoy? 🐾",
+    reply: "¡Hola! Soy Lina 😊 ¿En qué te podemos colaborar hoy? 🐾",
     step: null,
     sessionPatch: {},
   };
@@ -681,7 +733,7 @@ const generateReply = async (input, legacyOptions) => {
 };
 
 const getConfirmationReply = () => ({
-  reply: "¡Listo! Tu cita quedó agendada en Mateos Pet 🐾 ¡Te esperamos!",
+  reply: "¡Listo! Tu cita quedó agendada 🐾 ¡Te esperamos en Mateos Pet! Soy Lina, cualquier cosa me escribes 😊",
   step: STEPS.COMPLETED,
   sessionPatch: {},
 });

@@ -93,6 +93,10 @@ export function TodaySchedule({ appointments: initial }: Props) {
   }, [refresh]);
 
   async function updateStatus(id: string, nextStatus: string) {
+    if (nextStatus === "cancelled") {
+      const confirmed = window.confirm("¿Cancelar esta cita? Esta acción no se puede deshacer.");
+      if (!confirmed) return;
+    }
     setUpdating(id);
     const prev = appointments;
     setAppointments((all) =>
@@ -117,15 +121,15 @@ export function TodaySchedule({ appointments: initial }: Props) {
 
   return (
     <>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-3">
-          <CardTitle className="text-lg">Agenda de hoy</CardTitle>
+      <Card className="border-t-2 border-t-teal-500/50 border-white/[0.12]">
+        <CardHeader className="flex flex-row items-center justify-between border-b border-white/[0.06] pb-3">
+          <CardTitle className="text-base font-semibold">Agenda de hoy</CardTitle>
           <div className="flex items-center gap-3">
             <span className="text-sm text-muted-foreground">{capitalized}</span>
             <button
               onClick={() => refresh(false)}
               disabled={polling}
-              title="Actualizar ahora"
+              aria-label="Actualizar ahora"
               className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
             >
               <svg

@@ -2,19 +2,23 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Plus } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PetMedicalSheet } from "@/components/dashboard/pet-medical-sheet";
+import { NewPetSheet } from "@/components/dashboard/new-pet-sheet";
 import { proxyUrl } from "@/lib/api";
+import { useToast } from "@/components/ui/toast";
 import {
   formatColombiaDateTime,
   formatService,
@@ -23,10 +27,27 @@ import {
 } from "@/lib/appointments";
 import {
   type ClientDetail,
+  type ClientPet,
   formatClientRegisteredAt,
   formatPhone,
 } from "@/lib/clients";
-import { formatPetType, getPetEmoji } from "@/lib/pets";
+import { type DashboardPet, formatPetType, getPetEmoji } from "@/lib/pets";
+
+function clientPetToDashboardPet(pet: ClientPet, ownerPhone: string): DashboardPet {
+  return {
+    id: pet.id,
+    name: pet.name,
+    type: pet.type,
+    breed: null,
+    gender: null,
+    birthDate: null,
+    weight: null,
+    sterilized: null,
+    notes: null,
+    owner: { phone: ownerPhone },
+    _count: { medicalRecords: 0, appointments: 0 },
+  };
+}
 
 type ClientSheetProps = {
   clientId: string | null;
@@ -45,12 +66,15 @@ function ClientSheetSkeleton() {
 }
 
 function ClientSheetContent({ clientId }: { clientId: string }) {
+  const { toast } = useToast();
   const [client, setClient] = useState<ClientDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [editForm, setEditForm] = useState({ name: "", email: "", address: "", notes: "" });
+  const [editForm, setEditForm] = useState({ name: "", phone: "", phoneAlt: "", email: "", address: "", notes: "" });
+  const [expedientePet, setExpedientePet] = useState<DashboardPet | null>(null);
+  const [addingPet, setAddingPet] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -95,9 +119,9 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
   if (loading) {
     return (
       <>
-        <SheetHeader className="border-b px-4 py-4">
-          <SheetTitle>Cargando…</SheetTitle>
-        </SheetHeader>
+        <DialogHeader className="border-b px-4 py-4">
+          <DialogTitle>Cargando…</DialogTitle>
+        </DialogHeader>
         <ClientSheetSkeleton />
       </>
     );
@@ -106,6 +130,8 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
   const handleEdit = () => {
     setEditForm({
       name: client?.name ?? "",
+      phone: client?.phone ?? "",
+      phoneAlt: client?.phoneAlt ?? "",
       email: client?.email ?? "",
       address: client?.address ?? "",
       notes: client?.notes ?? "",
@@ -126,8 +152,10 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
       const updated = await res.json();
       setClient((prev) => prev ? { ...prev, ...updated } : prev);
       setEditing(false);
+      toast("Cambios guardados.", "success");
     } catch (err) {
       console.error(err);
+      toast("No se guardó. Intenta de nuevo.", "error");
     } finally {
       setSaving(false);
     }
@@ -136,9 +164,9 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
   if (error || !client) {
     return (
       <>
-        <SheetHeader className="border-b px-4 py-4">
-          <SheetTitle>Cliente</SheetTitle>
-        </SheetHeader>
+        <DialogHeader className="border-b px-4 py-4">
+          <DialogTitle>Cliente</DialogTitle>
+        </DialogHeader>
         <div className="px-4 py-8 text-sm text-destructive">
           {error ?? "Cliente no encontrado"}
         </div>
@@ -148,19 +176,19 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
 
   return (
     <>
-      <SheetHeader className="border-b px-4 py-4">
-        <SheetTitle className="flex flex-col items-start gap-1">
+      <DialogHeader className="border-b px-4 py-4">
+        <DialogTitle className="flex flex-col items-start gap-1">
           <span>{formatPhone(client.phone)}</span>
           {client.name ? (
             <span className="text-base font-normal text-muted-foreground">
               {client.name}
             </span>
           ) : null}
-        </SheetTitle>
-        <SheetDescription>
+        </DialogTitle>
+        <DialogDescription>
           Cliente desde {formatClientRegisteredAt(client.createdAt)}
-        </SheetDescription>
-      </SheetHeader>
+        </DialogDescription>
+      </DialogHeader>
 
       <div className="flex flex-col gap-6 overflow-y-auto px-4 pb-6">
         {/* Ficha del cliente */}
@@ -177,6 +205,18 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
                 placeholder="Nombre"
                 value={editForm.name}
                 onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+              />
+              <Input
+                placeholder="Telefono principal"
+                type="tel"
+                value={editForm.phone}
+                onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
+              />
+              <Input
+                placeholder="Telefono alternativo (opcional)"
+                type="tel"
+                value={editForm.phoneAlt}
+                onChange={(e) => setEditForm((f) => ({ ...f, phoneAlt: e.target.value }))}
               />
               <Input
                 placeholder="Email"
@@ -204,10 +244,11 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
             </div>
           ) : (
             <div className="rounded-lg border bg-muted/30 px-3 py-3 text-sm space-y-1">
+              {client.phoneAlt && <p><span className="text-muted-foreground">Tel. alternativo: </span>{formatPhone(client.phoneAlt)}</p>}
               {client.email && <p><span className="text-muted-foreground">Email: </span>{client.email}</p>}
               {client.address && <p><span className="text-muted-foreground">Dirección: </span>{client.address}</p>}
               {client.notes && <p><span className="text-muted-foreground">Notas: </span>{client.notes}</p>}
-              {!client.email && !client.address && !client.notes && (
+              {!client.phoneAlt && !client.email && !client.address && !client.notes && (
                 <p className="text-muted-foreground">Sin datos adicionales.</p>
               )}
             </div>
@@ -215,31 +256,41 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
         </section>
 
         <section className="space-y-2">
-          <h3 className="text-sm font-medium text-muted-foreground">Mascotas</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Mascotas</h3>
+            <button
+              type="button"
+              onClick={() => setAddingPet(true)}
+              className="flex items-center gap-1 text-xs text-primary hover:underline"
+            >
+              <Plus className="h-3 w-3" /> Agregar mascota
+            </button>
+          </div>
           {client.pets.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Sin mascotas registradas.
-            </p>
+            <p className="text-sm text-muted-foreground">Sin mascotas registradas.</p>
           ) : (
             <ul className="space-y-2">
               {client.pets.map((pet) => (
                 <li
                   key={pet.id}
-                  className="flex items-center justify-between rounded-lg border px-3 py-2"
+                  className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-card px-3 py-2.5"
                 >
-                  <div className="flex items-center gap-2">
-                    <span>{getPetEmoji(pet.type)}</span>
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-base ring-1 ring-amber-500/20">
+                      {getPetEmoji(pet.type)}
+                    </div>
                     <div>
-                      <p className="font-medium">{pet.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatPetType(pet.type)}
-                      </p>
+                      <p className="text-sm font-medium">{pet.name}</p>
+                      <p className="text-xs text-muted-foreground">{formatPetType(pet.type)}</p>
                     </div>
                   </div>
-                  <Button asChild size="sm" variant="outline">
-                    <Link href={`/dashboard/pets?pet=${pet.id}`}>
-                      Ver expediente
-                    </Link>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs"
+                    onClick={() => setExpedientePet(clientPetToDashboardPet(pet, client.phone))}
+                  >
+                    Ver expediente
                   </Button>
                 </li>
               ))}
@@ -290,9 +341,7 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
 
         {client.latestConversationId ? (
           <Button asChild className="w-full">
-            <Link
-              href={`/dashboard/conversations?conversation=${client.latestConversationId}`}
-            >
+            <Link href={`/dashboard/conversations?conversation=${client.latestConversationId}`}>
               Ver conversación
             </Link>
           </Button>
@@ -302,6 +351,25 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
           </Button>
         )}
       </div>
+
+      {/* Expediente de mascota inline */}
+      <PetMedicalSheet
+        pet={expedientePet}
+        open={expedientePet !== null}
+        onOpenChange={(v) => { if (!v) setExpedientePet(null); }}
+      />
+
+      {/* Agregar mascota con teléfono pre-llenado */}
+      <NewPetSheet
+        open={addingPet}
+        onOpenChange={setAddingPet}
+        defaultOwnerPhone={client.phone}
+        onCreated={() => {
+          setAddingPet(false);
+          setClient((prev) => prev ? { ...prev } : prev);
+          toast("Mascota agregada.", "success");
+        }}
+      />
     </>
   );
 }
@@ -312,12 +380,12 @@ export function ClientSheet({
   onOpenChange,
 }: ClientSheetProps) {
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="flex h-full w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[90vh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
         {open && clientId ? (
           <ClientSheetContent key={clientId} clientId={clientId} />
         ) : null}
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

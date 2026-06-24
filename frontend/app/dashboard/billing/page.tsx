@@ -1,5 +1,8 @@
+import { CreditCard } from "lucide-react";
+
 import { auth } from "@/auth";
 import { apiUrl, makeServerHeaders } from "@/lib/api";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { BillingView } from "@/components/dashboard/billing-view";
 
 export type BillingStatus = {
@@ -31,12 +34,12 @@ export default async function BillingPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Plan y facturación</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Gestiona tu suscripción a Mateos Pet AI.
-        </p>
-      </div>
+      <PageHeader
+        title="Plan y facturación"
+        description="Gestiona tu suscripción a Mateos Pet AI"
+        icon={CreditCard}
+        tint="bg-teal-500/15 text-teal-400"
+      />
 
       {success === "1" && (
         <div className="rounded-lg border border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30 px-4 py-3 text-sm text-green-800 dark:text-green-300">

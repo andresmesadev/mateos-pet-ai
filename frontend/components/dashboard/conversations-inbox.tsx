@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { MessageCircle } from "lucide-react";
 
 import { ConversationSheet } from "@/components/dashboard/conversation-sheet";
 import { EmptyState } from "@/components/dashboard/empty-state";
@@ -114,9 +115,9 @@ export function ConversationsInbox({
   return (
     <>
       <Card>
-        <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
           <div>
-            <CardTitle>Bandeja de conversaciones</CardTitle>
+            <CardTitle className="text-base">Bandeja de conversaciones</CardTitle>
             <CardDescription>
               Historial completo de chats por WhatsApp (hora Colombia)
             </CardDescription>
@@ -145,34 +146,40 @@ export function ConversationsInbox({
                   type="button"
                   onClick={() => handleOpenConversation(conversation)}
                   className={cn(
-                    "flex w-full flex-col gap-2 px-4 py-4 text-left transition-colors hover:bg-muted/50",
+                    "flex w-full items-start gap-3 px-4 py-4 text-left transition-colors hover:bg-accent/50",
                     conversation.requires_human_attention &&
-                      "bg-red-50/60 hover:bg-red-50 dark:bg-red-950/20"
+                      "bg-red-50/60 hover:bg-red-50 dark:bg-red-950/20 dark:hover:bg-red-950/30"
                   )}
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium">
-                        {formatPhone(conversation.phone)}
-                      </span>
-                      {conversation.requires_human_attention ? (
-                        <Badge className="border-red-200 bg-red-100 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
-                          Urgente
-                        </Badge>
-                      ) : null}
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {formatRelativeTime(conversation.lastMessageAt)}
-                    </span>
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-400">
+                    <MessageCircle className="h-5 w-5" />
                   </div>
 
-                  <p className="line-clamp-2 text-sm text-muted-foreground">
-                    {conversation.lastMessage ?? "Sin mensajes"}
-                  </p>
+                  <div className="flex min-w-0 flex-1 flex-col gap-1">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium">
+                          {formatPhone(conversation.phone)}
+                        </span>
+                        {conversation.requires_human_attention ? (
+                          <Badge className="border-red-200 bg-red-100 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+                            Urgente
+                          </Badge>
+                        ) : null}
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {formatRelativeTime(conversation.lastMessageAt)}
+                      </span>
+                    </div>
 
-                  <p className="text-xs text-muted-foreground">
-                    {formatConversationStep(conversation.step)}
-                  </p>
+                    <p className="line-clamp-2 text-sm text-muted-foreground">
+                      {conversation.lastMessage ?? "Sin mensajes"}
+                    </p>
+
+                    <p className="text-xs text-muted-foreground">
+                      {formatConversationStep(conversation.step)}
+                    </p>
+                  </div>
                 </button>
               ))}
             </div>

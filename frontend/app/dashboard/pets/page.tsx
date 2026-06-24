@@ -1,11 +1,13 @@
 import { Suspense } from "react";
+import { PawPrint } from "lucide-react";
 
 import { PetsTable } from "@/components/dashboard/pets-table";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 
 function PetsLoading() {
   return (
-    <div className="space-y-3 rounded-xl border p-4">
+    <div className="space-y-3 rounded-xl border border-border p-4">
       {Array.from({ length: 5 }).map((_, index) => (
         <Skeleton key={index} className="h-10 w-full" />
       ))}
@@ -26,12 +28,12 @@ export default async function DashboardPetsPage({
 
   return (
     <section>
-      <div className="mb-6">
-        <h2 className="text-2xl font-semibold tracking-tight">Mascotas</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Consulta y administra el historial médico de cada paciente
-        </p>
-      </div>
+      <PageHeader
+        title="Mascotas"
+        description="Consulta y administra el historial médico de cada paciente"
+        icon={PawPrint}
+        tint="bg-amber-500/15 text-amber-400"
+      />
 
       <Suspense fallback={<PetsLoading />}>
         <PetsTable initialPetId={params.pet ?? null} />

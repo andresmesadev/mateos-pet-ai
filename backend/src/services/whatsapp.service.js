@@ -441,6 +441,7 @@ const processIncomingMessage = async (body) => {
 
         const appointment = await createAppointment({
           userId: user.id,
+          tenantId: user.tenantId || null,
           petName: previous.pet_name || "Mascota",
           petType: previous.pet_type || "other",
           serviceType,
@@ -616,6 +617,7 @@ const processIncomingMessage = async (body) => {
     {
       now: new Date(),
       userId: user?.id,
+      userName: user?.name ?? null,
     }
   );
 
@@ -630,6 +632,7 @@ const processIncomingMessage = async (body) => {
         const appointmentDate = buildAppointmentDateTime(dateKey, Number(hour));
         await createAppointment({
           userId: user.id,
+          tenantId: user.tenantId || null,
           petName: previous.pet_name || "Mascota",
           petType: previous.pet_type || "other",
           serviceType,

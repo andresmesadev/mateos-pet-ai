@@ -15,21 +15,12 @@ type OpportunityEntry = {
   isOverdue: boolean;
 };
 
-type InactiveEntry = {
-  ownerId: string;
-  ownerName: string | null;
-  ownerPhone: string;
-  pets: { id: string; name: string; type: string }[];
-  lastAppointmentDate: string | null;
-  daysSince: number | null;
-};
-
 export type OpportunitiesData = {
   byType: Record<string, OpportunityEntry[]>;
-  inactive: InactiveEntry[];
+  total: number;
 };
 
-const EMPTY: OpportunitiesData = { byType: {}, inactive: [] };
+const EMPTY: OpportunitiesData = { byType: {}, total: 0 };
 
 type PageProps = {
   searchParams: Promise<{ tenant?: string }>;

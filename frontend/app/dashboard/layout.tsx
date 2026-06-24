@@ -1,7 +1,8 @@
 import { Suspense } from "react";
 
-import { LogoutButton } from "@/components/auth/logout-button";
-import { DashboardNav } from "@/components/dashboard/dashboard-nav";
+import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
+import { DashboardTopbar } from "@/components/dashboard/dashboard-topbar";
+import { BreadcrumbNav } from "@/components/dashboard/breadcrumb-nav";
 import { ToastProvider } from "@/components/ui/toast";
 
 export default function DashboardLayout({
@@ -11,21 +12,20 @@ export default function DashboardLayout({
 }) {
   return (
     <ToastProvider>
-      <main className="min-h-screen bg-muted/40 p-6">
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h1 className="text-4xl font-bold tracking-tight">Mateos Pet AI</h1>
-            <p className="mt-2 text-muted-foreground">
-              Dashboard administrativo inteligente
-            </p>
-          </div>
+      <div className="dark min-h-screen bg-background text-foreground">
+        <DashboardSidebar />
 
-          <LogoutButton />
+        {/* Contenido (deja espacio para el sidebar fijo en desktop) */}
+        <div className="lg:pl-64">
+          <DashboardTopbar />
+          <main className="px-4 py-6 md:px-8 md:py-8">
+            <Suspense fallback={null}>
+              <BreadcrumbNav />
+              {children}
+            </Suspense>
+          </main>
         </div>
-
-        <DashboardNav />
-        <Suspense fallback={null}>{children}</Suspense>
-      </main>
+      </div>
     </ToastProvider>
   );
 }

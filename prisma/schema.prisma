@@ -38,6 +38,7 @@ model Tenant {
   staff         Staff[]
   nextActions   PetNextAction[]
   transactions  Transaction[]
+  expenses      Expense[]
 }
 
 model Staff {
@@ -77,6 +78,7 @@ model Service {
 model User {
   id        String   @id @default(cuid())
   phone     String   @unique
+  phoneAlt  String?
   tenantId  String?
   tenant    Tenant?  @relation(fields: [tenantId], references: [id])
   name      String?
@@ -190,6 +192,11 @@ model MedicalRecord {
 
   // timeline/records por mascota (standaloneRecords where petId)
   @@index([petId])
+  // churn/inactivos/reactivar filtran por type="grooming" + date
+  @@index([petId, type])
+  @@index([type, date])
+  // opportunities: nextControlAt con ventana de fechas
+  @@index([nextControlAt])
 }
 
 model Conversation {
@@ -339,4 +346,22 @@ model TransactionItem {
 
   // mapeo de items por transacción (revenue byItem)
   @@index([transactionId])
+}
+
+// ── Egresos / Gastos (POS unificado) ──────────────────────────
+// category: "supplies" | "utilities" | "rent" | "salary" | "equipment" | "marketing" | "other"
+model Expense {
+  id            String   @id @default(cuid())
+  tenantId      String?
+  tenant        Tenant?  @relation(fields: [tenantId], references: [id])
+
+  date          DateTime @default(now())
+  category      String   @default("other")
+  description   String
+  amount        Decimal  @db.Decimal(10, 2)
+  paymentMethod String   @default("cash")
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  @@index([tenantId, date])
 }

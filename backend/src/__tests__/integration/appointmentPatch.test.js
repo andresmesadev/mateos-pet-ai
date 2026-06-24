@@ -210,7 +210,7 @@ describe("PATCH /api/dashboard/appointments/:id — staff/service tenant isolati
       .send({ staffId: "staff-other-tenant" });
 
     expect(res.status).toBe(404);
-    expect(res.body.error).toMatch(/Staff/);
+    expect(res.body.error).toMatch(/Profesional/);
   });
 
   test("accepts staffId that belongs to same tenant", async () => {

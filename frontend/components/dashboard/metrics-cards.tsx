@@ -1,4 +1,6 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CalendarCheck, CheckCircle2, UserPlus } from "lucide-react";
+
+import { MetricCard } from "@/components/dashboard/metric-card";
 
 type MetricsData = {
   appointmentsThisWeek: { count: number; prev: number; delta: number };
@@ -8,11 +10,11 @@ type MetricsData = {
 
 function Delta({ value, suffix = "" }: { value: number; suffix?: string }) {
   if (value === 0)
-    return <span className="text-xs text-muted-foreground">Sin cambio</span>;
+    return <span className="text-xs text-muted-foreground">Sin cambio vs periodo anterior</span>;
   const positive = value > 0;
   return (
     <span
-      className={`text-xs font-medium ${positive ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}
+      className={`text-xs font-medium ${positive ? "text-emerald-500" : "text-red-400"}`}
     >
       {positive ? "↑" : "↓"} {positive ? "+" : ""}
       {value}
@@ -23,42 +25,28 @@ function Delta({ value, suffix = "" }: { value: number; suffix?: string }) {
 
 export function MetricsCards({ metrics }: { metrics: MetricsData }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-3">
-      <Card>
-        <CardHeader className="pb-1">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Citas esta semana
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-1">
-          <p className="text-3xl font-bold">{metrics.appointmentsThisWeek.count}</p>
-          <Delta value={metrics.appointmentsThisWeek.delta} />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-1">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Tasa de confirmación
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-1">
-          <p className="text-3xl font-bold">{metrics.confirmationRate.rate}%</p>
-          <Delta value={metrics.confirmationRate.delta} suffix="pp" />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-1">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Clientes nuevos este mes
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-1">
-          <p className="text-3xl font-bold">{metrics.newClientsThisMonth.count}</p>
-          <Delta value={metrics.newClientsThisMonth.delta} />
-        </CardContent>
-      </Card>
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <MetricCard
+        icon={CalendarCheck}
+        tint="bg-teal-500/15 text-teal-400"
+        label="Citas esta semana"
+        value={String(metrics.appointmentsThisWeek.count)}
+        delta={<Delta value={metrics.appointmentsThisWeek.delta} />}
+      />
+      <MetricCard
+        icon={CheckCircle2}
+        tint="bg-emerald-500/15 text-emerald-400"
+        label="Tasa de confirmación"
+        value={`${metrics.confirmationRate.rate}%`}
+        delta={<Delta value={metrics.confirmationRate.delta} suffix="pp" />}
+      />
+      <MetricCard
+        icon={UserPlus}
+        tint="bg-violet-500/15 text-violet-400"
+        label="Clientes nuevos este mes"
+        value={String(metrics.newClientsThisMonth.count)}
+        delta={<Delta value={metrics.newClientsThisMonth.delta} />}
+      />
     </div>
   );
 }

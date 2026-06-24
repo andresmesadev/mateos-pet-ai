@@ -9,10 +9,25 @@ const BACKEND_URL = (
 
 const INTERNAL_API_SECRET = process.env.INTERNAL_API_SECRET ?? "";
 
+if (!INTERNAL_API_SECRET) {
+  console.error(
+    "[Proxy] ⚠️  INTERNAL_API_SECRET is not set in environment. " +
+    "All backend requests will be rejected with 401. " +
+    "Add INTERNAL_API_SECRET=<value> to frontend/.env.local and restart Next.js."
+  );
+}
+
 async function handler(
   req: NextRequest,
   context: { params: Promise<{ path: string[] }> }
 ) {
+  if (!INTERNAL_API_SECRET) {
+    return NextResponse.json(
+      { error: "Server misconfiguration: INTERNAL_API_SECRET not set" },
+      { status: 503 }
+    );
+  }
+
   const session = await auth();
 
   if (!session?.user) {
@@ -22,20 +37,12 @@ async function handler(
   const { path } = await context.params;
   const isSuperAdmin = session.user.isSuperAdmin ?? false;
 
-  // Resolve tenantId: normal user → always from session (ignore query param)
-  // Super admin → from query param (can be null for "all")
-  let tenantId: string | null = null;
-  if (isSuperAdmin) {
-    tenantId = req.nextUrl.searchParams.get("tenantId");
-  } else {
-    tenantId = session.user.tenantId ?? null;
-    if (!tenantId) {
-      return NextResponse.json(
-        { error: "Forbidden: no tenant assigned" },
-        { status: 403 }
-      );
-    }
-  }
+  // Single-tenant mode: backend resolves tenant from SINGLE_TENANT_ID env.
+  // We still forward the session tenantId when available as a hint.
+  const tenantId: string | null =
+    req.nextUrl.searchParams.get("tenantId") ??
+    session.user.tenantId ??
+    null;
 
   // Build backend URL, forwarding non-tenantId query params
   const backendUrl = new URL(
@@ -73,4 +80,4 @@ async function handler(
   });
 }
 
-export { handler as GET, handler as POST, handler as PATCH, handler as DELETE };
+export { handler as GET, handler as POST, handler as PUT, handler as PATCH, handler as DELETE };

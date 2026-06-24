@@ -1,21 +1,20 @@
 import { Suspense } from "react";
 
 import { auth } from "@/auth";
-import { EscalationsPanel } from "@/components/dashboard/escalations-panel";
+import { QuickActions } from "@/components/dashboard/quick-actions";
 import { makeServerHeaders } from "@/lib/api";
 import {
   MetricsSection,
   TodaySection,
+  ConversationsActiveSection,
+  RemindersSection,
   OpportunitiesWidget,
-  RecoverySection,
-  UpcomingSection,
   ChurnWidget,
   ReactivarWidget,
 } from "@/components/dashboard/home/sections";
 import {
   MetricsSkeleton,
   ListCardSkeleton,
-  CardSkeleton,
 } from "@/components/dashboard/home/skeletons";
 
 type DashboardPageProps = {
@@ -31,36 +30,39 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   // se streamea de forma independiente: la página aparece de inmediato con
   // skeletons que reservan el espacio, y cada bloque se rellena al estar listo.
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      {/* Fila superior: 5 métricas del día */}
       <Suspense fallback={<MetricsSkeleton />}>
         <MetricsSection headers={headers} />
       </Suspense>
 
-      <Suspense fallback={<ListCardSkeleton titleWidth="w-32" />}>
-        <TodaySection headers={headers} />
-      </Suspense>
+      {/* Tres paneles centrales */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Suspense fallback={<ListCardSkeleton titleWidth="w-32" />}>
+          <TodaySection headers={headers} />
+        </Suspense>
+        <Suspense fallback={<ListCardSkeleton titleWidth="w-40" />}>
+          <ConversationsActiveSection headers={headers} />
+        </Suspense>
+        <Suspense fallback={<ListCardSkeleton titleWidth="w-44" />}>
+          <RemindersSection headers={headers} />
+        </Suspense>
+      </div>
 
-      <EscalationsPanel />
+      {/* Bandejas de oportunidad / riesgo */}
+      <div className="grid gap-4 lg:grid-cols-3 items-stretch">
+        <Suspense fallback={null}>
+          <OpportunitiesWidget headers={headers} />
+        </Suspense>
+        <Suspense fallback={null}>
+          <ChurnWidget headers={headers} />
+        </Suspense>
+        <Suspense fallback={null}>
+          <ReactivarWidget headers={headers} />
+        </Suspense>
+      </div>
 
-      <Suspense fallback={null}>
-        <OpportunitiesWidget headers={headers} />
-      </Suspense>
-
-      <Suspense fallback={<CardSkeleton />}>
-        <RecoverySection headers={headers} />
-      </Suspense>
-
-      <Suspense fallback={<ListCardSkeleton titleWidth="w-40" />}>
-        <UpcomingSection headers={headers} />
-      </Suspense>
-
-      <Suspense fallback={null}>
-        <ChurnWidget headers={headers} />
-      </Suspense>
-
-      <Suspense fallback={null}>
-        <ReactivarWidget headers={headers} />
-      </Suspense>
+      <QuickActions />
     </div>
   );
 }

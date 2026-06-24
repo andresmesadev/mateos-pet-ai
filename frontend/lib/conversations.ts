@@ -22,6 +22,7 @@ export type ConversationDetail = {
   conversation: {
     id: string;
     phone: string | null;
+    name: string | null;
     step: string | null;
     requires_human_attention: boolean;
     updatedAt: string;
@@ -40,18 +41,27 @@ export type ConversationsResponse = {
 };
 
 const STEP_LABELS: Record<string, string> = {
-  awaiting_pet_name: "Esperando nombre",
-  awaiting_pet_type: "Esperando tipo",
-  awaiting_date_time: "Esperando fecha",
-  awaiting_confirmation: "Esperando confirmación",
-  completed: "Completada",
+  // flujo de cita veterinaria
+  awaiting_pet_name:              "Esperando nombre de la mascota",
+  awaiting_pet_type:              "Esperando tipo de mascota",
+  awaiting_date_time:             "Esperando fecha y hora",
+  awaiting_confirmation:          "Esperando confirmación",
+  completed:                      "Completada",
+  // flujo de peluquería / grooming
+  awaiting_grooming_slot_confirm: "Esperando confirmación de turno (peluquería)",
+  awaiting_grooming_date:         "Esperando fecha de peluquería",
+  awaiting_grooming_time:         "Esperando hora de peluquería",
+  grooming_confirmed:             "Peluquería confirmada",
+  // flujo general
+  greeting:                       "Saludo inicial",
+  idle:                           "Sin actividad",
+  human_takeover:                 "Atención humana",
+  escalated:                      "Escalado a humano",
+  cancelled:                      "Cancelada",
 };
 
 export function formatConversationStep(step: string | null): string {
-  if (!step) {
-    return "Sin paso activo";
-  }
-
+  if (!step) return "Sin paso activo";
   return STEP_LABELS[step] ?? step.replace(/_/g, " ");
 }
 

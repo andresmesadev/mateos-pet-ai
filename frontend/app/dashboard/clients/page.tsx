@@ -1,11 +1,13 @@
 import { Suspense } from "react";
+import { Users } from "lucide-react";
 
 import { ClientsTable } from "@/components/dashboard/clients-table";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 
 function ClientsLoading() {
   return (
-    <div className="space-y-3 rounded-xl border p-4">
+    <div className="space-y-3 rounded-xl border border-border p-4">
       {Array.from({ length: 5 }).map((_, index) => (
         <Skeleton key={index} className="h-10 w-full" />
       ))}
@@ -16,12 +18,12 @@ function ClientsLoading() {
 export default function DashboardClientsPage() {
   return (
     <section>
-      <div className="mb-6">
-        <h2 className="text-2xl font-semibold tracking-tight">Clientes</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Consulta el perfil completo de cada cliente de la veterinaria
-        </p>
-      </div>
+      <PageHeader
+        title="Propietarios"
+        description="Perfiles registrados por WhatsApp y su actividad reciente"
+        icon={Users}
+        tint="bg-violet-500/15 text-violet-400"
+      />
 
       <Suspense fallback={<ClientsLoading />}>
         <ClientsTable />
