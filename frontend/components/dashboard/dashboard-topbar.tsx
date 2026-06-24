@@ -93,6 +93,7 @@ export function DashboardTopbar() {
   );
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void search(debouncedQuery);
   }, [debouncedQuery, search]);
 

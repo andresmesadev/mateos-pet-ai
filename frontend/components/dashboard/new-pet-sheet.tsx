@@ -39,6 +39,7 @@ export function NewPetSheet({ open, onOpenChange, onCreated, defaultOwnerPhone }
   const [ownerName, setOwnerName] = useState("");
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (open) setOwnerPhone(defaultOwnerPhone ?? "");
   }, [open, defaultOwnerPhone]);
   const [breed, setBreed] = useState("");
