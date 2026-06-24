@@ -4,6 +4,7 @@ const request = require("supertest");
 jest.mock("../../lib/prisma", () => ({
   user: { findMany: jest.fn() },
   appointment: { findMany: jest.fn() },
+  medicalRecord: { findMany: jest.fn() },
   petNextAction: { count: jest.fn() },
 }));
 
@@ -29,6 +30,7 @@ describe("GET /api/dashboard/metrics/recovery", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     prisma.petNextAction.count.mockResolvedValue(0);
+    prisma.medicalRecord.findMany.mockResolvedValue([]);
   });
 
   it("returns zero rates when nobody was contacted", async () => {

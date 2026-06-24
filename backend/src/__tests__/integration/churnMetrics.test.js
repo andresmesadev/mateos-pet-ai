@@ -23,12 +23,19 @@ function buildApp() {
 
 const app = buildApp();
 
-// Helper: genera citas completadas con intervalos fijos
-function makeAppts(dates) {
-  return dates.map((d) => ({
-    date: new Date(d),
-    petName: "Max",
-  }));
+// Helper: genera un usuario con mascotas y registros médicos de grooming
+function makeUser(id, name, phone, dates) {
+  return {
+    id,
+    name,
+    phone,
+    pets: [
+      {
+        name: "Max",
+        medicalRecords: dates.map((d) => ({ date: new Date(d) })),
+      },
+    ],
+  };
 }
 
 describe("GET /api/dashboard/metrics/churn", () => {
@@ -49,7 +56,12 @@ describe("GET /api/dashboard/metrics/churn", () => {
         id: "u1",
         name: "Ana",
         phone: "573001111111",
-        appointments: [{ date: new Date("2026-01-01T00:00:00Z"), petName: "Lola" }],
+        pets: [
+          {
+            name: "Lola",
+            medicalRecords: [{ date: new Date("2026-01-01T00:00:00Z") }],
+          },
+        ],
       },
     ]);
     const res = await request(app).get("/api/dashboard/metrics/churn");
@@ -58,20 +70,15 @@ describe("GET /api/dashboard/metrics/churn", () => {
   });
 
   it("flags client as high risk when overdue >= 2x their cycle", async () => {
-    // 2 citas con 30 días de diferencia → avgInterval = 30 days
-    // Last visit = 90 days ago → overdueRatio = 3.0 → high
+    // 2 visitas con 30 días de diferencia → avgInterval = 30 days
+    // Last visit = 60 days ago → overdueRatio = 2.0 → high
     const now = Date.now();
     const MS_DAY = 86400000;
     prisma.user.findMany.mockResolvedValue([
-      {
-        id: "u1",
-        name: "Carlos",
-        phone: "573002222222",
-        appointments: makeAppts([
-          new Date(now - 90 * MS_DAY).toISOString(),
-          new Date(now - 60 * MS_DAY).toISOString(),
-        ]),
-      },
+      makeUser("u1", "Carlos", "573002222222", [
+        new Date(now - 90 * MS_DAY).toISOString(),
+        new Date(now - 60 * MS_DAY).toISOString(),
+      ]),
     ]);
     const res = await request(app).get("/api/dashboard/metrics/churn");
     expect(res.status).toBe(200);
@@ -85,15 +92,10 @@ describe("GET /api/dashboard/metrics/churn", () => {
     const MS_DAY = 86400000;
     // avgInterval = 30 days, last visit = 45 days ago → ratio = 1.5 → medium
     prisma.user.findMany.mockResolvedValue([
-      {
-        id: "u2",
-        name: "Maria",
-        phone: "573003333333",
-        appointments: makeAppts([
-          new Date(now - 75 * MS_DAY).toISOString(),
-          new Date(now - 45 * MS_DAY).toISOString(),
-        ]),
-      },
+      makeUser("u2", "Maria", "573003333333", [
+        new Date(now - 75 * MS_DAY).toISOString(),
+        new Date(now - 45 * MS_DAY).toISOString(),
+      ]),
     ]);
     const res = await request(app).get("/api/dashboard/metrics/churn");
     expect(res.status).toBe(200);
@@ -106,15 +108,10 @@ describe("GET /api/dashboard/metrics/churn", () => {
     const MS_DAY = 86400000;
     // avgInterval = 60 days, last visit = 30 days ago → ratio = 0.5 → not at risk
     prisma.user.findMany.mockResolvedValue([
-      {
-        id: "u3",
-        name: "Luis",
-        phone: "573004444444",
-        appointments: makeAppts([
-          new Date(now - 90 * MS_DAY).toISOString(),
-          new Date(now - 30 * MS_DAY).toISOString(),
-        ]),
-      },
+      makeUser("u3", "Luis", "573004444444", [
+        new Date(now - 90 * MS_DAY).toISOString(),
+        new Date(now - 30 * MS_DAY).toISOString(),
+      ]),
     ]);
     const res = await request(app).get("/api/dashboard/metrics/churn");
     expect(res.status).toBe(200);
@@ -125,26 +122,16 @@ describe("GET /api/dashboard/metrics/churn", () => {
     const now = Date.now();
     const MS_DAY = 86400000;
     prisma.user.findMany.mockResolvedValue([
-      {
-        id: "u1",
-        name: "Medium",
-        phone: "573001111111",
+      makeUser("u1", "Medium", "573001111111", [
         // avgInterval=30, lastVisit=45 days ago → ratio 1.5
-        appointments: makeAppts([
-          new Date(now - 75 * MS_DAY).toISOString(),
-          new Date(now - 45 * MS_DAY).toISOString(),
-        ]),
-      },
-      {
-        id: "u2",
-        name: "High",
-        phone: "573002222222",
+        new Date(now - 75 * MS_DAY).toISOString(),
+        new Date(now - 45 * MS_DAY).toISOString(),
+      ]),
+      makeUser("u2", "High", "573002222222", [
         // avgInterval=30, lastVisit=90 days ago → ratio 3.0
-        appointments: makeAppts([
-          new Date(now - 120 * MS_DAY).toISOString(),
-          new Date(now - 90 * MS_DAY).toISOString(),
-        ]),
-      },
+        new Date(now - 120 * MS_DAY).toISOString(),
+        new Date(now - 90 * MS_DAY).toISOString(),
+      ]),
     ]);
     const res = await request(app).get("/api/dashboard/metrics/churn");
     expect(res.status).toBe(200);
@@ -155,15 +142,12 @@ describe("GET /api/dashboard/metrics/churn", () => {
   it("respects ?limit param", async () => {
     const now = Date.now();
     const MS_DAY = 86400000;
-    const users = Array.from({ length: 5 }, (_, i) => ({
-      id: `u${i}`,
-      name: `Client ${i}`,
-      phone: `5730000000${i}`,
-      appointments: makeAppts([
+    const users = Array.from({ length: 5 }, (_, i) =>
+      makeUser(`u${i}`, `Client ${i}`, `5730000000${i}`, [
         new Date(now - (120 + i) * MS_DAY).toISOString(),
         new Date(now - (90 + i) * MS_DAY).toISOString(),
-      ]),
-    }));
+      ])
+    );
     prisma.user.findMany.mockResolvedValue(users);
     const res = await request(app).get("/api/dashboard/metrics/churn?limit=3");
     expect(res.status).toBe(200);
