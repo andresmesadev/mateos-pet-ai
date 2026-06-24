@@ -195,8 +195,8 @@ export function SaleForm() {
         {/* ── Columna izquierda ─────────────────────────── */}
         <div className="space-y-5">
           {/* Cliente */}
-          <section className="rounded-xl border border-white/[0.06] bg-card p-5">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Cliente</p>
+          <section className="rounded-xl border border-white/[0.08] border-t-2 border-t-violet-500/50 bg-card p-5">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-violet-400/80">Cliente</p>
             <ClientSearch onSelect={(c) => { setClient(c); setPetId(""); }} />
             {client && (
               <div className="mt-3 rounded-lg border border-white/[0.06] bg-accent/40 px-4 py-3">
@@ -235,8 +235,8 @@ export function SaleForm() {
           </section>
 
           {/* Ítems */}
-          <section className="rounded-xl border border-white/[0.06] bg-card p-5">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Ítems del cobro</p>
+          <section className="rounded-xl border border-white/[0.08] border-t-2 border-t-teal-500/50 bg-card p-5">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-teal-400/80">Ítems del cobro</p>
             <div className="space-y-2">
               {/* Header */}
               <div className="grid grid-cols-[1fr_56px_120px_32px] gap-2 px-1">
@@ -295,8 +295,8 @@ export function SaleForm() {
           </section>
 
           {/* Método de pago */}
-          <section className="rounded-xl border border-white/[0.06] bg-card p-5">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Método de pago</p>
+          <section className="rounded-xl border border-white/[0.08] border-t-2 border-t-amber-500/50 bg-card p-5">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-amber-400/80">Método de pago</p>
             <div className="flex flex-wrap gap-2">
               {PAYMENT_METHODS.map((m) => (
                 <button
@@ -317,7 +317,7 @@ export function SaleForm() {
           </section>
 
           {/* Notas */}
-          <section className="rounded-xl border border-white/[0.06] bg-card p-5">
+          <section className="rounded-xl border border-white/[0.08] bg-card p-5">
             <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Notas (opcional)</p>
             <Input
               placeholder="Observaciones del cobro…"
@@ -329,8 +329,8 @@ export function SaleForm() {
 
         {/* ── Columna derecha: resumen ──────────────────── */}
         <div className="space-y-4">
-          <div className="sticky top-24 rounded-xl border border-white/[0.06] bg-card p-5">
-            <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Resumen del cobro</p>
+          <div className="sticky top-24 rounded-xl border border-white/[0.08] border-t-2 border-t-emerald-500/50 bg-card p-5">
+            <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-emerald-400/80">Resumen del cobro</p>
 
             {/* Líneas */}
             <div className="space-y-2">

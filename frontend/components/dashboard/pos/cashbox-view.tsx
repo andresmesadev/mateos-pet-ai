@@ -160,7 +160,7 @@ export async function CashboxView({ date, tenant }: { date?: string; tenant?: st
       {/* Desglose por método + categoría */}
       <div className="grid gap-4 md:grid-cols-2">
         {/* Ingresos por método */}
-        <div className="rounded-xl border border-white/[0.06] bg-card p-5">
+        <div className="rounded-xl border border-white/[0.08] border-t-2 border-t-emerald-500/50 bg-card p-5">
           <div className="mb-3 flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-emerald-400" />
             <p className="text-sm font-semibold">Ingresos por método</p>
@@ -183,7 +183,7 @@ export async function CashboxView({ date, tenant }: { date?: string; tenant?: st
         </div>
 
         {/* Egresos por categoría */}
-        <div className="rounded-xl border border-white/[0.06] bg-card p-5">
+        <div className="rounded-xl border border-white/[0.08] border-t-2 border-t-rose-500/50 bg-card p-5">
           <div className="mb-3 flex items-center gap-2">
             <TrendingDown className="h-4 w-4 text-rose-400" />
             <p className="text-sm font-semibold">Egresos por categoría</p>
@@ -209,7 +209,7 @@ export async function CashboxView({ date, tenant }: { date?: string; tenant?: st
       {/* Transacciones + Egresos del día */}
       <div className="grid gap-4 lg:grid-cols-2">
         {/* Cobros */}
-        <div className="rounded-xl border border-white/[0.06] bg-card">
+        <div className="rounded-xl border border-white/[0.08] border-t-2 border-t-teal-500/50 bg-card">
           <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-3">
             <p className="text-sm font-semibold">Cobros del día</p>
             <Link
@@ -262,7 +262,7 @@ export async function CashboxView({ date, tenant }: { date?: string; tenant?: st
         </div>
 
         {/* Egresos */}
-        <div className="rounded-xl border border-white/[0.06] bg-card">
+        <div className="rounded-xl border border-white/[0.08] border-t-2 border-t-rose-500/50 bg-card">
           <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-3">
             <p className="text-sm font-semibold">Egresos del día</p>
             <Link

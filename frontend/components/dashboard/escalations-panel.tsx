@@ -115,11 +115,13 @@ export function EscalationsPanel() {
   return (
     <Card
       className={cn(
-        "mt-8 transition-colors",
-        hasPending && "border-2 border-red-500 shadow-red-500/10 shadow-sm"
+        "mt-8 border-t-2 transition-colors",
+        hasPending
+          ? "border-t-red-500/70 border-red-500/20 bg-red-500/[0.03]"
+          : "border-t-emerald-500/50 border-white/[0.10]"
       )}
     >
-      <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <CardHeader className="flex flex-col gap-2 border-b border-white/[0.06] pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <CardTitle className="flex items-center gap-2">
             Atención humana
@@ -150,9 +152,10 @@ export function EscalationsPanel() {
             {error}
           </div>
         ) : !hasPending ? (
-          <div className="rounded-lg border border-dashed px-4 py-10 text-center">
-            <p className="text-lg font-medium">Todo tranquilo 🐾</p>
-            <p className="mt-1 text-sm text-muted-foreground">
+          <div className="flex flex-col items-center gap-2 py-10 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/10 ring-1 ring-emerald-500/20 text-2xl">🐾</div>
+            <p className="mt-1 text-base font-medium">Todo tranquilo</p>
+            <p className="text-sm text-muted-foreground">
               No hay conversaciones esperando atención humana.
             </p>
           </div>
