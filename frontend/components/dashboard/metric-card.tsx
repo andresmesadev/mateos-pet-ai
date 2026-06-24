@@ -10,6 +10,17 @@ type MetricCardProps = {
   size?: "sm" | "lg";
 };
 
+function accentBorderFromTint(tint: string): string {
+  if (tint.includes("teal")) return "border-t-teal-500/60";
+  if (tint.includes("violet")) return "border-t-violet-500/60";
+  if (tint.includes("amber")) return "border-t-amber-500/60";
+  if (tint.includes("sky")) return "border-t-sky-500/60";
+  if (tint.includes("rose")) return "border-t-rose-500/60";
+  if (tint.includes("emerald")) return "border-t-emerald-500/60";
+  if (tint.includes("orange")) return "border-t-orange-500/60";
+  return "border-t-white/20";
+}
+
 export function MetricCard({
   icon: Icon,
   tint,
@@ -22,9 +33,10 @@ export function MetricCard({
   return (
     <div
       className={cn(
-        "group relative overflow-hidden rounded-xl border border-white/[0.06] bg-card",
-        "shadow-[0_1px_4px_rgba(0,0,0,0.3)] transition-all duration-200",
-        "hover:-translate-y-0.5 hover:border-white/[0.1] hover:shadow-[0_8px_32px_-8px_rgba(0,0,0,0.55)]",
+        "group relative overflow-hidden rounded-xl border border-white/[0.1] border-t-2 bg-card",
+        accentBorderFromTint(tint),
+        "shadow-[0_2px_8px_rgba(0,0,0,0.35)] transition-all duration-200",
+        "hover:-translate-y-0.5 hover:border-white/[0.15] hover:shadow-[0_8px_32px_-8px_rgba(0,0,0,0.6)]",
         isLg ? "p-5" : "p-4"
       )}
     >
@@ -39,7 +51,7 @@ export function MetricCard({
         </p>
         <div
           className={cn(
-            "flex shrink-0 items-center justify-center ring-1 ring-white/10",
+            "flex shrink-0 items-center justify-center ring-1 ring-white/[0.12]",
             "transition-transform duration-200 group-hover:scale-110",
             tint,
             isLg ? "h-11 w-11 rounded-xl" : "h-9 w-9 rounded-lg"
@@ -51,7 +63,7 @@ export function MetricCard({
       <p
         className={cn(
           "font-bold tracking-tight tabular-nums",
-          isLg ? "mt-3 text-3xl" : "mt-2 text-2xl"
+          isLg ? "mt-3 text-3xl" : "mt-2 text-[1.6rem]"
         )}
       >
         {value}

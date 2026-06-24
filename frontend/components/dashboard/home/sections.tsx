@@ -105,7 +105,7 @@ export async function OpportunitiesWidget({ headers }: { headers: Headers }) {
 // ── Encabezado de panel con enlace "Ver todas" ────────────────
 function PanelHeader({ title, href, linkLabel }: { title: string; href: string; linkLabel: string }) {
   return (
-    <CardHeader className="flex flex-row items-center justify-between border-b border-white/[0.06] pb-3">
+    <CardHeader className="flex flex-row items-center justify-between border-b border-white/[0.12] pb-3">
       <CardTitle className="text-sm font-semibold tracking-tight">{title}</CardTitle>
       <Link
         href={href}
@@ -122,7 +122,7 @@ function PanelHeader({ title, href, linkLabel }: { title: string; href: string; 
 export async function ConversationsActiveSection({ headers }: { headers: Headers }) {
   const conversations = await fetchActiveConversations(headers);
   return (
-    <Card className="h-full border-white/[0.06]">
+    <Card className="h-full border-white/[0.12]">
       <PanelHeader title="Conversaciones activas" href="/dashboard/conversations" linkLabel="Ver todas" />
       <CardContent className="p-0">
         {conversations.length === 0 ? (
@@ -197,7 +197,7 @@ function reminderDate(dueAt: string): string {
 export async function RemindersSection({ headers }: { headers: Headers }) {
   const reminders: UpcomingReminder[] = await fetchUpcomingReminders(headers);
   return (
-    <Card className="h-full border-white/[0.06]">
+    <Card className="h-full border-white/[0.12]">
       <PanelHeader title="Recordatorios próximos" href="/dashboard/recuperacion" linkLabel="Ver todos" />
       <CardContent className="p-0">
         {reminders.length === 0 ? (
@@ -304,7 +304,7 @@ export async function ReactivarWidget({ headers }: { headers: Headers }) {
             <p className="text-sm text-muted-foreground">No hay clientes inactivos.</p>
           ) : (
             <p className="text-sm text-muted-foreground">
-              {inactiveCount.toLocaleString()} cliente{inactiveCount === 1 ? "" : "s"} de peluquería sin visita en más de 1 año.
+              {inactiveCount.toLocaleString()} cliente{inactiveCount === 1 ? "" : "s"} de peluquería sin visita en más de 60 días.
             </p>
           )}
           <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">

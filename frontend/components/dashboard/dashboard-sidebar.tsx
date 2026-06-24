@@ -64,14 +64,14 @@ function NavLink({
       href={item.href}
       onClick={onNavigate}
       className={cn(
-        "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
+        "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
         active
-          ? "bg-sidebar-primary/10 text-sidebar-primary"
+          ? "bg-sidebar-primary/15 text-sidebar-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
           : "text-sidebar-foreground/65 hover:bg-sidebar-accent hover:text-sidebar-foreground"
       )}
     >
       {active && (
-        <span className="absolute inset-y-1.5 left-0 w-0.5 rounded-r-full bg-sidebar-primary" />
+        <span className="absolute inset-y-2 left-0 w-[3px] rounded-r-full bg-sidebar-primary shadow-[0_0_6px_rgba(0,212,170,0.5)]" />
       )}
       <Icon
         className={cn(

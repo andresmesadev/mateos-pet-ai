@@ -46,6 +46,18 @@ export function DashboardTopbar() {
   const tenant = useTenant();
   const isHome = pathname === "/dashboard";
 
+  const PAGE_NAMES: Record<string, string> = {
+    "/dashboard/calendar": "Agenda",
+    "/dashboard/contacto": "Clientes",
+    "/dashboard/conversations": "WhatsApp",
+    "/dashboard/pos": "Caja / Ventas",
+    "/dashboard/recuperacion": "Recuperación",
+    "/dashboard/settings": "Administración",
+  };
+  const currentPageName = Object.entries(PAGE_NAMES).find(([key]) =>
+    pathname.startsWith(key)
+  )?.[1];
+
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResults | null>(null);
   const [searching, setSearching] = useState(false);
@@ -123,7 +135,7 @@ export function DashboardTopbar() {
   const firstName = rawName.split(" ")[0] || "de nuevo";
 
   return (
-    <header className="sticky top-0 z-20 flex flex-col gap-4 border-b border-border bg-background/80 px-4 py-4 backdrop-blur md:flex-row md:items-center md:justify-between md:px-8 md:py-5">
+    <header className="sticky top-0 z-20 flex flex-col gap-4 border-b border-white/[0.08] bg-background/90 px-4 py-4 backdrop-blur-md md:flex-row md:items-center md:justify-between md:px-8 md:py-4">
       {/* Saludo (solo en Inicio; en el resto cada página tiene su PageHeader) */}
       <div className="pl-12 lg:pl-0">
         {isHome ? (
@@ -135,6 +147,10 @@ export function DashboardTopbar() {
               Aquí tienes el resumen de tu operación de hoy.
             </p>
           </>
+        ) : currentPageName ? (
+          <h1 className="text-lg font-semibold tracking-tight md:text-xl">
+            {currentPageName}
+          </h1>
         ) : (
           <p className="text-sm text-muted-foreground">
             Mateos Pet AI · Panel operativo
