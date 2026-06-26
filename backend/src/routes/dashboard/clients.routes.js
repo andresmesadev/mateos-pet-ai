@@ -57,6 +57,19 @@ function cleanField(val) {
   return s;
 }
 
+// Normalizes Colombian-formatted price strings to Decimal-compatible numbers.
+// "58.000" → 58000, "70,000" → 70000, "69000" → 69000, null/"" → null
+function parseGroomingPrice(val) {
+  if (!val) return null;
+  const cleaned = String(val).replace(/[.,]/g, (ch, idx, str) => {
+    // A period/comma is a thousands separator if followed by exactly 3 digits at the end
+    const after = str.slice(idx + 1);
+    return /^\d{3}$/.test(after) ? "" : ch;
+  }).replace(/[^0-9.]/g, "");
+  const n = parseFloat(cleaned);
+  return isNaN(n) || n <= 0 ? null : n;
+}
+
 function normalizePhone(raw) {
   if (!raw) return null;
   let p = String(raw).replace(/[\s+\-()]/g, "").trim();
@@ -308,11 +321,11 @@ router.post("/clients/import/full", async (req, res) => {
         const chunk = petsToCreate.slice(i, i + CHUNK);
         await prisma.pet.createMany({
           data: chunk.map(({ owner, petData }) => ({
-            name:    petData.name,
-            type:    "dog",
-            breed:   cleanField(petData.breed)  ?? null,
-            notes:   cleanField(petData.price)  ?? null,
-            ownerId: owner.id,
+            name:                 petData.name,
+            type:                 "dog",
+            breed:                cleanField(petData.breed) ?? null,
+            defaultGroomingPrice: parseGroomingPrice(cleanField(petData.price)),
+            ownerId:              owner.id,
             ...(tenantId ? { tenantId } : {}),
           })),
           skipDuplicates: true,
@@ -367,7 +380,7 @@ router.post("/clients/import/full", async (req, res) => {
         });
       }
 
-      const title = petData.price?.trim() ? `Peluquería — ${petData.price.trim()}` : "Peluquería";
+      const title = "Peluquería";
 
       for (const dateStr of allDates) {
         const parsed = new Date(dateStr);

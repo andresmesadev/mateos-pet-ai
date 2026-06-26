@@ -31,7 +31,7 @@ function mapAppointmentRow(a) {
     petId: a.petId ?? null,
     serviceName: a.service?.name ?? null,
     staffName: a.staff?.name ?? null,
-    price: a.price !== null && a.price !== undefined ? Number(a.price) : null,
+    finalPrice: a.finalPrice !== null && a.finalPrice !== undefined ? Number(a.finalPrice) : null,
     startedAt: a.startedAt?.toISOString() ?? null,
     endedAt: a.endedAt?.toISOString() ?? null,
   };

@@ -218,7 +218,7 @@ router.patch("/appointments/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const { tenantId } = req.tenant;
-    const { status, staffId, serviceId, price } = req.body ?? {};
+    const { status, staffId, serviceId, finalPrice } = req.body ?? {};
 
     // Ownership check
     const existing = await prisma.appointment.findFirst({
@@ -253,24 +253,24 @@ router.patch("/appointments/:id", async (req, res) => {
       data.staffId = staffId || null;
     }
 
-    // Service must belong to same tenant; copy price if not explicitly provided
+    // Service must belong to same tenant; copy basePrice if finalPrice not explicitly provided
     if (serviceId !== undefined) {
       if (serviceId) {
         const service = await prisma.service.findFirst({
           where: tenantId ? { id: serviceId, tenantId } : { id: serviceId },
         });
         if (!service) return res.status(404).json({ error: ERRORS.SERVICE_NOT_FOUND });
-        // Auto-populate price from service if caller didn't send one and appointment has none
-        if (price === undefined && existing.price === null) {
-          data.price = service.basePrice ?? null;
+        // Auto-populate from service catalog if caller didn't send one and appointment has none
+        if (finalPrice === undefined && existing.finalPrice === null) {
+          data.finalPrice = service.basePrice ?? null;
         }
       }
       data.serviceId = serviceId || null;
     }
 
-    // Explicit price override (preserved as historical even if service changes later)
-    if (price !== undefined) {
-      data.price = price !== null ? Number(price) : null;
+    // Explicit finalPrice override (preserved as historical even if service changes later)
+    if (finalPrice !== undefined) {
+      data.finalPrice = finalPrice !== null ? Number(finalPrice) : null;
     }
 
     const updated = await prisma.appointment.update({

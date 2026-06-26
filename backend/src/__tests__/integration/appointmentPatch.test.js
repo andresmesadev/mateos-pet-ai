@@ -40,7 +40,7 @@ const BASE_APPT = {
   petType: "dog",
   serviceType: "vet",
   date: new Date("2026-06-17T14:00:00Z"),
-  price: null,
+  finalPrice: null,
   startedAt: null,
   endedAt: null,
   user: { phone: "573001111111", name: "Carlos" },
@@ -241,7 +241,7 @@ describe("PATCH /api/dashboard/appointments/:id — staff/service tenant isolati
       id: "svc-1",
       tenantId: TENANT_A,
       name: "Consulta general",
-      price: null,
+      basePrice: null,
     });
 
     const app = buildApp({ isSuperAdmin: false, tenantId: TENANT_A });
@@ -253,8 +253,8 @@ describe("PATCH /api/dashboard/appointments/:id — staff/service tenant isolati
   });
 });
 
-describe("PATCH /api/dashboard/appointments/:id — price as historical record", () => {
-  test("explicit price is stored even when service has no price", async () => {
+describe("PATCH /api/dashboard/appointments/:id — finalPrice as historical record", () => {
+  test("explicit finalPrice is stored even when service has no basePrice", async () => {
     prisma.appointment.findFirst.mockResolvedValue({ ...BASE_APPT });
     let capturedData;
     prisma.appointment.update.mockImplementation(async ({ data }) => {
@@ -265,31 +265,31 @@ describe("PATCH /api/dashboard/appointments/:id — price as historical record",
     const app = buildApp({ isSuperAdmin: false, tenantId: TENANT_A });
     await request(app)
       .patch("/api/dashboard/appointments/appt-1")
-      .send({ price: 85000 });
+      .send({ finalPrice: 85000 });
 
-    expect(capturedData.price).toBe(85000);
+    expect(capturedData.finalPrice).toBe(85000);
   });
 
-  test("price is not overwritten when assigning a service (already set on appointment)", async () => {
-    prisma.appointment.findFirst.mockResolvedValue({ ...BASE_APPT, price: 75000 });
+  test("finalPrice is not overwritten when assigning a service (already set on appointment)", async () => {
+    prisma.appointment.findFirst.mockResolvedValue({ ...BASE_APPT, finalPrice: 75000 });
     prisma.service.findFirst.mockResolvedValue({
       id: "svc-1",
       tenantId: TENANT_A,
       name: "Consulta",
-      price: 90000,
+      basePrice: 90000,
     });
     let capturedData;
     prisma.appointment.update.mockImplementation(async ({ data }) => {
       capturedData = data;
-      return { ...BASE_APPT, price: 75000, ...data };
+      return { ...BASE_APPT, finalPrice: 75000, ...data };
     });
 
     const app = buildApp({ isSuperAdmin: false, tenantId: TENANT_A });
     await request(app)
       .patch("/api/dashboard/appointments/appt-1")
-      .send({ serviceId: "svc-1" }); // no explicit price
+      .send({ serviceId: "svc-1" }); // no explicit finalPrice
 
-    // price already set on appointment → should NOT be overwritten by service price
-    expect(capturedData.price).toBeUndefined();
+    // finalPrice already set on appointment → should NOT be overwritten by service basePrice
+    expect(capturedData.finalPrice).toBeUndefined();
   });
 });
