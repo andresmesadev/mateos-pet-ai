@@ -33,19 +33,19 @@ import {
 } from "@/lib/clients";
 import { type DashboardPet, formatPetType, getPetEmoji } from "@/lib/pets";
 
-function clientPetToDashboardPet(pet: ClientPet, ownerPhone: string): DashboardPet {
+function clientPetToDashboardPet(pet: ClientPet, owner: { phone: string; name: string | null }): DashboardPet {
   return {
     id: pet.id,
     name: pet.name,
     type: pet.type,
-    breed: null,
-    gender: null,
-    birthDate: null,
-    weight: null,
-    sterilized: null,
-    notes: null,
-    owner: { phone: ownerPhone },
-    _count: { medicalRecords: 0, appointments: 0 },
+    breed: pet.breed,
+    gender: pet.gender,
+    birthDate: pet.birthDate,
+    weight: pet.weight,
+    sterilized: pet.sterilized,
+    notes: pet.notes,
+    owner,
+    _count: pet._count,
   };
 }
 
@@ -288,7 +288,7 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
                     size="sm"
                     variant="outline"
                     className="h-7 text-xs"
-                    onClick={() => setExpedientePet(clientPetToDashboardPet(pet, client.phone))}
+                    onClick={() => setExpedientePet(clientPetToDashboardPet(pet, { phone: client.phone, name: client.name }))}
                   >
                     Ver expediente
                   </Button>

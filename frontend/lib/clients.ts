@@ -19,6 +19,17 @@ export type ClientPet = {
   id: string;
   name: string;
   type: string;
+  breed: string | null;
+  gender: string | null;
+  birthDate: string | null;
+  weight: number | null;
+  sterilized: boolean | null;
+  notes: string | null;
+  defaultGroomingPrice: number | null;
+  _count: {
+    medicalRecords: number;
+    appointments: number;
+  };
 };
 
 export type ClientAppointment = {
