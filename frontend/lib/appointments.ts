@@ -1,5 +1,19 @@
 export const BOGOTA_TIMEZONE = "America/Bogota";
 
+export type PriceSource =
+  | "manual_override"
+  | "pet_default_price"
+  | "service_base_price"
+  | "unresolved";
+
+export type PriceResolution = {
+  finalPrice: number | null;
+  source: PriceSource;
+  manualOverride: number | null;
+  petDefaultPrice: number | null;
+  serviceBasePrice: number | null;
+};
+
 export type AppointmentStatus =
   | "pending"
   | "confirmed"
@@ -20,10 +34,11 @@ export type TodayAppointment = {
   clientPhone: string;
   clientName: string | null;
   petId: string | null;
-  // Operational fields (TAREA 9)
+  // Operational fields
   serviceName: string | null;
   staffName: string | null;
-  price: number | null;
+  finalPrice: number | null;
+  priceResolution: PriceResolution | null;
   startedAt: string | null;
   endedAt: string | null;
 };

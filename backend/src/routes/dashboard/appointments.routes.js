@@ -253,22 +253,19 @@ router.patch("/appointments/:id", async (req, res) => {
       data.staffId = staffId || null;
     }
 
-    // Service must belong to same tenant; copy basePrice if finalPrice not explicitly provided
+    // Service must belong to same tenant
     if (serviceId !== undefined) {
       if (serviceId) {
         const service = await prisma.service.findFirst({
           where: tenantId ? { id: serviceId, tenantId } : { id: serviceId },
         });
         if (!service) return res.status(404).json({ error: ERRORS.SERVICE_NOT_FOUND });
-        // Auto-populate from service catalog if caller didn't send one and appointment has none
-        if (finalPrice === undefined && existing.finalPrice === null) {
-          data.finalPrice = service.basePrice ?? null;
-        }
       }
       data.serviceId = serviceId || null;
     }
 
-    // Explicit finalPrice override (preserved as historical even if service changes later)
+    // Manual override: only store finalPrice when operator explicitly provides it.
+    // Effective price at display time is resolved by price-resolver.service via mapAppointmentRow.
     if (finalPrice !== undefined) {
       data.finalPrice = finalPrice !== null ? Number(finalPrice) : null;
     }
@@ -276,7 +273,7 @@ router.patch("/appointments/:id", async (req, res) => {
     const updated = await prisma.appointment.update({
       where: { id },
       data,
-      include: { ...APPOINTMENT_INCLUDE, service: { select: { name: true, category: true } } },
+      include: APPOINTMENT_INCLUDE,
     });
 
     // Auto-create grooming reminder when a grooming appointment completes

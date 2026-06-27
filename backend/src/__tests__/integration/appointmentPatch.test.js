@@ -253,8 +253,8 @@ describe("PATCH /api/dashboard/appointments/:id — staff/service tenant isolati
   });
 });
 
-describe("PATCH /api/dashboard/appointments/:id — finalPrice as historical record", () => {
-  test("explicit finalPrice is stored even when service has no basePrice", async () => {
+describe("PATCH /api/dashboard/appointments/:id — price resolver contract", () => {
+  test("explicit finalPrice (manual override) is stored in the appointment", async () => {
     prisma.appointment.findFirst.mockResolvedValue({ ...BASE_APPT });
     let capturedData;
     prisma.appointment.update.mockImplementation(async ({ data }) => {
@@ -270,18 +270,18 @@ describe("PATCH /api/dashboard/appointments/:id — finalPrice as historical rec
     expect(capturedData.finalPrice).toBe(85000);
   });
 
-  test("finalPrice is not overwritten when assigning a service (already set on appointment)", async () => {
-    prisma.appointment.findFirst.mockResolvedValue({ ...BASE_APPT, finalPrice: 75000 });
+  test("assigning a service does NOT store basePrice in finalPrice (resolver handles it at display time)", async () => {
+    prisma.appointment.findFirst.mockResolvedValue({ ...BASE_APPT, finalPrice: null });
     prisma.service.findFirst.mockResolvedValue({
       id: "svc-1",
       tenantId: TENANT_A,
-      name: "Consulta",
-      basePrice: 90000,
+      name: "Baño completo",
+      basePrice: 60000,
     });
     let capturedData;
     prisma.appointment.update.mockImplementation(async ({ data }) => {
       capturedData = data;
-      return { ...BASE_APPT, finalPrice: 75000, ...data };
+      return { ...BASE_APPT, ...data };
     });
 
     const app = buildApp({ isSuperAdmin: false, tenantId: TENANT_A });
@@ -289,7 +289,23 @@ describe("PATCH /api/dashboard/appointments/:id — finalPrice as historical rec
       .patch("/api/dashboard/appointments/appt-1")
       .send({ serviceId: "svc-1" }); // no explicit finalPrice
 
-    // finalPrice already set on appointment → should NOT be overwritten by service basePrice
+    // finalPrice must NOT be auto-populated; price-resolver resolves it from basePrice at display time
     expect(capturedData.finalPrice).toBeUndefined();
+  });
+
+  test("explicit null clears an existing manual override", async () => {
+    prisma.appointment.findFirst.mockResolvedValue({ ...BASE_APPT, finalPrice: 75000 });
+    let capturedData;
+    prisma.appointment.update.mockImplementation(async ({ data }) => {
+      capturedData = data;
+      return { ...BASE_APPT, finalPrice: null, ...data };
+    });
+
+    const app = buildApp({ isSuperAdmin: false, tenantId: TENANT_A });
+    await request(app)
+      .patch("/api/dashboard/appointments/appt-1")
+      .send({ finalPrice: null });
+
+    expect(capturedData.finalPrice).toBeNull();
   });
 });

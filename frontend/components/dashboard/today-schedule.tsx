@@ -192,7 +192,7 @@ export function TodaySchedule({ appointments: initial }: Props) {
                               <span>{appt.staffName}</span>
                             </>
                           )}
-                          {appt.price !== null && (
+                          {appt.finalPrice !== null && (
                             <>
                               <span>·</span>
                               <span>
@@ -200,7 +200,7 @@ export function TodaySchedule({ appointments: initial }: Props) {
                                   style: "currency",
                                   currency: "COP",
                                   maximumFractionDigits: 0,
-                                }).format(appt.price)}
+                                }).format(appt.finalPrice)}
                               </span>
                             </>
                           )}

@@ -137,7 +137,7 @@ function ApptDetail({ appt, onClose }: { appt: TodayAppointment; onClose: () => 
           <div className="flex gap-2"><dt className="w-20 shrink-0 text-muted-foreground">Hora</dt><dd className="font-medium">{time}</dd></div>
           <div className="flex gap-2"><dt className="w-20 shrink-0 text-muted-foreground">Servicio</dt><dd className="font-medium">{appt.serviceName ?? appt.serviceType}</dd></div>
           {appt.staffName && <div className="flex gap-2"><dt className="w-20 shrink-0 text-muted-foreground">Profesional</dt><dd className="font-medium">{appt.staffName}</dd></div>}
-          {appt.price != null && <div className="flex gap-2"><dt className="w-20 shrink-0 text-muted-foreground">Precio</dt><dd className="font-medium">${appt.price.toLocaleString("es-CO")}</dd></div>}
+          {appt.finalPrice != null && <div className="flex gap-2"><dt className="w-20 shrink-0 text-muted-foreground">Precio</dt><dd className="font-medium">${appt.finalPrice.toLocaleString("es-CO")}</dd></div>}
         </dl>
         <Button size="sm" variant="outline" className="mt-5 w-full" onClick={onClose}>Cerrar</Button>
       </div>

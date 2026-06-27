@@ -1,4 +1,5 @@
 // Utilidades compartidas entre todos los subrouters del dashboard
+const { resolveAppointmentPrice } = require("../../services/domain/price-resolver.service");
 
 const BOGOTA_OFFSET_MS = 5 * 3600 * 1000; // UTC-5
 
@@ -12,13 +13,14 @@ function bogotaDayStart(ymd) {
 }
 
 const APPOINTMENT_INCLUDE = {
-  user: { select: { phone: true, name: true } },
-  pet: { select: { name: true, type: true } },
-  service: { select: { name: true } },
-  staff: { select: { name: true } },
+  user:    { select: { phone: true, name: true } },
+  pet:     { select: { name: true, type: true, defaultGroomingPrice: true } },
+  service: { select: { name: true, category: true, basePrice: true } },
+  staff:   { select: { name: true } },
 };
 
 function mapAppointmentRow(a) {
+  const priceResolution = resolveAppointmentPrice(a);
   return {
     id: a.id,
     date: a.date,
@@ -31,7 +33,8 @@ function mapAppointmentRow(a) {
     petId: a.petId ?? null,
     serviceName: a.service?.name ?? null,
     staffName: a.staff?.name ?? null,
-    finalPrice: a.finalPrice !== null && a.finalPrice !== undefined ? Number(a.finalPrice) : null,
+    finalPrice: priceResolution.finalPrice,
+    priceResolution,
     startedAt: a.startedAt?.toISOString() ?? null,
     endedAt: a.endedAt?.toISOString() ?? null,
   };
