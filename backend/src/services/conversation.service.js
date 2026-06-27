@@ -1,11 +1,13 @@
+// WhatsApp channel adapter.
+// Responsibilities: receive session + analysis, orchestrate domain calls, return reply + session patch.
+// Business logic lives in domain services; this file manages wizard state and message formatting.
+
 const STEPS = {
   AWAITING_PET_NAME: "awaiting_pet_name",
   AWAITING_PET_TYPE: "awaiting_pet_type",
-  // Grooming: ofrecer slot → domicilio → (dirección) → confirmar
   AWAITING_GROOMING_SLOT_CONFIRM: "awaiting_grooming_slot_confirm",
   AWAITING_DOMICILIO: "awaiting_domicilio",
   AWAITING_DOMICILIO_ADDRESS: "awaiting_domicilio_address",
-  // Veterinaria
   AWAITING_DATE_TIME: "awaiting_date_time",
   AWAITING_CONFIRMATION: "awaiting_confirmation",
   COMPLETED: "completed",
@@ -14,11 +16,8 @@ const STEPS = {
 const scheduling = require("./scheduling.service");
 const { findNextAvailableGroomingSlot } = require("./availability-db.service");
 const { generateReply: generateReplyWithAI } = require("./openai.service");
-const { findPetByNameAndOwner, getUserPets } = require("./pet.service");
-const { detectMedicalInfo } = require("./medical-detection.service");
+const { getUserPets } = require("./pet.service");
 const {
-  createRecord,
-  recordExists,
   getRecordsByPet,
   getRecordsByType,
   formatRecordsForWhatsApp,
@@ -30,15 +29,29 @@ const {
   formatAppointmentDateLabel,
   formatAppointmentListLine,
 } = require("./appointment.service");
+const { findPetByNameAndOwner } = require("./pet.service");
 
-// ─── Patrones de detección ────────────────────────────────────────────────────
+// ─── Domain services ──────────────────────────────────────────────────────────
 
-const MANAGEMENT_INTENTS = new Set([
-  "cancel_appointment",
-  "reschedule_appointment",
-  "query_appointments",
-  "query_medical_history",
-]);
+const {
+  normalizeText,
+  isMissing,
+  capitalize,
+  MANAGEMENT_INTENTS,
+  detectCancelIntent,
+  detectRescheduleIntent,
+  detectQueryAppointmentsIntent,
+  detectQueryMedicalHistoryIntent,
+  detectHumanTakeoverIntent,
+  detectNoAppointmentNeeded,
+  parseGroomingService,
+  detectDomicilioIntent,
+  resolveMedicalHistoryFilter,
+} = require("./domain/intent-detector.service");
+
+const { trySaveMedicalInfo } = require("./domain/medical-auto-capture.service");
+
+// ─── Wizard step sets ─────────────────────────────────────────────────────────
 
 const BOOKING_STEPS = new Set([
   STEPS.AWAITING_PET_NAME,
@@ -50,46 +63,7 @@ const BOOKING_STEPS = new Set([
   STEPS.AWAITING_CONFIRMATION,
 ]);
 
-const HUMAN_TAKEOVER_PATTERNS = [
-  "hablar con lina", "hablar con una persona", "hablar con alguien",
-  "quiero hablar", "una persona real", "agente humano", "atencion humana",
-  "comunicarme con", "me comunicas con", "necesito hablar",
-];
-
-const CANCEL_PATTERNS = [
-  "cancelar cita", "cancela mi cita", "quiero cancelar",
-  "no puedo ir", "cancelar mi cita",
-];
-const RESCHEDULE_PATTERNS = [
-  "cambiar cita", "reprogramar", "cambiar horario",
-  "reagendar", "cambiar la cita", "mover la cita",
-];
-const QUERY_APPOINTMENTS_PATTERNS = [
-  "mi cita", "mis citas", "cuando tengo cita", "cita pendiente",
-  "proxima cita", "cual es mi cita", "tengo cita pendiente", "cuando es mi cita",
-];
-const QUERY_MEDICAL_HISTORY_PATTERNS = [
-  "historial medico", "historial de", "que alergias", "que tiene anotado",
-  "a que es alergico", "a que es alergica", "cuando fue vacunado",
-  "cuando fue vacunada", "que vacunas", "anotado de", "registro medico",
-];
-const NO_APPOINTMENT_PATTERNS = ["vacuna", "vacunacion", "vacunar", "desparasit"];
-
-// ─── Helpers de texto ─────────────────────────────────────────────────────────
-
-const normalizeText = (text) => {
-  if (typeof text !== "string") return "";
-  return text.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-};
-
-const isMissing = (value) => {
-  if (value === null || value === undefined) return true;
-  if (typeof value === "string") {
-    const n = value.trim().toLowerCase();
-    return n === "" || n === "null" || n === "n/a";
-  }
-  return false;
-};
+// ─── Confirmation protocol ────────────────────────────────────────────────────
 
 const confirmationKeywords = [
   "si", "ok", "perfecto", "confirmar", "confirmo", "dale",
@@ -101,6 +75,8 @@ const isConfirmationMessage = (text) => {
   if (!n) return false;
   return confirmationKeywords.some((k) => n.includes(normalizeText(k)));
 };
+
+// ─── WhatsApp formatting helpers ──────────────────────────────────────────────
 
 const getPetLabel = (petType) => {
   if (petType === "dog") return "perrito";
@@ -114,83 +90,7 @@ const getPetEmoji = (petType) => {
   return "🐾";
 };
 
-const capitalize = (str) =>
-  str ? str.charAt(0).toUpperCase() + str.slice(1) : str;
-
-// ─── Detección de intenciones ─────────────────────────────────────────────────
-
-const detectCancelIntent = (text, intent) =>
-  intent === "cancel_appointment" ||
-  CANCEL_PATTERNS.some((p) => normalizeText(text).includes(p));
-
-const detectRescheduleIntent = (text, intent) => {
-  if (intent === "reschedule_appointment") return true;
-  const n = normalizeText(text);
-  if (RESCHEDULE_PATTERNS.some((p) => n.includes(p))) return true;
-  return (
-    n.includes("otro dia") &&
-    (n.includes("cita") || n.includes("reprogram") || n.includes("cambiar"))
-  );
-};
-
-const detectQueryAppointmentsIntent = (text, intent) =>
-  intent === "query_appointments" ||
-  QUERY_APPOINTMENTS_PATTERNS.some((p) => normalizeText(text).includes(p));
-
-const detectQueryMedicalHistoryIntent = (text, intent) =>
-  intent === "query_medical_history" ||
-  QUERY_MEDICAL_HISTORY_PATTERNS.some((p) => normalizeText(text).includes(p));
-
-const detectHumanTakeoverIntent = (text) =>
-  HUMAN_TAKEOVER_PATTERNS.some((p) => normalizeText(text).includes(p));
-
-const detectNoAppointmentNeeded = (text) => {
-  const n = normalizeText(text);
-  return NO_APPOINTMENT_PATTERNS.some((p) => n.includes(p));
-};
-
-// ─── Parsers de wizard ────────────────────────────────────────────────────────
-
-const parseGroomingService = (text) => {
-  const n = normalizeText(text);
-  if (n.includes("medicad")) return "Baño medicado";
-  if (n.includes("pulga") || n.includes("antipulga")) return "Baño antipulgas";
-  if (n.includes("spa")) return "Spa canino/felino";
-  if (n.includes("deslan")) return "Deslanado";
-  if (n.includes("color")) return "Colorimetría";
-  if (n.includes("corte")) return "Baño + corte";
-  if (n.includes("bano") || n.includes("bath")) return "Baño básico";
-  return null;
-};
-
-// Detecta si el usuario quiere domicilio (true), lo trae (false), o no está claro (null)
-const detectDomicilioIntent = (text) => {
-  const n = normalizeText(text);
-  const wantsPickup =
-    n.includes("recoger") || n.includes("recogen") || n.includes("pasen") ||
-    n.includes("domicilio") || n.includes("traigan") || n.includes("manden") ||
-    n.includes("mando") || n.includes("enviar");
-  const willBring =
-    n.includes("traigo") || n.includes("llevo") || n.includes("voy yo") ||
-    n.includes("presencial") || n.includes("lo llevo") || n.includes("la llevo");
-  if (wantsPickup) return true;
-  if (willBring) return false;
-  // fallback: yes/no
-  if (n.match(/\bsi\b/) || n.includes("yes") || n.includes("dale") || n.includes("quiero")) return true;
-  if (n.match(/\bno\b/) || n.includes("nop")) return false;
-  return null;
-};
-
-const resolveMedicalHistoryFilter = (text) => {
-  const n = normalizeText(text);
-  if (n.includes("alerg")) return "allergy";
-  if (n.includes("vacun")) return "vaccine";
-  if (n.includes("consult")) return "consultation";
-  if (n.includes("nota")) return "note";
-  return null;
-};
-
-// ─── Handlers de gestión ──────────────────────────────────────────────────────
+// ─── Session patch helpers ────────────────────────────────────────────────────
 
 const clearSchedulingPatch = () => ({
   scheduling_date_key: undefined,
@@ -213,6 +113,9 @@ const buildRescheduleSessionPatch = (cancelled, session = {}) => {
   }
   return patch;
 };
+
+// ─── Management operation formatters ─────────────────────────────────────────
+// These call domain services and format their results for WhatsApp replies.
 
 const handleCancellation = async (userId) => {
   if (!userId) {
@@ -304,7 +207,7 @@ const handleQueryMedicalHistory = async (userId, session = {}, analysis = {}, us
   }
 };
 
-// ─── Grooming: ofrecer el siguiente slot disponible ───────────────────────────
+// ─── Grooming slot formatting ─────────────────────────────────────────────────
 
 const offerNextGroomingSlot = async (petName, referenceDate) => {
   const slot = await findNextAvailableGroomingSlot({ referenceDate });
@@ -331,7 +234,6 @@ const offerNextGroomingSlot = async (petName, referenceDate) => {
   };
 };
 
-// Construye el reply de cita de grooming confirmada
 const buildGroomingConfirmedReply = (session, extra = {}) => {
   const dateKey = extra.scheduling_date_key ?? session.scheduling_date_key;
   const hour = extra.scheduling_hour ?? session.scheduling_hour;
@@ -349,47 +251,7 @@ const buildGroomingConfirmedReply = (session, extra = {}) => {
   return `¡Listo! Cita de grooming agendada${petPart} para ${dayLabel} a las ${timeLabel} 🐾 ¡Te esperamos en Mateos Pet!`;
 };
 
-// ─── Medical save helper ──────────────────────────────────────────────────────
-
-const buildMedicalSaveConfirmation = (petName, extracted) => {
-  const name = String(petName || "tu mascota").trim();
-  const title = String(extracted.title || "").trim();
-  if (extracted.type === "allergy") {
-    const phrase = title.toLowerCase().startsWith("alergia")
-      ? title.toLowerCase()
-      : `alergia ${title.toLowerCase()}`;
-    return `Anotado ✅ Guardé que ${name} tiene ${phrase}.`;
-  }
-  return `Anotado ✅ Guardé en el historial de ${name}: ${title}.`;
-};
-
-const trySaveMedicalInfo = async ({ userMessage, session, analysis, userId }) => {
-  const currentStep = session?.step ?? analysis?.step;
-  if (currentStep && BOOKING_STEPS.has(currentStep)) return null;
-  if (detectQueryMedicalHistoryIntent(userMessage, analysis?.intent)) return null;
-
-  const petName = session?.pet_name ?? analysis?.pet_name;
-  if (!userId || isMissing(petName) || isMissing(userMessage)) return null;
-
-  try {
-    const extracted = await detectMedicalInfo(userMessage);
-    if (!extracted) return null;
-
-    const pet = await findPetByNameAndOwner(petName, userId);
-    if (!pet?.id) return null;
-
-    const duplicate = await recordExists(pet.id, extracted.type, extracted.title);
-    if (duplicate) return null;
-
-    await createRecord(pet.id, extracted.type, extracted.title, extracted.detail, extracted.date);
-    return buildMedicalSaveConfirmation(pet.name, extracted);
-  } catch (error) {
-    console.error("[Conversation] trySaveMedicalInfo error:", error.message);
-    return null;
-  }
-};
-
-// ─── Lógica principal ─────────────────────────────────────────────────────────
+// ─── Wizard (WhatsApp conversation state machine) ─────────────────────────────
 
 const isVetLikeService = (service) =>
   service === "veterinary_consultation" ||
@@ -489,7 +351,6 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
         sessionPatch: {},
       };
     }
-    // No quiere ese slot → re-ofrecer (el siguiente libre real puede cambiar)
     const nextSlot = await offerNextGroomingSlot(session.pet_name, now);
     return nextSlot;
   }
@@ -588,7 +449,6 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
     }
 
     if (isMissing(petName)) {
-      // Si el usuario tiene varias mascotas registradas, listarlas
       if (userId) {
         try {
           const userPets = await getUserPets(userId);
@@ -601,7 +461,6 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
             };
           }
           if (userPets && userPets.length === 1) {
-            // Solo una mascota registrada: usarla automáticamente
             const onlyPet = userPets[0];
             return buildRuleBasedReply(
               { ...analysis, pet_name: onlyPet.name, pet_type: onlyPet.type },
@@ -689,6 +548,8 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
   };
 };
 
+// ─── Entry point ──────────────────────────────────────────────────────────────
+
 const generateReply = async (input, legacyOptions) => {
   const { analysis, session, semanticContext, userMessage, options } =
     resolveGenerateReplyInput(input, legacyOptions);
@@ -699,15 +560,21 @@ const generateReply = async (input, legacyOptions) => {
     userMessage,
   });
 
-  const medicalConfirmation = await trySaveMedicalInfo({
-    userMessage,
-    session,
-    analysis,
-    userId: options?.userId,
-  });
+  // Auto-capture: only outside active booking steps and not when querying history
+  const currentStep = session?.step ?? analysis?.step;
+  const inBookingWizard = currentStep && BOOKING_STEPS.has(currentStep);
+  const isQueryingHistory = detectQueryMedicalHistoryIntent(userMessage, analysis?.intent);
 
-  if (medicalConfirmation) {
-    ruleResult.reply = `${ruleResult.reply}\n\n${medicalConfirmation}`;
+  if (!inBookingWizard && !isQueryingHistory) {
+    const petName = session?.pet_name ?? analysis?.pet_name;
+    const medicalConfirmation = await trySaveMedicalInfo({
+      userId: options?.userId,
+      petName,
+      userMessage,
+    });
+    if (medicalConfirmation) {
+      ruleResult.reply = `${ruleResult.reply}\n\n${medicalConfirmation}`;
+    }
   }
 
   const contextText = typeof semanticContext === "string" ? semanticContext.trim() : "";

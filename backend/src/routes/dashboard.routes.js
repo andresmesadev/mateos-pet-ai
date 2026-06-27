@@ -13,5 +13,6 @@ router.use(require("./dashboard/conversations.routes"));
 router.use(require("./dashboard/search.routes"));
 router.use(require("./dashboard/expenses.routes"));
 router.use(require("./dashboard/reports.routes"));
+router.use(require("./dashboard/daily-close.routes"));
 
 module.exports = router;

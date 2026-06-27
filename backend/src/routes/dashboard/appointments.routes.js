@@ -23,6 +23,7 @@ const {
   upsertControlFromRecord,
   createGroomingReminderIfNeeded,
 } = require("../../services/next-action.service");
+const { recordGroomingCommission } = require("../../services/domain/commission.service");
 
 const VET_SERVICE_TYPES = ["vet", "consultation", "veterinary_consultation"];
 const BLOCKED_STATUSES = ["cancelled", "no_show"];
@@ -276,7 +277,7 @@ router.patch("/appointments/:id", async (req, res) => {
       include: APPOINTMENT_INCLUDE,
     });
 
-    // Auto-create grooming reminder when a grooming appointment completes
+    // Side-effects when a grooming appointment completes
     if (data.status === "completed" && updated.petId) {
       const category = updated.service?.category;
       const stype = updated.serviceType?.toLowerCase() ?? "";
@@ -288,6 +289,11 @@ router.patch("/appointments/:id", async (req, res) => {
           appointmentId: updated.id,
           appointmentDate: updated.date,
         }).catch((err) => console.error("[NextAction] Grooming reminder error:", err));
+
+        await recordGroomingCommission({
+          appointment: updated,
+          completedAt: updated.endedAt ?? new Date(),
+        }).catch((err) => console.error("[Commission] Record error:", err));
       }
     }
 

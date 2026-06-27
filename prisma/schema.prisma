@@ -39,6 +39,7 @@ model Tenant {
   nextActions   PetNextAction[]
   transactions  Transaction[]
   expenses      Expense[]
+  commissions   Commission[]
 }
 
 model Staff {
@@ -57,6 +58,7 @@ model Staff {
 
   appointments   Appointment[]
   medicalRecords MedicalRecord[]
+  commissions    Commission[]
 }
 
 model Service {
@@ -299,6 +301,7 @@ model Appointment {
 
   medicalRecord MedicalRecord?
   transaction   Transaction?
+  commission    Commission?
 
   createdAt   DateTime @default(now())
 
@@ -365,4 +368,35 @@ model Expense {
   createdAt     DateTime @default(now())
 
   @@index([tenantId, date])
+}
+// ── Comisiones (Entregable 7) ─────────────────────────────────
+// Registro contable inmutable generado al completar una cita de grooming.
+// El precio y el split quedan congelados en el momento del cierre;
+// cambios posteriores en catálogo o ficha de mascota no los afectan.
+// serviceCategory: "grooming" | "veterinary" | "other"
+// priceSource: "manual_override" | "pet_default_price" | "service_base_price"
+model Commission {
+  id            String   @id @default(cuid())
+  tenantId      String?
+  tenant        Tenant?  @relation(fields: [tenantId], references: [id])
+
+  appointmentId String   @unique
+  appointment   Appointment @relation(fields: [appointmentId], references: [id])
+
+  staffId       String?
+  staff         Staff?   @relation(fields: [staffId], references: [id])
+
+  resolvedPrice  Decimal  @db.Decimal(10, 2)
+  priceSource    String
+
+  splitRate      Decimal  @db.Decimal(4, 3)
+  staffShare     Decimal  @db.Decimal(10, 2)
+  businessShare  Decimal  @db.Decimal(10, 2)
+
+  serviceCategory String
+  completedAt     DateTime
+  createdAt       DateTime @default(now())
+
+  @@index([tenantId, completedAt])
+  @@index([staffId, completedAt])
 }
