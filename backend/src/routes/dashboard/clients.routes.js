@@ -448,9 +448,10 @@ router.post("/clients", async (req, res) => {
 router.post("/clients/with-pets", async (req, res) => {
   try {
     const { tenantId } = req.tenant;
-    const { name, phone, address, notes, pets } = req.body ?? {};
+    const { name, phone, phoneAlt, address, notes, pets } = req.body ?? {};
 
     const cleanPhone = typeof phone === "string" ? phone.replace(/\s+/g, "").trim() : "";
+    const cleanPhoneAlt = typeof phoneAlt === "string" ? phoneAlt.replace(/\s+/g, "").trim() : "";
     const cleanName = typeof name === "string" ? name.trim() : "";
 
     if (!cleanName) return res.status(400).json({ error: ERRORS.REQUIRED("El nombre del propietario") });
@@ -473,6 +474,7 @@ router.post("/clients/with-pets", async (req, res) => {
       const owner = await tx.user.create({
         data: {
           phone: cleanPhone,
+          phoneAlt: cleanPhoneAlt || null,
           tenantId: tenantId ?? null,
           name: cleanName || null,
           address: address?.trim() || null,

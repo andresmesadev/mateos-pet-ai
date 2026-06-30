@@ -51,6 +51,7 @@ export function NewOwnerPetsSheet({ open, onOpenChange, onCreated }: Props) {
 
   const [ownerName, setOwnerName] = useState("");
   const [phone, setPhone] = useState("");
+  const [phoneAlt, setPhoneAlt] = useState("");
   const [email, setEmail] = useState("");
   const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
@@ -60,6 +61,7 @@ export function NewOwnerPetsSheet({ open, onOpenChange, onCreated }: Props) {
   function reset() {
     setOwnerName("");
     setPhone("");
+    setPhoneAlt("");
     setEmail("");
     setAddress("");
     setNotes("");
@@ -89,6 +91,7 @@ export function NewOwnerPetsSheet({ open, onOpenChange, onCreated }: Props) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             name: ownerName, phone,
+            phoneAlt: phoneAlt || null,
             email: email || null, address, notes,
             pets: pets.map(({ name, type, breed, gender, weight, notes: petNotes }) => ({
               name, type,
@@ -144,9 +147,15 @@ export function NewOwnerPetsSheet({ open, onOpenChange, onCreated }: Props) {
                   <label htmlFor="op-name" className="text-xs font-medium text-muted-foreground">Nombre *</label>
                   <Input id="op-name" value={ownerName} onChange={(e) => setOwnerName(e.target.value)} placeholder="Nombre completo" autoFocus disabled={saving} />
                 </div>
-                <div className="space-y-1.5">
-                  <label htmlFor="op-phone" className="text-xs font-medium text-muted-foreground">Teléfono *</label>
-                  <Input id="op-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="573001234567" inputMode="tel" disabled={saving} />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label htmlFor="op-phone" className="text-xs font-medium text-muted-foreground">Teléfono *</label>
+                    <Input id="op-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="573001234567" inputMode="tel" disabled={saving} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label htmlFor="op-phone-alt" className="text-xs font-medium text-muted-foreground">Teléfono alternativo</label>
+                    <Input id="op-phone-alt" value={phoneAlt} onChange={(e) => setPhoneAlt(e.target.value)} placeholder="opcional" inputMode="tel" disabled={saving} />
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
