@@ -15,7 +15,7 @@ function bogotaDayStart(ymd) {
 const APPOINTMENT_INCLUDE = {
   user:    { select: { phone: true, name: true } },
   pet:     { select: { name: true, type: true, defaultGroomingPrice: true } },
-  service: { select: { name: true, category: true, basePrice: true } },
+  service: { select: { name: true, category: { select: { name: true } }, basePrice: true } },
   staff:   { select: { name: true } },
 };
 
@@ -64,7 +64,7 @@ function mapMedicalRecord(r) {
 
 function appointmentKind(appt) {
   const st = (appt.serviceType ?? "").toLowerCase();
-  const cat = (appt.service?.category ?? "").toLowerCase();
+  const cat = (appt.service?.category?.name ?? "").toLowerCase();
   if (appt.status === "cancelled") return "cancelled";
   if (appt.status === "no_show") return "no_show";
   if (cat === "veterinary" || st.includes("consulta") || st.includes("veterinar") || st.includes("vet"))

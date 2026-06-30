@@ -256,18 +256,22 @@ Gestionar el equipo humano del establecimiento: quiénes son, qué hacen, cuánd
 - **Disponibilidad del Staff** — Cuándo está disponible para atender. Considera su horario base, ausencias programadas y ausencias imprevistas.
 - **Comisión** — El registro de lo que genera un miembro del staff por cada servicio prestado. Se calcula automáticamente según las reglas del negocio cuando una cita es completada.
 - **Liquidación** — El resumen de comisiones en un período determinado. Es la entidad que reemplaza el cálculo manual del split.
+- **Capacidad del Staff** — Qué servicios está habilitado a prestar un miembro del staff. No todo peluquero presta todos los servicios de grooming, ni todo veterinario presta todos los servicios clínicos; esta entidad hace explícita esa relación en vez de asumirla. Es la base sobre la que se apoyarán capacidades futuras: asignación inteligente de citas, planificación de disponibilidad por capacidad, y la actuación de Empleados Digitales que necesiten saber a quién pueden asignar una tarea.
 
 **Responsabilidades**
 - Mantener el roster del equipo y su disponibilidad
 - Registrar automáticamente las comisiones por cada servicio completado
 - Generar liquidaciones por período sin intervención manual
 - Proveer disponibilidad a Agenda para la asignación de citas
+- Mantener qué servicios está habilitado a prestar cada miembro del staff
 
 **Eventos que produce**
 - `StaffRegistrado` — Cuando se incorpora un nuevo miembro
 - `DisponibilidadActualizada` — Cuando cambia el horario o hay una ausencia
 - `ComisiónRegistrada` — Cuando se calcula la comisión de un servicio completado
 - `LiquidaciónGenerada` — Al cierre de un período
+- `CapacidadAsignada` — Cuando se habilita a un miembro del staff para prestar un servicio
+- `CapacidadRevocada` — Cuando deja de estar habilitado para prestarlo
 
 **Eventos que consume**
 - `CitaCompletada` (de Agenda) — Para registrar la comisión automáticamente

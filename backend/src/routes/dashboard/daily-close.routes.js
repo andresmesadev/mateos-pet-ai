@@ -25,7 +25,7 @@ router.get("/daily-close", async (req, res) => {
       select: {
         id: true, status: true, staffId: true, petId: true,
         petName: true, serviceType: true,
-        service: { select: { category: true } },
+        service: { select: { category: { select: { name: true } } } },
         commission: {
           select: {
             id: true, resolvedPrice: true, priceSource: true,
@@ -86,7 +86,7 @@ router.get("/daily-close", async (req, res) => {
       appointments
         .filter((a) => {
           const isCompleted = a.status === "completed";
-          const cat = a.service?.category ?? "";
+          const cat = a.service?.category?.name ?? "";
           const stype = (a.serviceType ?? "").toLowerCase();
           const isGrooming = cat === "grooming" ||
             ["grooming","bath","baño","peluquer","corte","spa","deslanado","colorimetría","colorimetria","antipulgas"]

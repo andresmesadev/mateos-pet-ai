@@ -45,7 +45,7 @@ async function resolveVetAppointment(id, tenantId) {
   const appt = await prisma.appointment.findFirst({
     where,
     include: {
-      service: { select: { category: true } },
+      service: { select: { category: { select: { name: true } } } },
       pet: { select: { id: true, weight: true } },
     },
   });
@@ -59,7 +59,7 @@ function validateVetAppointment(appt) {
     return { status: 422, error: `No se puede registrar atención en una cita ${appt.status}` };
   }
   const isVet = appt.serviceId
-    ? appt.service?.category === "veterinary"
+    ? appt.service?.category?.name === "veterinary"
     : VET_SERVICE_TYPES.includes(appt.serviceType?.toLowerCase());
   if (!isVet) {
     return { status: 422, error: "Solo se puede registrar atención clínica en citas veterinarias" };
@@ -279,7 +279,7 @@ router.patch("/appointments/:id", async (req, res) => {
 
     // Side-effects when a grooming appointment completes
     if (data.status === "completed" && updated.petId) {
-      const category = updated.service?.category;
+      const category = updated.service?.category?.name;
       const stype = updated.serviceType?.toLowerCase() ?? "";
       const isGrooming = category === "grooming" || GROOMING_TYPES.includes(stype);
       if (isGrooming) {

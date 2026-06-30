@@ -142,7 +142,7 @@ describe("PUT /api/dashboard/appointments/:id/medical-record — clinical rules"
     prisma.appointment.findFirst.mockResolvedValue({
       ...VET_APPT,
       serviceId: "svc-groom",
-      service: { category: "grooming" },
+      service: { category: { name: "grooming" } },
     });
     const res = await request(appA).put("/api/dashboard/appointments/appt-1/medical-record").send({});
     expect(res.status).toBe(422);
@@ -180,7 +180,7 @@ describe("PUT /api/dashboard/appointments/:id/medical-record — clinical rules"
     prisma.appointment.findFirst.mockResolvedValue({
       ...VET_APPT,
       serviceId: "svc-vet",
-      service: { category: "veterinary" },
+      service: { category: { name: "veterinary" } },
     });
     setupTransaction(MEDICAL_RECORD);
     const res = await request(appA).put("/api/dashboard/appointments/appt-1/medical-record")

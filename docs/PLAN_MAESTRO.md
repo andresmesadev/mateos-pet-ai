@@ -287,7 +287,27 @@ La Fase 1 estableció los cimientos del dominio. Pero la coordinación entre sus
 La Fase 3. Cuando el Sistema Operativo esté completo, los Empleados Digitales tendrán entidades claras sobre las cuales actuar, eventos bien definidos a los que reaccionar y casos de uso estables que invocar.
 
 **Criterio de cierre**  
-El operador puede gestionar la operación diaria completa —agenda, servicios, staff, comisiones, cierre del día, reportes históricos— desde la plataforma, sin intervención de ningún agente. La coordinación entre reglas de negocio vive en casos de uso, no en los canales.
+El operador puede gestionar la operación diaria completa —agenda, servicios, staff, comisiones, cierre del día, reportes históricos— desde la plataforma, sin intervención de ningún agente. La coordinación entre reglas de negocio vive en casos de uso, no en los canales. Ningún canal (dashboard, mensajería) orquesta reglas de negocio directamente: toda operación sobre Agenda, Servicios, Staff o Finanzas pasa por su caso de uso correspondiente.
+
+#### Roadmap interno de la Fase 2
+
+El objetivo de esta fase no es construir módulos aislados. Es completar el Sistema Operativo del Negocio para que toda la operación diaria pueda ejecutarse desde la plataforma mediante casos de uso de aplicación, sin depender de ningún canal específico ni de ningún Empleado Digital. Cada entregable, por lo tanto, no se limita a modelar entidades: nace ya coordinado por su propia capa de casos de uso, agnóstica al canal que la invoque.
+
+El orden de los entregables sigue la cadena de dependencia que el propio Modelo de Dominio declara entre contextos (quién conoce a quién), no el estado actual del código:
+
+**Entregable 2.1 — Catálogo de Servicios como Sistema Operativo** · ✅ Completado
+Servicio, Regla de Precio y Categoría de Servicio completamente modelados y administrables por el operador, coordinados por sus propios casos de uso (crear/editar servicio, resolver precio). No depende de otros contextos pendientes — es la base de la cadena. Cierre registrado en `docs/history/ENTREGABLE_2_1_COMPLETION_REPORT.md`.
+
+**Entregable 2.2 — Staff como Sistema Operativo** · ✅ Completado
+Miembro del Staff, Disponibilidad, Comisión, Liquidación y Capacidad del Staff (qué servicios está habilitado a prestar cada miembro). Depende de 2.1: necesita la Categoría de Servicio para aplicar la regla de comisión correcta, y el Servicio para registrar capacidades. Casos de uso: registrar staff, actualizar disponibilidad, administrar capacidades, generar liquidación de período. Cierre registrado en `docs/history/ENTREGABLE_2_2_COMPLETION_REPORT.md`.
+
+**Entregable 2.3 — Finanzas como Sistema Operativo**  
+Transacción, Cobro, Gasto, Cierre del Día y Período Financiero, con historial consultable por cualquier período sin recalcular ni exportar. Depende de 2.2: consolida las comisiones del staff en el cierre. Casos de uso: consultar historial financiero, generar y consultar el cierre de un período arbitrario.
+
+La auditoría de coordinación —verificar que ningún canal siga orquestando reglas de negocio directamente— no es un entregable independiente: es el criterio de cierre formal de la fase, descrito arriba, y se valida al completar 2.3.
+
+**Proceso de construcción obligatorio**
+Ningún entregable de esta fase puede comenzar su implementación sin completar y aprobar antes sus cinco etapas de diseño, en orden: definición funcional, casos de uso, arquitectura técnica, modelo de persistencia y esquema físico. Tras implementarlo, son obligatorias validación, documentación y cierre formal del entregable. Este proceso está documentado en `docs/PHASE_2_EXECUTION_RULE.md` y rige a todos los entregables de la Fase 2.
 
 ---
 

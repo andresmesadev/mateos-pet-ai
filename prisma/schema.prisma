@@ -35,11 +35,13 @@ model Tenant {
   appointments  Appointment[]
   conversations Conversation[]
   services      Service[]
+  serviceCategories ServiceCategory[]
   staff         Staff[]
   nextActions   PetNextAction[]
   transactions  Transaction[]
   expenses      Expense[]
   commissions   Commission[]
+  settlements   Settlement[]
 }
 
 model Staff {
@@ -51,14 +53,81 @@ model Staff {
   phone     String?
   email     String?
   active    Boolean  @default(true)
-  // Disponibilidad semanal: { mon: { open: "08:00", close: "18:00", active: true }, ... }
+  // Disponibilidad semanal (legado, Fase 1 — ver ADR 003): { mon: { open: "08:00", close: "18:00", active: true }, ... }
+  // Convive con StaffAvailability sin sincronización continua; no se elimina ni se modifica en este entregable.
   availability Json?
+  generatesCommission Boolean @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   appointments   Appointment[]
   medicalRecords MedicalRecord[]
   commissions    Commission[]
+  availabilities StaffAvailability[]
+  capabilities   StaffCapability[]
+  settlements    Settlement[]
+}
+
+model StaffAvailability {
+  id        String   @id @default(cuid())
+  staffId   String
+  staff     Staff    @relation(fields: [staffId], references: [id])
+
+  type      String   // "base_schedule" | "planned_absence" | "unplanned_absence"
+
+  weekday   Int?      // 0-6 — solo type = "base_schedule"
+  startTime String?   // "HH:mm" — solo type = "base_schedule"
+  endTime   String?   // "HH:mm" — solo type = "base_schedule"
+
+  startAt   DateTime? // solo ausencias (programada o imprevista)
+  endAt     DateTime? // solo ausencias
+  reason    String?   // solo ausencias
+
+  createdAt DateTime @default(now())
+
+  @@index([staffId, type])
+  @@index([staffId, weekday])
+  @@index([staffId, startAt, endAt])
+}
+
+model StaffCapability {
+  id        String   @id @default(cuid())
+  staffId   String
+  staff     Staff    @relation(fields: [staffId], references: [id])
+
+  serviceId String   // referencia a Service — deliberadamente sin clave foránea real
+
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([staffId, active])
+  @@index([serviceId, active])
+}
+
+model Settlement {
+  id          String   @id @default(cuid())
+  tenantId    String?
+  tenant      Tenant?  @relation(fields: [tenantId], references: [id])
+
+  staffId     String
+  staff       Staff    @relation(fields: [staffId], references: [id])
+
+  periodStart DateTime
+  periodEnd   DateTime
+  totalAmount Decimal  @db.Decimal(10, 2)
+
+  status      String   @default("active") // "active" | "voided"
+  voidedAt    DateTime?
+  voidReason  String?
+
+  replacesSettlementId String?
+  replacesSettlement   Settlement?  @relation("SettlementReplacement", fields: [replacesSettlementId], references: [id])
+  replacedBy           Settlement[] @relation("SettlementReplacement")
+
+  createdAt   DateTime @default(now())
+
+  @@index([staffId, status])
+  @@index([tenantId, staffId, periodStart])
 }
 
 model Service {
@@ -66,8 +135,9 @@ model Service {
   tenantId    String?
   tenant      Tenant?  @relation(fields: [tenantId], references: [id])
   name        String
-  category    String   // "veterinary" | "grooming" | "other"
-  duration    Int      // minutos
+  categoryId  String
+  category    ServiceCategory @relation(fields: [categoryId], references: [id])
+  duration    Int      // minutos — duración estándar
   basePrice   Decimal? @db.Decimal(10, 2)
   requiresAppointment Boolean @default(true)
   active      Boolean  @default(true)
@@ -75,6 +145,42 @@ model Service {
   updatedAt   DateTime @updatedAt
 
   appointments Appointment[]
+  priceRules   PriceRule[]
+
+  @@index([tenantId, categoryId])
+  @@index([tenantId, active])
+}
+
+model ServiceCategory {
+  id        String   @id @default(cuid())
+  tenantId  String?
+  tenant    Tenant?  @relation(fields: [tenantId], references: [id])
+
+  name      String
+  appliesCommissionSplit Boolean @default(false)
+  active    Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+
+  services  Service[]
+
+  @@unique([tenantId, name])
+}
+
+model PriceRule {
+  id         String   @id @default(cuid())
+  serviceId  String
+  service    Service  @relation(fields: [serviceId], references: [id])
+
+  targetType String   // "breed" | "size" | "client" | "pet"
+  targetId   String   // id de raza/cliente/mascota, o valor literal si targetType = "size"
+
+  price      Decimal  @db.Decimal(10, 2)
+  active     Boolean  @default(true)
+
+  createdAt  DateTime @default(now())
+
+  @@index([serviceId, active])
 }
 
 model User {

@@ -63,7 +63,7 @@ Regla de evolución aprobada: todo el sistema de políticas de precios futuras (
 ### E4 — Mapa de desacoplamiento de WhatsApp
 **Resultado:** ✅ Completado
 
-Antes de tocar código, se produjo un análisis completo de `conversation.service.js` que clasificó cada función en tres categorías: lógica de dominio, NLP/detección de intenciones, y protocolo del canal WhatsApp. El documento `docs/whatsapp-decoupling-map.md` se convirtió en el plano de construcción para el E5.
+Antes de tocar código, se produjo un análisis completo de `conversation.service.js` que clasificó cada función en tres categorías: lógica de dominio, NLP/detección de intenciones, y protocolo del canal WhatsApp. El documento `docs/architecture/whatsapp-decoupling-map.md` se convirtió en el plano de construcción para el E5.
 
 El hallazgo más importante: los handlers de operaciones (`handleCancellation`, `handleQueryAppointments`, etc.) ya tenían la lógica de dominio delegada a servicios existentes. Lo que quedaba en ellos era formato de respuesta WhatsApp —no lógica de negocio. Esto simplificó significativamente el plan de extracción.
 

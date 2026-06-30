@@ -13,9 +13,10 @@ router.get("/services", async (req, res) => {
     const { tenantId } = req.tenant;
     const rows = await prisma.service.findMany({
       where: tenantId ? { tenantId } : {},
-      orderBy: [{ category: "asc" }, { name: "asc" }],
+      include: { category: { select: { name: true } } },
+      orderBy: [{ category: { name: "asc" } }, { name: "asc" }],
     });
-    res.json(rows);
+    res.json(rows.map(({ category, ...row }) => ({ ...row, category: category?.name ?? null })));
   } catch (error) {
     console.error("[Dashboard] Services error:", error);
     res.status(500).json({ error: "Internal server error" });

@@ -19,7 +19,7 @@ async function buildPetTimeline(petId, tenantId) {
       where: tenantId ? { petId, tenantId } : { petId },
       orderBy: { date: "desc" },
       include: {
-        service: { select: { name: true, category: true } },
+        service: { select: { name: true, category: { select: { name: true } } } },
         staff: { select: { name: true } },
         medicalRecord: { include: { staff: { select: { name: true } } } },
       },

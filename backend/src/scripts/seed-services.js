@@ -22,16 +22,36 @@ const DEFAULT_SERVICES = [
   { name: "Desparasitación",         category: "other", duration: 15, requiresAppointment: false },
 ];
 
+const SPLIT_BY_DEFAULT = { grooming: true, veterinary: false, other: false };
+
+async function resolveCategoryId(tenantId, categoryName) {
+  const existing = await prisma.serviceCategory.findFirst({
+    where: { tenantId: tenantId ?? null, name: categoryName },
+  });
+  if (existing) return existing.id;
+  const created = await prisma.serviceCategory.create({
+    data: {
+      tenantId: tenantId ?? null,
+      name: categoryName,
+      appliesCommissionSplit: SPLIT_BY_DEFAULT[categoryName] ?? false,
+      active: true,
+    },
+  });
+  return created.id;
+}
+
 async function main() {
   const tenants = await prisma.tenant.findMany({ select: { id: true, slug: true } });
 
   if (tenants.length === 0) {
     console.log("No hay tenants. Creando servicios globales (tenantId: null)...");
     for (const svc of DEFAULT_SERVICES) {
+      const { category, ...rest } = svc;
+      const categoryId = await resolveCategoryId(null, category);
       await prisma.service.upsert({
         where: { id: `global-${svc.name.toLowerCase().replace(/\s+/g, "-")}` },
         update: {},
-        create: { id: `global-${svc.name.toLowerCase().replace(/\s+/g, "-")}`, ...svc, tenantId: null },
+        create: { id: `global-${svc.name.toLowerCase().replace(/\s+/g, "-")}`, ...rest, categoryId, tenantId: null },
       });
     }
   } else {
@@ -43,7 +63,9 @@ async function main() {
         continue;
       }
       for (const svc of DEFAULT_SERVICES) {
-        await prisma.service.create({ data: { ...svc, tenantId: tenant.id } });
+        const { category, ...rest } = svc;
+        const categoryId = await resolveCategoryId(tenant.id, category);
+        await prisma.service.create({ data: { ...rest, categoryId, tenantId: tenant.id } });
       }
       console.log(`  → ${DEFAULT_SERVICES.length} servicios creados.`);
     }

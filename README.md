@@ -12,8 +12,9 @@ Administra la operación diaria completa — agenda, servicios, finanzas, staff,
 Si vas a desarrollar una funcionalidad, proponer una mejora o utilizar una IA para colaborar en este proyecto, debes leer primero:
 
 1. [`docs/PLAN_MAESTRO.md`](docs/PLAN_MAESTRO.md) — La visión, los principios, la arquitectura y el roadmap oficial del producto
-2. [`docs/PHASE_1_COMPLETION_REPORT.md`](docs/PHASE_1_COMPLETION_REPORT.md) — Qué se construyó en la Fase 1 y qué habilita
+2. [`docs/history/PHASE_1_COMPLETION_REPORT.md`](docs/history/PHASE_1_COMPLETION_REPORT.md) — Qué se construyó en la Fase 1 y qué habilita
 3. [`docs/architecture/domain-model-v1.md`](docs/architecture/domain-model-v1.md) — El modelo conceptual oficial del negocio
+4. [`docs/PHASE_2_EXECUTION_RULE.md`](docs/PHASE_2_EXECUTION_RULE.md) — El proceso obligatorio para construir cualquier entregable de la Fase 2
 
 Estos documentos definen el rumbo del producto. Cualquier propuesta que los contradiga debe justificarse explícitamente antes de aceptarse.
 
