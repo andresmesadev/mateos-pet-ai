@@ -150,7 +150,7 @@ export function ClientsTable() {
             )}
           </div>
           <div className="flex w-full items-center gap-2 sm:w-auto">
-            {!loading && !error && clients.length > 0 && (
+            {!loading && !error && (total > 0 || debouncedQuery.trim()) && (
               <div className="relative w-full sm:w-64">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
