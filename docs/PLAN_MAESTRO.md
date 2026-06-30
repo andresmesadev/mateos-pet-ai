@@ -1,16 +1,61 @@
 # Plan Maestro de Evolución
 ## Plataforma Operativa Inteligente · Mateos Pet
 
-**Versión:** 1.0  
+**Versión:** 1.1  
 **Fecha:** 2026-06-30  
-**Estado:** Documento vivo — fuente oficial de verdad sobre la evolución del producto  
-**Autoridad:** Toda decisión de producto, arquitectura o desarrollo se evalúa contra este documento.
+**Estado:** Documento vivo — fuente oficial de verdad sobre la evolución del producto
+
+---
+
+## Introducción
+
+Este documento no describe cómo está implementado el sistema.
+
+Describe cómo evolucionará la **Plataforma Operativa Inteligente** durante los próximos años: qué se construirá, en qué orden y por qué. Establece la visión, los principios que la gobiernan y el plan de evolución aprobado.
+
+Los detalles técnicos no pertenecen aquí. Las decisiones de implementación viven en los documentos de arquitectura. Los resultados concretos de cada fase viven en sus informes de cierre. Los modelos del negocio viven en el modelo de dominio.
+
+**Este documento es la Constitución del Proyecto.**
+
+Toda decisión estratégica, arquitectónica o de producto debe alinearse con él. Quien proponga un cambio que lo contradiga tiene la carga de justificarlo explícitamente. No al revés.
+
+---
+
+## Jerarquía Documental
+
+Las decisiones del proyecto siguen siempre esta jerarquía, de mayor a menor abstracción:
+
+```
+Visión
+  ↓ responde: ¿qué estamos construyendo y para quién?
+
+Principios Permanentes
+  ↓ responde: ¿qué reglas son innegociables?
+
+Plan Maestro  ← este documento
+  ↓ responde: ¿hacia dónde evoluciona el producto?
+
+Modelo de Dominio
+  ↓ responde: ¿cómo funciona el negocio?
+
+Documentos de Arquitectura
+  ↓ responden: ¿cómo está construido?
+
+Informes de Fase
+  ↓ responden: ¿qué se construyó?
+
+ADRs (Architecture Decision Records)
+  ↓ responden: ¿por qué tomamos una decisión?
+
+Código
+  ↓ implementa todo lo anterior
+```
+
+Ninguna decisión puede saltarse esta jerarquía. El código no puede contradecir la arquitectura. La arquitectura no puede contradecir el dominio. El dominio no puede contradecir los principios. Los principios no pueden contradecir la visión.
 
 ---
 
 ## Cómo usar este documento
-
-Este documento es la Constitución del Proyecto.
 
 Debe leerse completo antes de:
 
@@ -18,8 +63,6 @@ Debe leerse completo antes de:
 - Proponer o aprobar una nueva funcionalidad
 - Incorporar una nueva IA o un nuevo desarrollador al proyecto
 - Cambiar el rumbo del producto
-
-Si alguna propuesta contradice este documento, debe justificarse explícitamente antes de aceptarse. La carga de la prueba recae sobre quien propone el cambio, no sobre quien defiende el plan.
 
 ---
 
@@ -62,7 +105,7 @@ Nunca al revés. El pitch puede ser AaaS. El diseño técnico es siempre OS.
 
 ## 2. Principios Permanentes
 
-Estos diez principios son inmutables. Fueron aprobados al cierre de la etapa de definición estratégica (2026-06-26). Toda decisión futura de producto, arquitectura o desarrollo se evalúa contra ellos. Si una propuesta viola más de uno, no es prioritaria.
+Estos diez principios son inmutables. Fueron aprobados al cierre de la etapa de definición estratégica. Toda decisión futura de producto, arquitectura o desarrollo se evalúa contra ellos. Si una propuesta viola más de uno, no es prioritaria.
 
 ---
 
@@ -79,7 +122,7 @@ Todo dato importante pertenece al negocio. Nunca a un canal. Nunca a un agente. 
 La IA potencia el trabajo. Nunca es un requisito para operar.
 
 **Principio 5 — Los empleados digitales trabajan para el dominio.**  
-No para WhatsApp. No para el dashboard. Trabajan para el dominio del negocio.
+No para ningún canal de comunicación en particular. Trabajan para el dominio del negocio.
 
 **Principio 6 — Toda funcionalidad elimina, simplifica o automatiza trabajo humano.**  
 Si no lo hace, debe cuestionarse su prioridad.
@@ -88,7 +131,7 @@ Si no lo hace, debe cuestionarse su prioridad.
 Cada negocio usa únicamente los módulos que necesita.
 
 **Principio 8 — Los canales son reemplazables.**  
-WhatsApp, Email, Portal del Cliente o cualquier integración futura son puertas de entrada. Nunca contienen lógica del negocio.
+Los canales de comunicación son puertas de entrada al sistema. Nunca contienen lógica del negocio.
 
 **Principio 9 — El activo real es el conocimiento operativo acumulado.**  
 Clientes, mascotas, servicios, historiales, automatizaciones, datos. No los modelos de IA.
@@ -98,11 +141,11 @@ Antes de implementar cualquier funcionalidad: *¿Qué trabajo humano deja de exi
 
 ---
 
-## 3. Arquitectura General
+## 3. Arquitectura Conceptual
 
 ### La separación fundamental
 
-El sistema opera sobre dos capas que nunca se mezclan:
+El sistema opera sobre dos territorios que nunca se mezclan:
 
 ```
 DOMINIO DEL NEGOCIO
@@ -112,7 +155,7 @@ DOMINIO DEL NEGOCIO
           ↓ los canales lo consumen
 
 CANALES
-  WhatsApp · Dashboard · Email · Portal del Cliente · Futuras integraciones
+  Mensajería · Dashboard · Email · Portal del Cliente · Futuras integraciones
 ```
 
 **El dominio no sabe de los canales. Los canales saben del dominio.**
@@ -122,63 +165,54 @@ Esta separación no es una preferencia técnica. Es la garantía de que el negoc
 ### Las capas del sistema
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│                    CANALES Y ADAPTADORES                  │
-│   WhatsApp Adapter · Dashboard API · Portal del Cliente   │
-│   (reciben solicitudes, transforman, invocan casos de uso)│
-└──────────────────────────┬───────────────────────────────┘
-                           │
-┌──────────────────────────▼───────────────────────────────┐
-│                    CASOS DE USO                           │
-│   (coordinan servicios de dominio · no tienen canal)      │
-│   AgendarCita · CompletarServicio · GenerarCierreDelDía   │
-└──────────────────────────┬───────────────────────────────┘
-                           │
-┌──────────────────────────▼───────────────────────────────┐
-│                 SERVICIOS DE DOMINIO                      │
-│   price-resolver · commission · intent-detector           │
-│   medical-auto-capture · (futuros servicios de dominio)   │
-└──────────────────────────┬───────────────────────────────┘
-                           │
-┌──────────────────────────▼───────────────────────────────┐
-│                   MODELO DE DOMINIO                       │
-│   Client · Pet · Appointment · Service · Staff            │
-│   Commission · DayClose · AutomationRule · AgentTask      │
-└──────────────────────────┬───────────────────────────────┘
-                           │
-┌──────────────────────────▼───────────────────────────────┐
-│                  EMPLEADOS DIGITALES                      │
-│   Recepcionista IA · Coordinador de Agenda IA             │
-│   Asistente de Grooming IA · Asistente Financiero IA      │
-│   Asistente Clínico IA · Asistente de Recuperación IA     │
-│   (trabajan sobre el dominio, nunca son el dominio)       │
-└──────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────┐
+│            CANALES Y ADAPTADORES               │
+│  (traducen solicitudes al lenguaje del dominio) │
+└──────────────────────┬─────────────────────────┘
+                       │
+┌──────────────────────▼─────────────────────────┐
+│                CASOS DE USO                     │
+│  (coordinan el dominio · son agnósticos         │
+│   al canal que los invoca)                      │
+└──────────────────────┬─────────────────────────┘
+                       │
+┌──────────────────────▼─────────────────────────┐
+│             DOMINIO DEL NEGOCIO                 │
+│  (entidades, servicios de dominio,              │
+│   reglas de negocio)                            │
+└──────────────────────┬─────────────────────────┘
+                       │
+┌──────────────────────▼─────────────────────────┐
+│           EMPLEADOS DIGITALES                   │
+│  (leen y escriben el dominio · son auditables · │
+│   nunca son el dominio)                         │
+└────────────────────────────────────────────────┘
 ```
 
-### Reglas de arquitectura permanentes
+### Principios de diseño permanentes
 
-**1. El criterio de prueba del dominio.**  
-Antes de ubicar cualquier lógica en un servicio, preguntarse: *¿Podría el Portal del Cliente llamar este servicio sin modificarlo?* Si sí → pertenece al dominio. Si no → pertenece al adaptador del canal.
+**El dominio como autoridad.**  
+Toda regla de negocio vive en el dominio. Los canales y los agentes son consumidores del dominio. Nunca sus dueños.
 
-**2. Los adaptadores no orquestan.**  
-Un adaptador recibe una solicitud, la transforma al lenguaje del dominio, invoca un caso de uso, y transforma la respuesta para el canal. La coordinación entre servicios de dominio vive en los casos de uso, nunca en los adaptadores.
+**Los canales no orquestan.**  
+Un canal recibe una solicitud, la transforma al lenguaje del dominio, invoca un caso de uso, y devuelve la respuesta al canal. La coordinación entre reglas de negocio vive en los casos de uso, no en los canales.
 
-**3. Los casos de uso son agnósticos al canal.**  
-Un caso de uso no sabe si fue invocado desde WhatsApp, desde el dashboard, desde una API pública o desde un test. Recibe datos del dominio. Devuelve resultados del dominio.
+**Los casos de uso son agnósticos al canal.**  
+Un caso de uso no sabe si fue invocado desde la interfaz web, desde mensajería, desde una API pública o desde un test automatizado. Recibe y devuelve conceptos del dominio.
 
-**4. Las comisiones son hechos contables inmutables.**  
-Los registros financieros no se modifican. Las correcciones se realizan mediante anulación + nuevo registro. Esta regla protege la integridad histórica del negocio.
+**Los registros financieros son inmutables.**  
+Los hechos contables no se modifican. Las correcciones se realizan mediante anulación y nuevo registro. Esta regla protege la integridad histórica del negocio.
 
-**5. El precio se resuelve en un único lugar.**  
-Toda resolución de precio pasa por `price-resolver.service.js`. Ningún otro módulo implementa reglas de precios por su cuenta. La jerarquía oficial es: override manual > precio específico de la mascota > precio base del catálogo.
+**El precio se resuelve en un único lugar.**  
+Las reglas de precio del negocio están centralizadas en un único servicio de dominio. Ningún otro módulo implementa reglas de precio por su cuenta.
 
 ### Separación de dominios
 
 La plataforma opera sobre dos dominios independientes:
 
-**Dominio Operativo** (siempre activo): Clientes, Mascotas, Agenda, Servicios, Staff, Finanzas, Automatizaciones. Funciona para cualquier tipo de negocio.
+**Dominio Operativo** (siempre activo): Clientes, Mascotas, Agenda, Servicios, Staff, Finanzas, Automatizaciones. Funciona para cualquier tipo de negocio, con o sin servicios clínicos.
 
-**Dominio Clínico** (módulo opcional): Historia Clínica, Vacunas, Tratamientos, Medicamentos, Diagnósticos, Prescripciones. Solo se activa en establecimientos veterinarios.
+**Dominio Clínico** (módulo opcional): Historia Clínica, Vacunas, Tratamientos, Medicamentos, Diagnósticos, Prescripciones. Solo se activa en establecimientos que prestan servicios veterinarios.
 
 **Regla de diseño:** ninguna entidad del Dominio Operativo puede depender de una entidad del Dominio Clínico. La dependencia solo existe en la dirección contraria.
 
@@ -201,85 +235,59 @@ Empleados Digitales
 ```
 
 **Por qué este orden:**  
-Si se construye al revés —canal primero, dominio después— cada nuevo canal requiere reimplementar la lógica del negocio. Si el dominio está sólido, agregar un nuevo agente o canal es marginal. El costo de hacerlo bien desde el inicio es bajo. El costo de corregirlo después es alto.
+Si se construye al revés —canal primero, dominio después— cada nuevo canal requiere reimplementar la lógica del negocio. Si el dominio está sólido, agregar un nuevo agente o canal es trabajo marginal. El costo de hacerlo bien desde el inicio es bajo. El costo de corregirlo después es alto.
 
 **Consecuencia práctica:**  
-Antes de mejorar cualquier canal (WhatsApp, dashboard) o cualquier agente de IA, verificar que las entidades de dominio y las reglas de negocio que necesitan están correctamente modeladas. Si no están, el modelo de dominio se actualiza primero.
+Antes de mejorar un canal de comunicación o un agente de IA, verificar que las entidades de dominio y las reglas de negocio que necesitan están correctamente modeladas. Si no están, el modelo de dominio se actualiza primero.
 
 ---
 
-## 5. Plan Maestro de Evolución
+## 5. Plan de Evolución
 
 El producto evoluciona en cinco fases. Cada fase construye sobre la anterior. No se puede iniciar una fase sin haber completado la anterior.
 
 ---
 
 ### FASE 1 — Soberanía del Dominio
-**Estado:** ✅ Completada (27 de junio de 2026)
+**Estado:** ✅ Completada
 
 **Objetivo**  
-Establecer que el dominio del negocio es la autoridad. Que las reglas del negocio —sus precios, sus comisiones, sus intenciones, su historial— viven en servicios propios, independientes de canales y tecnologías.
+Establecer que el dominio del negocio es la autoridad. Que las reglas del negocio —sus precios, sus comisiones, su lógica operativa— viven en el dominio, independientes de los canales y las tecnologías que los expresan.
 
 **El problema que resolvió**  
-Antes de esta fase, la lógica de negocio vivía dispersa: parte en el agente de WhatsApp (`conversation.service.js`), parte en los endpoints del dashboard, parte en la interfaz. No existía un lugar único donde vivieran las reglas del negocio. Cambiar una regla de precios requería tocar múltiples archivos en múltiples capas.
+La lógica de negocio vivía dispersa entre el canal de mensajería, los endpoints del dashboard y la interfaz de usuario. No existía un lugar único donde vivieran las reglas del negocio. Cambiar una regla de precios requería tocar múltiples capas. El operador no tenía visibilidad financiera directa.
 
-**Lo que se construyó**  
-- Servicio de dominio de precios (`price-resolver.service.js`) con jerarquía oficial y trazabilidad completa
-- Extracción del detector de intenciones (`intent-detector.service.js`) de WhatsApp al dominio
-- Extracción de la captura médica automática (`medical-auto-capture.service.js`) al dominio
-- Modelo `Commission` como registro contable inmutable
-- Agenda operativa con resumen del día, alertas con acción y precio visible con jerarquía
-- Cierre del día basado en hechos contables (no en recálculos)
-- Mapa de desacoplamiento de WhatsApp como plano de construcción permanente
+**Las capacidades que incorporó**  
+La lógica de precios, comisiones y detección de intenciones pasó a residir en el dominio, invocable desde cualquier punto del sistema. El operador obtuvo visibilidad financiera directa desde la agenda: el precio de cada cita con su jerarquía de origen, el resumen del día y un cierre contable basado en hechos inmutables.
 
 **Lo que habilitó**  
-La Fase 2. Existe ahora un conjunto de servicios de dominio que cualquier caso de uso o adaptador puede invocar sin modificarlos. El criterio de prueba permanente —"¿podría el Portal del Cliente llamar este servicio sin modificarlo?"— puede aplicarse a toda la arquitectura futura.
+Un conjunto de servicios de dominio que cualquier caso de uso o canal puede invocar sin modificarlos. La posibilidad de construir la capa de aplicación sin que ningún canal tenga que orquestar la lógica del negocio.
 
-**Criterio de cierre cumplido**  
-Los servicios de dominio son agnósticos al canal. El agente de WhatsApp sigue funcionando exactamente igual. La agenda muestra precio, fuente y alertas accionables. El cierre del día lee exclusivamente registros `Commission`. 143 tests passing. 0 regresiones.
+**Criterio de cierre**  
+El canal de mensajería opera sin cambios. El dominio puede ser invocado desde cualquier punto del sistema sin modificarse. El operador puede ver precios, comisiones y cierre del día directamente desde la agenda.
 
 ---
 
 ### FASE 2 — Sistema Operativo del Negocio
-**Estado:** Pendiente
+**Estado:** En curso
 
 **Objetivo**  
-Completar el Sistema Operativo del negocio. Que el dominio operativo esté completamente modelado, que los casos de uso coordinen los servicios de dominio, y que el operador humano pueda gestionar la operación diaria completa desde el dashboard sin depender del agente de IA.
+Completar el Sistema Operativo del negocio. Que el Dominio Operativo esté completamente modelado, que una capa de casos de uso coordine sus reglas, y que el operador humano pueda gestionar la operación diaria completa desde la plataforma sin depender de ningún agente de IA.
 
 **El problema que resuelve**  
-La Fase 1 construyó servicios de dominio. Pero esos servicios no tienen una capa que los coordine. Hoy, si la agenda necesita registrar una cita completada, calcular su precio, generar la comisión y notificar al staff, esa orquestación ocurre dispersa entre adaptadores. Los canales todavía coordinan demasiado. Además, entidades críticas del modelo de dominio —`DayClose` como entidad, `Staff` con disponibilidad real, la capa de casos de uso— todavía no existen como tales en el sistema.
+La Fase 1 estableció los cimientos del dominio. Pero la coordinación entre sus reglas todavía ocurre dispersa: los canales orquestan más de lo que deberían, y hay capacidades operativas críticas —gestión de staff, historial financiero consultable, catálogo de servicios administrable— que aún no existen como entidades completas del Sistema Operativo.
 
-**Qué debe incorporar esta fase**
-
-*Capa de aplicación (casos de uso):*
-- Casos de uso que coordinen múltiples servicios de dominio sin que ningún adaptador de canal tenga que orquestar directamente
-- Un caso de uso invocable desde cualquier canal: `CompletarServicio`, `AgendarCita`, `GenerarCierreDelDía`
-
-*Entidades del dominio operativo faltantes:*
-- `DayClose` como entidad generada y persistida (no solo un endpoint de lectura)
-- `Staff` con disponibilidad real y asignación desde la agenda
-- Liquidación por profesional: resumen de comisiones por período sin intervención manual
-
-*Reportes financieros históricos:*
-- Períodos financieros consultables con total confianza en la inmutabilidad de los datos
-- El operador puede ver el resumen de cualquier semana o mes pasado
-
-*Catálogo de servicios completo:*
-- CRUD completo desde el dashboard
-- Reglas de precio por servicio, por mascota o por cliente gestionables desde la interfaz
-
-**Lo que NO pertenece a esta fase**
-- Nuevos canales (Portal del Cliente, Email, App móvil)
-- Motor de automatizaciones configurable
-- Mejoras al agente de WhatsApp
-- Funcionalidades multiempresa o multi-tenant
-- Dominio Clínico (historia clínica, vacunas, diagnósticos)
+**Las capacidades que incorpora**  
+- La coordinación de operaciones complejas ocurre en una capa de aplicación, no en los canales
+- El staff, su disponibilidad y sus comisiones son gestionables directamente por el operador
+- El historial financiero es consultable por cualquier período, sin recalcular ni exportar
+- El catálogo de servicios y sus reglas de precio son administrables desde la plataforma
 
 **Lo que habilita**  
-La Fase 3. Cuando el Sistema Operativo esté completo, los Empleados Digitales tendrán entidades claras sobre las cuales actuar, eventos bien definidos a los que reaccionar, y casos de uso estables que invocar. El agente de WhatsApp podrá evolucionar de responder mensajes a delegar en empleados digitales especializados.
+La Fase 3. Cuando el Sistema Operativo esté completo, los Empleados Digitales tendrán entidades claras sobre las cuales actuar, eventos bien definidos a los que reaccionar y casos de uso estables que invocar.
 
-**Criterio de terminación**  
-El operador puede gestionar la operación diaria completa —agenda, servicios, staff, comisiones, cierre del día, reportes— exclusivamente desde el dashboard, sin intervención del agente de IA. Toda la lógica de coordinación vive en casos de uso, no en adaptadores. Las entidades faltantes del modelo de dominio operativo están implementadas.
+**Criterio de cierre**  
+El operador puede gestionar la operación diaria completa —agenda, servicios, staff, comisiones, cierre del día, reportes históricos— desde la plataforma, sin intervención de ningún agente. La coordinación entre reglas de negocio vive en casos de uso, no en los canales.
 
 ---
 
@@ -287,39 +295,31 @@ El operador puede gestionar la operación diaria completa —agenda, servicios, 
 **Estado:** Futura
 
 **Objetivo**  
-Reemplazar el agente monolítico de WhatsApp por un equipo de empleados digitales especializados, cada uno con responsabilidades claras, límites de autonomía definidos, y auditoría de cada decisión como entidad del dominio.
+Reemplazar el agente generalista por un equipo de Empleados Digitales Especializados, cada uno con responsabilidades claras, límites de autonomía definidos y auditoría completa de cada decisión tomada.
 
 **El problema que resuelve**  
-Un agente que lo hace todo es frágil, difícil de mejorar, y se comporta de forma impredecible. Un equipo de agentes especializados tiene responsabilidades claras, es auditable, y cada miembro puede mejorarse de forma independiente.
+Un agente que lo hace todo es frágil, difícil de mejorar y se comporta de forma impredecible. Un equipo de agentes especializados tiene responsabilidades delimitadas, es auditable y cada miembro puede evolucionar de forma independiente.
 
-**Los empleados digitales planificados**
+**Las capacidades que incorpora**  
+Un equipo de empleados digitales con especialización definida:
 
-| Empleado Digital | Responsabilidad principal |
+| Empleado Digital | Responsabilidad |
 |---|---|
-| Recepcionista IA | Primer contacto, identificación de intención, enrutamiento al especialista correcto |
+| Recepcionista IA | Primer contacto, identificación de intención, enrutamiento |
 | Coordinador de Agenda IA | Disponibilidad, agendamiento, confirmaciones, recordatorios |
-| Asistente de Grooming IA | Preferencias por mascota, precio acordado, frecuencia, observaciones |
-| Asistente de Recuperación IA | Clientes en riesgo, campañas de reactivación, seguimiento |
-| Asistente Financiero IA | Cierre del día, split de comisiones, reportes bajo demanda |
+| Asistente de Grooming IA | Preferencias por mascota, precio acordado, frecuencia |
+| Asistente de Recuperación IA | Clientes en riesgo, campañas de reactivación |
+| Asistente Financiero IA | Cierre del día, comisiones, reportes bajo demanda |
 | Asistente Administrativo IA | Reportes operativos, catálogo, configuración asistida |
-| Asistente Clínico IA | Pre-consulta, historial clínico, alertas de vacunas, notas (solo si módulo clínico activo) |
+| Asistente Clínico IA | Historial, alertas clínicas, pre-consulta (solo si módulo activo) |
 
-**Entidades que esta fase materializa**
-- `AgentTask` — Tarea del empleado digital como entidad del OS
-- `AgentDecision` — Registro auditable de cada decisión tomada
-- `EscalationTicket` — Escalación como entidad del OS, no como estado de conversación
-- `AutonomyLimit` — Configuración de hasta dónde puede actuar un agente sin confirmación humana
+Cada tarea, cada decisión y cada escalación generada por un empleado digital es una entidad auditable del Sistema Operativo. El negocio puede configurar hasta dónde puede actuar cada agente sin confirmación humana. El sistema puede ejecutar reglas automáticamente cuando ocurren eventos en el dominio, sin programación adicional.
 
-**Motor de automatizaciones**  
-Esta fase incluye el motor de reglas configurable (`AutomationRule`): disparador + condición + acción + canal. Permite que el negocio configure automatizaciones sin programación. Ejemplo: "Cuando una cita es agendada → enviar confirmación al cliente por WhatsApp."
+**Lo que habilita**  
+La Fase 4. Con Empleados Digitales operativos y auditables, la plataforma está lista para escalar a múltiples negocios manteniendo la coherencia operativa en cada uno.
 
-**Lo que NO pertenece a esta fase**
-- Multiempresa o multi-tenant
-- Portal del Cliente como canal independiente
-- Nuevos canales de comunicación masiva
-
-**Criterio de terminación**  
-El Recepcionista IA y el Coordinador de Agenda IA están operativos como empleados digitales separados, con responsabilidades delimitadas y auditoría completa de sus decisiones. El motor de automatizaciones está activo con al menos las reglas más comunes preconfiguradas. Las escalaciones son entidades del OS.
+**Criterio de cierre**  
+Al menos dos Empleados Digitales especializados operan con responsabilidades delimitadas y auditoría completa de sus decisiones. Las escalaciones son entidades del Sistema Operativo. El negocio puede configurar reglas de automatización sin intervención del equipo de desarrollo.
 
 ---
 
@@ -327,25 +327,22 @@ El Recepcionista IA y el Coordinador de Agenda IA están operativos como emplead
 **Estado:** Futura
 
 **Objetivo**  
-Evolucionar el producto desde un sistema para Mateos Pet hacia una plataforma que puede operar múltiples negocios independientes, con configuración por establecimiento, facturación automatizada y onboarding autónomo.
+Evolucionar el producto desde un sistema para un único negocio hacia una plataforma que puede operar múltiples establecimientos independientes, con configuración autónoma, facturación automatizada y onboarding sin intervención del equipo de desarrollo.
 
 **El problema que resuelve**  
-Mateos Pet es el primer cliente y el laboratorio del producto. Cuando el producto esté probado en producción real, la misma arquitectura puede servir a otras clínicas y peluquerías. El multitenancy no es una funcionalidad nueva: es exponer lo que ya existe de forma configurable para cada nuevo cliente.
+El primer negocio es el laboratorio del producto. Cuando la plataforma esté probada en producción real, la misma arquitectura puede servir a otras clínicas y peluquerías. El paso a multiempresa no es agregar funcionalidades nuevas: es exponer lo que ya existe de forma configurable para cada nuevo cliente.
 
-**Qué debe incorporar esta fase**
-- Multitenancy real: cada establecimiento opera en su propio espacio de datos
-- Panel de configuración del negocio: módulos activos, reglas de split, horarios, staff, servicios
-- Onboarding autónomo para nuevas clínicas: el sistema puede configurarse sin intervención manual del equipo de desarrollo
-- Facturación automatizada por establecimiento (integración con sistema de pagos)
-- Panel de administración para el equipo de Mateos Pet (métricas, estado de tenants, incidencias)
+**Las capacidades que incorpora**  
+- Cada establecimiento opera en su propio espacio de datos y configuración
+- Los módulos activos, las reglas operativas y los equipos son configurables por establecimiento
+- Un nuevo negocio puede configurarse, operar y generar facturación sin que el equipo de desarrollo intervenga
+- El equipo interno tiene visibilidad sobre el estado operativo de todos los establecimientos
 
-**Lo que NO pertenece a esta fase**
-- APIs públicas para terceros
-- Marketplace de integraciones
-- Expansión a nuevas especies o especialidades veterinarias
+**Lo que habilita**  
+La Fase 5. Con la arquitectura multiempresa establecida, la plataforma puede crecer mediante nuevos canales, integraciones externas y módulos especializados sin alterar el núcleo operativo.
 
-**Criterio de terminación**  
-Un segundo establecimiento (diferente a Mateos Pet) puede ser onboardeado de forma autónoma, operar completamente en el sistema, y generar facturación automatizada. El equipo de desarrollo no interviene en el proceso de onboarding.
+**Criterio de cierre**  
+Un segundo establecimiento —diferente al primero— puede ser onboardeado de forma autónoma, operar completamente en la plataforma y generar facturación sin intervención del equipo de desarrollo.
 
 ---
 
@@ -353,18 +350,22 @@ Un segundo establecimiento (diferente a Mateos Pet) puede ser onboardeado de for
 **Estado:** Futura
 
 **Objetivo**  
-Expandir la plataforma mediante nuevos canales de comunicación, una API pública para integraciones externas, aplicaciones propias (Portal del Cliente, App móvil) y un ecosistema de módulos especializados.
+Expandir la plataforma mediante nuevos canales de comunicación, una API pública para integraciones externas, aplicaciones propias para clientes y staff, y módulos especializados activables por tipo de negocio.
 
-**Qué debe incorporar esta fase**
-- Portal del Cliente: los propietarios de mascotas pueden consultar citas, solicitar servicios y ver el historial de su mascota directamente, sin pasar por WhatsApp
-- API pública documentada para que integradores y partners puedan conectar sistemas externos
-- App móvil para el equipo del establecimiento
-- Integración con laboratorios (resultados directamente en la historia clínica)
-- Integración con proveedores de insumos (inventario conectado)
-- Módulos especializados activables: telemedicina, e-commerce de productos, programas de bienestar
+**El problema que resuelve**  
+Una plataforma operativa madura necesita conectarse con el ecosistema de sus usuarios: los propietarios de mascotas quieren acceder directamente, el staff necesita herramientas móviles, los laboratorios necesitan enviar resultados al historial clínico, los proveedores necesitan conectar inventarios. Abrir la plataforma a estos actores multiplica su valor sin reemplazar su núcleo.
 
-**Criterio de terminación**  
-Al menos dos canales adicionales a WhatsApp están operativos. La API pública tiene al menos un integrador externo activo. El Portal del Cliente tiene adopción medible por parte de los propietarios de mascotas.
+**Las capacidades que incorpora**  
+- Los propietarios de mascotas pueden consultar citas, solicitar servicios y ver el historial directamente, sin intermediarios
+- Integradores y partners pueden conectar sistemas externos mediante una API pública documentada
+- El equipo del establecimiento tiene acceso móvil a la operación
+- Módulos especializados activables: telemedicina, programas de bienestar, integración con laboratorios y proveedores
+
+**Lo que habilita**  
+Un ecosistema donde la plataforma es el núcleo operativo y múltiples actores —clientes, staff, partners, integraciones— orbitan alrededor de ella.
+
+**Criterio de cierre**  
+Al menos dos canales adicionales están operativos y tienen adopción medible. La API pública tiene al menos un integrador externo activo.
 
 ---
 
@@ -372,20 +373,20 @@ Al menos dos canales adicionales a WhatsApp están operativos. La API pública t
 
 Antes de construir cualquier funcionalidad, deben responderse estas cinco preguntas. Si alguna respuesta es negativa, la funcionalidad no debe desarrollarse en este momento.
 
-**Pregunta 1 — ¿Qué trabajo humano elimina?**  
-Describir concretamente qué tarea humana deja de existir, se simplifica o se automatiza gracias a esta funcionalidad. Si la respuesta es vaga o inexistente, la funcionalidad no tiene prioridad.
+**¿Qué trabajo humano elimina?**  
+Describir concretamente qué tarea humana deja de existir, se simplifica o se automatiza. Si la respuesta es vaga o inexistente, la funcionalidad no tiene prioridad.
 
-**Pregunta 2 — ¿Pertenece al dominio correcto?**  
-Verificar en `docs/architecture/domain-model-v1.md` que la entidad o regla de negocio que requiere la funcionalidad está modelada en el dominio. Si no está, actualizar el modelo de dominio primero.
+**¿Pertenece al dominio correcto?**  
+Verificar que la entidad o regla de negocio que requiere la funcionalidad está modelada en el modelo de dominio oficial. Si no está, actualizar el modelo primero.
 
-**Pregunta 3 — ¿Respeta los principios?**  
-Evaluar la funcionalidad contra los 10 Principios Permanentes de la sección 2. Si viola más de uno, no es prioritaria. Si viola el Principio 10 (no elimina trabajo humano), requiere justificación explícita.
+**¿Respeta los principios?**  
+Evaluar la funcionalidad contra los 10 Principios Permanentes. Si viola más de uno, no es prioritaria. Si viola el Principio 10, requiere justificación explícita.
 
-**Pregunta 4 — ¿Pertenece realmente a esta fase?**  
-Verificar que la funcionalidad corresponde a la fase activa del Plan Maestro. Una funcionalidad de Fase 3 no debe construirse durante la Fase 2, aunque sea fácil de implementar. La facilidad de implementación no es criterio de prioridad.
+**¿Pertenece a la fase activa?**  
+Verificar que la funcionalidad corresponde a la fase en curso. Una funcionalidad de una fase futura no debe construirse antes, aunque sea fácil de implementar. La facilidad de implementación no es criterio de prioridad.
 
-**Pregunta 5 — ¿Existe una decisión previa que ya responda este problema?**  
-Revisar las decisiones arquitectónicas registradas. Si el problema ya fue resuelto o diferido intencionalmente, no debe reabrirse sin justificación explícita.
+**¿Existe una decisión previa que ya responda este problema?**  
+Revisar los ADRs y los informes de fase. Si el problema ya fue resuelto o diferido intencionalmente, no debe reabrirse sin justificación explícita.
 
 ---
 
@@ -401,44 +402,39 @@ El orden correcto para decidir sobre cualquier aspecto del producto es siempre d
 2. PRINCIPIOS
    ¿Es coherente con los 10 principios permanentes?
           ↓
-3. MODELO DE DOMINIO
-   ¿Las entidades necesarias existen en el dominio?
-   ¿El bounded context está bien delimitado?
-          ↓
-4. PLAN MAESTRO
+3. PLAN MAESTRO
    ¿Pertenece a la fase activa?
    ¿No adelanta trabajo de fases futuras?
           ↓
+4. MODELO DE DOMINIO
+   ¿Las entidades necesarias existen en el modelo?
+   ¿El bounded context está bien delimitado?
+          ↓
 5. ARQUITECTURA
-   ¿En qué capa vive? ¿Dominio, caso de uso, adaptador?
-   ¿El criterio de prueba del dominio se cumple?
+   ¿En qué capa vive? ¿En el dominio, en los casos de uso, en los adaptadores?
+   ¿Un segundo canal podría invocar esta lógica sin modificarla?
           ↓
 6. CÓDIGO
    Solo cuando todo lo anterior está claro.
 ```
 
-**El error más común** es empezar por el código y razonar hacia atrás intentando justificar la decisión con los principios. Ese camino produce código que parece correcto pero viola la arquitectura. La dirección del razonamiento importa tanto como el resultado.
+**El error más común** es empezar por el código y razonar hacia atrás intentando justificar la decisión con los principios. Ese camino produce implementaciones que parecen correctas pero violan la arquitectura. La dirección del razonamiento importa tanto como el resultado.
 
 ---
 
-## 8. Estado del Repositorio
+## 8. El Repositorio Documental
 
-### Documentos de arquitectura
-- `docs/architecture/domain-model-v1.md` — El modelo conceptual oficial del negocio. 11 bounded contexts. Fuente de verdad de todas las entidades.
-- `docs/architecture/whatsapp-decoupling-map.md` — Análisis completo de `conversation.service.js`. Plano de construcción para el desacoplamiento gradual.
+El conocimiento del proyecto está organizado en documentos con responsabilidades distintas. Cada pregunta tiene un lugar donde debe responderse.
 
-### Documentos de producto
-- `docs/product/product-principles.md` — Los 10 principios permanentes con criterios de aplicación.
-- `docs/product/project-positioning.md` — Definición oficial del producto, decisiones estratégicas fundacionales, usuaria principal Lina, Fase A vs Fase B.
+| Pregunta | Documento |
+|---|---|
+| ¿Qué estamos construyendo y hacia dónde evoluciona? | **Plan Maestro** (este documento) |
+| ¿Cómo funciona el negocio? ¿Qué entidades existen? | **Modelo de Dominio** |
+| ¿Cómo está construido el sistema? | **Documentos de Arquitectura** |
+| ¿Qué se construyó en cada fase? | **Informes de Cierre de Fase** |
+| ¿Por qué se tomó una decisión técnica específica? | **ADRs** |
 
-### Informes de fase
-- `docs/PHASE_1_COMPLETION_REPORT.md` — Informe oficial del cierre de la Fase 1. Entregables, decisiones arquitectónicas, métricas, lecciones aprendidas.
-
-### Servicios de dominio implementados
-- `backend/src/services/domain/price-resolver.service.js`
-- `backend/src/services/domain/intent-detector.service.js`
-- `backend/src/services/domain/medical-auto-capture.service.js`
-- `backend/src/services/domain/commission.service.js`
+Si una pregunta no encuentra su respuesta en ninguno de estos documentos, esa es la señal de que falta un documento — no de que la respuesta deba incorporarse al Plan Maestro.
 
 ---
 
@@ -446,11 +442,11 @@ El orden correcto para decidir sobre cualquier aspecto del producto es siempre d
 
 Este documento existe porque el objetivo no es desarrollar funcionalidades. El objetivo es construir, paso a paso, una Plataforma Operativa Inteligente que reduzca progresivamente el trabajo operativo de los negocios especializados en salud y bienestar animal.
 
-La diferencia entre un producto que crece bien y uno que acumula deuda técnica hasta volverse inmanejable no está en la velocidad de construcción. Está en la claridad con la que se define qué se construye, en qué orden y por qué.
+La diferencia entre un producto que crece bien y uno que acumula deuda hasta volverse inmanejable no está en la velocidad de construcción. Está en la claridad con la que se define qué se construye, en qué orden y por qué.
 
 Cada fase de este plan tiene un nombre y un propósito porque cada fase resuelve un problema específico que habilita la siguiente. La Fase 1 estableció que el dominio es soberano. La Fase 2 completará ese dominio. La Fase 3 le dará inteligencia especializada. La Fase 4 lo hará comercialmente escalable. La Fase 5 lo convertirá en ecosistema.
 
-Quien lea este documento dentro de diez años debería poder entender exactamente qué producto decidimos construir en 2026 y por qué. Que el negocio tiene prioridad sobre la tecnología. Que el dato pertenece al negocio. Que los canales son reemplazables. Que los empleados digitales trabajan para el dominio.
+Quien lea este documento dentro de diez años debería poder entender exactamente qué producto decidimos construir y por qué. Que el negocio tiene prioridad sobre la tecnología. Que el dato pertenece al negocio. Que los canales son reemplazables. Que los empleados digitales trabajan para el dominio.
 
 Esos principios no son preferencias de diseño. Son las reglas que harán que este producto sea defendible cuando el mercado cambie, los modelos de IA evolucionen y nuevos canales de comunicación aparezcan.
 
@@ -458,4 +454,4 @@ Esos principios no son preferencias de diseño. Son las reglas que harán que es
 
 ---
 
-*Plan Maestro v1.0 · Plataforma Operativa Inteligente · Mateos Pet · 2026*
+*Plan Maestro v1.1 · Plataforma Operativa Inteligente · Mateos Pet · 2026*
