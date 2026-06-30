@@ -1,9 +1,21 @@
 # Mateos Pet AI
 
-Bot de WhatsApp con IA para **Mateos Pet** (veterinaria y peluquería canina).  
-Agenda citas, responde consultas y recuerda contexto entre conversaciones.
+**Plataforma Operativa Inteligente** para negocios especializados en salud y bienestar animal.  
+Administra la operación diaria completa — agenda, servicios, finanzas, staff, historiales y comunicaciones — con Empleados Digitales Especializados que colaboran con el equipo humano.
 
 **Stack:** Node.js · Express 5 · Prisma 7 · PostgreSQL (Neon) · pgvector · OpenAI · Next.js 16
+
+---
+
+## Antes de contribuir
+
+Si vas a desarrollar una funcionalidad, proponer una mejora o utilizar una IA para colaborar en este proyecto, debes leer primero:
+
+1. [`docs/PLAN_MAESTRO.md`](docs/PLAN_MAESTRO.md) — La visión, los principios, la arquitectura y el roadmap oficial del producto
+2. [`docs/PHASE_1_COMPLETION_REPORT.md`](docs/PHASE_1_COMPLETION_REPORT.md) — Qué se construyó en la Fase 1 y qué habilita
+3. [`docs/architecture/domain-model-v1.md`](docs/architecture/domain-model-v1.md) — El modelo conceptual oficial del negocio
+
+Estos documentos definen el rumbo del producto. Cualquier propuesta que los contradiga debe justificarse explícitamente antes de aceptarse.
 
 ---
 
