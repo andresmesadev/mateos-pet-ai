@@ -269,7 +269,7 @@ El canal de mensajería opera sin cambios. El dominio puede ser invocado desde c
 ---
 
 ### FASE 2 — Sistema Operativo del Negocio
-**Estado:** En curso
+**Estado:** ✅ Completada (2026-07-01)
 
 **Objetivo**  
 Completar el Sistema Operativo del negocio. Que el Dominio Operativo esté completamente modelado, que una capa de casos de uso coordine sus reglas, y que el operador humano pueda gestionar la operación diaria completa desde la plataforma sin depender de ningún agente de IA.
@@ -301,10 +301,10 @@ Servicio, Regla de Precio y Categoría de Servicio completamente modelados y adm
 **Entregable 2.2 — Staff como Sistema Operativo** · ✅ Completado
 Miembro del Staff, Disponibilidad, Comisión, Liquidación y Capacidad del Staff (qué servicios está habilitado a prestar cada miembro). Depende de 2.1: necesita la Categoría de Servicio para aplicar la regla de comisión correcta, y el Servicio para registrar capacidades. Casos de uso: registrar staff, actualizar disponibilidad, administrar capacidades, generar liquidación de período. Cierre registrado en `docs/history/ENTREGABLE_2_2_COMPLETION_REPORT.md`.
 
-**Entregable 2.3 — Finanzas como Sistema Operativo**  
-Transacción, Cobro, Gasto, Cierre del Día y Período Financiero, con historial consultable por cualquier período sin recalcular ni exportar. Depende de 2.2: consolida las comisiones del staff en el cierre. Casos de uso: consultar historial financiero, generar y consultar el cierre de un período arbitrario.
+**Entregable 2.3 — Finanzas como Sistema Operativo** · ✅ Completado
+Gasto (extiende `Expense`, Fase 1), Cobro (materializado como un origen de `Transaction`, Fase 1, tras la Reconciliación Arquitectónica del ADR 005), Cierre del Día y Período Financiero, con historial consultable por cualquier período sin recalcular ni exportar. Depende de 2.2: consolida las comisiones del staff en el cierre. Casos de uso: registrar/anular gasto, registrar cobro al completarse una cita, generar y consultar el cierre del día, generar y consultar el período financiero, consultar historial financiero. Cierre registrado en `docs/history/ENTREGABLE_2_3_COMPLETION_REPORT.md`.
 
-La auditoría de coordinación —verificar que ningún canal siga orquestando reglas de negocio directamente— no es un entregable independiente: es el criterio de cierre formal de la fase, descrito arriba, y se valida al completar 2.3.
+Con el cierre de 2.3, **la Fase 2 — Sistema Operativo del Negocio queda completa**. La auditoría de coordinación —verificar que ningún canal siga orquestando reglas de negocio directamente— no fue un entregable independiente: era el criterio de cierre formal de la fase, descrito arriba, y quedó validada al completar 2.3: Agenda, Servicios, Staff y Finanzas operan cada uno mediante su propia capa de casos de uso.
 
 **Proceso de construcción obligatorio**
 Ningún entregable de esta fase puede comenzar su implementación sin completar y aprobar antes sus cinco etapas de diseño, en orden: definición funcional, casos de uso, arquitectura técnica, modelo de persistencia y esquema físico. Tras implementarlo, son obligatorias validación, documentación y cierre formal del entregable. Este proceso está documentado en `docs/PHASE_2_EXECUTION_RULE.md` y rige a todos los entregables de la Fase 2.

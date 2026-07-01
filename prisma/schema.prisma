@@ -1,3 +1,6 @@
+// test2
+// test3
+// test
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["postgresqlExtensions"]
@@ -42,6 +45,8 @@ model Tenant {
   expenses      Expense[]
   commissions   Commission[]
   settlements   Settlement[]
+  dailyCloses      DailyClose[]
+  financialPeriods FinancialPeriod[]
 }
 
 model Staff {
@@ -406,7 +411,7 @@ model Appointment {
   followUpSent  Boolean  @default(false)
 
   medicalRecord MedicalRecord?
-  transaction   Transaction?
+  transactions  Transaction[] // Entregable 2.3 (ADR 005): puede haber más de una, una por origen — ver Transaction.origin
   commission    Commission?
 
   createdAt   DateTime @default(now())
@@ -429,7 +434,7 @@ model Transaction {
   user          User?    @relation(fields: [userId], references: [id])
   petId         String?
   pet           Pet?     @relation(fields: [petId], references: [id])
-  appointmentId String?  @unique
+  appointmentId String?
   appointment   Appointment? @relation(fields: [appointmentId], references: [id])
 
   total         Decimal  @db.Decimal(10, 2)
@@ -438,10 +443,18 @@ model Transaction {
   paidAt        DateTime @default(now())
   createdAt     DateTime @default(now())
 
+  // "manual_pos_sale" | "system_appointment_completed" — Entregable 2.3, ADR 005.
+  // Transaction es una única entidad (el ingreso del negocio); origin determina qué
+  // subconjunto de invariantes aplica a cada fila, igual que StaffAvailability.type.
+  origin        String   @default("manual_pos_sale")
+
   items         TransactionItem[]
 
   // listTransactions y /metrics/revenue (tenantId + rango de paidAt)
   @@index([tenantId, paidAt])
+  // Reemplaza la unicidad global anterior de appointmentId (Fase 1): como máximo
+  // una Transaction por cita, por cada origen — ver finanzas-esquema-fisico.md.
+  @@unique([appointmentId, origin])
 }
 
 model TransactionItem {
@@ -473,8 +486,60 @@ model Expense {
   notes         String?
   createdAt     DateTime @default(now())
 
+  // Entregable 2.3 — Sistema Operativo de Finanzas
+  responsible   String?           // nullable: Fase 1 no lo captura; exigido solo por RegisterExpenseUseCase
+  status        String   @default("active") // "active" | "voided"
+  voidedAt      DateTime?
+  voidReason    String?
+
   @@index([tenantId, date])
 }
+
+// ── Finanzas como Sistema Operativo (Entregable 2.3) ───────────
+model DailyClose {
+  id       String   @id @default(cuid())
+  tenantId String?
+  tenant   Tenant?  @relation(fields: [tenantId], references: [id])
+
+  date         DateTime
+  incomeTotal  Decimal @db.Decimal(10, 2)
+  expenseTotal Decimal @db.Decimal(10, 2)
+  netAmount    Decimal @db.Decimal(10, 2)
+
+  // Snapshot congelado del desglose por staff — no una relación (ver finanzas-modelo-persistencia.md)
+  staffBreakdown Json
+
+  financialPeriodId String?
+  financialPeriod   FinancialPeriod? @relation(fields: [financialPeriodId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, date])
+  @@index([tenantId, financialPeriodId])
+}
+
+model FinancialPeriod {
+  id       String   @id @default(cuid())
+  tenantId String?
+  tenant   Tenant?  @relation(fields: [tenantId], references: [id])
+
+  periodStart  DateTime
+  periodEnd    DateTime
+  incomeTotal  Decimal @db.Decimal(10, 2)
+  expenseTotal Decimal @db.Decimal(10, 2)
+  netAmount    Decimal @db.Decimal(10, 2)
+
+  // Snapshot congelado — no una relación
+  breakdown Json
+
+  dailyCloses DailyClose[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, periodStart, periodEnd])
+  @@index([tenantId, periodStart])
+}
+
 // ── Comisiones (Entregable 7) ─────────────────────────────────
 // Registro contable inmutable generado al completar una cita de grooming.
 // El precio y el split quedan congelados en el momento del cierre;

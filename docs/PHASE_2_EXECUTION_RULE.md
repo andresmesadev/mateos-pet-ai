@@ -84,6 +84,23 @@ Completada la implementación, son obligatorias las siguientes tres etapas:
 
 ---
 
+## Reconciliación Arquitectónica
+
+**Si durante el diseño o la implementación se descubre una contradicción con una fuente oficial del proyecto (Modelo de Dominio, Plan Maestro o ADR vigente), el equipo podrá abrir una Reconciliación Arquitectónica.** Esta no modifica silenciosamente el diseño: documenta la evidencia, reabre únicamente las etapas afectadas, registra la decisión mediante ADR y vuelve a congelar el diseño una vez reconciliado.
+
+Una Reconciliación Arquitectónica no es una corrección de errores de implementación ni un cambio de alcance del entregable — es la constatación de que una etapa ya aprobada se apartó, sin advertirlo, de una fuente que ya era oficial antes de que esa etapa comenzara. Se diferencia de una Decisión Arquitectónica Diferida (que resuelve una pregunta dejada abierta a propósito) y de un ADR ordinario (que decide algo nuevo no cubierto todavía por ninguna fuente oficial): la Reconciliación parte de una inconsistencia entre lo ya diseñado y lo ya aprobado en otro documento.
+
+**Procedimiento:**
+1. Documentar la evidencia de la contradicción (qué fuente oficial ya decía algo distinto, y qué etapa se apartó de ella sin consultarla).
+2. Reabrir únicamente las etapas afectadas — nunca el entregable completo por defecto.
+3. Registrar la decisión mediante su propio ADR, con la evidencia, las alternativas evaluadas y las consecuencias.
+4. Incorporar una nota de reconciliación explícita en cada documento de etapa afectado, señalando qué cambió y por qué, sin reescribir en silencio el contenido previamente aprobado.
+5. Volver a congelar el diseño una vez reconciliado, con el mismo peso de aprobación que tenía antes de reabrirse.
+
+Precedente: ADR 005 (`docs/decisions/005-cobro-especializacion-transaccion.md`), Entregable 2.3 — reconciliación de `Cobro` como entidad independiente con su definición ya existente en `domain-model-v1.md` como especialización de `Transacción`.
+
+---
+
 ## Alcance y evolución de esta regla
 
 Esta regla no aplica únicamente al Entregable 2.1. Es el proceso oficial de construcción para **todos** los entregables de la Fase 2.

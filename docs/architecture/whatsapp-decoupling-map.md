@@ -2,7 +2,7 @@
 
 **Fase 1 — Decisión A**  
 Fecha: 2026-06-25  
-Estado: Mapa aprobado (pendiente ejecución — Entregable 5)
+Estado: Ejecutado. El Entregable 5 (Fase 1) extrajo `intent-detector.service.js` (154 líneas) de `conversation.service.js`, que pasó de 749 a 615 líneas sin afectar sus 6 exports públicos. Ver `docs/history/PHASE_1_COMPLETION_REPORT.md`, sección E5.
 
 ---
 
