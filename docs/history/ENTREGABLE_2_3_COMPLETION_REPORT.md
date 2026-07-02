@@ -48,6 +48,8 @@ Esto elimina trabajo humano concreto: sumar manualmente ingresos y comisiones pa
 
 Esto habilita directamente la Fase 3 (Empleados Digitales): eventos financieros estables (`GastoRegistrado`, `CobroRegistrado`, `CierreDíaGenerado`, `PeríodoFinancieroGenerado`) ya existen para que un futuro Empleado Digital pueda, por ejemplo, notificar automáticamente sobre un día con neto negativo o generar un reporte periódico sin intervención humana. Antes de iniciar la Fase 3, corresponde construir el mapa conceptual de esa fase — ya solicitado por el responsable del proyecto y pendiente de realizarse en una sesión dedicada a esa planificación, no como parte de este cierre.
 
+> **Nota de reconciliación (ADR 006, 2026-07-02):** los dos párrafos anteriores sobredeclaraban el estado del sistema. Una auditoría externa de v2.1.0 demostró que: (a) los casos de uso de este entregable no están expuestos a ningún canal — solo `getDailyClose` es invocado por la aplicación real (lectura en `daily-close.routes.js`); el operador no puede generar cierres, períodos ni anular gastos; (b) lo que "existe" de los eventos es el contrato `publish(name, payload)` con una implementación que solo escribe en el log — no hay bus, suscripción ni entrega, y `CobroRegistrado` es inalcanzable porque nada invoca su caso de uso; (c) el criterio de cierre de la fase queda pendiente de cumplirse mediante el entregable puente "Exposición del Sistema Operativo". El contenido validado de este reporte (dominio, casos de uso, persistencia, migración, tests) permanece correcto. Ver `docs/decisions/006-reconciliacion-cierre-fase-2.md`.
+
 ---
 
 *Cierre del Entregable 2.3 · Plataforma Operativa Inteligente · Mateos Pet*

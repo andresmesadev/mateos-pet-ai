@@ -13,6 +13,7 @@ const {
   testRateLimit,
   dashboardRateLimit,
   webhookRateLimit,
+  publicRateLimit,
 } = require("./middleware/rateLimit");
 
 const errorHandler = require("./middlewares/error.middleware");
@@ -66,8 +67,9 @@ app.use("/api", routes);
 
 const { resolveTenant } = require("./middleware/resolveTenant");
 app.use("/api/dashboard", dashboardRateLimit, resolveTenant, dashboardRoutes);
-app.use("/api/billing", billingRouter);
-app.use("/api/onboarding", onboardingRoutes);
+// Superficies públicas sin autenticación — rate limit obligatorio (hallazgo A5)
+app.use("/api/billing", publicRateLimit, billingRouter);
+app.use("/api/onboarding", publicRateLimit, onboardingRoutes);
 
 app.use(errorHandler);
 

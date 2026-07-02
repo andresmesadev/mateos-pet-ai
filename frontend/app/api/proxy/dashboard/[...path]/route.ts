@@ -39,10 +39,12 @@ async function handler(
 
   // Single-tenant mode: backend resolves tenant from SINGLE_TENANT_ID env.
   // We still forward the session tenantId when available as a hint.
-  const tenantId: string | null =
-    req.nextUrl.searchParams.get("tenantId") ??
-    session.user.tenantId ??
-    null;
+  // Solo un superadmin puede seleccionar otro tenant vía query param;
+  // un usuario normal siempre opera con el tenant de su sesión (hallazgo A3,
+  // auditoría v2.1.0 — mismo criterio que makeServerHeaders en lib/api.ts).
+  const tenantId: string | null = isSuperAdmin
+    ? (req.nextUrl.searchParams.get("tenantId") ?? session.user.tenantId ?? null)
+    : (session.user.tenantId ?? null);
 
   // Build backend URL, forwarding non-tenantId query params
   const backendUrl = new URL(

@@ -43,15 +43,16 @@ Cualquier propuesta que contradiga esos documentos debe justificarse explícitam
 
 Correr lint y tests, y mostrar la evidencia real (el output del comando, no solo "ya quedó"). Si no se puede verificar, no se da por terminado.
 
-## Fase activa: Fase 2 — Sistema Operativo del Negocio (✅ Completa)
+## Fase activa: Fase 2 — Sistema Operativo del Negocio (✅ Completa, alcance re-declarado por ADR 006)
 
 **Objetivo:** Capa de casos de uso, entidades faltantes del dominio operativo, reportes financieros.
 
-**Fuera del alcance de esta fase:** nuevos canales, motor de automatizaciones, mejoras al agente de WhatsApp, multitenancy, Dominio Clínico.
+**Fuera del alcance de esta fase:** nuevos canales, motor de automatizaciones, mejoras al agente de WhatsApp, multitenancy, Dominio Clínico — y (re-declarado por el ADR 006) la exposición de los casos de uso a canales y operadores.
 
 **Estado del roadmap interno** (ver `docs/PLAN_MAESTRO.md`, sección Fase 2):
 - Entregable 2.1 — Catálogo de Servicios como Sistema Operativo — ✅ Completado (`docs/history/ENTREGABLE_2_1_COMPLETION_REPORT.md`)
 - Entregable 2.2 — Staff como Sistema Operativo — ✅ Completado (`docs/history/ENTREGABLE_2_2_COMPLETION_REPORT.md`)
 - Entregable 2.3 — Finanzas como Sistema Operativo — ✅ Completado (`docs/history/ENTREGABLE_2_3_COMPLETION_REPORT.md`)
+- Entregable puente — Exposición del Sistema Operativo — ⬜ Pendiente (precondición de la Fase 3, ver `docs/decisions/006-reconciliacion-cierre-fase-2.md`)
 
-Con los tres entregables cerrados, el criterio de cierre de la Fase 2 quedó cumplido: Agenda, Servicios, Staff y Finanzas operan mediante su propia capa de casos de uso, sin que ningún canal orqueste reglas de negocio directamente. La siguiente fase (Fase 3) aún no ha sido oficialmente iniciada — antes de comenzarla corresponde el mapa conceptual solicitado por el responsable del proyecto.
+**Reconciliación ADR 006 (2026-07-02):** la Fase 2 entregó dominio, capa de aplicación, persistencia y validación de los tres entregables — pero los casos de uso **aún no están expuestos**: salvo la lectura de `daily-close.routes.js`, ningún canal los invoca; las rutas del dashboard siguen ejecutando lógica de Fase 1. El criterio de cierre original ("ningún canal orquesta reglas de negocio directamente") queda pendiente de cumplirse mediante el entregable puente. La Fase 3 NO puede iniciarse antes de ese entregable ni de las decisiones de dominio que lista el ADR 006 (C2, A1, A2, M1, A4). Antes de la Fase 3 corresponde además el mapa conceptual solicitado por el responsable del proyecto.

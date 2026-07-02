@@ -269,7 +269,7 @@ El canal de mensajería opera sin cambios. El dominio puede ser invocado desde c
 ---
 
 ### FASE 2 — Sistema Operativo del Negocio
-**Estado:** ✅ Completada (2026-07-01)
+**Estado:** ✅ Completada (2026-07-01) — con alcance re-declarado por el ADR 006 (2026-07-02): la fase entregó el diseño, la capa de aplicación, la persistencia y la validación de dominio de sus tres entregables; la **exposición de los casos de uso a canales y operadores quedó fuera de su alcance real** y se realiza en el entregable puente "Exposición del Sistema Operativo", precondición de la Fase 3 (ver Roadmap interno).
 
 **Objetivo**  
 Completar el Sistema Operativo del negocio. Que el Dominio Operativo esté completamente modelado, que una capa de casos de uso coordine sus reglas, y que el operador humano pueda gestionar la operación diaria completa desde la plataforma sin depender de ningún agente de IA.
@@ -304,7 +304,12 @@ Miembro del Staff, Disponibilidad, Comisión, Liquidación y Capacidad del Staff
 **Entregable 2.3 — Finanzas como Sistema Operativo** · ✅ Completado
 Gasto (extiende `Expense`, Fase 1), Cobro (materializado como un origen de `Transaction`, Fase 1, tras la Reconciliación Arquitectónica del ADR 005), Cierre del Día y Período Financiero, con historial consultable por cualquier período sin recalcular ni exportar. Depende de 2.2: consolida las comisiones del staff en el cierre. Casos de uso: registrar/anular gasto, registrar cobro al completarse una cita, generar y consultar el cierre del día, generar y consultar el período financiero, consultar historial financiero. Cierre registrado en `docs/history/ENTREGABLE_2_3_COMPLETION_REPORT.md`.
 
-Con el cierre de 2.3, **la Fase 2 — Sistema Operativo del Negocio queda completa**. La auditoría de coordinación —verificar que ningún canal siga orquestando reglas de negocio directamente— no fue un entregable independiente: era el criterio de cierre formal de la fase, descrito arriba, y quedó validada al completar 2.3: Agenda, Servicios, Staff y Finanzas operan cada uno mediante su propia capa de casos de uso.
+Con el cierre de 2.3, **la Fase 2 queda completa en su alcance real: dominio, capa de aplicación, persistencia y validación de los tres entregables**.
+
+**Nota de reconciliación (ADR 006, 2026-07-02):** la versión original de este párrafo afirmaba que la auditoría de coordinación "quedó validada al completar 2.3: Agenda, Servicios, Staff y Finanzas operan cada uno mediante su propia capa de casos de uso". Una auditoría externa de v2.1.0 demostró que esa afirmación describía un sistema en funcionamiento que el código no respalda: los casos de uso existen, están probados y son internamente coherentes, pero —con la única excepción de la adaptación de lectura de `daily-close.routes.js`— ningún canal los invoca; las rutas reales siguen ejecutando la lógica de Fase 1. Ninguna de las cinco etapas de diseño de los entregables prometió exposición HTTP (fue deliberadamente excluida de su alcance), por lo que el defecto era de sobredeclaración en el cierre, no de alcance incumplido. El criterio de cierre descrito arriba queda, por tanto, **pendiente de cumplirse mediante el entregable puente**, y la Fase 3 no puede iniciarse antes.
+
+**Entregable puente — Exposición del Sistema Operativo** · ⬜ Pendiente (precondición de la Fase 3)
+Conectar los casos de uso de 2.1, 2.2 y 2.3 a los canales reales (rutas del dashboard y frontend), retirando la orquestación legacy de los canales. Sujeto a la Regla de Ejecución completa. Antes de exponer los casos de uso de Finanzas deben resolverse las decisiones de dominio abiertas identificadas por la auditoría: circuito `CitaCompletada` → `Transaction` (hallazgo C2), zona horaria del día financiero (A1), atomicidad de la generación de períodos (A2), rechazo de `tenantId` nulo en hechos financieros (M1) y mecanismo de corrección de `Commission` (A4). Su Validación Técnica debe incluir al menos un test del camino real (HTTP → caso de uso → base de datos) por cada operación que toque dinero (M8). Ver `docs/decisions/006-reconciliacion-cierre-fase-2.md`.
 
 **Proceso de construcción obligatorio**
 Ningún entregable de esta fase puede comenzar su implementación sin completar y aprobar antes sus cinco etapas de diseño, en orden: definición funcional, casos de uso, arquitectura técnica, modelo de persistencia y esquema físico. Tras implementarlo, son obligatorias validación, documentación y cierre formal del entregable. Este proceso está documentado en `docs/PHASE_2_EXECUTION_RULE.md` y rige a todos los entregables de la Fase 2.

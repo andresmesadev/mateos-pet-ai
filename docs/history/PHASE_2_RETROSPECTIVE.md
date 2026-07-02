@@ -74,4 +74,10 @@ Lo relevante no es el error — es la respuesta. En vez de corregirlo en silenci
 
 ---
 
+## Nota de reconciliación posterior (ADR 006, 2026-07-02)
+
+Una auditoría técnica externa de v2.1.0, realizada después de esta retrospectiva, demostró que el problema señalado en "Qué no se resolvió" era más amplio de lo aquí registrado: no solo los dos casos de uso reactivos carecen de invocador — **ningún caso de uso de los tres entregables está expuesto a canal alguno**, con la única excepción de la lectura `getDailyClose` en `daily-close.routes.js`. Las rutas del dashboard siguen ejecutando la lógica de Fase 1. La declaración de cierre de la fase ("Agenda, Servicios, Staff y Finanzas operan mediante su propia capa de casos de uso") fue re-declarada mediante Reconciliación Arquitectónica: la Fase 2 entregó dominio, capa de aplicación, persistencia y validación; la exposición se ejecuta en el entregable puente "Exposición del Sistema Operativo", precondición de la Fase 3. La recomendación 2 de esta retrospectiva queda reforzada con el criterio del hallazgo M8 de la auditoría: toda operación que toque dinero debe validarse con al menos un test del camino real (HTTP → caso de uso → base de datos). Ver `docs/decisions/006-reconciliacion-cierre-fase-2.md` y el resto de hallazgos remediados allí registrados (C3, A3, A5, M2).
+
+---
+
 *Retrospectiva de la Fase 2 · Plataforma Operativa Inteligente · Mateos Pet*
