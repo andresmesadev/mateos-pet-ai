@@ -2,8 +2,15 @@ const express = require("express");
 const router = express.Router();
 const prisma = require("../../lib/prisma");
 const { getBogotaYmd, bogotaDayStart } = require("./shared");
+const { registerExpense, voidExpense } = require("../../contexts/finance");
+const {
+  InvalidExpenseAttributesError,
+  ExpenseNotFoundError,
+  ExpenseAlreadyVoidedError,
+  DailyCloseAlreadyExistsForDateError,
+  MissingTenantError,
+} = require("../../contexts/finance/domain/errors");
 
-const VALID_CATEGORIES = ["supplies", "utilities", "rent", "salary", "equipment", "marketing", "other"];
 const VALID_PAYMENT_METHODS = ["cash", "transfer", "card", "other"];
 
 function mapExpense(e) {
@@ -17,40 +24,74 @@ function mapExpense(e) {
     paymentMethod: e.paymentMethod,
     notes: e.notes ?? null,
     createdAt: e.createdAt.toISOString(),
+    // Aditivos — Entregable Puente (patrón de anulación, 2.3/ADR 009)
+    responsible: e.responsible ?? null,
+    status: e.status,
+    voidedAt: e.voidedAt?.toISOString() ?? null,
+    voidReason: e.voidReason ?? null,
   };
 }
 
-// POST /expenses
+function mapExpenseDomainError(res, error) {
+  if (error instanceof InvalidExpenseAttributesError || error instanceof MissingTenantError) {
+    return res.status(400).json({ error: error.message });
+  }
+  if (error instanceof ExpenseNotFoundError) {
+    return res.status(404).json({ error: error.message });
+  }
+  if (error instanceof ExpenseAlreadyVoidedError || error instanceof DailyCloseAlreadyExistsForDateError) {
+    return res.status(409).json({ error: error.message });
+  }
+  return null;
+}
+
+// POST /expenses — Entregable Puente: delega en RegisterExpenseUseCase.
 router.post("/expenses", async (req, res) => {
   try {
     const { tenantId } = req.tenant;
-    const { category, description, amount, paymentMethod, notes, date } = req.body ?? {};
+    const { category, description, amount, paymentMethod, notes, date, responsible } = req.body ?? {};
 
     if (!description?.trim()) return res.status(400).json({ error: "description es requerido" });
-    if (typeof amount !== "number" || amount <= 0) return res.status(400).json({ error: "amount debe ser positivo" });
-    if (category && !VALID_CATEGORIES.includes(category)) return res.status(400).json({ error: "category inválido" });
-    if (paymentMethod && !VALID_PAYMENT_METHODS.includes(paymentMethod)) return res.status(400).json({ error: "paymentMethod inválido" });
+    if (paymentMethod && !VALID_PAYMENT_METHODS.includes(paymentMethod)) {
+      return res.status(400).json({ error: "paymentMethod inválido" });
+    }
 
-    const expense = await prisma.expense.create({
-      data: {
-        tenantId: tenantId ?? null,
-        date: date ? new Date(date) : new Date(),
-        category: category ?? "other",
-        description: description.trim(),
-        amount: Number(amount),
-        paymentMethod: paymentMethod ?? "cash",
-        notes: notes?.trim() || null,
-      },
+    const { expense } = await registerExpense({
+      tenantId,
+      amount: typeof amount === "number" ? amount : Number(amount),
+      category,
+      responsible,
+      date,
+      description: description.trim(),
+      paymentMethod: paymentMethod ?? "cash",
+      notes: notes?.trim() || null,
     });
 
     res.status(201).json(mapExpense(expense));
   } catch (error) {
+    if (mapExpenseDomainError(res, error)) return;
     console.error("[Dashboard] Create expense error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// GET /expenses?from=YYYY-MM-DD&to=YYYY-MM-DD
+// POST /expenses/:id/void — Entregable Puente: anulación (nunca edición).
+router.post("/expenses/:id/void", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    const { reason } = req.body ?? {};
+
+    const { expense } = await voidExpense({ tenantId, expenseId: req.params.id, reason });
+
+    res.json(mapExpense(expense));
+  } catch (error) {
+    if (mapExpenseDomainError(res, error)) return;
+    console.error("[Dashboard] Void expense error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// GET /expenses?from=YYYY-MM-DD&to=YYYY-MM-DD — contrato preservado; status aditivo.
 router.get("/expenses", async (req, res) => {
   try {
     const { tenantId } = req.tenant;
@@ -77,7 +118,10 @@ router.get("/expenses", async (req, res) => {
   }
 });
 
-// GET /metrics/cashbox?date=YYYY-MM-DD — arqueo del día
+// GET /metrics/cashbox?date=YYYY-MM-DD — arqueo del día.
+// Entregable Puente: la vista en vivo consolida solo hechos ACTIVOS — misma
+// regla que el Cierre oficial ("una vista preliminar y un hecho consolidado
+// comparten las mismas reglas de dominio").
 router.get("/metrics/cashbox", async (req, res) => {
   try {
     const { tenantId } = req.tenant;
@@ -93,7 +137,7 @@ router.get("/metrics/cashbox", async (req, res) => {
 
     const [transactions, expenses] = await Promise.all([
       prisma.transaction.findMany({
-        where: { ...tenantFilter, paidAt: { gte: dayStart, lt: dayEnd } },
+        where: { ...tenantFilter, status: "active", paidAt: { gte: dayStart, lt: dayEnd } },
         include: {
           user: { select: { name: true, phone: true } },
           pet: { select: { name: true, type: true } },
@@ -102,7 +146,7 @@ router.get("/metrics/cashbox", async (req, res) => {
         orderBy: { paidAt: "desc" },
       }),
       prisma.expense.findMany({
-        where: { ...tenantFilter, date: { gte: dayStart, lt: dayEnd } },
+        where: { ...tenantFilter, status: "active", date: { gte: dayStart, lt: dayEnd } },
         orderBy: { date: "desc" },
       }),
     ]);

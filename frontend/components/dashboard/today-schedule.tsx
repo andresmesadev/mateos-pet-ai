@@ -149,17 +149,30 @@ export function TodaySchedule({ appointments: initial }: Props) {
       all.map((a) => (a.id === id ? { ...a, status: nextStatus } : a))
     );
     try {
-      const res = await fetch(proxyUrl(`/api/dashboard/appointments/${id}`), {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: nextStatus }),
-      });
-      if (!res.ok) throw new Error();
+      // Entregable Puente (ADR 007): completar una cita es un comando propio —
+      // genera el cobro oficial y la comisión en la misma transacción.
+      const res =
+        nextStatus === "completed"
+          ? await fetch(proxyUrl(`/api/dashboard/appointments/${id}/complete`), {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({}),
+            })
+          : await fetch(proxyUrl(`/api/dashboard/appointments/${id}`), {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ status: nextStatus }),
+            });
+      if (!res.ok) {
+        const p = await res.json().catch(() => null);
+        throw new Error(p?.error ?? "");
+      }
       const updated: TodayAppointment = await res.json();
       setAppointments((all) => all.map((a) => (a.id === id ? updated : a)));
-    } catch {
+    } catch (err) {
       setAppointments(prev); // revierte el cambio optimista
-      toast("No se pudo actualizar el estado de la cita.", "error");
+      const detail = err instanceof Error && err.message ? ` ${err.message}` : "";
+      toast(`No se pudo actualizar el estado de la cita.${detail}`, "error");
     } finally {
       setUpdating(null);
     }

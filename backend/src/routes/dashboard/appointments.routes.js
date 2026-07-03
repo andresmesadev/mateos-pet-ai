@@ -23,7 +23,14 @@ const {
   upsertControlFromRecord,
   createGroomingReminderIfNeeded,
 } = require("../../services/next-action.service");
-const { recordGroomingCommission } = require("../../services/domain/commission.service");
+// Entregable Puente: Completar Cita pasa por el contexto Agenda; el side-effect
+// legacy de comisión (commission.service.js) fue retirado — ver contexts/index.js.
+const { completeAppointment } = require("../../contexts");
+const {
+  AppointmentNotFoundError,
+  InvalidStatusTransitionError,
+  UnresolvedPriceError,
+} = require("../../contexts/agenda/domain/errors");
 
 const VET_SERVICE_TYPES = ["vet", "consultation", "veterinary_consultation"];
 const BLOCKED_STATUSES = ["cancelled", "no_show"];
@@ -215,6 +222,50 @@ router.get("/appointments", async (req, res) => {
   }
 });
 
+// POST /appointments/:id/complete — Entregable Puente, caso de uso 1.
+// Transición + comisión + cobro de sistema en UNA transacción (Etapa 2);
+// exige precio resuelto (ADR 007-D4).
+router.post("/appointments/:id/complete", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    const { completedAt } = req.body ?? {};
+
+    const { appointment } = await completeAppointment({
+      tenantId,
+      appointmentId: req.params.id,
+      completedAt,
+    });
+
+    const full = await prisma.appointment.findUnique({
+      where: { id: appointment.id },
+      include: APPOINTMENT_INCLUDE,
+    });
+
+    // Side-effect no financiero preservado de Fase 1: recordatorio de grooming
+    // (misma condición que tenía el PATCH legacy).
+    if (full.petId) {
+      const category = full.service?.category?.name;
+      const stype = full.serviceType?.toLowerCase() ?? "";
+      if (category === "grooming" || GROOMING_TYPES.includes(stype)) {
+        await createGroomingReminderIfNeeded({
+          petId: full.petId,
+          tenantId: full.tenantId,
+          appointmentId: full.id,
+          appointmentDate: full.date,
+        }).catch((err) => console.error("[NextAction] Grooming reminder error:", err));
+      }
+    }
+
+    res.json(mapAppointmentRow(full));
+  } catch (error) {
+    if (error instanceof AppointmentNotFoundError) return res.status(404).json({ error: error.message });
+    if (error instanceof InvalidStatusTransitionError) return res.status(422).json({ error: error.message });
+    if (error instanceof UnresolvedPriceError) return res.status(422).json({ error: error.message });
+    console.error("[Dashboard] Complete appointment error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.patch("/appointments/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -233,6 +284,13 @@ router.patch("/appointments/:id", async (req, res) => {
     if (status !== undefined) {
       if (!isValidStatus(status)) {
         return res.status(400).json({ error: ERRORS.INVALID_STATUS });
+      }
+      // Entregable Puente (Etapa 1): la transición a "completed" pasa
+      // obligatoriamente por el comando Completar Cita del contexto Agenda.
+      if (status === "completed") {
+        return res.status(422).json({
+          error: "Completar una cita se hace con POST /appointments/:id/complete (Entregable Puente, ADR 007).",
+        });
       }
       if (!isAllowedTransition(existing.status, status)) {
         return res.status(422).json({
@@ -276,26 +334,6 @@ router.patch("/appointments/:id", async (req, res) => {
       data,
       include: APPOINTMENT_INCLUDE,
     });
-
-    // Side-effects when a grooming appointment completes
-    if (data.status === "completed" && updated.petId) {
-      const category = updated.service?.category?.name;
-      const stype = updated.serviceType?.toLowerCase() ?? "";
-      const isGrooming = category === "grooming" || GROOMING_TYPES.includes(stype);
-      if (isGrooming) {
-        await createGroomingReminderIfNeeded({
-          petId: updated.petId,
-          tenantId: updated.tenantId,
-          appointmentId: updated.id,
-          appointmentDate: updated.date,
-        }).catch((err) => console.error("[NextAction] Grooming reminder error:", err));
-
-        await recordGroomingCommission({
-          appointment: updated,
-          completedAt: updated.endedAt ?? new Date(),
-        }).catch((err) => console.error("[Commission] Record error:", err));
-      }
-    }
 
     res.json(mapAppointmentRow(updated));
   } catch (error) {

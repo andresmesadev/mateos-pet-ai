@@ -206,7 +206,7 @@ Ejemplo cuando todo está bien (`200`):
     "database": "ok",
     "openai": "ok"
   },
-  "version": "2.1.0"
+  "version": "2.2.0"
 }
 ```
 

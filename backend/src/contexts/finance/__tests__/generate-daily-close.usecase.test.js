@@ -6,18 +6,25 @@ const {
   createFakeDailyCloseRepository,
   createFakeEventPublisher,
 } = require("./fakes");
-const { DuplicateDailyCloseError } = require("../domain/errors");
+const { DuplicateDailyCloseError, IncompleteDailyCloseError, MissingTenantError } = require("../domain/errors");
 
-function buildUseCase({ charges = [], expenses = [], commissions = [], dailyCloses = [] } = {}) {
+function buildUseCase({ charges = [], expenses = [], commissions = [], dailyCloses = [], completedAppointments = [] } = {}) {
   const transactionRepository = createFakeTransactionRepository(charges);
   const expenseRepository = createFakeExpenseRepository(expenses);
   const commissionReader = createFakeCommissionReader(commissions);
   const dailyCloseRepository = createFakeDailyCloseRepository(dailyCloses);
+  // Verificación de completitud (ADR 007-D2) — lectura puntual sobre Agenda.
+  const completedAppointmentsReader = {
+    async listCompletedInRange() {
+      return completedAppointments;
+    },
+  };
   const eventPublisher = createFakeEventPublisher();
   const execute = createGenerateDailyCloseUseCase({
     transactionRepository,
     expenseRepository,
     commissionReader,
+    completedAppointmentsReader,
     dailyCloseRepository,
     eventPublisher,
   });
@@ -49,5 +56,33 @@ describe("GenerateDailyCloseUseCase", () => {
       dailyCloses: [{ id: "close-1", tenantId: "t1", date: new Date("2026-07-01T00:00:00.000Z"), incomeTotal: 0, expenseTotal: 0, netAmount: 0, staffBreakdown: [] }],
     });
     await expect(execute({ tenantId: "t1", date: DATE })).rejects.toBeInstanceOf(DuplicateDailyCloseError);
+  });
+
+  // Entregable Puente — ADR 007-D2: un cierre incompleto no puede existir.
+  test("rechaza el cierre si una cita completada del día no tiene cobro de sistema", async () => {
+    const { execute } = buildUseCase({
+      charges: [
+        { tenantId: "t1", total: 50000, paidAt: new Date("2026-07-01T10:00:00Z"), origin: "system_appointment_completed", appointmentId: "appt-1" },
+      ],
+      completedAppointments: [{ id: "appt-1" }, { id: "appt-2" }],
+    });
+    await expect(execute({ tenantId: "t1", date: DATE })).rejects.toBeInstanceOf(IncompleteDailyCloseError);
+  });
+
+  test("acepta el cierre cuando toda cita completada tiene su cobro de sistema", async () => {
+    const { execute } = buildUseCase({
+      charges: [
+        { tenantId: "t1", total: 50000, paidAt: new Date("2026-07-01T10:00:00Z"), origin: "system_appointment_completed", appointmentId: "appt-1" },
+      ],
+      completedAppointments: [{ id: "appt-1" }],
+    });
+    const { dailyClose } = await execute({ tenantId: "t1", date: DATE });
+    expect(dailyClose.incomeTotal).toBe(50000);
+  });
+
+  // Entregable Puente — hallazgo M1: los hechos oficiales exigen tenant.
+  test("rechaza tenantId nulo", async () => {
+    const { execute } = buildUseCase();
+    await expect(execute({ tenantId: null, date: DATE })).rejects.toBeInstanceOf(MissingTenantError);
   });
 });

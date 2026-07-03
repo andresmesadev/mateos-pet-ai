@@ -2,6 +2,22 @@ const express = require("express");
 const router = express.Router();
 const prisma = require("../../lib/prisma");
 const { getBogotaYmd, bogotaDayStart, mapTransaction } = require("./shared");
+const { guardManualSaleLink, settleSystemCharge, voidManualSale } = require("../../contexts/finance");
+const {
+  TransactionNotFoundError,
+  TransactionAlreadyVoidedError,
+  InvalidTransactionOperationError,
+  DailyCloseAlreadyExistsForDateError,
+} = require("../../contexts/finance/domain/errors");
+
+function mapTransactionDomainError(res, error) {
+  if (error instanceof InvalidTransactionOperationError) return res.status(422).json({ error: error.message });
+  if (error instanceof TransactionNotFoundError) return res.status(404).json({ error: error.message });
+  if (error instanceof TransactionAlreadyVoidedError || error instanceof DailyCloseAlreadyExistsForDateError) {
+    return res.status(409).json({ error: error.message });
+  }
+  return null;
+}
 
 // ── POS / Facturación (TAREA 17) ──────────────────────────────────────────────
 
@@ -45,6 +61,10 @@ router.post("/transactions", async (req, res) => {
     if (appointmentId) {
       const appt = await prisma.appointment.findFirst({ where: { id: appointmentId, ...(tenantId ? { tenantId } : {}) }, select: { id: true } });
       if (!appt) return res.status(404).json({ error: "Cita no encontrada" });
+
+      // ADR 007-D3(b): una venta vinculada a una cita representa EXTRAS de la
+      // visita, nunca el servicio — exige cita completada con cobro de sistema.
+      await guardManualSaleLink({ tenantId, appointmentId });
     }
 
     const computedItems = items.map((item) => {
@@ -71,8 +91,61 @@ router.post("/transactions", async (req, res) => {
 
     res.status(201).json(mapTransaction(tx));
   } catch (error) {
+    if (mapTransactionDomainError(res, error)) return;
     console.error("[Dashboard] Create transaction error:", error);
     if (error.code === "P2002") return res.status(409).json({ error: "Esta cita ya tiene un cobro registrado" });
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST /transactions/:id/settle — ADR 007-D3(a): liquidar el cobro de sistema
+// (método de pago / notas) — nunca su monto.
+router.post("/transactions/:id/settle", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    const { paymentMethod, notes } = req.body ?? {};
+    if (paymentMethod && !VALID_PAYMENT_METHODS.includes(paymentMethod)) {
+      return res.status(400).json({ error: `paymentMethod inválido. Valores: ${VALID_PAYMENT_METHODS.join(", ")}` });
+    }
+
+    const target = await prisma.transaction.findFirst({
+      where: { id: req.params.id, ...(tenantId ? { tenantId } : {}) },
+      select: { appointmentId: true, origin: true },
+    });
+    if (!target) return res.status(404).json({ error: "Not found" });
+    if (target.origin !== "system_appointment_completed" || !target.appointmentId) {
+      return res.status(422).json({ error: "Solo los cobros de sistema se liquidan por este comando (ADR 007)." });
+    }
+
+    const { transaction } = await settleSystemCharge({
+      tenantId,
+      appointmentId: target.appointmentId,
+      paymentMethod,
+      notes,
+    });
+
+    const full = await prisma.transaction.findUnique({ where: { id: transaction.id }, include: TRANSACTION_INCLUDE });
+    res.json(mapTransaction(full));
+  } catch (error) {
+    if (mapTransactionDomainError(res, error)) return;
+    console.error("[Dashboard] Settle transaction error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST /transactions/:id/void — anulación de venta manual (patrón completo, Etapa 4).
+router.post("/transactions/:id/void", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    const { reason } = req.body ?? {};
+
+    const { transaction } = await voidManualSale({ tenantId, transactionId: req.params.id, reason });
+
+    const full = await prisma.transaction.findUnique({ where: { id: transaction.id }, include: TRANSACTION_INCLUDE });
+    res.json(mapTransaction(full));
+  } catch (error) {
+    if (mapTransactionDomainError(res, error)) return;
+    console.error("[Dashboard] Void transaction error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -147,11 +220,12 @@ router.get("/metrics/revenue", async (req, res) => {
 
     const [txCurrent, txPrev] = await Promise.all([
       prisma.transaction.findMany({
-        where: { ...tenantFilter, paidAt: { gte: periodStart, lt: periodEnd } },
+        // Solo ingreso activo cuenta — misma regla que el Cierre oficial (Etapa 4 del Puente).
+        where: { ...tenantFilter, status: "active", paidAt: { gte: periodStart, lt: periodEnd } },
         include: { items: true },
       }),
       prisma.transaction.findMany({
-        where: { ...tenantFilter, paidAt: { gte: prevStart, lt: periodStart } },
+        where: { ...tenantFilter, status: "active", paidAt: { gte: prevStart, lt: periodStart } },
         select: { total: true },
       }),
     ]);

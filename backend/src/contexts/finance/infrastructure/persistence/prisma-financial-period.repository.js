@@ -8,9 +8,10 @@ class PrismaFinancialPeriodRepository extends FinancialPeriodRepositoryPort {
     });
   }
 
-  async create(data) {
+  async create(data, ctx) {
+    const client = ctx?.tx ?? prisma;
     try {
-      return await prisma.financialPeriod.create({ data });
+      return await client.financialPeriod.create({ data });
     } catch (err) {
       if (err?.code === "P2002") {
         const wrapped = new Error("Violación del índice único de FinancialPeriod");

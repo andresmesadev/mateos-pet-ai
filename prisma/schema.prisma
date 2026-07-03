@@ -1,6 +1,3 @@
-// test2
-// test3
-// test
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["postgresqlExtensions"]
@@ -412,7 +409,7 @@ model Appointment {
 
   medicalRecord MedicalRecord?
   transactions  Transaction[] // Entregable 2.3 (ADR 005): puede haber más de una, una por origen — ver Transaction.origin
-  commission    Commission?
+  commissions   Commission[]  // Entregable Puente (ADR 009): una activa por cita; las anuladas quedan para trazabilidad
 
   createdAt   DateTime @default(now())
 
@@ -448,13 +445,25 @@ model Transaction {
   // subconjunto de invariantes aplica a cada fila, igual que StaffAvailability.type.
   origin        String   @default("manual_pos_sale")
 
+  // Entregable Puente — patrón completo de anulación (ADR 009, homogéneo con Commission).
+  // Forma parte del modelo general para ambos orígenes; que solo exista comando de
+  // anulación para manual_pos_sale es una decisión de alcance, no del modelo.
+  status        String   @default("active") // "active" | "voided"
+  voidedAt      DateTime?
+  voidReason    String?
+  replacesTransactionId String?
+  replacesTransaction   Transaction?  @relation("TransactionReplacement", fields: [replacesTransactionId], references: [id])
+  replacedBy            Transaction[] @relation("TransactionReplacement")
+
   items         TransactionItem[]
 
   // listTransactions y /metrics/revenue (tenantId + rango de paidAt)
   @@index([tenantId, paidAt])
-  // Reemplaza la unicidad global anterior de appointmentId (Fase 1): como máximo
-  // una Transaction por cita, por cada origen — ver finanzas-esquema-fisico.md.
-  @@unique([appointmentId, origin])
+  // La unicidad real es parcial — como máximo una Transaction ACTIVA por (cita, origen) —
+  // y vive como índice único parcial en SQL (WHERE status = 'active'), que Prisma no
+  // expresa en el schema. Ver la migración del Entregable Puente. Este índice cubre
+  // las búsquedas del reactivo y del POS.
+  @@index([appointmentId, origin])
 }
 
 model TransactionItem {
@@ -551,7 +560,9 @@ model Commission {
   tenantId      String?
   tenant        Tenant?  @relation(fields: [tenantId], references: [id])
 
-  appointmentId String   @unique
+  // La unicidad real es parcial — como máximo una Commission ACTIVA por cita — y vive
+  // como índice único parcial en SQL (WHERE status = 'active'). Ver ADR 009.
+  appointmentId String
   appointment   Appointment @relation(fields: [appointmentId], references: [id])
 
   staffId       String?
@@ -566,8 +577,19 @@ model Commission {
 
   serviceCategory String
   completedAt     DateTime
+
+  // Entregable Puente — patrón de anulación (ADR 009): inmutable; la corrección es
+  // anulación + nuevo registro, atómicos en un único comando del contexto Staff.
+  status        String   @default("active") // "active" | "voided"
+  voidedAt      DateTime?
+  voidReason    String?
+  replacesCommissionId String?
+  replacesCommission   Commission?  @relation("CommissionReplacement", fields: [replacesCommissionId], references: [id])
+  replacedBy           Commission[] @relation("CommissionReplacement")
+
   createdAt       DateTime @default(now())
 
   @@index([tenantId, completedAt])
   @@index([staffId, completedAt])
+  @@index([appointmentId])
 }

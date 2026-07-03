@@ -9,8 +9,20 @@ const { DailyCloseNotFoundError } = require("./daily-close-not-found.error");
 const { IncompleteFinancialPeriodError } = require("./incomplete-financial-period.error");
 const { DuplicateFinancialPeriodError } = require("./duplicate-financial-period.error");
 const { FinancialPeriodNotFoundError } = require("./financial-period-not-found.error");
+const {
+  MissingTenantError,
+  IncompleteDailyCloseError,
+  TransactionNotFoundError,
+  TransactionAlreadyVoidedError,
+  InvalidTransactionOperationError,
+} = require("./puente.errors");
 
 module.exports = {
+  MissingTenantError,
+  IncompleteDailyCloseError,
+  TransactionNotFoundError,
+  TransactionAlreadyVoidedError,
+  InvalidTransactionOperationError,
   DomainError,
   InvalidExpenseAttributesError,
   ExpenseNotFoundError,

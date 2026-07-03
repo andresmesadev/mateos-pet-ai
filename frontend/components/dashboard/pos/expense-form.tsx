@@ -30,6 +30,8 @@ export function ExpenseForm() {
   const [amount, setAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [notes, setNotes] = useState("");
+  // Entregable Puente: responsible es obligatorio en el dominio (contrato 2.3).
+  const [responsible, setResponsible] = useState("");
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +39,7 @@ export function ExpenseForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!description.trim()) { setError("Agrega una descripción."); return; }
+    if (!responsible.trim()) { setError("Indica el responsable del gasto."); return; }
     const amt = parseFloat(amount);
     if (!amt || amt <= 0) { setError("Ingresa un monto válido."); return; }
 
@@ -52,6 +55,7 @@ export function ExpenseForm() {
           amount: amt,
           paymentMethod,
           notes: notes.trim() || null,
+          responsible: responsible.trim(),
         }),
       });
       if (!res.ok) {
@@ -120,6 +124,14 @@ export function ExpenseForm() {
                   placeholder="ej. Shampoo para mascotas, arriendo local…"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Responsable</label>
+                <Input
+                  placeholder="¿Quién registra este gasto?"
+                  value={responsible}
+                  onChange={(e) => setResponsible(e.target.value)}
                 />
               </div>
               <div>

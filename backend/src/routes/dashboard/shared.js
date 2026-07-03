@@ -112,6 +112,11 @@ function mapTransaction(t) {
     notes: t.notes ?? null,
     paidAt: t.paidAt.toISOString(),
     createdAt: t.createdAt.toISOString(),
+    // Aditivos — Entregable Puente (ADR 005/007: origin; patrón de anulación)
+    origin: t.origin,
+    status: t.status,
+    voidedAt: t.voidedAt?.toISOString() ?? null,
+    voidReason: t.voidReason ?? null,
     items: (t.items ?? []).map((i) => ({
       id: i.id,
       description: i.description,

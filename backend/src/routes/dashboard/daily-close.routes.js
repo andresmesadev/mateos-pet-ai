@@ -1,16 +1,23 @@
 const express = require("express");
 const router = express.Router();
 const prisma = require("../../lib/prisma");
-const { getBogotaYmd, bogotaDayStart } = require("./shared");
-const { getDailyClose } = require("../../contexts/finance");
-const { DailyCloseNotFoundError } = require("../../contexts/finance/domain/errors");
+const { getBogotaYmd } = require("./shared");
+const { getDailyClose, generateDailyClose } = require("../../contexts/finance");
+const {
+  DailyCloseNotFoundError,
+  DuplicateDailyCloseError,
+  IncompleteDailyCloseError,
+  MissingTenantError,
+} = require("../../contexts/finance/domain/errors");
+const { civilDayBounds } = require("../../contexts/shared/business-day");
 
 // GET /daily-close?date=YYYY-MM-DD
-// Adaptación progresiva (Entregable 2.3, finanzas-esquema-fisico.md): si ya existe
-// un Cierre del Día oficial para la fecha, se traduce ese hecho congelado al
-// contrato de respuesta ya existente. Si no existe, se calcula como antes de
-// Fase 1 — leyendo Commission en vivo, sin recalcular reglas de negocio.
-// El contrato de respuesta hacia el frontend no cambia en ningún caso.
+// Entregable Puente: cada sección de la respuesta proviene de UN solo universo
+// de datos (cierre del residuo del hallazgo A1 / ADR 007-D1):
+//  - `appointments`: citas del día civil (ADR 008).
+//  - `commissions`: SIEMPRE el universo Commission (su significado histórico) —
+//    del snapshot oficial si el día está cerrado, o de lectura en vivo si no.
+//  - `income` (aditiva): el ingreso oficial (Transaction) cuando existe cierre.
 router.get("/daily-close", async (req, res) => {
   try {
     const { tenantId } = req.tenant;
@@ -21,17 +28,17 @@ router.get("/daily-close", async (req, res) => {
         ? req.query.date
         : getBogotaYmd();
 
-    const dayStart = bogotaDayStart(date);
-    const dayEnd   = new Date(dayStart.getTime() + 86_400_000);
+    const { start: dayStart, end: dayEnd } = civilDayBounds(date);
 
-    // ── 1. Appointment summary for the day (sin cambios, Fase 1) ─────────────
+    // ── 1. Appointment summary del día civil ────────────────────────────────
     const appointments = await prisma.appointment.findMany({
       where: { ...tenantFilter, date: { gte: dayStart, lt: dayEnd } },
       select: {
         id: true, status: true, staffId: true, petId: true,
         petName: true, serviceType: true,
         service: { select: { category: { select: { name: true } } } },
-        commission: {
+        commissions: {
+          where: { status: "active" },
           select: {
             id: true, resolvedPrice: true, priceSource: true,
             staffShare: true, businessShare: true, splitRate: true,
@@ -49,9 +56,10 @@ router.get("/daily-close", async (req, res) => {
       (a) => !["completed", "cancelled", "no_show"].includes(a.status)
     ).length;
 
-    // ── 2. Commission summary — hecho oficial si existe, lectura en vivo si no ─
+    // ── 2. Commission summary — snapshot oficial si existe, lectura en vivo si no ─
     let commissionsSection;
     let missingCommissionsCount;
+    let incomeSection = null;
 
     try {
       const { dailyClose } = await getDailyClose({ tenantId: tenantId ?? null, date });
@@ -73,10 +81,19 @@ router.get("/daily-close", async (req, res) => {
 
       commissionsSection = {
         count: byStaff.reduce((s, b) => s + b.count, 0),
-        totalRevenue: Number(dailyClose.incomeTotal),
+        // Universo Commission — el significado que este campo siempre tuvo.
+        totalRevenue: byStaff.reduce((s, b) => s + b.revenue, 0),
         totalStaffShare: byStaff.reduce((s, b) => s + b.staffShare, 0),
         totalBusinessShare: byStaff.reduce((s, b) => s + b.businessShare, 0),
         byStaff,
+      };
+
+      // Universo Transaction — el ingreso oficial del negocio (ADR 007-D1).
+      incomeSection = {
+        incomeTotal: Number(dailyClose.incomeTotal),
+        expenseTotal: Number(dailyClose.expenseTotal),
+        netAmount: Number(dailyClose.netAmount),
+        closed: true,
       };
 
       // El cierre ya es un hecho oficial e inmutable: por definición no puede
@@ -86,9 +103,9 @@ router.get("/daily-close", async (req, res) => {
       if (!(err instanceof DailyCloseNotFoundError)) throw err;
 
       // Sin Cierre del Día oficial todavía: mismo cálculo en vivo de siempre,
-      // leyendo Commission — nunca recalculando sus reglas de negocio.
+      // leyendo Commission activas — nunca recalculando sus reglas de negocio.
       const commissions = await prisma.commission.findMany({
-        where: { ...tenantFilter, completedAt: { gte: dayStart, lt: dayEnd } },
+        where: { ...tenantFilter, status: "active", completedAt: { gte: dayStart, lt: dayEnd } },
         include: { staff: { select: { id: true, name: true } } },
       });
 
@@ -140,9 +157,42 @@ router.get("/daily-close", async (req, res) => {
       appointments: { total, completed, cancelled, noShow, pending },
       commissions: commissionsSection,
       missingCommissionsCount,
+      income: incomeSection,
     });
   } catch (error) {
     console.error("[DailyClose] Error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST /daily-close — Entregable Puente, caso de uso 4: Generar Cierre del Día
+// (acción explícita del operador). Rechaza días incompletos (ADR 007-D2).
+router.post("/daily-close", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    const date =
+      typeof req.body?.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(req.body.date)
+        ? req.body.date
+        : getBogotaYmd();
+
+    const { dailyClose } = await generateDailyClose({ tenantId, date });
+
+    res.status(201).json({
+      id: dailyClose.id,
+      date,
+      incomeTotal: Number(dailyClose.incomeTotal),
+      expenseTotal: Number(dailyClose.expenseTotal),
+      netAmount: Number(dailyClose.netAmount),
+      staffBreakdown: dailyClose.staffBreakdown,
+      createdAt: dailyClose.createdAt.toISOString(),
+    });
+  } catch (error) {
+    if (error instanceof MissingTenantError) return res.status(400).json({ error: error.message });
+    if (error instanceof DuplicateDailyCloseError) return res.status(409).json({ error: error.message });
+    if (error instanceof IncompleteDailyCloseError) {
+      return res.status(422).json({ error: error.message, missingAppointmentIds: error.missingAppointmentIds });
+    }
+    console.error("[DailyClose] Generate error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });

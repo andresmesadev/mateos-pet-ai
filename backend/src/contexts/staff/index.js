@@ -71,7 +71,20 @@ const resolveStaffAvailability = createResolveStaffAvailabilityUseCase({
 const listActiveStaff = createListActiveStaffUseCase({ staffRepository, staffCapabilityRepository });
 const listSettlements = createListSettlementsUseCase({ settlementRepository });
 
+// Entregable Puente — ADR 009
+const { PrismaSettlementCoverageReader } = require("./infrastructure/persistence/prisma-settlement-coverage.reader");
+const { PrismaDailyCloseReader } = require("./infrastructure/persistence/prisma-daily-close.reader");
+const { createVoidCommissionUseCase } = require("./application/use-cases");
+
+const voidCommission = createVoidCommissionUseCase({
+  commissionRepository,
+  settlementCoverageReader: new PrismaSettlementCoverageReader(),
+  dailyCloseReader: new PrismaDailyCloseReader(),
+  eventPublisher,
+});
+
 module.exports = {
+  voidCommission,
   registerStaff,
   updateStaff,
   deactivateStaff,

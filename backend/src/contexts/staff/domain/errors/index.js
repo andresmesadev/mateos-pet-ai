@@ -9,8 +9,18 @@ const { InvalidCommissionInputError } = require("./invalid-commission-input.erro
 const { NoCommissionsForPeriodError } = require("./no-commissions-for-period.error");
 const { SettlementAlreadyExistsError } = require("./settlement-already-exists.error");
 const { DuplicateStaffCapabilityError } = require("./duplicate-staff-capability.error");
+const {
+  CommissionNotFoundError,
+  CommissionAlreadyVoidedError,
+  CommissionDayClosedError,
+  CommissionInActiveSettlementError,
+} = require("./commission-void.errors");
 
 module.exports = {
+  CommissionNotFoundError,
+  CommissionAlreadyVoidedError,
+  CommissionDayClosedError,
+  CommissionInActiveSettlementError,
   DomainError,
   StaffNotFoundError,
   StaffAlreadyInactiveError,

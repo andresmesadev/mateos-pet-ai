@@ -301,8 +301,8 @@ Registrar y consolidar todo el movimiento económico del negocio. Es el contexto
 
 **Responsabilidades**
 - Registrar todos los movimientos económicos del negocio
-- Calcular el split de comisiones en cada cobro según las reglas del negocio
-- Generar el cierre del día automáticamente
+- Consolidar en el cierre el split de comisiones ya calculado por Staff — *corregido por el ADR 007 (Decisión 5): el split lo calcula el contexto Staff al registrar la Comisión (implementación real desde el Entregable 2.2); Finanzas consume `ComisiónRegistrada` para el desglose del cierre, no recalcula*
+- Generar el cierre del día como acción explícita del operador — *precisado por el Entregable 2.3: el cierre es un comando de Administración, no una automatización*
 - Proveer reportes financieros sin necesidad de exportar datos
 
 **Eventos que produce**

@@ -2,18 +2,32 @@ const express = require("express");
 const request = require("supertest");
 
 // Mock prisma before requiring routes
-jest.mock("../../lib/prisma", () => ({
-  appointment: {
-    findFirst: jest.fn(),
-    update: jest.fn(),
-  },
-  staff: {
-    findFirst: jest.fn(),
-  },
-  service: {
-    findFirst: jest.fn(),
-  },
-}));
+jest.mock("../../lib/prisma", () => {
+  const client = {
+    appointment: {
+      findFirst: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+    },
+    staff: {
+      findFirst: jest.fn(),
+    },
+    service: {
+      findFirst: jest.fn(),
+    },
+    transaction: {
+      create: jest.fn(),
+      findFirst: jest.fn(),
+    },
+    commission: {
+      create: jest.fn(),
+    },
+  };
+  // Unidad de Trabajo del Entregable Puente: el fake ejecuta el callback con
+  // el mismo cliente como tx (suficiente para verificar el flujo).
+  client.$transaction = jest.fn(async (fn) => fn(client));
+  return client;
+});
 
 const prisma = require("../../lib/prisma");
 const dashboardRoutes = require("../../routes/dashboard.routes");
@@ -115,7 +129,6 @@ describe("PATCH /api/dashboard/appointments/:id — status transitions", () => {
     ["confirmed", "cancelled"],
     ["arrived", "in_progress"],
     ["arrived", "no_show"],
-    ["in_progress", "completed"],
   ])("allows %s → %s", async (from, to) => {
     const res = await request(appWithAppt(from))
       .patch("/api/dashboard/appointments/appt-1")
@@ -131,7 +144,6 @@ describe("PATCH /api/dashboard/appointments/:id — status transitions", () => {
     ["completed", "in_progress"],
     ["cancelled", "pending"],
     ["no_show", "confirmed"],
-    ["pending", "completed"],
     ["confirmed", "in_progress"],
   ])("rejects %s → %s with 422", async (from, to) => {
     const res = await request(appWithAppt(from))
@@ -175,24 +187,74 @@ describe("PATCH /api/dashboard/appointments/:id — auto timestamps", () => {
     expect(capturedData.endedAt).toBeUndefined();
   });
 
-  test("sets endedAt when transitioning to completed", async () => {
-    prisma.appointment.findFirst.mockResolvedValue({
-      ...BASE_APPT,
-      status: "in_progress",
-    });
-    let capturedData;
-    prisma.appointment.update.mockImplementation(async ({ data }) => {
-      capturedData = data;
-      return { ...BASE_APPT, status: "completed", ...data };
-    });
+  // Entregable Puente: la transición a "completed" ya no vive en el PATCH.
+  test("PATCH with status=completed is rejected with 422 pointing to the new command", async () => {
+    prisma.appointment.findFirst.mockResolvedValue({ ...BASE_APPT, status: "in_progress" });
 
     const app = buildApp({ isSuperAdmin: false, tenantId: TENANT_A });
     const res = await request(app)
       .patch("/api/dashboard/appointments/appt-1")
       .send({ status: "completed" });
 
+    expect(res.status).toBe(422);
+    expect(res.body.error).toMatch(/complete/);
+  });
+});
+
+// ── Entregable Puente — POST /appointments/:id/complete ─────────────────────
+// Camino real HTTP → caso de uso → persistencia (criterio M8): la transición,
+// el cobro de sistema (Finanzas) y la comisión (Staff) en la misma transacción.
+describe("POST /api/dashboard/appointments/:id/complete", () => {
+  test("completes the appointment, sets endedAt and records the system charge", async () => {
+    const appt = { ...BASE_APPT, status: "in_progress", finalPrice: 50000 };
+    prisma.appointment.findFirst.mockResolvedValue(appt);
+    let capturedData;
+    prisma.appointment.update.mockImplementation(async ({ data }) => {
+      capturedData = data;
+      return { ...appt, ...data };
+    });
+    prisma.appointment.findUnique.mockResolvedValue({ ...appt, status: "completed", endedAt: new Date() });
+    let chargeData;
+    prisma.transaction.create.mockImplementation(async ({ data }) => {
+      chargeData = data;
+      return { id: "tx-1", ...data };
+    });
+
+    const app = buildApp({ isSuperAdmin: false, tenantId: TENANT_A });
+    const res = await request(app).post("/api/dashboard/appointments/appt-1/complete").send({});
+
     expect(res.status).toBe(200);
+    expect(capturedData.status).toBe("completed");
     expect(capturedData.endedAt).toBeInstanceOf(Date);
+    // ADR 007-D1: el cobro de sistema es el ingreso oficial del servicio.
+    expect(prisma.$transaction).toHaveBeenCalled();
+    expect(chargeData.origin).toBe("system_appointment_completed");
+    expect(chargeData.total).toBe(50000);
+    expect(chargeData.appointmentId).toBe("appt-1");
+    // Sin staff/servicio asignados no se genera comisión (precondición del reactivo).
+    expect(prisma.commission.create).not.toHaveBeenCalled();
+  });
+
+  test("rejects completion without a resolved price (ADR 007-D4)", async () => {
+    prisma.appointment.findFirst.mockResolvedValue({ ...BASE_APPT, status: "in_progress", finalPrice: null });
+
+    const app = buildApp({ isSuperAdmin: false, tenantId: TENANT_A });
+    const res = await request(app).post("/api/dashboard/appointments/appt-1/complete").send({});
+
+    expect(res.status).toBe(422);
+    expect(res.body.error).toMatch(/precio/);
+    expect(prisma.appointment.update).not.toHaveBeenCalled();
+    expect(prisma.transaction.create).not.toHaveBeenCalled();
+  });
+
+  test("rejects completion from a non-completable status", async () => {
+    prisma.appointment.findFirst.mockResolvedValue({ ...BASE_APPT, status: "pending", finalPrice: 50000 });
+
+    const app = buildApp({ isSuperAdmin: false, tenantId: TENANT_A });
+    const res = await request(app).post("/api/dashboard/appointments/appt-1/complete").send({});
+
+    expect(res.status).toBe(422);
+    expect(prisma.transaction.create).not.toHaveBeenCalled();
   });
 });
 

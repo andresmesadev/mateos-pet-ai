@@ -14,7 +14,9 @@ const { InvalidChargeInputError } = require("../../domain/errors");
  * @param {import("../ports/domain-event-publisher.port").DomainEventPublisherPort} deps.eventPublisher
  */
 function createRecordChargeOnAppointmentCompletedUseCase({ transactionRepository, eventPublisher }) {
-  return async function execute({ tenantId, appointmentId, resolvedPrice, completedAt }) {
+  // ctx: contexto de la Unidad de Trabajo — el reactivo corre en la misma
+  // transacción que el comando Completar Cita (Etapa 2 del Puente).
+  return async function execute({ tenantId, appointmentId, resolvedPrice, completedAt }, ctx) {
     if (!appointmentId) {
       throw new InvalidChargeInputError("appointmentId es obligatorio.");
     }
@@ -22,12 +24,15 @@ function createRecordChargeOnAppointmentCompletedUseCase({ transactionRepository
       throw new InvalidChargeInputError("resolvedPrice no puede ser nulo ni negativo.");
     }
 
-    const transaction = await transactionRepository.createSystemCharge({
-      tenantId: tenantId ?? null,
-      appointmentId,
-      total: Number(resolvedPrice),
-      paidAt: completedAt ? new Date(completedAt) : new Date(),
-    });
+    const transaction = await transactionRepository.createSystemCharge(
+      {
+        tenantId: tenantId ?? null,
+        appointmentId,
+        total: Number(resolvedPrice),
+        paidAt: completedAt ? new Date(completedAt) : new Date(),
+      },
+      ctx
+    );
 
     await eventPublisher.publish("CobroRegistrado", { transaction });
 

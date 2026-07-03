@@ -26,7 +26,9 @@ function createRecordCommissionOnAppointmentCompletedUseCase({
   businessConfigReader,
   eventPublisher,
 }) {
-  return async function execute({ tenantId, appointmentId, staffId, serviceId, resolvedPrice, priceSource, completedAt }) {
+  // ctx: contexto de la Unidad de Trabajo — el reactivo corre en la misma
+  // transacción que el comando Completar Cita (Etapa 2 del Puente).
+  return async function execute({ tenantId, appointmentId, staffId, serviceId, resolvedPrice, priceSource, completedAt }, ctx) {
     if (!appointmentId || !staffId || !serviceId) {
       throw new InvalidCommissionInputError("appointmentId, staffId y serviceId son obligatorios.");
     }
@@ -50,18 +52,21 @@ function createRecordCommissionOnAppointmentCompletedUseCase({
 
     const { staffShare, businessShare } = calculateCommissionSplit(Number(resolvedPrice), splitRate);
 
-    const commission = await commissionRepository.create({
-      tenantId: tenantId ?? null,
-      appointmentId,
-      staffId,
-      resolvedPrice: Number(resolvedPrice),
-      priceSource: priceSource ?? "unresolved",
-      splitRate,
-      staffShare,
-      businessShare,
-      serviceCategory: category.name,
-      completedAt: completedAt ? new Date(completedAt) : new Date(),
-    });
+    const commission = await commissionRepository.create(
+      {
+        tenantId: tenantId ?? null,
+        appointmentId,
+        staffId,
+        resolvedPrice: Number(resolvedPrice),
+        priceSource: priceSource ?? "unresolved",
+        splitRate,
+        staffShare,
+        businessShare,
+        serviceCategory: category.name,
+        completedAt: completedAt ? new Date(completedAt) : new Date(),
+      },
+      ctx
+    );
 
     await eventPublisher.publish("ComisiónRegistrada", { commission });
 

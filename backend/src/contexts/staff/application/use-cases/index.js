@@ -10,8 +10,10 @@ const { createGenerateSettlementUseCase } = require("./generate-settlement.useca
 const { createResolveStaffAvailabilityUseCase } = require("./resolve-staff-availability.usecase");
 const { createListActiveStaffUseCase } = require("./list-active-staff.usecase");
 const { createListSettlementsUseCase } = require("./list-settlements.usecase");
+const { createVoidCommissionUseCase } = require("./void-commission.usecase");
 
 module.exports = {
+  createVoidCommissionUseCase,
   createRegisterStaffUseCase,
   createUpdateStaffUseCase,
   createDeactivateStaffUseCase,

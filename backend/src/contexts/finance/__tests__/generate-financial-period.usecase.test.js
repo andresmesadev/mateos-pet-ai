@@ -6,7 +6,10 @@ function buildUseCase({ dailyCloses = [] } = {}) {
   const dailyCloseRepository = createFakeDailyCloseRepository(dailyCloses);
   const financialPeriodRepository = createFakeFinancialPeriodRepository();
   const eventPublisher = createFakeEventPublisher();
-  const execute = createGenerateFinancialPeriodUseCase({ dailyCloseRepository, financialPeriodRepository, eventPublisher });
+  // Unidad de Trabajo (hallazgo A2): en el fake, el "rollback" no se simula —
+  // los tests verifican el contrato del caso de uso, no el de Prisma.
+  const unitOfWork = { async run(fn) { return fn({}); } };
+  const execute = createGenerateFinancialPeriodUseCase({ dailyCloseRepository, financialPeriodRepository, unitOfWork, eventPublisher });
   return { execute, dailyCloseRepository, eventPublisher };
 }
 

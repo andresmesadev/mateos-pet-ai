@@ -40,7 +40,8 @@ describe("RegisterExpenseUseCase", () => {
       dailyCloses: [{ id: "close-1", tenantId: "t1", date: new Date("2026-07-01T00:00:00.000Z"), incomeTotal: 0, expenseTotal: 0, netAmount: 0, staffBreakdown: [] }],
     });
     await expect(
-      execute({ tenantId: "t1", amount: 100, responsible: "Ana", date: "2026-07-01" })
+      // Mediodía en Bogotá — día civil 2026-07-01 (ADR 008)
+      execute({ tenantId: "t1", amount: 100, responsible: "Ana", date: "2026-07-01T12:00:00-05:00" })
     ).rejects.toBeInstanceOf(DailyCloseAlreadyExistsForDateError);
   });
 });

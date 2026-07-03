@@ -7,7 +7,9 @@ const { PrismaTransactionRepository } = require("./infrastructure/persistence/pr
 const { PrismaDailyCloseRepository } = require("./infrastructure/persistence/prisma-daily-close.repository");
 const { PrismaFinancialPeriodRepository } = require("./infrastructure/persistence/prisma-financial-period.repository");
 const { PrismaCommissionReader } = require("./infrastructure/persistence/prisma-commission.reader");
+const { PrismaCompletedAppointmentsReader } = require("./infrastructure/persistence/prisma-completed-appointments.reader");
 const { FinanceDomainEventsPublisher } = require("./infrastructure/events/finance-domain-events.publisher");
+const { PrismaUnitOfWork } = require("../shared/persistence/prisma-unit-of-work");
 
 const {
   createRegisterExpenseUseCase,
@@ -18,6 +20,9 @@ const {
   createGetDailyCloseUseCase,
   createGetFinancialHistoryUseCase,
   createGetFinancialPeriodUseCase,
+  createSettleSystemChargeUseCase,
+  createGuardManualSaleLinkUseCase,
+  createVoidManualSaleUseCase,
 } = require("./application/use-cases");
 
 const expenseRepository = new PrismaExpenseRepository();
@@ -25,7 +30,9 @@ const transactionRepository = new PrismaTransactionRepository();
 const dailyCloseRepository = new PrismaDailyCloseRepository();
 const financialPeriodRepository = new PrismaFinancialPeriodRepository();
 const commissionReader = new PrismaCommissionReader();
+const completedAppointmentsReader = new PrismaCompletedAppointmentsReader();
 const eventPublisher = new FinanceDomainEventsPublisher();
+const unitOfWork = new PrismaUnitOfWork();
 
 const registerExpense = createRegisterExpenseUseCase({ expenseRepository, dailyCloseRepository, eventPublisher });
 const voidExpense = createVoidExpenseUseCase({ expenseRepository, dailyCloseRepository, eventPublisher });
@@ -37,12 +44,14 @@ const generateDailyClose = createGenerateDailyCloseUseCase({
   transactionRepository,
   expenseRepository,
   commissionReader,
+  completedAppointmentsReader,
   dailyCloseRepository,
   eventPublisher,
 });
 const generateFinancialPeriod = createGenerateFinancialPeriodUseCase({
   dailyCloseRepository,
   financialPeriodRepository,
+  unitOfWork,
   eventPublisher,
 });
 const getDailyClose = createGetDailyCloseUseCase({ dailyCloseRepository });
@@ -54,6 +63,11 @@ const getFinancialHistory = createGetFinancialHistoryUseCase({
 });
 const getFinancialPeriod = createGetFinancialPeriodUseCase({ financialPeriodRepository });
 
+// POS — proceso de cobro (ADR 007-D3)
+const settleSystemCharge = createSettleSystemChargeUseCase({ transactionRepository, eventPublisher });
+const guardManualSaleLink = createGuardManualSaleLinkUseCase({ transactionRepository, completedAppointmentsReader });
+const voidManualSale = createVoidManualSaleUseCase({ transactionRepository, dailyCloseRepository, eventPublisher });
+
 module.exports = {
   registerExpense,
   voidExpense,
@@ -63,4 +77,7 @@ module.exports = {
   getDailyClose,
   getFinancialHistory,
   getFinancialPeriod,
+  settleSystemCharge,
+  guardManualSaleLink,
+  voidManualSale,
 };

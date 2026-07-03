@@ -1,13 +1,70 @@
 const express = require("express");
 const router = express.Router();
 const prisma = require("../../lib/prisma");
+// Entregable Puente: este adaptador delega en los casos de uso del contexto
+// Staff (2.2) — el roster deja de gestionarse vía staff.service.js legacy.
 const {
-  createStaff,
+  registerStaff,
   updateStaff,
-  deleteStaff,
-} = require("../../services/staff.service");
+  deactivateStaff,
+  reactivateStaff,
+  updateAvailability,
+  manageStaffCapabilities,
+  recordUnplannedAbsence,
+  generateSettlement,
+  listSettlements,
+  voidCommission,
+} = require("../../contexts/staff");
+const {
+  InvalidStaffAttributesError,
+  InvalidAvailabilityRangeError,
+  ReferencedServiceNotFoundError,
+  DuplicateStaffCapabilityError,
+  StaffNotFoundError,
+  StaffAlreadyInactiveError,
+  StaffAlreadyActiveError,
+  NoCommissionsForPeriodError,
+  SettlementAlreadyExistsError,
+  InvalidCommissionInputError,
+  CommissionNotFoundError,
+  CommissionAlreadyVoidedError,
+  CommissionDayClosedError,
+  CommissionInActiveSettlementError,
+} = require("../../contexts/staff/domain/errors");
 
 const VALID_ROLES = ["vet", "groomer", "admin"];
+
+function mapStaffDomainError(res, error) {
+  if (
+    error instanceof InvalidStaffAttributesError ||
+    error instanceof InvalidCommissionInputError ||
+    error instanceof InvalidAvailabilityRangeError
+  ) {
+    return res.status(400).json({ error: error.message });
+  }
+  if (
+    error instanceof StaffNotFoundError ||
+    error instanceof CommissionNotFoundError ||
+    error instanceof ReferencedServiceNotFoundError
+  ) {
+    return res.status(404).json({ error: error.message });
+  }
+  if (
+    error instanceof DuplicateStaffCapabilityError ||
+    error instanceof StaffAlreadyInactiveError ||
+    error instanceof StaffAlreadyActiveError ||
+    error instanceof SettlementAlreadyExistsError ||
+    error instanceof CommissionAlreadyVoidedError ||
+    error instanceof CommissionDayClosedError ||
+    error instanceof CommissionInActiveSettlementError
+  ) {
+    return res.status(409).json({ error: error.message });
+  }
+  if (error instanceof NoCommissionsForPeriodError) {
+    return res.status(422).json({ error: error.message });
+  }
+  return null;
+}
 
 router.get("/staff", async (req, res) => {
   try {
@@ -35,14 +92,16 @@ router.post("/staff", async (req, res) => {
       return res.status(400).json({ error: `role debe ser uno de: ${VALID_ROLES.join(", ")}` });
     }
 
-    const member = await createStaff(tenantId ?? null, {
+    const { staff } = await registerStaff({
+      tenantId: tenantId ?? null,
       name: name.trim(),
       role,
       phone: phone?.trim() || null,
       email: email?.trim() || null,
     });
-    res.status(201).json(member);
+    res.status(201).json(staff);
   } catch (error) {
+    if (mapStaffDomainError(res, error)) return;
     console.error("[Dashboard] Create staff error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
@@ -86,26 +145,42 @@ router.patch("/staff/:id", async (req, res) => {
 
     const existing = await prisma.staff.findFirst({
       where: tenantId ? { id, tenantId } : { id },
-      select: { id: true },
+      select: { id: true, active: true },
     });
     if (!existing) return res.status(404).json({ error: "Staff not found" });
 
-    const data = {};
-    if (name !== undefined) data.name = String(name).trim();
-    if (role !== undefined) {
-      if (!VALID_ROLES.includes(role)) {
-        return res.status(400).json({ error: `role debe ser uno de: ${VALID_ROLES.join(", ")}` });
-      }
-      data.role = role;
+    if (role !== undefined && !VALID_ROLES.includes(role)) {
+      return res.status(400).json({ error: `role debe ser uno de: ${VALID_ROLES.join(", ")}` });
     }
-    if (phone !== undefined) data.phone = phone?.trim() || null;
-    if (email !== undefined) data.email = email?.trim() || null;
-    if (active !== undefined) data.active = Boolean(active);
-    if (availability !== undefined) data.availability = availability;
 
-    const updated = await updateStaff(id, data);
+    // Atributos del roster — caso de uso Actualizar Staff (2.2).
+    if (name !== undefined || role !== undefined || phone !== undefined || email !== undefined) {
+      await updateStaff({
+        staffId: id,
+        ...(name !== undefined ? { name: String(name).trim() } : {}),
+        ...(role !== undefined ? { role } : {}),
+        ...(phone !== undefined ? { phone: phone?.trim() || null } : {}),
+        ...(email !== undefined ? { email: email?.trim() || null } : {}),
+      });
+    }
+
+    // Activación/desactivación — casos de uso propios (2.2).
+    if (active === false && existing.active) {
+      await deactivateStaff({ staffId: id });
+    } else if (active === true && !existing.active) {
+      await reactivateStaff({ staffId: id });
+    }
+
+    // Disponibilidad semanal JSON: campo legado de Fase 1 (ADR 003 — convive
+    // sin sincronización con StaffAvailability). Passthrough del adaptador.
+    if (availability !== undefined) {
+      await prisma.staff.update({ where: { id }, data: { availability } });
+    }
+
+    const updated = await prisma.staff.findUnique({ where: { id } });
     res.json(updated);
   } catch (error) {
+    if (mapStaffDomainError(res, error)) return;
     console.error("[Dashboard] Update staff error:", error);
     if (error.code === "P2025") return res.status(404).json({ error: "Staff not found" });
     res.status(500).json({ error: "Internal server error" });
@@ -123,11 +198,117 @@ router.delete("/staff/:id", async (req, res) => {
     });
     if (!existing) return res.status(404).json({ error: "Staff not found" });
 
-    await deleteStaff(id);
+    // Regla de dominio 2.2: el roster no borra — desactiva (mismo 204 hacia fuera).
+    await deactivateStaff({ staffId: id });
     res.status(204).end();
   } catch (error) {
+    if (mapStaffDomainError(res, error)) return;
     console.error("[Dashboard] Delete staff error:", error);
     if (error.code === "P2025") return res.status(404).json({ error: "Staff not found" });
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── Disponibilidad, ausencias y capacidades (2.2) — Entregable Puente ────────
+
+// PUT /staff/:id/availability — body: { type, schedule?, range? }
+router.put("/staff/:id/availability", async (req, res) => {
+  try {
+    const { type, schedule, range } = req.body ?? {};
+    const { availability } = await updateAvailability({ staffId: req.params.id, type, schedule, range });
+    res.json({ availability });
+  } catch (error) {
+    if (mapStaffDomainError(res, error)) return;
+    console.error("[Dashboard] Update availability error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST /staff/:id/absences — body: { startAt, endAt, reason }
+router.post("/staff/:id/absences", async (req, res) => {
+  try {
+    const { startAt, endAt, reason } = req.body ?? {};
+    const { availability } = await recordUnplannedAbsence({ staffId: req.params.id, startAt, endAt, reason });
+    res.status(201).json({ availability });
+  } catch (error) {
+    if (mapStaffDomainError(res, error)) return;
+    console.error("[Dashboard] Record absence error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// PUT /staff/:id/capabilities — body: { serviceIds: string[] }
+router.put("/staff/:id/capabilities", async (req, res) => {
+  try {
+    const { serviceIds } = req.body ?? {};
+    const result = await manageStaffCapabilities({ staffId: req.params.id, serviceIds });
+    res.json(result);
+  } catch (error) {
+    if (mapStaffDomainError(res, error)) return;
+    console.error("[Dashboard] Manage capabilities error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── Liquidaciones (2.2) — expuestas por el Entregable Puente ─────────────────
+
+// POST /settlements — Generar Liquidación de Período
+router.post("/settlements", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    const { staffId, periodStart, periodEnd } = req.body ?? {};
+    if (!staffId || !periodStart || !periodEnd) {
+      return res.status(400).json({ error: "staffId, periodStart y periodEnd son requeridos" });
+    }
+
+    const { settlement } = await generateSettlement({ tenantId: tenantId ?? null, staffId, periodStart, periodEnd });
+    res.status(201).json(settlement);
+  } catch (error) {
+    if (mapStaffDomainError(res, error)) return;
+    console.error("[Dashboard] Generate settlement error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// GET /settlements?staffId=&from=&to=
+router.get("/settlements", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    const { staffId, from, to } = req.query;
+
+    const { settlements } = await listSettlements({
+      tenantId: tenantId ?? null,
+      staffId: staffId ?? null,
+      periodStart: from ?? null,
+      periodEnd: to ?? null,
+    });
+    res.json(settlements);
+  } catch (error) {
+    if (mapStaffDomainError(res, error)) return;
+    console.error("[Dashboard] List settlements error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── Comisiones — ADR 009: anulación con reemplazo, comando único atómico ─────
+
+// POST /commissions/:id/void — body: { reason, replacement?: { resolvedPrice, staffId? } }
+router.post("/commissions/:id/void", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    const { reason, replacement } = req.body ?? {};
+
+    const result = await voidCommission({
+      tenantId: tenantId ?? null,
+      commissionId: req.params.id,
+      reason,
+      replacement: replacement ?? null,
+    });
+
+    res.json({ voided: result.voided, replacement: result.replacement });
+  } catch (error) {
+    if (mapStaffDomainError(res, error)) return;
+    console.error("[Dashboard] Void commission error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });

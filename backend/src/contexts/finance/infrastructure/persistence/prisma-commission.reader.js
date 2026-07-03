@@ -6,6 +6,8 @@ class PrismaCommissionReader extends CommissionReaderPort {
     return prisma.commission.findMany({
       where: {
         ...(tenantId ? { tenantId } : {}),
+        // Solo comisiones activas cuentan para consolidación (Etapa 4 del Puente, ADR 009).
+        status: "active",
         completedAt: { gte: dateStart, lt: dateEnd },
       },
       select: {

@@ -1,11 +1,7 @@
 const { summarizeDay } = require("../../domain/rules/financial-summary.rules");
 const { enumerateDates } = require("../../domain/rules/period-completeness.rules");
-
-function dayBounds(ymd) {
-  const start = new Date(`${ymd}T00:00:00.000Z`);
-  const end = new Date(start.getTime() + 86_400_000);
-  return { start, end };
-}
+// Día civil del negocio (ADR 008) — misma frontera que GenerateDailyCloseUseCase.
+const { civilDayBounds } = require("../../../shared/business-day");
 
 /**
  * GetFinancialHistoryUseCase — Consulta.
@@ -42,7 +38,7 @@ function createGetFinancialHistoryUseCase({
           return { date: ymd, closed: true, dailyClose: existing };
         }
 
-        const { start: dayStart, end: dayEnd } = dayBounds(ymd);
+        const { start: dayStart, end: dayEnd } = civilDayBounds(ymd);
         const [charges, expenses, commissions] = await Promise.all([
           transactionRepository.listByDateRange(tenantId ?? null, dayStart, dayEnd),
           expenseRepository.listByDateRange(tenantId ?? null, dayStart, dayEnd),

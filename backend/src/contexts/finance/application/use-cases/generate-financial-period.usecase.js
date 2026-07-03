@@ -1,31 +1,44 @@
 const { summarizePeriod } = require("../../domain/rules/financial-summary.rules");
 const { enumerateDates, findMissingDates } = require("../../domain/rules/period-completeness.rules");
-const { IncompleteFinancialPeriodError, DuplicateFinancialPeriodError } = require("../../domain/errors");
+const {
+  IncompleteFinancialPeriodError,
+  DuplicateFinancialPeriodError,
+  MissingTenantError,
+} = require("../../domain/errors");
 
 /**
  * GenerateFinancialPeriodUseCase — Administración.
  * Implementa "Generar Período Financiero". Un Período Financiero es una
  * partición del tiempo: solo consolida Cierres del Día ya oficiales, y una
- * vez asignado un día a un período, esa asociación es inmutable
- * (finanzas-modelo-persistencia.md, finanzas-esquema-fisico.md).
+ * vez asignado un día a un período, esa asociación es inmutable.
  *
- * @param {Object} deps
- * @param {import("../ports/daily-close-repository.port").DailyCloseRepositoryPort} deps.dailyCloseRepository
- * @param {import("../ports/financial-period-repository.port").FinancialPeriodRepositoryPort} deps.financialPeriodRepository
- * @param {import("../ports/domain-event-publisher.port").DomainEventPublisherPort} deps.eventPublisher
+ * Entregable Puente (hallazgo A2): creación + asignación + verificación de
+ * conteo corren en UNA transacción — el mismatch hace rollback completo; nunca
+ * queda un período huérfano con asignaciones parciales.
+ *
+ * @param {Object} deps — dailyCloseRepository, financialPeriodRepository, unitOfWork, eventPublisher
  */
-function createGenerateFinancialPeriodUseCase({ dailyCloseRepository, financialPeriodRepository, eventPublisher }) {
+function createGenerateFinancialPeriodUseCase({
+  dailyCloseRepository,
+  financialPeriodRepository,
+  unitOfWork,
+  eventPublisher,
+}) {
   return async function execute({ tenantId, periodStart, periodEnd }) {
+    if (!tenantId) {
+      throw new MissingTenantError();
+    }
+
     const start = new Date(periodStart);
     const end = new Date(periodEnd);
 
-    const existing = await financialPeriodRepository.findByRange(tenantId ?? null, start, end);
+    const existing = await financialPeriodRepository.findByRange(tenantId, start, end);
     if (existing) {
       throw new DuplicateFinancialPeriodError(periodStart, periodEnd);
     }
 
     const expectedDates = enumerateDates(start, end);
-    const dailyCloses = await dailyCloseRepository.listByDateRange(tenantId ?? null, start, end);
+    const dailyCloses = await dailyCloseRepository.listByDateRange(tenantId, start, end);
 
     const missingDates = findMissingDates(expectedDates, dailyCloses);
     if (missingDates.length > 0) {
@@ -33,32 +46,39 @@ function createGenerateFinancialPeriodUseCase({ dailyCloseRepository, financialP
     }
 
     const summary = summarizePeriod(dailyCloses);
+    const dailyCloseIds = dailyCloses.map((d) => d.id);
 
     let financialPeriod;
     try {
-      financialPeriod = await financialPeriodRepository.create({
-        tenantId: tenantId ?? null,
-        periodStart: start,
-        periodEnd: end,
-        incomeTotal: summary.incomeTotal,
-        expenseTotal: summary.expenseTotal,
-        netAmount: summary.netAmount,
-        breakdown: summary.breakdown,
+      financialPeriod = await unitOfWork.run(async (ctx) => {
+        const period = await financialPeriodRepository.create(
+          {
+            tenantId,
+            periodStart: start,
+            periodEnd: end,
+            incomeTotal: summary.incomeTotal,
+            expenseTotal: summary.expenseTotal,
+            netAmount: summary.netAmount,
+            breakdown: summary.breakdown,
+          },
+          ctx
+        );
+
+        // Asignación condicionada (financialPeriodId IS NULL) — protege la
+        // partición del tiempo contra generaciones concurrentes. Dentro de la
+        // transacción: el mismatch revierte también la creación del período.
+        const assignedCount = await dailyCloseRepository.assignToPeriod(dailyCloseIds, period.id, ctx);
+        if (assignedCount !== dailyCloseIds.length) {
+          throw new DuplicateFinancialPeriodError(periodStart, periodEnd);
+        }
+
+        return period;
       });
     } catch (err) {
       if (err && err.code === "UNIQUE_FINANCIAL_PERIOD_VIOLATION") {
         throw new DuplicateFinancialPeriodError(periodStart, periodEnd);
       }
       throw err;
-    }
-
-    // Asignación condicionada (financialPeriodId IS NULL) — protege la
-    // partición del tiempo contra una condición de carrera entre dos
-    // generaciones concurrentes del mismo rango.
-    const dailyCloseIds = dailyCloses.map((d) => d.id);
-    const assignedCount = await dailyCloseRepository.assignToPeriod(dailyCloseIds, financialPeriod.id);
-    if (assignedCount !== dailyCloseIds.length) {
-      throw new DuplicateFinancialPeriodError(periodStart, periodEnd);
     }
 
     await eventPublisher.publish("PeríodoFinancieroGenerado", { financialPeriod });

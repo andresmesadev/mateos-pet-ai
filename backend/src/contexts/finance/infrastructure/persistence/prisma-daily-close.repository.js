@@ -41,8 +41,9 @@ class PrismaDailyCloseRepository extends DailyCloseRepositoryPort {
     });
   }
 
-  async assignToPeriod(dailyCloseIds, financialPeriodId) {
-    const result = await prisma.dailyClose.updateMany({
+  async assignToPeriod(dailyCloseIds, financialPeriodId, ctx) {
+    const client = ctx?.tx ?? prisma;
+    const result = await client.dailyClose.updateMany({
       where: { id: { in: dailyCloseIds }, financialPeriodId: null },
       data: { financialPeriodId },
     });

@@ -5,7 +5,7 @@ const { BusinessConfigReaderPort } = require("../../application/ports/business-c
  * contexts/services (el contexto Negocio todavía no persiste módulos ni
  * tasas de split configurables). getCommissionSplitRate replica el valor
  * ya hardcodeado en Fase 1 (GROOMING_SPLIT_RATE = 0.5,
- * src/services/domain/commission.service.js) hasta que Negocio lo persista
+ * el commission.service.js de Fase 1 (retirado en el Entregable Puente)) hasta que Negocio lo persista
  * realmente — esa migración no toca el puerto ni los casos de uso que lo
  * consumen, solo esta clase.
  */
