@@ -43,7 +43,14 @@ Cualquier propuesta que contradiga esos documentos debe justificarse explícitam
 
 Correr lint y tests, y mostrar la evidencia real (el output del comando, no solo "ya quedó"). Si no se puede verificar, no se da por terminado.
 
-## Fase activa: Fase 2 — Sistema Operativo del Negocio (✅ Completa, alcance re-declarado por ADR 006)
+## Fase activa: Fase 3 — Empleados Digitales Especializados (en curso)
+
+**Roadmap interno aprobado:** 3.0 Infraestructura de Eventos → 3.1 Comunicación → 3.2 Empleado Digital → 3.3 Automatizaciones → 3.4 Recepcionista IA → 3.5 Coordinador de Agenda IA.
+
+- Entregable 3.0 — Infraestructura de Eventos — ✅ Completado (2026-07-03). Contexto Eventos nuevo (`domain-model-v1.md` §12): certifica hechos de negocio como Evento de Dominio inmutable; Catálogo global de Tipos de Evento; certificación de `CitaCompletada` integrada de forma aditiva sobre el dispatcher del Puente, sin tocarlo. Mecanismo de entrega asíncrona hacia consumidores futuros (Automatizaciones, 3.3) queda como decisión diferida. Ver `docs/history/ENTREGABLE_3_0_COMPLETION_REPORT.md`.
+- **Entregable activo: 3.1 — Comunicación.** Siguiente en el roadmap; aún no iniciado.
+
+## Fase 2 — Sistema Operativo del Negocio (✅ Completa, alcance re-declarado por ADR 006)
 
 **Objetivo:** Capa de casos de uso, entidades faltantes del dominio operativo, reportes financieros.
 

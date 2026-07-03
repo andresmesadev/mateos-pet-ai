@@ -317,7 +317,12 @@ Ningún entregable de esta fase puede comenzar su implementación sin completar 
 ---
 
 ### FASE 3 — Empleados Digitales Especializados
-**Estado:** Futura
+**Estado:** En curso — roadmap interno aprobado (mapa conceptual congelado, 2026-07-03)
+
+**Roadmap interno de la Fase 3** (orden validado tras revisión estratégica): 3.0 Infraestructura de Eventos → 3.1 Comunicación → 3.2 Empleado Digital → 3.3 Automatizaciones → 3.4 Recepcionista IA → 3.5 Coordinador de Agenda IA. El Prompt Registry (prompt versionado por Empleado Digital) queda clasificado como infraestructura, no como parte del Modelo de Dominio.
+
+- **Entregable 3.0 — Infraestructura de Eventos** · ✅ Completado (2026-07-03). Contexto Eventos nuevo (`domain-model-v1.md`, §12): certifica todo hecho de negocio como Evento de Dominio inmutable, mantiene el Catálogo global de Tipos de Evento, y certifica entregas a consumidores — sin decidir el mecanismo concreto de entrega asíncrona (decisión diferida). Integrado de forma aditiva sobre el dispatcher síncrono del Entregable Puente: la certificación de `CitaCompletada` ocurre dentro del cierre exitoso de la misma transacción, sin tocar el dispatcher existente. Cierre en `docs/history/ENTREGABLE_3_0_COMPLETION_REPORT.md` (Gate Review previo en `docs/history/ENTREGABLE_3_0_GATE_REVIEW.md`).
+- **Entregable 3.1 — Comunicación** · ⬜ Siguiente entregable activo. Contexto Comunicación (`domain-model-v1.md`, §10): la capa de abstracción entre el dominio y los canales externos (WhatsApp, email). Pendiente de iniciar su Etapa 1 (Modelo de Dominio).
 
 **Objetivo**  
 Reemplazar el agente generalista por un equipo de Empleados Digitales Especializados, cada uno con responsabilidades claras, límites de autonomía definidos y auditoría completa de cada decisión tomada.

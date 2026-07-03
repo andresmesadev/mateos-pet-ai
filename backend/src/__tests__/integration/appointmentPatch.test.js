@@ -22,6 +22,12 @@ jest.mock("../../lib/prisma", () => {
     commission: {
       create: jest.fn(),
     },
+    eventType: {
+      findUnique: jest.fn(),
+    },
+    domainEvent: {
+      create: jest.fn(),
+    },
   };
   // Unidad de Trabajo del Entregable Puente: el fake ejecuta el callback con
   // el mismo cliente como tx (suficiente para verificar el flujo).
@@ -219,6 +225,10 @@ describe("POST /api/dashboard/appointments/:id/complete", () => {
       chargeData = data;
       return { id: "tx-1", ...data };
     });
+    // Entregable 3.0: CitaCompletada debe existir y estar activo en el
+    // Catálogo (Invariante 2) para que la certificación no revierta la transacción.
+    prisma.eventType.findUnique.mockResolvedValue({ id: "et-1", name: "CitaCompletada", active: true });
+    prisma.domainEvent.create.mockImplementation(async ({ data }) => ({ id: "de-1", createdAt: new Date(), ...data }));
 
     const app = buildApp({ isSuperAdmin: false, tenantId: TENANT_A });
     const res = await request(app).post("/api/dashboard/appointments/appt-1/complete").send({});

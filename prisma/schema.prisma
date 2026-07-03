@@ -44,6 +44,7 @@ model Tenant {
   settlements   Settlement[]
   dailyCloses      DailyClose[]
   financialPeriods FinancialPeriod[]
+  domainEvents     DomainEvent[]
 }
 
 model Staff {
@@ -592,4 +593,59 @@ model Commission {
   @@index([tenantId, completedAt])
   @@index([staffId, completedAt])
   @@index([appointmentId])
+}
+
+// ── Infraestructura de Eventos (Entregable 3.0, Fase 3) ────────────────────
+// Diseño congelado: docs/architecture/technical-design/infraestructura-de-eventos-esquema-fisico.md
+
+// Catálogo global del sistema — no pertenece a ningún tenant (Etapa 5, sección 2):
+// un Tipo de Evento como "CitaCompletada" significa lo mismo para todos los negocios.
+model EventType {
+  id                         String   @id @default(cuid())
+  name                       String   @unique
+  originContext              String
+  payloadContractDescription String?
+  active                     Boolean  @default(true)
+  createdAt                  DateTime @default(now())
+
+  domainEvents DomainEvent[]
+}
+
+// El hecho mismo — inmutable desde su creación (Invariante 1). Payload: la
+// representación canónica del hecho dentro de este contexto (Invariante 5),
+// nunca interpretada aquí.
+model DomainEvent {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  eventTypeId String
+  eventType   EventType @relation(fields: [eventTypeId], references: [id], onDelete: Restrict)
+
+  payload     Json
+  origin      String
+  occurredAt  DateTime
+  createdAt   DateTime @default(now())
+
+  deliveries  EventDelivery[]
+
+  @@index([tenantId, eventTypeId, occurredAt])
+}
+
+// Certifica, para un Evento y un consumidor, si el hecho fue puesto a su
+// disposición. Referencia por id, sin exigir consistencia atómica con el
+// Evento (Invariante 6). Cada fila nace en su estado terminal — "pending" es
+// un valor previsto para futuras estrategias de entrega, no persistido en
+// este entregable (Etapa 5, nota de la aprobación).
+model EventDelivery {
+  id            String      @id @default(cuid())
+  domainEventId String
+  domainEvent   DomainEvent @relation(fields: [domainEventId], references: [id], onDelete: Restrict)
+
+  consumer      String
+  status        String      // "pending" | "delivered" | "failed"
+  failureReason String?
+  createdAt     DateTime    @default(now())
+
+  @@index([domainEventId])
+  @@index([domainEventId, consumer])
 }

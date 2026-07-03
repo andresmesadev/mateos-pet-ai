@@ -12,6 +12,7 @@ const { PrismaUnitOfWork } = require("./shared/persistence/prisma-unit-of-work")
 const { buildAgendaContext } = require("./agenda");
 const staff = require("./staff");
 const finance = require("./finance");
+const events = require("./events");
 const logger = require("../lib/logger");
 
 const dispatcher = new DomainEventDispatcher();
@@ -54,9 +55,34 @@ dispatcher.subscribe("CitaCompletada", async (payload, ctx) => {
   );
 });
 
-const agenda = buildAgendaContext({ unitOfWork, eventPublisher: dispatcher });
+// Entregable 3.0 — Infraestructura de Eventos: la certificación de un hecho
+// como Evento de Dominio forma parte del cierre exitoso de la misma
+// transacción lógica del comando que publica (Etapa 3, sección 3) — NO es un
+// handler más entre los suscriptores del dispatcher, ni depende del orden de
+// ejecución de estos. Se implementa como un envoltorio de la operación de
+// publicación misma, en este root de integración — el DomainEventDispatcher
+// del Puente permanece intacto, sin abrirse.
+const dispatcherWithCertification = {
+  subscribe: dispatcher.subscribe.bind(dispatcher),
+  async publish(eventName, payload, ctx) {
+    await events.registerDomainEvent(
+      {
+        tenantId: payload.tenantId,
+        eventTypeName: eventName,
+        payload,
+        origin: "Agenda",
+        occurredAt: payload.completedAt ?? new Date(),
+      },
+      ctx
+    );
+    await dispatcher.publish(eventName, payload, ctx);
+  },
+};
+
+const agenda = buildAgendaContext({ unitOfWork, eventPublisher: dispatcherWithCertification });
 
 module.exports = {
   dispatcher,
   completeAppointment: agenda.completeAppointment,
+  events,
 };

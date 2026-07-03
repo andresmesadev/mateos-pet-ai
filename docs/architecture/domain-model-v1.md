@@ -484,6 +484,34 @@ Gestionar el historial médico de cada animal. Se activa únicamente en establec
 
 ---
 
+### 12. Contexto: Eventos
+
+**Añadido por el Entregable 3.0 (Fase 3, 2026-07-03).** Diseño completo, invariantes y decisiones diferidas en `docs/architecture/use-cases/infraestructura-de-eventos.md` y `docs/architecture/technical-design/infraestructura-de-eventos*.md`; cierre en `docs/history/ENTREGABLE_3_0_GATE_REVIEW.md`.
+
+**Objetivo**
+Dar identidad, inmutabilidad y trazabilidad de negocio al hecho de que "algo ocurrió en el dominio", para que cualquier contexto pueda reaccionar sin conocer la lógica interna de quien lo produjo, y para que esa reacción quede auditada.
+
+**Entidades principales**
+- **Evento de Dominio** — el hecho mismo. Inmutable desde su creación; válido por el solo hecho de haber ocurrido, sin depender de la existencia de consumidores.
+- **Entrega de Evento** — certifica si un consumidor determinado recibió un Evento de Dominio y con qué resultado.
+- **Tipo de Evento Catalogado** — el vocabulario oficial de disparadores posibles, global al sistema (no pertenece a ningún tenant).
+
+**Responsabilidades**
+- Certificar todo hecho de negocio producido por cualquier contexto como Evento de Dominio.
+- Mantener el Catálogo de Eventos.
+- Constatar, para cada consumidor legítimo, si el hecho fue puesto a su disposición.
+
+**Eventos que produce**
+- `EventoDeDominioRegistrado`, `EntregaFallida`
+
+**Contextos que conoce**
+- Ninguno en su lógica interna — solo el contrato tipo+payload de quien publica.
+
+**Contextos que NO debe conocer**
+- La lógica interna de ningún contexto productor ni consumidor. No decide qué debe pasar cuando ocurre un evento — eso es exclusivo de Automatizaciones (§8). No es Comunicación (§10): Eventos es comunicación interna entre contextos, nunca hacia canales externos.
+
+---
+
 ## Mapa de Contextos
 
 ```
