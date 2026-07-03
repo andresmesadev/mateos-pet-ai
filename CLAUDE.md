@@ -23,6 +23,7 @@ Cualquier propuesta que contradiga esos documentos debe justificarse explícitam
 - **El precio se resuelve en un único lugar.** Siempre a través de `price-resolver.service.js`.
 - **`prisma generate` después de cambios de schema.** `prisma db push` sincroniza la BD pero no regenera el cliente TypeScript. (Automatizado vía hook — ver `.claude/hooks/prisma-generate.sh`.)
 - **`apiUrl` nunca desde componentes cliente hacia endpoints autenticados.** Desde el navegador, siempre `proxyUrl` (el proxy añade la autenticación server-side). En Server Components, `apiUrl` + `makeServerHeaders` es el camino sancionado. Única excepción cliente: el onboarding público (`/api/onboarding`), que no requiere autenticación por diseño. (Alcance real documentado en la remediación M5 de la auditoría v2.1.0; hook: `.claude/hooks/block-apiurl.sh`.)
+- **Todo cierre oficial de un entregable implementado debe evaluar el versionado del proyecto antes del commit final.** Si el cierre introduce capacidades nuevas o cambios funcionales relevantes, se realizará el bump de versión correspondiente antes de crear el tag. Ningún tag oficial puede diferir de la versión declarada por el código, la documentación y el endpoint de salud. (Institucionalizada tras la discrepancia detectada antes del cierre del Entregable 3.0 — v2.3.0.)
 
 ## Stack técnico
 
