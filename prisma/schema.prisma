@@ -47,6 +47,7 @@ model Tenant {
   domainEvents     DomainEvent[]
   channels         Channel[]
   digitalEmployees DigitalEmployee[]
+  automationRules  AutomationRule[]
 }
 
 model Staff {
@@ -642,6 +643,8 @@ model EventType {
   createdAt                  DateTime @default(now())
 
   domainEvents DomainEvent[]
+  automationTemplates AutomationTemplate[]
+  automationRules     AutomationRule[]
 }
 
 // El hecho mismo — inmutable desde su creación (Invariante 1). Payload: la
@@ -660,6 +663,7 @@ model DomainEvent {
   createdAt   DateTime @default(now())
 
   deliveries  EventDelivery[]
+  automationExecutions AutomationExecution[]
 
   @@index([tenantId, eventTypeId, occurredAt])
 }
@@ -750,4 +754,69 @@ model Escalation {
 
   @@index([status])
   @@index([assignedStaffId, status])
+}
+
+// ── Automatizaciones (Entregable 3.3, Fase 3) ──────────────────────────────
+// Diseño congelado: docs/architecture/technical-design/automatizaciones-esquema-fisico.md
+
+model AutomationTemplate {
+  id                  String   @id @default(cuid())
+  name                String   @unique
+  description         String?
+  triggerEventTypeId  String
+  triggerEventType    EventType @relation(fields: [triggerEventTypeId], references: [id], onDelete: Restrict)
+  defaultCondition    Json?
+  defaultActionType   String
+  defaultActionConfig Json
+  active              Boolean  @default(true)
+  createdAt           DateTime @default(now())
+
+  rules AutomationRule[]
+
+  @@index([triggerEventTypeId])
+}
+
+model AutomationRule {
+  id                 String   @id @default(cuid())
+  tenantId           String?
+  tenant             Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  name               String
+  triggerEventTypeId String
+  triggerEventType   EventType @relation(fields: [triggerEventTypeId], references: [id], onDelete: Restrict)
+
+  condition    Json?
+  actionType   String
+  actionConfig Json
+
+  active    Boolean  @default(true)
+
+  templateId String?
+  template   AutomationTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  executions AutomationExecution[]
+
+  @@index([tenantId, active])
+  @@index([triggerEventTypeId, active])
+}
+
+model AutomationExecution {
+  id               String   @id @default(cuid())
+  automationRuleId String
+  automationRule   AutomationRule @relation(fields: [automationRuleId], references: [id], onDelete: Restrict)
+
+  domainEventId String
+  domainEvent   DomainEvent @relation(fields: [domainEventId], references: [id], onDelete: Restrict)
+
+  status        String   // "success" | "failed"
+  actionResult  Json?
+  failureReason String?
+
+  createdAt DateTime @default(now())
+
+  @@index([automationRuleId, createdAt])
+  @@index([domainEventId])
 }

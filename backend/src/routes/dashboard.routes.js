@@ -17,5 +17,6 @@ router.use(require("./dashboard/daily-close.routes"));
 router.use(require("./dashboard/financial-periods.routes"));
 router.use(require("./dashboard/events.routes"));
 router.use(require("./dashboard/agents.routes"));
+router.use(require("./dashboard/automations.routes"));
 
 module.exports = router;

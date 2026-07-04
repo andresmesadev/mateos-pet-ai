@@ -13,6 +13,7 @@ const { buildAgendaContext } = require("./agenda");
 const staff = require("./staff");
 const finance = require("./finance");
 const events = require("./events");
+const automation = require("./automation");
 const logger = require("../lib/logger");
 
 const dispatcher = new DomainEventDispatcher();
@@ -55,6 +56,14 @@ dispatcher.subscribe("CitaCompletada", async (payload, ctx) => {
   );
 });
 
+// Entregable 3.3 — Automatizaciones: suscrita al mismo dispatcher que
+// Staff/Finanzas, para el único disparador certificado hoy. A diferencia de
+// aquellos, su fallo nunca se propaga (Etapa 3, Decisión 4 del diseño
+// congelado) — evaluateAndExecuteRules captura sus propios errores.
+dispatcher.subscribe("CitaCompletada", async (payload, ctx) => {
+  await automation.evaluateAndExecuteRules({ domainEvent: ctx.domainEvent, eventPayload: payload }, ctx);
+});
+
 // Entregable 3.0 — Infraestructura de Eventos: la certificación de un hecho
 // como Evento de Dominio forma parte del cierre exitoso de la misma
 // transacción lógica del comando que publica (Etapa 3, sección 3) — NO es un
@@ -62,10 +71,16 @@ dispatcher.subscribe("CitaCompletada", async (payload, ctx) => {
 // ejecución de estos. Se implementa como un envoltorio de la operación de
 // publicación misma, en este root de integración — el DomainEventDispatcher
 // del Puente permanece intacto, sin abrirse.
+//
+// Entregable 3.3 — el `ctx` (ya opaco para el dominio, solo se propaga) se
+// extiende con el Evento de Dominio certificado, para que Automatizaciones
+// pueda registrar su propia Entrega de Evento sin que el dispatcher ni los
+// suscriptores existentes (Staff/Finanzas) necesiten cambiar — ambos ignoran
+// el campo nuevo.
 const dispatcherWithCertification = {
   subscribe: dispatcher.subscribe.bind(dispatcher),
   async publish(eventName, payload, ctx) {
-    await events.registerDomainEvent(
+    const { domainEvent } = await events.registerDomainEvent(
       {
         tenantId: payload.tenantId,
         eventTypeName: eventName,
@@ -75,7 +90,7 @@ const dispatcherWithCertification = {
       },
       ctx
     );
-    await dispatcher.publish(eventName, payload, ctx);
+    await dispatcher.publish(eventName, payload, { ...ctx, domainEvent });
   },
 };
 
@@ -85,4 +100,5 @@ module.exports = {
   dispatcher,
   completeAppointment: agenda.completeAppointment,
   events,
+  automation,
 };
