@@ -51,7 +51,8 @@ Correr lint y tests, y mostrar la evidencia real (el output del comando, no solo
 
 - Entregable 3.0 — Infraestructura de Eventos — ✅ Completado (2026-07-03). Contexto Eventos nuevo (`domain-model-v1.md` §12): certifica hechos de negocio como Evento de Dominio inmutable; Catálogo global de Tipos de Evento; certificación de `CitaCompletada` integrada de forma aditiva sobre el dispatcher del Puente, sin tocarlo. Mecanismo de entrega asíncrona hacia consumidores futuros (Automatizaciones, 3.3) queda como decisión diferida. Ver `docs/history/ENTREGABLE_3_0_COMPLETION_REPORT.md`.
 - Entregable 3.1 — Comunicación — ✅ Completado (2026-07-04). Contexto Comunicación nuevo (`domain-model-v1.md` §10): todo mensaje saliente (bot, recordatorios, respuesta manual, campañas) pasa exclusivamente por el caso de uso Enviar Mensaje — cero llamadas directas a `sendWhatsAppMessage` fuera de `contexts/communication/infrastructure/`, verificado por grep exhaustivo. `Conversation`/`Message` evolucionaron sin duplicarse. Ver `docs/history/ENTREGABLE_3_1_COMPLETION_REPORT.md`.
-- **Entregable activo: 3.2 — Empleado Digital.** Siguiente en el roadmap; aún no iniciado.
+- Entregable 3.2 — Empleado Digital — ✅ Completado (2026-07-04). Contexto Empleados Digitales nuevo (`domain-model-v1.md` §9): `DigitalEmployee`, `AgentAutonomyLimit`, `AgentTask`, `AgentDecision`, `Escalación` — andamiaje auditable, tenant-scoped, sin integración obligatoria con Comunicación ni Eventos en este entregable (diferida al primer agente real, 3.4). Ver `docs/history/ENTREGABLE_3_2_COMPLETION_REPORT.md`.
+- **Entregable activo: 3.3 — Automatizaciones.** Siguiente en el roadmap; aún no iniciado.
 
 ## Fase 2 — Sistema Operativo del Negocio (✅ Completa, alcance re-declarado por ADR 006)
 

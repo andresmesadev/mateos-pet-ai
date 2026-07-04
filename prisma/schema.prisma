@@ -46,6 +46,7 @@ model Tenant {
   financialPeriods FinancialPeriod[]
   domainEvents     DomainEvent[]
   channels         Channel[]
+  digitalEmployees DigitalEmployee[]
 }
 
 model Staff {
@@ -70,6 +71,7 @@ model Staff {
   availabilities StaffAvailability[]
   capabilities   StaffCapability[]
   settlements    Settlement[]
+  escalations    Escalation[]
 }
 
 model StaffAvailability {
@@ -679,4 +681,73 @@ model EventDelivery {
 
   @@index([domainEventId])
   @@index([domainEventId, consumer])
+}
+
+// ── Empleados Digitales (Entregable 3.2, Fase 3) ───────────────────────────
+// Diseño congelado: docs/architecture/technical-design/empleado-digital-esquema-fisico.md
+
+model DigitalEmployee {
+  id             String   @id @default(cuid())
+  tenantId       String?
+  tenant         Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  specialization String
+  status         String   @default("activo") // "activo" | "pausado"
+  createdAt      DateTime @default(now())
+
+  autonomyLimits AgentAutonomyLimit[]
+  tasks          AgentTask[]
+
+  @@index([tenantId, specialization])
+}
+
+model AgentAutonomyLimit {
+  id                String          @id @default(cuid())
+  digitalEmployeeId String
+  digitalEmployee   DigitalEmployee @relation(fields: [digitalEmployeeId], references: [id], onDelete: Cascade)
+  action            String
+  autoApproved      Boolean         @default(false)
+
+  @@unique([digitalEmployeeId, action])
+}
+
+model AgentTask {
+  id                String          @id @default(cuid())
+  digitalEmployeeId String
+  digitalEmployee   DigitalEmployee @relation(fields: [digitalEmployeeId], references: [id], onDelete: Restrict)
+  origin            String
+  status            String          @default("en_proceso") // "en_proceso" | "completada" | "escalada"
+  result            Json?
+  createdAt         DateTime        @default(now())
+
+  decisions   AgentDecision[]
+  escalations Escalation[]
+
+  @@index([digitalEmployeeId, status])
+}
+
+model AgentDecision {
+  id          String    @id @default(cuid())
+  agentTaskId String
+  agentTask   AgentTask @relation(fields: [agentTaskId], references: [id], onDelete: Restrict)
+  input       Json
+  reasoning   String
+  action      String
+  createdAt   DateTime  @default(now())
+
+  @@index([agentTaskId])
+}
+
+model Escalation {
+  id              String    @id @default(cuid())
+  agentTaskId     String
+  agentTask       AgentTask @relation(fields: [agentTaskId], references: [id], onDelete: Restrict)
+  assignedStaffId String?
+  assignedStaff   Staff?    @relation(fields: [assignedStaffId], references: [id], onDelete: SetNull)
+  context         Json
+  status          String    @default("pendiente") // "pendiente" | "atendida"
+  createdAt       DateTime  @default(now())
+  resolvedAt      DateTime?
+
+  @@index([status])
+  @@index([assignedStaffId, status])
 }
