@@ -47,23 +47,11 @@ const persistUserMessage = async (user, conversation, content) => {
   }
 };
 
-const persistAssistantMessage = async (conversation, content) => {
-  if (!conversation?.id || !content) return;
-
-  try {
-    await saveMessage({
-      conversationId: conversation.id,
-      role: "assistant",
-      content,
-    });
-    logger.info("[WhatsApp] Message persisted");
-  } catch (error) {
-    logger.error(
-      "[WhatsApp] Error persisting assistant message:",
-      error.message
-    );
-  }
-};
+// Entregable 3.1 — Comunicación: la persistencia del mensaje saliente del
+// bot ya no ocurre aquí. Este archivo solo devuelve `reply`, `user` y
+// `conversation`; quien invoca processIncomingMessage (webhook.controller.js)
+// llama a Enviar Mensaje, que envía Y persiste de forma atómica (todo o
+// nada). persistAssistantMessage se retiró — ver Bloque 8/9 del Entregable 3.1.
 
 const isEmptyValue = (value) => {
   if (value === null || value === undefined) {
@@ -200,21 +188,12 @@ const processIncomingMessage = async (body) => {
     logger.info("[WhatsApp] Voice transcription:", transcript);
   }
 
-  if (parsed.type === "document") {
-    logger.info("[WhatsApp] Document message received — not supported");
-    return {
-      received: true,
-      processed: true,
-      from: parsed.from,
-      reply:
-        "Solo proceso imágenes 📸\nSi quieres compartir información médica, envíame una foto o escríbeme un mensaje.",
-    };
-  }
-
   logger.info(`New message from: ${parsed.from}`);
-  logger.info(`Message: ${parsed.text}`);
 
   // Identificar tenant por el phone_number_id de la línea WhatsApp Business
+  // (movido antes de la rama "documento" — Entregable 3.1, Bloque 8: Enviar
+  // Mensaje necesita user/conversation disponibles para TODA rama con reply,
+  // sin cambiar el comportamiento de recepción de ningún tipo de mensaje).
   let tenantId = null;
   if (parsed.phoneNumberId) {
     try {
@@ -245,11 +224,29 @@ const processIncomingMessage = async (body) => {
       logger.info(
         `[WhatsApp] Conversation loaded: ${conversation.id} (user ${user.id})`
       );
+      // parsed.text es null para audio no transcrito/documento/imagen —
+      // persistUserMessage no-opea sin contenido (guard existente), mismo
+      // comportamiento que antes de este reordenamiento.
       await persistUserMessage(user, conversation, parsed.text);
     } catch (error) {
       logger.error("[WhatsApp] Error loading conversation:", error.message);
     }
   }
+
+  if (parsed.type === "document") {
+    logger.info("[WhatsApp] Document message received — not supported");
+    return {
+      received: true,
+      processed: true,
+      from: parsed.from,
+      user,
+      conversation,
+      reply:
+        "Solo proceso imágenes 📸\nSi quieres compartir información médica, envíame una foto o escríbeme un mensaje.",
+    };
+  }
+
+  logger.info(`Message: ${parsed.text}`);
 
   if (parsed.type === "image" && parsed.mediaId) {
     logger.info("[WhatsApp] Image message detected");
@@ -260,7 +257,6 @@ const processIncomingMessage = async (body) => {
     if (!petName) {
       const reply =
         "Recibí tu imagen 📸 ¿De qué mascota es? Dime su nombre para guardarla en el historial médico.";
-      await persistAssistantMessage(conversation, reply);
       return {
         received: true,
         processed: true,
@@ -278,7 +274,6 @@ const processIncomingMessage = async (body) => {
     if (!imageAnalysis) {
       const reply =
         "No pude analizar la imagen 😔 ¿Puedes intentarlo de nuevo?";
-      await persistAssistantMessage(conversation, reply);
       return {
         received: true,
         processed: true,
@@ -320,7 +315,6 @@ const processIncomingMessage = async (body) => {
       ? `📸 Esto es lo que observé en la imagen:\n\n${imageAnalysis}\n\n✅ Lo guardé en el historial de ${petName}.`
       : `📸 Esto es lo que observé en la imagen:\n\n${imageAnalysis}`;
 
-    await persistAssistantMessage(conversation, reply);
 
     return {
       received: true,
@@ -355,7 +349,6 @@ const processIncomingMessage = async (body) => {
     );
     logger.info("[Conversation] New step:", session.step ?? "(none)");
 
-    await persistAssistantMessage(conversation, reply);
     await syncConversationState(conversation?.id, {
       intent: session.intent,
       step: session.step,
@@ -420,7 +413,6 @@ const processIncomingMessage = async (body) => {
 
           logger.info("[Conversation] New step:", session.step);
 
-          await persistAssistantMessage(conversation, reply);
           await syncConversationState(conversation?.id, {
             intent: session.intent,
             step: session.step,
@@ -470,7 +462,6 @@ const processIncomingMessage = async (body) => {
         logger.info("[Conversation] New step:", session.step);
         logger.info("Generated reply:", reply);
 
-        await persistAssistantMessage(conversation, reply);
         await syncConversationState(conversation?.id, {
           intent: session.intent,
           step: session.step,
@@ -500,7 +491,6 @@ const processIncomingMessage = async (body) => {
           step: STEPS.AWAITING_CONFIRMATION,
         });
 
-        await persistAssistantMessage(conversation, reply);
         await syncConversationState(conversation?.id, {
           intent: session.intent,
           step: session.step,
@@ -534,7 +524,6 @@ const processIncomingMessage = async (body) => {
     logger.info("[Conversation] New step:", session.step);
     logger.info("Generated reply:", reply);
 
-    await persistAssistantMessage(conversation, reply);
     await syncConversationState(conversation?.id, {
       intent: session.intent,
       step: session.step,
@@ -661,7 +650,6 @@ const processIncomingMessage = async (body) => {
   logger.info("Generated reply:", result.reply);
   logger.info("Session:", session);
 
-  await persistAssistantMessage(conversation, result.reply);
   await syncConversationState(conversation?.id, {
     intent: mergedAnalysis?.intent,
     step: session.step,

@@ -24,6 +24,7 @@ Cualquier propuesta que contradiga esos documentos debe justificarse explícitam
 - **`prisma generate` después de cambios de schema.** `prisma db push` sincroniza la BD pero no regenera el cliente TypeScript. (Automatizado vía hook — ver `.claude/hooks/prisma-generate.sh`.)
 - **`apiUrl` nunca desde componentes cliente hacia endpoints autenticados.** Desde el navegador, siempre `proxyUrl` (el proxy añade la autenticación server-side). En Server Components, `apiUrl` + `makeServerHeaders` es el camino sancionado. Única excepción cliente: el onboarding público (`/api/onboarding`), que no requiere autenticación por diseño. (Alcance real documentado en la remediación M5 de la auditoría v2.1.0; hook: `.claude/hooks/block-apiurl.sh`.)
 - **Todo cierre oficial de un entregable implementado debe evaluar el versionado del proyecto antes del commit final.** Si el cierre introduce capacidades nuevas o cambios funcionales relevantes, se realizará el bump de versión correspondiente antes de crear el tag. Ningún tag oficial puede diferir de la versión declarada por el código, la documentación y el endpoint de salud. (Institucionalizada tras la discrepancia detectada antes del cierre del Entregable 3.0 — v2.3.0.)
+- **Todo criterio de cierre verificable por grep (p. ej. "cero llamadas directas a X fuera del contexto Y") debe ejecutarse contra el repositorio completo antes de declarar el entregable terminado, nunca solo contra el inventario identificado en la etapa de diseño.** El inventario de diseño es un punto de partida, no un techo. (Institucionalizada tras el Entregable 3.1: la auditoría de la Etapa 1 identificó 6 puntos de envío directo a `sendWhatsAppMessage`; la Validación Técnica encontró 2 más mediante un grep exhaustivo del criterio de cierre.)
 
 ## Stack técnico
 
@@ -49,7 +50,8 @@ Correr lint y tests, y mostrar la evidencia real (el output del comando, no solo
 **Roadmap interno aprobado:** 3.0 Infraestructura de Eventos → 3.1 Comunicación → 3.2 Empleado Digital → 3.3 Automatizaciones → 3.4 Recepcionista IA → 3.5 Coordinador de Agenda IA.
 
 - Entregable 3.0 — Infraestructura de Eventos — ✅ Completado (2026-07-03). Contexto Eventos nuevo (`domain-model-v1.md` §12): certifica hechos de negocio como Evento de Dominio inmutable; Catálogo global de Tipos de Evento; certificación de `CitaCompletada` integrada de forma aditiva sobre el dispatcher del Puente, sin tocarlo. Mecanismo de entrega asíncrona hacia consumidores futuros (Automatizaciones, 3.3) queda como decisión diferida. Ver `docs/history/ENTREGABLE_3_0_COMPLETION_REPORT.md`.
-- **Entregable activo: 3.1 — Comunicación.** Siguiente en el roadmap; aún no iniciado.
+- Entregable 3.1 — Comunicación — ✅ Completado (2026-07-04). Contexto Comunicación nuevo (`domain-model-v1.md` §10): todo mensaje saliente (bot, recordatorios, respuesta manual, campañas) pasa exclusivamente por el caso de uso Enviar Mensaje — cero llamadas directas a `sendWhatsAppMessage` fuera de `contexts/communication/infrastructure/`, verificado por grep exhaustivo. `Conversation`/`Message` evolucionaron sin duplicarse. Ver `docs/history/ENTREGABLE_3_1_COMPLETION_REPORT.md`.
+- **Entregable activo: 3.2 — Empleado Digital.** Siguiente en el roadmap; aún no iniciado.
 
 ## Fase 2 — Sistema Operativo del Negocio (✅ Completa, alcance re-declarado por ADR 006)
 

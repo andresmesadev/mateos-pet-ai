@@ -2,20 +2,42 @@ const express = require("express");
 const router = express.Router();
 const prisma = require("../../lib/prisma");
 const {
-  getPendingEscalations,
-  resolveEscalation,
-} = require("../../services/escalation.service");
-const {
   listConversations,
   getConversationMessages,
 } = require("../../services/dashboard-conversation.service");
-const { sendWhatsAppMessage } = require("../../services/whatsapp-api.service");
+// Entregable 3.1 — Comunicación: escalation.service.js y whatsapp-api.service.js
+// (llamada directa) quedan retirados de este archivo — casos de uso 3/5/8.
+const { sendMessage, resolveConversationEscalation, listEscalatedConversations } = require("../../contexts/communication");
+const {
+  ConversationNotFoundError,
+  ConversationNotEscalatedError,
+} = require("../../contexts/communication/domain/errors");
+
+// Mismo contrato externo que el legacy escalation.service.js — mapEscalation.
+function mapEscalation(conversation) {
+  const sessionData =
+    conversation.sessionData && typeof conversation.sessionData === "object" && !Array.isArray(conversation.sessionData)
+      ? conversation.sessionData
+      : {};
+  const lastMessage = conversation.messages?.[0] ?? null;
+
+  return {
+    id: conversation.id,
+    userId: conversation.userId,
+    phone: conversation.user?.phone ?? null,
+    petName: sessionData.pet_name ?? null,
+    lastMessage: lastMessage?.content ?? null,
+    lastMessageAt: lastMessage?.createdAt ?? conversation.updatedAt,
+    updatedAt: conversation.updatedAt,
+    requiresHumanAttention: conversation.status === "esperando_humano",
+  };
+}
 
 router.get("/escalations", async (req, res) => {
   try {
     const { tenantId } = req.tenant;
-    const escalations = await getPendingEscalations(tenantId);
-    res.json(escalations);
+    const { conversations } = await listEscalatedConversations({ tenantId });
+    res.json(conversations.map(mapEscalation));
   } catch (error) {
     console.error("[Dashboard] Escalations error:", error);
 
@@ -28,16 +50,29 @@ router.get("/escalations", async (req, res) => {
 router.patch("/escalations/:id/resolve", async (req, res) => {
   try {
     const { id } = req.params;
-    const resolved = await resolveEscalation(id);
 
-    if (!resolved) {
-      return res.status(404).json({
-        error: "Conversation not found",
+    try {
+      const { conversation } = await resolveConversationEscalation({ conversationId: id });
+      const full = await prisma.conversation.findUnique({
+        where: { id: conversation.id },
+        include: { user: { select: { phone: true } }, messages: { orderBy: { createdAt: "desc" }, take: 1 } },
       });
+      return res.json(mapEscalation(full));
+    } catch (error) {
+      if (error instanceof ConversationNotEscalatedError) {
+        // Idempotente: ya estaba resuelta — mismo criterio que el legacy.
+        const full = await prisma.conversation.findUnique({
+          where: { id },
+          include: { user: { select: { phone: true } }, messages: { orderBy: { createdAt: "desc" }, take: 1 } },
+        });
+        return res.json(mapEscalation(full));
+      }
+      throw error;
     }
-
-    res.json(resolved);
   } catch (error) {
+    if (error instanceof ConversationNotFoundError) {
+      return res.status(404).json({ error: "Conversation not found" });
+    }
     console.error("[Dashboard] Resolve escalation error:", error);
 
     res.status(500).json({
@@ -83,6 +118,7 @@ router.get("/conversations/:id/messages", async (req, res) => {
 
 router.post("/conversations/:id/send", async (req, res) => {
   try {
+    const { tenantId } = req.tenant;
     const { id } = req.params;
     const { message } = req.body ?? {};
 
@@ -104,20 +140,22 @@ router.post("/conversations/:id/send", async (req, res) => {
       return res.status(400).json({ error: "El cliente no tiene teléfono registrado" });
     }
 
-    const sent = await sendWhatsAppMessage(phone, String(message).trim());
-    if (!sent) {
+    let result;
+    try {
+      result = await sendMessage({
+        tenantId: tenantId ?? conversation.tenantId ?? null,
+        userId: conversation.userId,
+        conversationId: conversation.id,
+        phone,
+        content: String(message).trim(),
+        origin: "agente",
+      });
+    } catch (error) {
+      console.error("[Dashboard] Send message error:", error.message);
       return res.status(502).json({ error: "No se pudo enviar el mensaje por WhatsApp. Verifica las credenciales." });
     }
 
-    const saved = await prisma.message.create({
-      data: {
-        conversationId: id,
-        role: "assistant",
-        content: String(message).trim(),
-      },
-    });
-
-    res.json({ ok: true, message: saved });
+    res.json({ ok: true, message: result.message });
   } catch (error) {
     console.error("[Dashboard] Send message error:", error.message);
     res.status(500).json({ error: "Internal server error" });

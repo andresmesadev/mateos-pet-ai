@@ -8,7 +8,8 @@ const {
   updateClient,
   listInactiveClients,
 } = require("../../services/dashboard-client.service");
-const { sendWhatsAppMessage } = require("../../services/whatsapp-api.service");
+// Entregable 3.1 — Comunicación: todo envío pasa exclusivamente por Enviar Mensaje.
+const { sendMessage } = require("../../contexts/communication");
 const { sendNextActionReminders } = require("../../services/next-action.service");
 
 router.get("/clients", async (req, res) => {
@@ -605,11 +606,17 @@ router.post("/campaigns/reactivation", async (req, res) => {
         continue;
       }
       const text = message.replace(/\{nombre\}/g, user.name ?? "cliente");
-      const result = await sendWhatsAppMessage(phone, text);
-      if (result) {
+      try {
+        await sendMessage({
+          tenantId: tenantId ?? null,
+          userId: user.id,
+          phone,
+          content: text,
+          origin: "sistema",
+        });
         sent++;
         await prisma.user.update({ where: { id: user.id }, data: { lastReminderSentAt: now } });
-      } else {
+      } catch (error) {
         failed++;
       }
     }

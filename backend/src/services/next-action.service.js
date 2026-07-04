@@ -1,5 +1,6 @@
 const prisma = require("../lib/prisma");
-const { sendWhatsAppMessage } = require("./whatsapp-api.service");
+// Entregable 3.1 — Comunicación: todo envío pasa exclusivamente por Enviar Mensaje.
+const { sendMessage } = require("../contexts/communication");
 
 const VALID_TYPES = ["control", "vaccine", "grooming", "exam", "treatment", "other"];
 const VALID_STATUSES = ["pending", "done", "dismissed"];
@@ -193,7 +194,7 @@ async function sendNextActionReminders({ tenantId, type }) {
       pet: {
         select: {
           name: true,
-          owner: { select: { name: true, phone: true } },
+          owner: { select: { id: true, name: true, phone: true, tenantId: true } },
         },
       },
     },
@@ -205,19 +206,28 @@ async function sendNextActionReminders({ tenantId, type }) {
 
   for (const r of records) {
     const phone = r.pet?.owner?.phone;
-    if (!phone) { noPhone++; continue; }
+    const userId = r.pet?.owner?.id;
+    if (!phone || !userId) { noPhone++; continue; }
 
     const petName = r.pet.name ?? "tu mascota";
     const ownerName = r.pet.owner?.name ?? null;
     const message = buildActionMessage(r.type, petName, ownerName, r.nextControlAt, r.title);
 
-    const ok = await sendWhatsAppMessage(phone, message);
-    if (ok) {
+    try {
+      await sendMessage({
+        tenantId: r.pet?.owner?.tenantId ?? null,
+        userId,
+        phone,
+        content: message,
+        origin: "sistema",
+      });
       await prisma.medicalRecord.update({
         where: { id: r.id },
         data: { reminderSent: true },
       });
       sent++;
+    } catch (error) {
+      // no-op — se cuenta como no enviado, mismo comportamiento que antes
     }
   }
 

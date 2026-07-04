@@ -45,6 +45,7 @@ model Tenant {
   dailyCloses      DailyClose[]
   financialPeriods FinancialPeriod[]
   domainEvents     DomainEvent[]
+  channels         Channel[]
 }
 
 model Staff {
@@ -323,6 +324,11 @@ model Conversation {
   /// Estado del wizard de reserva (pet_name, scheduling_date_key, etc.)
   sessionData Json?
 
+  // Entregable 3.1 — Comunicación: reemplaza sessionData.requires_human_attention.
+  status    String   @default("activa") // "activa" | "esperando_humano" | "cerrada"
+  channelId String?
+  channel   Channel? @relation(fields: [channelId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -342,12 +348,37 @@ model Message {
   role            String
   content         String
 
+  // Entregable 3.1 — Comunicación: aditivo, no reemplaza role.
+  // "cliente" | "agente" | "sistema" — distingue por primera vez una
+  // notificación proactiva de una respuesta conversacional.
+  origin          String   @default("cliente")
+
   createdAt       DateTime @default(now())
 
   memoryEmbeddings MemoryEmbedding[]
 
   // getConversationMessages (where conversationId)
   @@index([conversationId])
+}
+
+// ── Comunicación (Entregable 3.1, Fase 3) ──────────────────────────────────
+// Diseño congelado: docs/architecture/technical-design/comunicacion-esquema-fisico.md
+// Canal es tenant-scoped (a diferencia de EventType, catálogo global): un
+// Canal describe una línea propia del negocio (WhatsApp, Email...). tenantId
+// nulo = canal global/compartido (estado actual: una sola línea).
+model Channel {
+  id       String   @id @default(cuid())
+  tenantId String?
+  tenant   Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  type   String  // "whatsapp" | "email" | "sms" — tipo de canal, no proveedor
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  conversations Conversation[]
+
+  @@unique([tenantId, type])
 }
 
 /// Embeddings semánticos (pgvector). Dimensión 1536 = text-embedding-3-small / similar.

@@ -2,7 +2,10 @@ const {
   verifyWebhookSignature,
   processIncomingMessage,
 } = require("../services/whatsapp.service");
-const { sendWhatsAppMessage } = require("../services/whatsapp-api.service");
+// Entregable 3.1 — Comunicación: la respuesta del bot pasa exclusivamente
+// por Enviar Mensaje. conversationId explícito porque este productor ya
+// conoce el hilo exacto al que responde (resuelto por processIncomingMessage).
+const { sendMessage } = require("../contexts/communication");
 
 const verifyWebhook = (req, res, next) => {
   try {
@@ -27,19 +30,34 @@ const receiveWebhook = async (req, res, next) => {
   try {
     const result = await processIncomingMessage(req.body);
 
-    if (result?.processed && result?.from && result?.reply) {
+    if (result?.processed && result?.from && result?.reply && result?.user?.id) {
       console.log(
         `[WhatsApp] Preparando envío a ${result.from}:`,
         result.reply
       );
 
-      const apiResponse = await sendWhatsAppMessage(result.from, result.reply);
-
-      if (!apiResponse) {
+      try {
+        await sendMessage({
+          tenantId: result.user.tenantId ?? null,
+          userId: result.user.id,
+          conversationId: result.conversation?.id ?? null,
+          phone: result.from,
+          content: result.reply,
+          origin: "agente",
+        });
+      } catch (error) {
         console.error(
-          `[WhatsApp] No se pudo enviar respuesta a ${result.from}`
+          `[WhatsApp] No se pudo enviar respuesta a ${result.from}:`,
+          error.message
         );
       }
+    } else if (result?.processed && result?.from && result?.reply) {
+      // Caso residual: no se pudo resolver user/conversation (p. ej. fallo en
+      // findOrCreateUser). Sin Comunicación no hay a qué conversación
+      // adjuntar el mensaje — se registra, no se envía en silencio.
+      console.error(
+        `[WhatsApp] No se pudo enviar respuesta a ${result.from}: usuario no resuelto`
+      );
     }
 
     return res.sendStatus(200);

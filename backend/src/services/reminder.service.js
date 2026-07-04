@@ -1,7 +1,10 @@
 const prisma = require("../lib/prisma");
 const logger = require("../lib/logger");
 
-const { sendWhatsAppMessage } = require("./whatsapp-api.service");
+// Entregable 3.1 — Comunicación: todo envío pasa exclusivamente por
+// Enviar Mensaje. Ninguna llamada directa a sendWhatsAppMessage permanece
+// en este archivo.
+const { sendMessage } = require("../contexts/communication");
 
 const {
 
@@ -283,6 +286,8 @@ const getUpcomingVaccineReminders = async () => {
 
                 phone: true,
 
+                tenantId: true,
+
               },
 
             },
@@ -350,7 +355,7 @@ const getUpcomingDewormingReminders = async () => {
           select: {
             id: true,
             name: true,
-            owner: { select: { id: true, phone: true } },
+            owner: { select: { id: true, phone: true, tenantId: true } },
           },
         },
       },
@@ -384,14 +389,22 @@ La próxima desparasitación de ${petName} con *${productName}* es en ${daysLabe
 
 const sendDewormingReminder = async (record) => {
   const phone = String(record?.pet?.owner?.phone || "").trim();
-  if (!phone) {
-    logger.warn("[ReminderService] Skipped deworming reminder — missing phone:", record?.id);
+  const userId = record?.pet?.owner?.id;
+  if (!phone || !userId) {
+    logger.warn("[ReminderService] Skipped deworming reminder — missing phone/userId:", record?.id);
     return false;
   }
   const message = buildDewormingReminderMessage(record);
-  const response = await sendWhatsAppMessage(phone, message);
-  if (!response) {
-    logger.error("[ReminderService] Failed to send deworming reminder:", record.id, phone);
+  try {
+    await sendMessage({
+      tenantId: record?.pet?.owner?.tenantId ?? null,
+      userId,
+      phone,
+      content: message,
+      origin: "sistema",
+    });
+  } catch (error) {
+    logger.error("[ReminderService] Failed to send deworming reminder:", record.id, phone, error.message);
     return false;
   }
   logger.info("[ReminderService] Deworming reminder sent:", record.id, phone);
@@ -425,7 +438,7 @@ const getUpcomingGroomingReminders = async () => {
           select: {
             id: true,
             name: true,
-            owner: { select: { id: true, phone: true } },
+            owner: { select: { id: true, phone: true, tenantId: true } },
           },
         },
       },
@@ -550,13 +563,13 @@ const sendReminder = async (appointment) => {
 
   const phone = String(appointment?.user?.phone || "").trim();
 
+  const userId = appointment?.userId;
 
-
-  if (!phone) {
+  if (!phone || !userId) {
 
     logger.warn(
 
-      "[ReminderService] Skipped reminder — missing phone:",
+      "[ReminderService] Skipped reminder — missing phone/userId:",
 
       appointment?.id
 
@@ -570,11 +583,17 @@ const sendReminder = async (appointment) => {
 
   const message = buildReminderMessage(appointment);
 
-  const response = await sendWhatsAppMessage(phone, message);
+  try {
 
+    await sendMessage({
+      tenantId: appointment?.tenantId ?? null,
+      userId,
+      phone,
+      content: message,
+      origin: "sistema",
+    });
 
-
-  if (!response) {
+  } catch (error) {
 
     logger.error(
 
@@ -582,7 +601,9 @@ const sendReminder = async (appointment) => {
 
       appointment.id,
 
-      phone
+      phone,
+
+      error.message
 
     );
 
@@ -614,13 +635,13 @@ const sendVaccineReminder = async (record, user) => {
 
   const phone = String(user?.phone || record?.pet?.owner?.phone || "").trim();
 
+  const userId = user?.id ?? record?.pet?.owner?.id;
 
-
-  if (!phone) {
+  if (!phone || !userId) {
 
     logger.warn(
 
-      "[ReminderService] Skipped vaccine reminder — missing phone:",
+      "[ReminderService] Skipped vaccine reminder — missing phone/userId:",
 
       record?.id
 
@@ -634,11 +655,17 @@ const sendVaccineReminder = async (record, user) => {
 
   const message = buildVaccineReminderMessage(record, user);
 
-  const response = await sendWhatsAppMessage(phone, message);
+  try {
 
+    await sendMessage({
+      tenantId: user?.tenantId ?? record?.pet?.owner?.tenantId ?? null,
+      userId,
+      phone,
+      content: message,
+      origin: "sistema",
+    });
 
-
-  if (!response) {
+  } catch (error) {
 
     logger.error(
 
@@ -646,7 +673,9 @@ const sendVaccineReminder = async (record, user) => {
 
       record.id,
 
-      phone
+      phone,
+
+      error.message
 
     );
 
@@ -666,14 +695,22 @@ const sendVaccineReminder = async (record, user) => {
 
 const sendGroomingReminder = async (record) => {
   const phone = String(record?.pet?.owner?.phone || "").trim();
-  if (!phone) {
-    logger.warn("[ReminderService] Skipped grooming reminder — missing phone:", record?.id);
+  const userId = record?.pet?.owner?.id;
+  if (!phone || !userId) {
+    logger.warn("[ReminderService] Skipped grooming reminder — missing phone/userId:", record?.id);
     return false;
   }
   const message = buildGroomingReminderMessage(record);
-  const response = await sendWhatsAppMessage(phone, message);
-  if (!response) {
-    logger.error("[ReminderService] Failed to send grooming reminder:", record.id, phone);
+  try {
+    await sendMessage({
+      tenantId: record?.pet?.owner?.tenantId ?? null,
+      userId,
+      phone,
+      content: message,
+      origin: "sistema",
+    });
+  } catch (error) {
+    logger.error("[ReminderService] Failed to send grooming reminder:", record.id, phone, error.message);
     return false;
   }
   logger.info("[ReminderService] Grooming reminder sent:", record.id, phone);
@@ -793,17 +830,24 @@ const buildFollowUpMessage = (appointment) => {
 
 const sendFollowUp = async (appointment) => {
   const phone = String(appointment?.user?.phone || "").trim();
+  const userId = appointment?.userId;
 
-  if (!phone) {
-    logger.warn("[ReminderService] Skipped follow-up — missing phone:", appointment?.id);
+  if (!phone || !userId) {
+    logger.warn("[ReminderService] Skipped follow-up — missing phone/userId:", appointment?.id);
     return false;
   }
 
   const message = buildFollowUpMessage(appointment);
-  const response = await sendWhatsAppMessage(phone, message);
-
-  if (!response) {
-    logger.error("[ReminderService] Failed to send follow-up:", appointment.id, phone);
+  try {
+    await sendMessage({
+      tenantId: appointment?.tenantId ?? null,
+      userId,
+      phone,
+      content: message,
+      origin: "sistema",
+    });
+  } catch (error) {
+    logger.error("[ReminderService] Failed to send follow-up:", appointment.id, phone, error.message);
     return false;
   }
 
