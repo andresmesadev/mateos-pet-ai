@@ -15,7 +15,7 @@ Cualquier propuesta que contradiga esos documentos debe justificarse explícitam
 
 ## Reglas de trabajo
 
-- **No proponer funcionalidades de fases futuras.** La fase activa es la Fase 2. Ver `docs/PLAN_MAESTRO.md` para su alcance.
+- **No proponer funcionalidades de fases futuras.** La Fase 3 (Empleados Digitales Especializados) está completa (3.0 → 3.5); la siguiente fase aún no ha sido definida. Ver `docs/PLAN_MAESTRO.md` para el alcance vigente.
 - **Ningún entregable de la Fase 2 se implementa sin pasar primero por las cinco etapas de diseño.** Ver `docs/PHASE_2_EXECUTION_RULE.md` para el proceso obligatorio: definición funcional → casos de uso → arquitectura técnica → modelo de persistencia → esquema físico. Solo entonces comienza la implementación.
 - **El dominio va primero.** Antes de proponer código, verificar que la entidad o regla de negocio existe en `docs/architecture/domain-model-v1.md`.
 - **El criterio del Portal del Cliente.** Si un servicio de dominio no podría ser invocado por el Portal del Cliente sin modificaciones, pertenece al adaptador, no al dominio.
@@ -45,7 +45,7 @@ Cualquier propuesta que contradiga esos documentos debe justificarse explícitam
 
 Correr lint y tests, y mostrar la evidencia real (el output del comando, no solo "ya quedó"). Si no se puede verificar, no se da por terminado.
 
-## Fase activa: Fase 3 — Empleados Digitales Especializados (en curso)
+## Fase 3 — Empleados Digitales Especializados (✅ Completa)
 
 **Roadmap interno aprobado:** 3.0 Infraestructura de Eventos → 3.1 Comunicación → 3.2 Empleado Digital → 3.3 Automatizaciones → 3.4 Recepcionista IA → 3.5 Coordinador de Agenda IA.
 
@@ -54,7 +54,8 @@ Correr lint y tests, y mostrar la evidencia real (el output del comando, no solo
 - Entregable 3.2 — Empleado Digital — ✅ Completado (2026-07-04). Contexto Empleados Digitales nuevo (`domain-model-v1.md` §9): `DigitalEmployee`, `AgentAutonomyLimit`, `AgentTask`, `AgentDecision`, `Escalación` — andamiaje auditable, tenant-scoped, sin integración obligatoria con Comunicación ni Eventos en este entregable (diferida al primer agente real, 3.4). Ver `docs/history/ENTREGABLE_3_2_COMPLETION_REPORT.md`.
 - Entregable 3.3 — Automatizaciones — ✅ Completado (2026-07-04). Contexto Automatizaciones nuevo (`domain-model-v1.md` §8): `AutomationRule`, `AutomationTemplate`, `AutomationExecution` — primer contexto de Fase 3 que depende, por diseño, de Comunicación y Empleados Digitales (invoca exclusivamente sus casos de uso ya expuestos, cero consultas cruzadas para reconstruir datos fuera del contrato del Evento); primer consumidor real del mecanismo de Entrega de Evento de 3.0. Ver `docs/history/ENTREGABLE_3_3_COMPLETION_REPORT.md`.
 - Entregable 3.4 — Recepcionista IA — ✅ Completado (2026-07-06). Primer Empleado Digital real (`domain-model-v1.md` §9): sin entidades ni bounded contexts nuevos — es exclusivamente la especialización `"recepcionista"` de `DigitalEmployee`. El motor conversacional de WhatsApp permanece intacto, envuelto por `LegacyWhatsappEngineAdapter` — cero llamadas directas fuera de los dos puntos previstos, verificado por grep exhaustivo. Resuelve la brecha real de escalamiento humano (nunca llegaba a `Conversation.status`). Ver `docs/history/ENTREGABLE_3_4_COMPLETION_REPORT.md`.
-- **Entregable activo: 3.5 — Coordinador de Agenda IA.** Siguiente en el roadmap; aún no iniciado.
+- Entregable 3.5 — Coordinador de Agenda IA — ✅ Completado (2026-07-06). Segundo Empleado Digital real (`domain-model-v1.md` §9): sin entidades ni bounded contexts nuevos — es exclusivamente la especialización `"coordinador_agenda"` de `DigitalEmployee`. Da auditoría real al job diario de recordatorios (`jobs/reminder.job.js`); `reminder.service.js` permanece intacto, envuelto por `ReminderEngineAdapter` — cero llamadas directas fuera del adaptador previsto, verificado por grep exhaustivo. Cierra el roadmap interno de la Fase 3. Ver `docs/history/ENTREGABLE_3_5_COMPLETION_REPORT.md`.
+- **Fase 3 completa (3.0 → 3.5).** La siguiente fase aún no ha sido definida — no proponer funcionalidades hasta que se declare oficialmente su alcance.
 
 ## Fase 2 — Sistema Operativo del Negocio (✅ Completa, alcance re-declarado por ADR 006)
 
