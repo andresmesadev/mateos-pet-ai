@@ -1,7 +1,9 @@
-const {
-  verifyWebhookSignature,
-  processIncomingMessage,
-} = require("../services/whatsapp.service");
+const { verifyWebhookSignature } = require("../services/whatsapp.service");
+// Entregable 3.4 — Recepcionista IA: el procesamiento del mensaje entrante ya
+// no invoca directamente el motor conversacional (whatsapp.service.js) —
+// pasa por el caso de uso Procesar Mensaje Entrante, que da auditoría real
+// (Tarea/Decisión/Escalación) sin cambiar el motor ni su comportamiento.
+const { processIncomingMessage } = require("../contexts/receptionist");
 // Entregable 3.1 — Comunicación: la respuesta del bot pasa exclusivamente
 // por Enviar Mensaje. conversationId explícito porque este productor ya
 // conoce el hilo exacto al que responde (resuelto por processIncomingMessage).
