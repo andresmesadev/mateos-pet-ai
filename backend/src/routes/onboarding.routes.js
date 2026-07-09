@@ -2,6 +2,7 @@ const express = require("express");
 const prisma = require("../lib/prisma");
 const { createTenant } = require("../services/tenant.service");
 const { createCheckoutSession } = require("../services/stripe.service");
+const { provisionDefaultDigitalEmployees } = require("../services/tenant-provisioning.service");
 
 const router = express.Router();
 
@@ -71,6 +72,19 @@ router.post("/register", async (req, res) => {
       },
     });
 
+    // Entregable 4.2 — Onboarding Autónomo: aprovisiona los Empleados
+    // Digitales base para que el tenant quede operativo sin intervención
+    // manual. Aislado: un fallo aquí no revierte la creación del tenant (ya
+    // ocurrió) ni interrumpe el registro — se refleja en la respuesta para
+    // que el flujo de soporte pueda detectarlo, en vez de fallar en silencio.
+    let provisioning = null;
+    try {
+      provisioning = await provisionDefaultDigitalEmployees(tenant.id);
+    } catch (error) {
+      console.error("[Onboarding] provisionDefaultDigitalEmployees error:", error.message);
+      provisioning = { results: [], error: error.message };
+    }
+
     let checkoutUrl = null;
 
     if (plan !== "free") {
@@ -94,7 +108,7 @@ router.post("/register", async (req, res) => {
 
     const result = await prisma.tenant.findUnique({ where: { id: tenant.id } });
 
-    res.status(201).json({ tenant: result, checkoutUrl });
+    res.status(201).json({ tenant: result, checkoutUrl, provisioning });
   } catch (error) {
     console.error("[Onboarding] register error:", error.message);
 
