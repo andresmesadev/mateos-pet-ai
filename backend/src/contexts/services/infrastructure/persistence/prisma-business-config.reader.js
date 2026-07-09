@@ -1,21 +1,16 @@
 const { BusinessConfigReaderPort } = require("../../application/ports/business-config-reader.port");
+const businessConfig = require("../../../../services/business-config.service");
 
 /**
- * Implementación provisional. El contexto Negocio todavía no persiste la
- * entidad "Módulo" descrita en domain-model-v1.md (Tenant no tiene un campo
- * de módulos activos hoy) — eso pertenece a un entregable propio del
- * contexto Negocio, fuera del alcance congelado del Entregable 2.1.
- *
- * Hasta que ese entregable exista, se retorna el conjunto permisivo de
- * módulos ("grooming", "veterinary") para no bloquear categorías que hoy
- * el sistema ya opera sin gate de módulos. Esta limitación queda registrada
- * aquí explícitamente, no oculta: cuando el contexto Negocio incorpore la
- * persistencia real de módulos, esta clase se reemplaza por una consulta
- * real, sin tocar el puerto ni los casos de uso que la consumen.
+ * Entregable 4.3 (Fase 4) — Configuración por Establecimiento: reemplaza el
+ * valor hardcodeado ("grooming", "veterinary" para todo tenant) por la
+ * configuración real persistida en Tenant, vía business-config.service.js
+ * (fuente única compartida con el equivalente en contexts/staff). El puerto
+ * y los casos de uso que lo consumen no cambiaron.
  */
 class PrismaBusinessConfigReader extends BusinessConfigReaderPort {
-  async getActiveModules(_tenantId) {
-    return ["grooming", "veterinary"];
+  async getActiveModules(tenantId) {
+    return businessConfig.getActiveModules(tenantId);
   }
 }
 

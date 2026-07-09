@@ -30,6 +30,12 @@ model Tenant {
   logoUrl       String?
   businessHours Json?   // { mon: { open: "08:00", close: "18:00", active: true }, ... }
 
+  // Entregable 4.3 — Configuración por Establecimiento (Alcance A): fuente
+  // real que reemplaza los dos PrismaBusinessConfigReader hardcodeados de
+  // Services y Staff. Sin relación con el motor conversacional.
+  activeModules       String[] @default(["grooming", "veterinary"])
+  commissionSplitRate Decimal  @default(0.5) @db.Decimal(4, 3)
+
   users         User[]
   pets          Pet[]
   appointments  Appointment[]

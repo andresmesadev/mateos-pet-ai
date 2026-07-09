@@ -1,21 +1,20 @@
 const { BusinessConfigReaderPort } = require("../../application/ports/business-config-reader.port");
+const businessConfig = require("../../../../services/business-config.service");
 
 /**
- * Implementación provisional — mismo estado que su equivalente en
- * contexts/services (el contexto Negocio todavía no persiste módulos ni
- * tasas de split configurables). getCommissionSplitRate replica el valor
- * ya hardcodeado en Fase 1 (GROOMING_SPLIT_RATE = 0.5,
- * el commission.service.js de Fase 1 (retirado en el Entregable Puente)) hasta que Negocio lo persista
- * realmente — esa migración no toca el puerto ni los casos de uso que lo
- * consumen, solo esta clase.
+ * Entregable 4.3 (Fase 4) — Configuración por Establecimiento: reemplaza los
+ * valores hardcodeados (módulos siempre activos, split siempre 0.5) por la
+ * configuración real persistida en Tenant, vía business-config.service.js
+ * (fuente única compartida con el equivalente en contexts/services). El
+ * puerto y los casos de uso que lo consumen no cambiaron.
  */
 class PrismaBusinessConfigReader extends BusinessConfigReaderPort {
-  async getActiveModules(_tenantId) {
-    return ["grooming", "veterinary"];
+  async getActiveModules(tenantId) {
+    return businessConfig.getActiveModules(tenantId);
   }
 
-  async getCommissionSplitRate(_tenantId, _categoryId) {
-    return 0.5;
+  async getCommissionSplitRate(tenantId, categoryId) {
+    return businessConfig.getCommissionSplitRate(tenantId, categoryId);
   }
 }
 

@@ -1,6 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const prisma = require("../../lib/prisma");
+const {
+  updateActiveModules,
+  updateCommissionSplitRate,
+} = require("../../services/business-config.service");
 
 function resolveTenantId(req) {
   const { tenantId, isSuperAdmin } = req.tenant;
@@ -18,6 +22,7 @@ router.get("/tenant/profile", async (req, res) => {
         id: true, name: true, slug: true, phone: true, email: true,
         description: true, address: true, logoUrl: true, businessHours: true,
         plan: true, active: true, createdAt: true,
+        activeModules: true, commissionSplitRate: true,
       },
     });
     if (!tenant) return res.status(404).json({ error: "Tenant not found" });
@@ -67,6 +72,37 @@ router.put("/tenant/profile", async (req, res) => {
   } catch (error) {
     console.error("[Dashboard] Update tenant profile error:", error);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/**
+ * Entregable 4.3 (Fase 4) — Configuración por Establecimiento (Alcance A):
+ * módulos activos y tasa de split de comisión. Endpoint separado del perfil
+ * (tenant/profile) para reutilizar la validación ya centralizada en
+ * business-config.service.js sin duplicarla aquí.
+ */
+router.put("/tenant/config", async (req, res) => {
+  try {
+    const tenantId = resolveTenantId(req);
+    if (!tenantId) return res.status(403).json({ error: "Forbidden" });
+
+    const { activeModules, commissionSplitRate } = req.body ?? {};
+
+    if (activeModules !== undefined) {
+      await updateActiveModules(tenantId, activeModules);
+    }
+    if (commissionSplitRate !== undefined) {
+      await updateCommissionSplitRate(tenantId, commissionSplitRate);
+    }
+
+    const updated = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { id: true, activeModules: true, commissionSplitRate: true },
+    });
+    res.json(updated);
+  } catch (error) {
+    console.error("[Dashboard] Update tenant config error:", error.message);
+    res.status(400).json({ error: error.message });
   }
 });
 
