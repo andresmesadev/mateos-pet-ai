@@ -8,6 +8,9 @@ const {
 const { resetGroomingReminderForPet } = require("./reminder.service");
 const availabilityDb = require("./availability-db.service");
 const { SERVICE_TYPES, toDateKey } = require("./availability.service");
+const { SlotAlreadyBookedError } = require("./errors/slot-already-booked.error");
+
+const APPOINTMENT_CONFLICT_UNIQUE_CONSTRAINT = "appointment_tenant_bucket_slot_active_unique";
 const {
   TIMEZONE,
   zonedDateTimeToUtc,
@@ -301,8 +304,34 @@ const createAppointment = async (data) => {
     if (address) appointmentData.address = String(address).trim();
     if (groomingBreed) appointmentData.groomingBreed = String(groomingBreed).trim();
     if (groomingSize) appointmentData.groomingSize = String(groomingSize).trim();
+    // Entregable 4.1 — A6: unidad real de reserva (bucket), no staffId.
+    appointmentData.availabilityBucket = mapToAvailabilityServiceType(serviceType);
 
-    const appointment = await prisma.appointment.create({ data: appointmentData });
+    let appointment;
+    try {
+      appointment = await prisma.appointment.create({ data: appointmentData });
+    } catch (createError) {
+      const isSlotConflict =
+        createError?.code === "P2002" &&
+        (createError?.meta?.target?.includes?.(APPOINTMENT_CONFLICT_UNIQUE_CONSTRAINT) ||
+          createError?.meta?.driverAdapterError?.cause?.originalMessage?.includes?.(
+            APPOINTMENT_CONFLICT_UNIQUE_CONSTRAINT
+          ));
+      if (isSlotConflict) {
+        logger.info(
+          "[AppointmentService] Slot collision prevented by unique constraint:",
+          appointmentData.tenantId,
+          appointmentData.availabilityBucket,
+          appointmentData.date
+        );
+        throw new SlotAlreadyBookedError({
+          tenantId: appointmentData.tenantId ?? null,
+          availabilityBucket: appointmentData.availabilityBucket,
+          date: appointmentData.date,
+        });
+      }
+      throw createError;
+    }
     logger.info(
       `[AppointmentService] Appointment created (${TIMEZONE} → UTC stored)`
     );

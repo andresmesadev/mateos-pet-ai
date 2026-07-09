@@ -192,7 +192,7 @@ model PriceRule {
 
 model User {
   id        String   @id @default(cuid())
-  phone     String   @unique
+  phone     String
   phoneAlt  String?
   tenantId  String?
   tenant    Tenant?  @relation(fields: [tenantId], references: [id])
@@ -212,6 +212,10 @@ model User {
   // listClients (orderBy createdAt) y recovery (filtro lastReminderSentAt)
   @@index([tenantId, createdAt])
   @@index([tenantId, lastReminderSentAt])
+  // Entregable 4.1 — saneamiento tenant-blind (M1): la unicidad de teléfono
+  // deja de ser global y pasa a ser por tenant (dos establecimientos
+  // distintos pueden tener cada uno un cliente con el mismo número).
+  @@unique([tenantId, phone])
 }
 
 model Pet {
@@ -419,6 +423,12 @@ model Appointment {
   petType     String
 
   serviceType String
+
+  // Entregable 4.1 — saneamiento tenant-blind (A6): unidad real de reserva
+  // (bucket de tipo de servicio: "vet" | "grooming"), derivada de serviceType
+  // en escritura. Junto con tenantId + date forma la restricción única
+  // parcial que reemplaza la verificación de conflicto no atómica existente.
+  availabilityBucket String?
 
   // Operational fields (TAREA 9)
   serviceId   String?

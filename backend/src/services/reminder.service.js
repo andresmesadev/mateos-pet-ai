@@ -132,7 +132,10 @@ const formatDateLabel = (instant) => {
 
 
 
-const getAppointmentsForReminder = async () => {
+const getAppointmentsForReminder = async (tenantId) => {
+  if (!tenantId) {
+    throw new Error("tenantId is required (Entregable 4.1 — saneamiento tenant-blind)");
+  }
 
   try {
 
@@ -157,6 +160,8 @@ const getAppointmentsForReminder = async () => {
     const appointments = await prisma.appointment.findMany({
 
       where: {
+
+        tenantId,
 
         status: "confirmed",
 
@@ -224,7 +229,10 @@ const getAppointmentsForReminder = async () => {
 
 
 
-const getUpcomingVaccineReminders = async () => {
+const getUpcomingVaccineReminders = async (tenantId) => {
+  if (!tenantId) {
+    throw new Error("tenantId is required (Entregable 4.1 — saneamiento tenant-blind)");
+  }
 
   try {
 
@@ -255,6 +263,8 @@ const getUpcomingVaccineReminders = async () => {
         type: "vaccine",
 
         reminderSent: false,
+
+        pet: { owner: { tenantId } },
 
         nextControlAt: {
 
@@ -336,7 +346,10 @@ const getUpcomingVaccineReminders = async () => {
 
 
 
-const getUpcomingDewormingReminders = async () => {
+const getUpcomingDewormingReminders = async (tenantId) => {
+  if (!tenantId) {
+    throw new Error("tenantId is required (Entregable 4.1 — saneamiento tenant-blind)");
+  }
   try {
     const todayKey = toDateKey(new Date());
     const endKey = addDaysToKey(todayKey, VACCINE_LOOKAHEAD_DAYS);
@@ -348,6 +361,7 @@ const getUpcomingDewormingReminders = async () => {
       where: {
         type: "deworming",
         reminderSent: false,
+        pet: { owner: { tenantId } },
         nextControlAt: { not: null, gte: start, lte: end },
       },
       include: {
@@ -418,7 +432,10 @@ const markDewormingReminderSent = async (recordId) => {
   logger.info("[ReminderService] Deworming reminder marked sent:", id);
 };
 
-const getUpcomingGroomingReminders = async () => {
+const getUpcomingGroomingReminders = async (tenantId) => {
+  if (!tenantId) {
+    throw new Error("tenantId is required (Entregable 4.1 — saneamiento tenant-blind)");
+  }
   try {
     const todayKey = toDateKey(new Date());
     const endKey = addDaysToKey(todayKey, VACCINE_LOOKAHEAD_DAYS);
@@ -431,6 +448,7 @@ const getUpcomingGroomingReminders = async () => {
       where: {
         type: "grooming",
         reminderSent: false,
+        pet: { owner: { tenantId } },
         nextControlAt: { not: null, gte: start, lte: end },
       },
       include: {
@@ -790,13 +808,17 @@ const markGroomingReminderSent = async (recordId) => {
 
 const VET_SERVICE_TYPES = ["vet", "consultation"];
 
-const getConsultationsForFollowUp = async () => {
+const getConsultationsForFollowUp = async (tenantId) => {
+  if (!tenantId) {
+    throw new Error("tenantId is required (Entregable 4.1 — saneamiento tenant-blind)");
+  }
   try {
     const yesterdayKey = toDateKey(new Date(Date.now() - 86_400_000));
     const { start, end } = dayBoundsInTimezone(yesterdayKey);
 
     const appointments = await prisma.appointment.findMany({
       where: {
+        tenantId,
         serviceType: { in: VET_SERVICE_TYPES },
         status: { not: "cancelled" },
         followUpSent: false,

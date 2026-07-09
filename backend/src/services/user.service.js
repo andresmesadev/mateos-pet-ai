@@ -2,7 +2,14 @@ const prisma = require("../lib/prisma");
 
 const normalizePhone = (phone) => String(phone || "").trim();
 
-const findUserByPhone = async (phone) => {
+/**
+ * Entregable 4.1 (Fase 4) — M1: `phone` dejó de ser único globalmente
+ * (@@unique([tenantId, phone])) — dos tenants distintos pueden tener cada
+ * uno un usuario con el mismo número. Con tenantId se busca por la clave
+ * compuesta; sin tenantId (compatibilidad hacia atrás) se busca entre los
+ * usuarios sin tenant asignado.
+ */
+const findUserByPhone = async (phone, tenantId = null) => {
   const normalized = normalizePhone(phone);
 
   if (!normalized) {
@@ -10,8 +17,13 @@ const findUserByPhone = async (phone) => {
   }
 
   try {
-    return await prisma.user.findUnique({
-      where: { phone: normalized },
+    if (tenantId) {
+      return await prisma.user.findUnique({
+        where: { tenantId_phone: { tenantId, phone: normalized } },
+      });
+    }
+    return await prisma.user.findFirst({
+      where: { phone: normalized, tenantId: null },
     });
   } catch (error) {
     console.error("[UserService] findUserByPhone error:", error.message);
@@ -41,7 +53,7 @@ const createUser = async (phone, tenantId = null) => {
 
 const findOrCreateUser = async (phone, tenantId = null) => {
   try {
-    const existing = await findUserByPhone(phone);
+    const existing = await findUserByPhone(phone, tenantId);
 
     if (existing) {
       console.log("[UserService] User found");

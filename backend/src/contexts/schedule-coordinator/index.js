@@ -27,17 +27,22 @@ const processReminderForEmployee = createProcessReminderUseCase({
 });
 
 /**
- * Resuelve el Coordinador de Agenda IA activo. Se invoca UNA vez por
- * ejecución del job de recordatorios, no por ítem (Etapa 3, sección 5,
- * Decisión 3) — el job no segrega por tenant hoy (mismo comportamiento
- * preexistente a este entregable), por lo que se resuelve sin filtro de
- * tenant, tomando el primero activo del catálogo global/por tenant.
+ * Resuelve el Coordinador de Agenda IA activo para un tenant. Se invoca UNA
+ * vez por tenant por ejecución del job de recordatorios, no por ítem (Etapa
+ * 3, sección 5, Decisión 3).
+ *
+ * Entregable 4.1 (Fase 4) — M4: el job pasó de resolver un único Coordinador
+ * global (deuda tenant-blind registrada en 3.5) a iterar explícitamente por
+ * cada tenant activo; tenantId es ahora obligatorio.
  */
-async function resolveActiveCoordinator() {
-  const { digitalEmployees } = await agents.getDigitalEmployees({});
+async function resolveActiveCoordinator(tenantId) {
+  if (!tenantId) {
+    throw new Error("tenantId is required (Entregable 4.1 — saneamiento tenant-blind)");
+  }
+  const { digitalEmployees } = await agents.getDigitalEmployees({ tenantId });
   const candidates = digitalEmployees.filter((e) => e.specialization === SPECIALIZATION);
   if (candidates.length === 0) {
-    throw new ScheduleCoordinatorNotConfiguredError(null);
+    throw new ScheduleCoordinatorNotConfiguredError(tenantId);
   }
   return candidates.find((e) => e.status === "activo") ?? null;
 }

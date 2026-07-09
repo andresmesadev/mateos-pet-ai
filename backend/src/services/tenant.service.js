@@ -22,4 +22,12 @@ const getTenantById = async (id) => {
   return prisma.tenant.findUnique({ where: { id } });
 };
 
-module.exports = { createTenant, getTenantByPhone, getTenantById };
+/**
+ * Entregable 4.1 (Fase 4) — M4: soporta la iteración por tenant de procesos
+ * batch (recordatorios) que antes corrían sin distinción de tenant.
+ */
+const listActiveTenants = async () => {
+  return prisma.tenant.findMany({ where: { active: true } });
+};
+
+module.exports = { createTenant, getTenantByPhone, getTenantById, listActiveTenants };

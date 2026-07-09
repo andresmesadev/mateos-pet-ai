@@ -2,6 +2,7 @@ const { ReceptionistNotConfiguredError } = require("../errors/receptionist-not-c
 
 const SPECIALIZATION = "recepcionista";
 const FALLBACK_LOG_REASON = "Empleado Digital Recepcionista no disponible (pausado o no configurado)";
+const TENANT_UNRESOLVED_LOG_REASON = "Tenant no resuelto o inactivo — mensaje no procesado (Entregable 4.1, saneamiento B2)";
 
 /**
  * ProcessIncomingMessageUseCase (Procesar Mensaje Entrante) — Operación, Caso 1
@@ -59,6 +60,16 @@ function createProcessIncomingMessageUseCase({
 
   return async function execute(body) {
     const tenantId = typeof resolveTenantId === "function" ? await resolveTenantId(body) : null;
+
+    // Entregable 4.1 (Fase 4) — B2: antes, un tenant no resuelto o inactivo
+    // simplemente dejaba `tenantId` en null y el flujo seguía adelante
+    // (dependiendo, de forma incidental, de que ningún Empleado Digital
+    // existiera con tenantId nulo). Ahora se rechaza explícitamente, sin
+    // invocar al motor conversacional.
+    if (!tenantId) {
+      logger.warn?.(`[Recepcionista IA] ${TENANT_UNRESOLVED_LOG_REASON}`);
+      return { received: true, processed: false };
+    }
 
     let employee;
     try {

@@ -55,6 +55,20 @@ function buildDeps({
 }
 
 describe("ProcessIncomingMessageUseCase", () => {
+  test("Entregable 4.1 (saneamiento B2) — tenant no resuelto: no invoca el motor ni resuelve Recepcionista, responde processed:false", async () => {
+    const deps = buildDeps({ employees: [] });
+    deps.resolveTenantId = async () => null;
+    const getDigitalEmployeesSpy = jest.spyOn(deps, "getDigitalEmployees");
+    const execute = createProcessIncomingMessageUseCase(deps);
+    const engineSpy = jest.spyOn(deps.conversationalEngine, "processIncomingMessage");
+
+    const result = await execute({});
+
+    expect(result).toEqual({ received: true, processed: false });
+    expect(engineSpy).not.toHaveBeenCalled();
+    expect(getDigitalEmployeesSpy).not.toHaveBeenCalled();
+  });
+
   test("sin Recepcionista configurada: no invoca el motor y responde processed:false", async () => {
     const deps = buildDeps({ employees: [] });
     const execute = createProcessIncomingMessageUseCase(deps);
