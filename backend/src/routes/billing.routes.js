@@ -2,6 +2,8 @@ const express = require("express");
 const prisma = require("../lib/prisma");
 const {
   createCheckoutSession,
+  cancelSubscription,
+  updateSubscriptionPrice,
   constructWebhookEvent,
 } = require("../services/stripe.service");
 
@@ -45,6 +47,106 @@ router.post("/checkout", async (req, res) => {
       return res.status(404).json({ error: error.message });
     }
 
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/**
+ * Entregable 4.4 (Fase 4) — Facturación / Habilitación Comercial.
+ * POST /api/billing/cancel
+ * Cancela la suscripción activa de un tenant. Conecta stripe.service.cancelSubscription
+ * (existente desde antes de este entregable, nunca invocado hasta ahora).
+ * Body: { tenantId }
+ */
+router.post("/cancel", async (req, res) => {
+  try {
+    const { tenantId } = req.body ?? {};
+    if (!tenantId) {
+      return res.status(400).json({ error: "tenantId es requerido" });
+    }
+
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+    if (!tenant) {
+      return res.status(404).json({ error: "Tenant not found" });
+    }
+    if (!tenant.stripeSubscriptionId) {
+      return res.status(400).json({ error: "El tenant no tiene una suscripción activa" });
+    }
+
+    const subscription = await cancelSubscription(tenant.stripeSubscriptionId);
+    if (!subscription) {
+      return res.status(503).json({ error: "Stripe no está configurado en este entorno" });
+    }
+
+    // Actualización defensiva inmediata — el webhook customer.subscription.deleted
+    // llegará también, pero no se depende exclusivamente de su latencia para
+    // reflejar la cancelación (mismo principio de Habilitación Comercial: el
+    // estado debe quedar correcto sin esperar un evento asíncrono).
+    const updated = await prisma.tenant.update({
+      where: { id: tenantId },
+      data: {
+        subscriptionStatus: "canceled",
+        active: false,
+        planExpiresAt: subscription.current_period_end
+          ? new Date(subscription.current_period_end * 1000)
+          : null,
+      },
+      select: { id: true, plan: true, active: true, subscriptionStatus: true, planExpiresAt: true },
+    });
+
+    res.json(updated);
+  } catch (error) {
+    console.error("[Billing] cancel error:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/**
+ * Entregable 4.4 (Fase 4) — Facturación / Habilitación Comercial.
+ * POST /api/billing/change-plan
+ * Cambia el precio de la suscripción existente de un tenant (Stripe
+ * Subscription Item Update), en vez de crear una segunda suscripción vía
+ * Checkout — corrige el defecto detectado en la auditoría (cambio de plan
+ * pago→pago duplicaba suscripciones activas).
+ * Body: { tenantId, priceId }
+ */
+router.post("/change-plan", async (req, res) => {
+  try {
+    const { tenantId, priceId } = req.body ?? {};
+    if (!tenantId || !priceId) {
+      return res.status(400).json({ error: "tenantId y priceId son requeridos" });
+    }
+
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+    if (!tenant) {
+      return res.status(404).json({ error: "Tenant not found" });
+    }
+    if (!tenant.stripeSubscriptionId) {
+      return res.status(400).json({
+        error: "El tenant no tiene una suscripción existente — usa /checkout para dar de alta la primera",
+      });
+    }
+
+    const subscription = await updateSubscriptionPrice(tenant.stripeSubscriptionId, priceId);
+    if (!subscription) {
+      return res.status(503).json({ error: "Stripe no está configurado en este entorno" });
+    }
+
+    const updated = await prisma.tenant.update({
+      where: { id: tenantId },
+      data: {
+        subscriptionStatus: subscription.status,
+        active: subscription.status === "active" || subscription.status === "trialing",
+        planExpiresAt: subscription.current_period_end
+          ? new Date(subscription.current_period_end * 1000)
+          : null,
+      },
+      select: { id: true, plan: true, active: true, subscriptionStatus: true, planExpiresAt: true },
+    });
+
+    res.json(updated);
+  } catch (error) {
+    console.error("[Billing] change-plan error:", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
 });

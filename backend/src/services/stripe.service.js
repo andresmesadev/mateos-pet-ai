@@ -124,6 +124,33 @@ const createCheckoutSession = async (tenantId, priceId, successUrl, cancelUrl) =
 };
 
 /**
+ * Entregable 4.4 (Fase 4) — Facturación / Habilitación Comercial: cambia el
+ * precio de una suscripción existente (Stripe Subscription Item Update),
+ * en vez de crear una segunda suscripción vía Checkout — corrige el defecto
+ * detectado en la auditoría (cambio de plan pago→pago duplicaba
+ * suscripciones activas en Stripe).
+ * @returns {Promise<import('stripe').Stripe.Subscription|null>}
+ */
+const updateSubscriptionPrice = async (subscriptionId, newPriceId) => {
+  const stripe = getStripe();
+  if (!stripe) return null;
+
+  try {
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    const itemId = subscription.items.data[0]?.id;
+    if (!itemId) throw new Error("Subscription has no items to update");
+
+    return await stripe.subscriptions.update(subscriptionId, {
+      items: [{ id: itemId, price: newPriceId }],
+      proration_behavior: "create_prorations",
+    });
+  } catch (error) {
+    console.error("[StripeService] updateSubscriptionPrice error:", error.message);
+    throw error;
+  }
+};
+
+/**
  * Verifica la firma del webhook y construye el evento Stripe.
  * @param {Buffer} rawBody
  * @param {string} signature  — header stripe-signature
@@ -148,5 +175,6 @@ module.exports = {
   cancelSubscription,
   getSubscription,
   createCheckoutSession,
+  updateSubscriptionPrice,
   constructWebhookEvent,
 };

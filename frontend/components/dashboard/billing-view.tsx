@@ -166,27 +166,64 @@ export function BillingView({ status }: { status: BillingStatus | null }) {
   const currentPlan = (status?.plan ?? "free") as PlanId;
   const planOrder: PlanId[] = ["free", "basic", "pro"];
 
+  // Entregable 4.4 — Facturación / Habilitación Comercial: si el tenant ya
+  // tiene una suscripción activa (stripeSubscriptionId), cambiar de plan
+  // pago→pago actualiza esa suscripción en Stripe en vez de crear una
+  // segunda vía Checkout (defecto corregido en este entregable).
+  const hasExistingSubscription = Boolean(status?.stripeSubscriptionId);
+
   async function handleUpgrade(plan: Plan) {
     if (!plan.priceEnvKey) return;
     setLoading(true);
     setError(null);
+    const priceId = process.env[`NEXT_PUBLIC_STRIPE_PRICE_${plan.id.toUpperCase()}`] ?? plan.priceEnvKey;
     try {
+      if (hasExistingSubscription) {
+        const res = await fetch("/api/proxy/billing", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "change-plan", priceId }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Error al cambiar de plan");
+        window.location.reload();
+        return;
+      }
+
       const successUrl = `${window.location.origin}/dashboard/billing?success=1`;
       const cancelUrl  = `${window.location.origin}/dashboard/billing?canceled=1`;
 
       const res = await fetch("/api/proxy/billing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          priceId: process.env[`NEXT_PUBLIC_STRIPE_PRICE_${plan.id.toUpperCase()}`] ?? plan.priceEnvKey,
-          successUrl,
-          cancelUrl,
-        }),
+        body: JSON.stringify({ action: "checkout", priceId, successUrl, cancelUrl }),
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Error al iniciar el pago");
       if (data.url) window.location.href = data.url;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error inesperado");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleCancel() {
+    if (!window.confirm("¿Seguro que deseas cancelar tu suscripción? Perderás acceso a las funciones de tu plan actual.")) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/proxy/billing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "cancel" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Error al cancelar la suscripción");
+      window.location.reload();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error inesperado");
     } finally {
@@ -221,6 +258,17 @@ export function BillingView({ status }: { status: BillingStatus | null }) {
                 <div className="font-semibold">{fmtDate(status.planExpiresAt)}</div>
               </div>
             )}
+            {hasExistingSubscription && status.subscriptionStatus !== "canceled" && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="ml-auto text-destructive hover:text-destructive"
+                disabled={loading}
+                onClick={handleCancel}
+              >
+                Cancelar suscripción
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}
@@ -249,8 +297,11 @@ export function BillingView({ status }: { status: BillingStatus | null }) {
       )}
 
       <p className="text-xs text-muted-foreground">
-        Los pagos son procesados de forma segura por Stripe. Puedes cancelar tu suscripción
-        en cualquier momento. Los precios incluyen IVA.
+        Los pagos son procesados de forma segura por Stripe.
+        {hasExistingSubscription && status?.subscriptionStatus !== "canceled"
+          ? " Puedes cancelar tu suscripción en cualquier momento desde el botón de arriba."
+          : ""}
+        {" "}Los precios incluyen IVA.
       </p>
     </div>
   );
