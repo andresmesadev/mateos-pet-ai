@@ -17,6 +17,12 @@ function buildDeps({ rules = [], actionThrows = false, listThrows = false, deliv
       executions.push(data);
       return { id: `exec-${executions.length}`, ...data };
     },
+    // Entregable 5.1 — idempotencia del reintento: sin ejecuciones previas
+    // registradas en estos tests, ninguna Regla se considera ya exitosa.
+    hasSuccessfulExecution: async (automationRuleId, domainEventId) =>
+      executions.some(
+        (e) => e.automationRuleId === automationRuleId && e.domainEventId === domainEventId && e.status === "success"
+      ),
   };
   const actionExecutor = {
     execute: async (actionType) => {
@@ -118,5 +124,46 @@ describe("evaluateAndExecuteRules", () => {
     expect(deps.executions).toHaveLength(2);
     expect(deps.executions.find((e) => e.automationRuleId === "rule-1").status).toBe("failed");
     expect(deps.executions.find((e) => e.automationRuleId === "rule-2").status).toBe("success");
+  });
+
+  // Entregable 5.1 — Outbox de Eventos de Dominio: idempotencia del reintento.
+  test("reintento: una Regla ya exitosa para el mismo Evento no se re-ejecuta", async () => {
+    const deps = buildDeps({
+      rules: [
+        { id: "rule-1", condition: null, actionType: "enviar_mensaje", actionConfig: {} },
+        { id: "rule-2", condition: null, actionType: "asignar_tarea_empleado", actionConfig: {} },
+      ],
+    });
+    // Simula que rule-1 ya tuvo éxito en un intento anterior para este Evento.
+    deps.executions.push({ automationRuleId: "rule-1", domainEventId: "de-1", status: "success" });
+
+    let calls = [];
+    deps.actionExecutor.execute = async (actionType, _config, _payload, _tenantId) => {
+      calls.push(actionType);
+      return { ok: true };
+    };
+
+    const execute = createEvaluateAndExecuteRulesMechanism({ ...deps, logger: silentLogger });
+    await execute({ domainEvent: { id: "de-1", tenantId: "t-1", eventTypeId: "et-1" }, eventPayload: {} }, {});
+
+    // Solo rule-2 se ejecuta; rule-1 se omite porque ya tuvo éxito.
+    expect(calls).toEqual(["asignar_tarea_empleado"]);
+    expect(deps.executions.filter((e) => e.automationRuleId === "rule-1")).toHaveLength(1);
+    expect(deps.deliveries).toHaveLength(1);
+    expect(deps.deliveries[0].status).toBe("delivered");
+  });
+
+  test("reintento: una Regla previamente fallida sí se re-ejecuta", async () => {
+    const deps = buildDeps({
+      rules: [{ id: "rule-1", condition: null, actionType: "enviar_mensaje", actionConfig: {} }],
+    });
+    deps.executions.push({ automationRuleId: "rule-1", domainEventId: "de-1", status: "failed" });
+
+    const execute = createEvaluateAndExecuteRulesMechanism({ ...deps, logger: silentLogger });
+    await execute({ domainEvent: { id: "de-1", tenantId: "t-1", eventTypeId: "et-1" }, eventPayload: {} }, {});
+
+    const rule1Executions = deps.executions.filter((e) => e.automationRuleId === "rule-1");
+    expect(rule1Executions).toHaveLength(2);
+    expect(rule1Executions[1].status).toBe("success");
   });
 });

@@ -13,6 +13,14 @@ class PrismaAutomationExecutionRepository extends AutomationExecutionRepositoryP
       orderBy: { createdAt: "desc" },
     });
   }
+
+  async hasSuccessfulExecution(automationRuleId, domainEventId) {
+    const existing = await prisma.automationExecution.findFirst({
+      where: { automationRuleId, domainEventId, status: "success" },
+      select: { id: true },
+    });
+    return existing != null;
+  }
 }
 
 module.exports = { PrismaAutomationExecutionRepository };

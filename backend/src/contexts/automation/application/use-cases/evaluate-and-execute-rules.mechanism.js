@@ -16,6 +16,12 @@ const { matchesCondition } = require("../../domain/rules/condition-evaluation.ru
  * Decisión 6) — "delivered" si el motor de evaluación no colapsó, "failed" en
  * el caso excepcional de que sí lo haya hecho.
  *
+ * Entregable 5.1 — Outbox de Eventos de Dominio: esta misma función es
+ * reutilizada, sin cambios de firma, por el job de reintento
+ * (jobs/event-delivery-retry.job.js) para reintentar una entrega "failed" —
+ * es idempotente por Regla (ver comentario junto a `hasSuccessfulExecution`),
+ * por lo que reintentar no duplica efectos secundarios ya ejecutados con éxito.
+ *
  * @param {Object} deps
  * @param {import("../ports/automation-rule-repository.port").AutomationRuleRepositoryPort} deps.automationRuleRepository
  * @param {import("../ports/automation-execution-repository.port").AutomationExecutionRepositoryPort} deps.automationExecutionRepository
@@ -44,6 +50,14 @@ function createEvaluateAndExecuteRulesMechanism({
 
       for (const rule of rules) {
         if (!matchesCondition(rule.condition, eventPayload)) continue;
+
+        // Entregable 5.1 — Outbox de Eventos de Dominio: idempotencia del
+        // reintento. Si esta Regla ya tuvo éxito para este Evento (un
+        // reintento previo, o una ejecución parcial anterior a un colapso
+        // del evaluador), no se re-ejecuta su acción — evita duplicar
+        // efectos secundarios (p. ej. reenviar un mensaje ya enviado).
+        const alreadySucceeded = await automationExecutionRepository.hasSuccessfulExecution(rule.id, domainEvent.id);
+        if (alreadySucceeded) continue;
 
         try {
           const result = await actionExecutor.execute(rule.actionType, rule.actionConfig, eventPayload, domainEvent.tenantId);

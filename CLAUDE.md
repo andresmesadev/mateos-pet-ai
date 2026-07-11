@@ -15,7 +15,8 @@ Cualquier propuesta que contradiga esos documentos debe justificarse explícitam
 
 ## Reglas de trabajo
 
-- **No proponer funcionalidades de fases futuras.** La Fase 4 (Plataforma Comercial) está completa (4.1 → 4.4); la Fase 5 aún no ha sido definida. Ver `docs/PLAN_MAESTRO.md` para el alcance vigente.
+- **No proponer funcionalidades de fases futuras.** La Fase 4 (Plataforma Comercial) está completa (4.1 → 4.4); la Fase 5 (Operaciones Inteligentes) está en curso — Entregable 5.1 completado (v2.13.0), roadmap interno 5.1 → 5.4. Ver `docs/PLAN_MAESTRO.md` para el alcance vigente.
+- **Principio Permanente de la Fase 5.** Ningún entregable de la Fase 5 modifica reglas de negocio existentes ni el motor conversacional — el alcance se limita a infraestructura reactiva (eventos de dominio, automatizaciones, gobernanza de Empleados Digitales). Si una Macroetapa 2 exige modificar el comportamiento funcional de un contexto de negocio (Agenda, Servicios, Finanzas, Comunicación, etc.), la implementación se detiene de inmediato y se emite una Reconciliación Arquitectónica.
 - **Durante la Fase 4, no incorporar funcionalidades veterinarias nuevas que no contribuyan directamente al objetivo de Plataforma Comercial.** Dominio Clínico, `InventoryItem` y cualquier otra capacidad operativa nueva permanecen en el backlog arquitectónico, salvo que una dependencia arquitectónica real con el objetivo comercial la fuerce — y en ese caso debe justificarse explícitamente antes de aceptarse, con el mismo criterio aplicado a la definición de 4.1 (regla institucionalizada al congelar oficialmente la Fase 4, 2026-07-08).
 - **La deuda técnica acumulada no define la identidad de ninguna fase.** Se registra como backlog arquitectónico transversal y solo se promueve a entregable cuando existe dependencia arquitectónica demostrable con el objetivo estratégico de la fase en curso — no por oportunidad ni por estar "ya identificada".
 - **Ningún entregable de la Fase 2 se implementa sin pasar primero por las cinco etapas de diseño.** Ver `docs/PHASE_2_EXECUTION_RULE.md` para el proceso obligatorio: definición funcional → casos de uso → arquitectura técnica → modelo de persistencia → esquema físico. Solo entonces comienza la implementación.
@@ -49,6 +50,8 @@ Correr lint y tests, y mostrar la evidencia real (el output del comando, no solo
 
 ## Fase 3 — Empleados Digitales Especializados (✅ Completa)
 
+**Informe de cierre y retrospectiva completos:** `docs/history/PHASE_3_COMPLETION_REPORT.md`.
+
 **Roadmap interno aprobado:** 3.0 Infraestructura de Eventos → 3.1 Comunicación → 3.2 Empleado Digital → 3.3 Automatizaciones → 3.4 Recepcionista IA → 3.5 Coordinador de Agenda IA.
 
 - Entregable 3.0 — Infraestructura de Eventos — ✅ Completado (2026-07-03). Contexto Eventos nuevo (`domain-model-v1.md` §12): certifica hechos de negocio como Evento de Dominio inmutable; Catálogo global de Tipos de Evento; certificación de `CitaCompletada` integrada de forma aditiva sobre el dispatcher del Puente, sin tocarlo. Mecanismo de entrega asíncrona hacia consumidores futuros (Automatizaciones, 3.3) queda como decisión diferida. Ver `docs/history/ENTREGABLE_3_0_COMPLETION_REPORT.md`.
@@ -61,6 +64,8 @@ Correr lint y tests, y mostrar la evidencia real (el output del comando, no solo
 
 ## Fase 4 — Plataforma Comercial (✅ Completa)
 
+**Informe de cierre y retrospectiva completos:** `docs/history/PHASE_4_COMPLETION_REPORT.md`.
+
 **Objetivo estratégico** (separado del backlog de deuda técnica): convertir el Sistema Operativo Veterinario, ya consolidado para un único negocio, en una plataforma SaaS capaz de operar múltiples establecimientos de forma autónoma — onboarding, configuración y facturación sin intervención del equipo de desarrollo. Ver `docs/PLAN_MAESTRO.md` sección Fase 4 para la separación completa entre objetivo estratégico y backlog arquitectónico transversal.
 
 **Roadmap interno:** 4.1 Saneamiento Tenant-Blind → 4.2 Onboarding Autónomo → 4.3 Configuración por Establecimiento → 4.4 Facturación / Habilitación Comercial del SaaS.
@@ -70,7 +75,19 @@ Correr lint y tests, y mostrar la evidencia real (el output del comando, no solo
 - Entregable 4.3 — Configuración por Establecimiento — ✅ Completado (Alcance A, 2026-07-09) — Alcance B diferido por Reconciliación Arquitectónica. `business-config.service.js` (nuevo) es la única fuente de verdad para módulos activos y tasa de split de comisión por tenant, reemplazando dos `PrismaBusinessConfigReader` duplicados (Servicios, Staff) que devolvían valores hardcodeados; ningún puerto ni caso de uso cambió su contrato, verificado por grep exhaustivo. **Horarios de atención y zona horaria no fueron implementados deliberadamente**: exigirían modificar `scheduling.service.js`/`availability.service.js`, violando el principio "no reescribir el motor conversacional" institucionalizado desde 3.4 — queda como deuda diferida. Ver `docs/history/ENTREGABLE_4_3_COMPLETION_REPORT.md`.
 - Entregable 4.4 — Facturación / Habilitación Comercial del SaaS — ✅ Completado (2026-07-10). Cierra el roadmap interno de la Fase 4. Conecta `cancelSubscription()` (código muerto hasta este entregable) a una ruta real con botón funcional en el dashboard; corrige el cambio de plan entre planes pagos con `updateSubscriptionPrice` (Stripe Subscription Item Update, ya no crea una segunda suscripción); aplica suspensión comercial real en `resolveTenant.js` usando `Tenant.active` como única fuente de verdad, sin período de gracia ni dunning — unificando la política comercial entre el canal de WhatsApp (vigente desde 4.1) y el dashboard/API. Motor conversacional sin ningún cambio, verificado por grep exhaustivo y `git diff --stat`. **Fase 4 completa (4.1 → 4.4).** Ver `docs/history/ENTREGABLE_4_4_COMPLETION_REPORT.md`.
 
+## Fase 5 — Operaciones Inteligentes (🚧 En curso)
+
+**Objetivo estratégico:** convertir la infraestructura reactiva del Sistema Operativo Veterinario en una infraestructura operacional real, donde los eventos de dominio, las automatizaciones y los Empleados Digitales operen sobre mecanismos confiables de entrega, auditoría y gobernanza.
+
+**Principio permanente de la fase:** ningún entregable modifica reglas de negocio existentes ni el motor conversacional — el alcance se limita a infraestructura/eventos/automatizaciones/orquestación/gobernanza de agentes. Violación real detectada durante la Macroetapa 2 detiene la implementación de inmediato y exige una Reconciliación Arquitectónica.
+
+**Roadmap interno:** 5.1 Outbox de Eventos de Dominio → 5.2 Certificación Real de Eventos por Contexto → 5.3 Aplicación Real de Límite de Autonomía → 5.4 Automatizaciones Multi-Evento. (5.1 bloquea 5.2 y 5.4; 5.2 bloquea 5.4; 5.3 es independiente.)
+
+- Entregable 5.1 — Outbox de Eventos de Dominio — ✅ Completado (2026-07-11, v2.13.0). Cierra la brecha de que `EventDelivery` certificaba resultados pero ningún componente reintentaba una entrega `"failed"` (`retryEventDelivery` de 3.0 era código muerto). Idempotencia del reintento resuelta con `hasSuccessfulExecution(ruleId, domainEventId)` sobre `AutomationExecution` existente, sin migración; ejecución vía `node-cron` (`jobs/event-delivery-retry.job.js`, cada 15 min), justificado por evidencia (0 dependencias de cola en el proyecto, 0 filas reales en `EventDelivery`/`DomainEvent`) frente a un worker dedicado o cola externa. Cero cambios en el motor conversacional y en los contextos de negocio, verificado por grep exhaustivo y `git diff --stat`. Ver `docs/history/ENTREGABLE_5_1_COMPLETION_REPORT.md` y `docs/history/ENTREGABLE_5_1_GATE_REVIEW.md`.
+
 ## Fase 2 — Sistema Operativo del Negocio (✅ Completa, alcance re-declarado por ADR 006)
+
+**Retrospectiva completa de la fase:** `docs/history/PHASE_2_RETROSPECTIVE.md`.
 
 **Objetivo:** Capa de casos de uso, entidades faltantes del dominio operativo, reportes financieros.
 

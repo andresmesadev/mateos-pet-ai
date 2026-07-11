@@ -249,7 +249,7 @@ El producto evoluciona en cinco fases. Cada fase construye sobre la anterior. No
 ---
 
 ### FASE 1 — Soberanía del Dominio
-**Estado:** ✅ Completada
+**Estado:** ✅ Completada. Informe de cierre completo en `docs/history/PHASE_1_COMPLETION_REPORT.md`.
 
 **Objetivo**  
 Establecer que el dominio del negocio es la autoridad. Que las reglas del negocio —sus precios, sus comisiones, su lógica operativa— viven en el dominio, independientes de los canales y las tecnologías que los expresan.
@@ -269,7 +269,7 @@ El canal de mensajería opera sin cambios. El dominio puede ser invocado desde c
 ---
 
 ### FASE 2 — Sistema Operativo del Negocio
-**Estado:** ✅ Completada (2026-07-01) — con alcance re-declarado por el ADR 006 (2026-07-02): la fase entregó el diseño, la capa de aplicación, la persistencia y la validación de dominio de sus tres entregables; la **exposición de los casos de uso a canales y operadores quedó fuera de su alcance real** y se realiza en el entregable puente "Exposición del Sistema Operativo", precondición de la Fase 3 (ver Roadmap interno).
+**Estado:** ✅ Completada (2026-07-01) — con alcance re-declarado por el ADR 006 (2026-07-02): la fase entregó el diseño, la capa de aplicación, la persistencia y la validación de dominio de sus tres entregables; la **exposición de los casos de uso a canales y operadores quedó fuera de su alcance real** y se realiza en el entregable puente "Exposición del Sistema Operativo", precondición de la Fase 3 (ver Roadmap interno). Retrospectiva completa de la fase en `docs/history/PHASE_2_RETROSPECTIVE.md`.
 
 **Objetivo**  
 Completar el Sistema Operativo del negocio. Que el Dominio Operativo esté completamente modelado, que una capa de casos de uso coordine sus reglas, y que el operador humano pueda gestionar la operación diaria completa desde la plataforma sin depender de ningún agente de IA.
@@ -317,7 +317,7 @@ Ningún entregable de esta fase puede comenzar su implementación sin completar 
 ---
 
 ### FASE 3 — Empleados Digitales Especializados
-**Estado:** ✅ Completa — roadmap interno aprobado (3.0 → 3.5) cerrado en su totalidad (2026-07-06)
+**Estado:** ✅ Completa — roadmap interno aprobado (3.0 → 3.5) cerrado en su totalidad (2026-07-06). Informe de cierre y retrospectiva completos en `docs/history/PHASE_3_COMPLETION_REPORT.md`.
 
 **Roadmap interno de la Fase 3** (orden validado tras revisión estratégica): 3.0 Infraestructura de Eventos → 3.1 Comunicación → 3.2 Empleado Digital → 3.3 Automatizaciones → 3.4 Recepcionista IA → 3.5 Coordinador de Agenda IA. El Prompt Registry (prompt versionado por Empleado Digital) queda clasificado como infraestructura, no como parte del Modelo de Dominio.
 
@@ -358,7 +358,7 @@ Al menos dos Empleados Digitales especializados operan con responsabilidades del
 ---
 
 ### FASE 4 — Plataforma Comercial
-**Estado:** ✅ Completa — roadmap interno aprobado (4.1 → 4.4) cerrado en su totalidad (2026-07-10). Congelada oficialmente el 2026-07-08. Roadmap interno: 4.1 Saneamiento Tenant-Blind → 4.2 Onboarding Autónomo → 4.3 Configuración por Establecimiento → 4.4 Facturación/Habilitación Comercial del SaaS.
+**Estado:** ✅ Completa — roadmap interno aprobado (4.1 → 4.4) cerrado en su totalidad (2026-07-10). Congelada oficialmente el 2026-07-08. Roadmap interno: 4.1 Saneamiento Tenant-Blind → 4.2 Onboarding Autónomo → 4.3 Configuración por Establecimiento → 4.4 Facturación/Habilitación Comercial del SaaS. Informe de cierre y retrospectiva completos en `docs/history/PHASE_4_COMPLETION_REPORT.md`.
 
 **Identidad de la fase y separación del backlog de deuda técnica:** el objetivo estratégico de esta fase (convertir el Sistema Operativo Veterinario en una plataforma SaaS multi-establecimiento autónoma) se mantiene deliberadamente separado de la deuda técnica acumulada durante las Fases 2–3 (Outbox de Eventos, `AgentAutonomyLimit` sin aplicar, certificación de eventos propios de Empleados Digitales, Dominio Clínico sin construir, `InventoryItem`, pertenencia de `Commission`). Esa deuda permanece registrada como backlog arquitectónico transversal, disponible para priorizarse en cualquier fase, **sin definir la identidad de ninguna**. Solo se promueve un ítem del backlog a entregable de esta fase cuando existe dependencia arquitectónica demostrable con el objetivo comercial — criterio aplicado al definir 4.1 (ver abajo). Regla permanente institucionalizada: durante toda la Fase 4 no se incorporará ninguna funcionalidad veterinaria nueva (Dominio Clínico, Inventario u otra capacidad operativa) que no contribuya directamente al objetivo de Plataforma Comercial; toda mejora no relacionada permanece en el backlog arquitectónico.
 
@@ -380,33 +380,39 @@ El primer negocio es el laboratorio del producto. Cuando la plataforma esté pro
 - El equipo interno tiene visibilidad sobre el estado operativo de todos los establecimientos
 
 **Lo que habilita**  
-La Fase 5. Con la arquitectura multiempresa establecida, la plataforma puede crecer mediante nuevos canales, integraciones externas y módulos especializados sin alterar el núcleo operativo.
+La Fase 5 — Operaciones Inteligentes. Con la arquitectura multiempresa y comercial establecida, la prioridad pasó a consolidar la infraestructura reactiva (eventos, automatizaciones, gobernanza de agentes) antes de expandir hacia nuevos canales o hacia una segunda vuelta de la operación multi-establecimiento — ver la sección FASE 5 para la decisión formal y las alternativas evaluadas.
 
 **Criterio de cierre**  
 Un segundo establecimiento —diferente al primero— puede ser onboardeado de forma autónoma, operar completamente en la plataforma y generar facturación sin intervención del equipo de desarrollo.
 
 ---
 
-### FASE 5 — Ecosistema
-**Estado:** Futura
+### FASE 5 — Operaciones Inteligentes
+**Estado:** En curso — Entregable 5.1 completo (v2.13.0), Entregables 5.2-5.4 pendientes.
+**Informe de cierre:** pendiente (fase abierta). Ver `docs/history/ENTREGABLE_5_1_COMPLETION_REPORT.md` y `docs/history/ENTREGABLE_5_1_GATE_REVIEW.md` para el cierre del primer entregable.
 
-**Objetivo**  
-Expandir la plataforma mediante nuevos canales de comunicación, una API pública para integraciones externas, aplicaciones propias para clientes y staff, y módulos especializados activables por tipo de negocio.
+**Objetivo estratégico**  
+Convertir la infraestructura reactiva del Sistema Operativo Veterinario en una infraestructura operacional real, donde los eventos de dominio, las automatizaciones y los Empleados Digitales operen sobre mecanismos confiables de entrega, auditoría y gobernanza.
 
 **El problema que resuelve**  
-Una plataforma operativa madura necesita conectarse con el ecosistema de sus usuarios: los propietarios de mascotas quieren acceder directamente, el staff necesita herramientas móviles, los laboratorios necesitan enviar resultados al historial clínico, los proveedores necesitan conectar inventarios. Abrir la plataforma a estos actores multiplica su valor sin reemplazar su núcleo.
+Al cierre de la Fase 4, el sistema certifica hechos de negocio (Eventos de Dominio) y ejecuta Automatizaciones sobre ellos, pero la infraestructura que los sostiene es parcial: `EventDelivery` registra resultados sin reintentar entregas fallidas (`retryEventDelivery` era código muerto), los Empleados Digitales no certifican eventos propios fuera del flujo original, y `AgentAutonomyLimit` existe como andamiaje sin aplicación real. La plataforma funciona, pero su infraestructura reactiva no es todavía confiable bajo fallo — la Fase 5 cierra esa brecha antes de que el crecimiento comercial (Fase 4) la haga más costosa de resolver.
 
-**Las capacidades que incorpora**  
-- Los propietarios de mascotas pueden consultar citas, solicitar servicios y ver el historial directamente, sin intermediarios
-- Integradores y partners pueden conectar sistemas externos mediante una API pública documentada
-- El equipo del establecimiento tiene acceso móvil a la operación
-- Módulos especializados activables: telemedicina, programas de bienestar, integración con laboratorios y proveedores
+**Principio permanente de la fase**  
+Ningún entregable de la Fase 5 modifica reglas de negocio existentes ni el motor conversacional (`whatsapp.service.js`, `conversation.service.js`, `scheduling.service.js`, `availability.service.js`, `availability-db.service.js`). El alcance se limita estrictamente a infraestructura reactiva: eventos de dominio, automatizaciones, orquestación y gobernanza de agentes. Si una Macroetapa 2 exige modificar el comportamiento funcional de un contexto de negocio, la implementación se detiene de inmediato y se emite una Reconciliación Arquitectónica.
+
+**Roadmap interno**  
+5.1 Outbox de Eventos de Dominio → 5.2 Certificación Real de Eventos por Contexto → 5.3 Aplicación Real de Límite de Autonomía → 5.4 Automatizaciones Multi-Evento. (5.1 bloquea 5.2 y 5.4; 5.2 bloquea 5.4; 5.3 es independiente del resto.)
+
+- **5.1 — Outbox de Eventos de Dominio** — ✅ Completado (2026-07-11, v2.13.0). Reintento real de entregas `EventDelivery` en estado `"failed"` para el consumidor Automatizaciones, vía `jobs/event-delivery-retry.job.js` (`node-cron`, cada 15 min), con idempotencia por Regla (`hasSuccessfulExecution`). Cero cambios en el motor conversacional y en los contextos de negocio.
+
+**Alternativas evaluadas y descartadas para esta fase (auditoría integral, 2026-07-11)**  
+"Operación Multi-Establecimiento Real" (expansión de la arquitectura multiempresa más allá de lo entregado en 4.1-4.3) y "Ecosistema" (nuevos canales, API pública, apps de cliente/staff) fueron evaluadas junto con "Operaciones Inteligentes" y descartadas por ahora — ambas presuponen una infraestructura reactiva confiable que todavía no existe. Quedan como alternativas futuras, no eliminadas del roadmap conceptual.
 
 **Lo que habilita**  
-Un ecosistema donde la plataforma es el núcleo operativo y múltiples actores —clientes, staff, partners, integraciones— orbitan alrededor de ella.
+Una infraestructura reactiva confiable es precondición para escalar con seguridad tanto la operación multi-establecimiento como cualquier expansión de ecosistema — ambas alternativas descartadas para esta fase dependen, en última instancia, de que los eventos y automatizaciones no pierdan trabajo silenciosamente bajo fallo.
 
 **Criterio de cierre**  
-Al menos dos canales adicionales están operativos y tienen adopción medible. La API pública tiene al menos un integrador externo activo.
+Los cuatro entregables del roadmap interno (5.1 → 5.4) completos, con el principio permanente de la fase respetado sin excepción en todos ellos, verificado por grep exhaustivo y `git diff --stat` contra el motor conversacional y los contextos de negocio en cada cierre.
 
 ---
 
@@ -485,7 +491,7 @@ Este documento existe porque el objetivo no es desarrollar funcionalidades. El o
 
 La diferencia entre un producto que crece bien y uno que acumula deuda hasta volverse inmanejable no está en la velocidad de construcción. Está en la claridad con la que se define qué se construye, en qué orden y por qué.
 
-Cada fase de este plan tiene un nombre y un propósito porque cada fase resuelve un problema específico que habilita la siguiente. La Fase 1 estableció que el dominio es soberano. La Fase 2 completará ese dominio. La Fase 3 le dará inteligencia especializada. La Fase 4 lo hará comercialmente escalable. La Fase 5 lo convertirá en ecosistema.
+Cada fase de este plan tiene un nombre y un propósito porque cada fase resuelve un problema específico que habilita la siguiente. La Fase 1 estableció que el dominio es soberano. La Fase 2 completará ese dominio. La Fase 3 le dará inteligencia especializada. La Fase 4 lo hará comercialmente escalable. La Fase 5 lo convertirá en una infraestructura operacional confiable.
 
 Quien lea este documento dentro de diez años debería poder entender exactamente qué producto decidimos construir y por qué. Que el negocio tiene prioridad sobre la tecnología. Que el dato pertenece al negocio. Que los canales son reemplazables. Que los empleados digitales trabajan para el dominio.
 

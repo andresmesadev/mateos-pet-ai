@@ -17,6 +17,7 @@ const {
   createListEventDeliveriesUseCase,
   createRegisterEventDeliveryMechanism,
   createRetryEventDeliveryMechanism,
+  createListDomainEventsAwaitingRetryMechanism,
 } = require("./application/use-cases");
 
 const eventTypeRepository = new PrismaEventTypeRepository();
@@ -37,6 +38,7 @@ const retryEventDelivery = createRetryEventDeliveryMechanism({
   eventDeliveryRepository,
   registerEventDeliveryMechanism: registerEventDelivery,
 });
+const listDomainEventsAwaitingRetry = createListDomainEventsAwaitingRetryMechanism({ eventDeliveryRepository });
 
 module.exports = {
   registerEventType,
@@ -48,4 +50,5 @@ module.exports = {
   // Operaciones de infraestructura — no exponer vía HTTP (ver Etapa 3, sección 5).
   registerEventDelivery,
   retryEventDelivery,
+  listDomainEventsAwaitingRetry,
 };

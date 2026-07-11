@@ -6,6 +6,7 @@ const { createListDomainEventsUseCase } = require("./list-domain-events.usecase"
 const { createListEventDeliveriesUseCase } = require("./list-event-deliveries.usecase");
 const { createRegisterEventDeliveryMechanism } = require("./register-event-delivery.mechanism");
 const { createRetryEventDeliveryMechanism } = require("./retry-event-delivery.mechanism");
+const { createListDomainEventsAwaitingRetryMechanism } = require("./list-domain-events-awaiting-retry.mechanism");
 
 module.exports = {
   createRegisterEventTypeUseCase,
@@ -16,4 +17,5 @@ module.exports = {
   createListEventDeliveriesUseCase,
   createRegisterEventDeliveryMechanism,
   createRetryEventDeliveryMechanism,
+  createListDomainEventsAwaitingRetryMechanism,
 };
