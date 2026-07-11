@@ -22,6 +22,9 @@ const processReminderForEmployee = createProcessReminderUseCase({
   startAgentTask: agents.startAgentTask,
   registerAgentDecision: agents.registerAgentDecision,
   completeAgentTask: agents.completeAgentTask,
+  // Entregable 5.3 — Aplicación Real de Límite de Autonomía.
+  getAutonomyLimit: agents.getAutonomyLimit,
+  generateEscalation: agents.generateEscalation,
   reminderEngine,
   logger,
 });

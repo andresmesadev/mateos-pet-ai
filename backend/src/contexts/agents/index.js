@@ -52,6 +52,13 @@ const getAgentTasks = createGetAgentTasksUseCase({ digitalEmployeeRepository, ag
 const getAgentDecisions = createGetAgentDecisionsUseCase({ agentTaskRepository, agentDecisionRepository });
 const getPendingEscalations = createGetPendingEscalationsUseCase({ escalationRepository });
 
+// Entregable 5.3 — Aplicación Real de Límite de Autonomía: expone
+// directamente el puerto ya existente desde 3.2 (nunca envuelto hasta ahora
+// en ningún caso de uso ni exportado). No es un caso de uso de negocio —
+// mismo estatus que las demás operaciones de infraestructura del proyecto
+// (p. ej. `listDomainEventsAwaitingRetry` de 5.1).
+const getAutonomyLimit = digitalEmployeeRepository.getAutonomyLimit.bind(digitalEmployeeRepository);
+
 module.exports = {
   registerDigitalEmployee,
   pauseDigitalEmployee,
@@ -66,4 +73,5 @@ module.exports = {
   getAgentTasks,
   getAgentDecisions,
   getPendingEscalations,
+  getAutonomyLimit,
 };

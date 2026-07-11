@@ -16,10 +16,20 @@ const REMINDER_TYPE_METHODS = {
  * escalamiento (Etapa 1, Decisión 5: un recordatorio fallido no requiere
  * intervención humana).
  *
+ * Entregable 5.3 — Aplicación Real de Límite de Autonomía: antes de invocar
+ * `reminderEngine[method]`, consulta `AgentAutonomyLimit` para
+ * `(digitalEmployeeId, reminderType)`. Invariante no negociable: la AUSENCIA
+ * de configuración nunca bloquea una acción — solo un límite explícitamente
+ * configurado con `autoApproved === false` bloquea el envío automático y
+ * genera una Escalación en su lugar, reutilizando el mecanismo ya existente
+ * (3.2) sin ninguna modificación.
+ *
  * @param {Object} deps
  * @param {Function} deps.startAgentTask — agents.startAgentTask
  * @param {Function} deps.registerAgentDecision — agents.registerAgentDecision
  * @param {Function} deps.completeAgentTask — agents.completeAgentTask
+ * @param {Function} deps.getAutonomyLimit — agents.getAutonomyLimit
+ * @param {Function} deps.generateEscalation — agents.generateEscalation
  * @param {import("../ports/reminder-engine-adapter.port").ReminderEngineAdapterPort} deps.reminderEngine
  * @param {{ error: Function }} [deps.logger]
  */
@@ -27,6 +37,8 @@ function createProcessReminderUseCase({
   startAgentTask,
   registerAgentDecision,
   completeAgentTask,
+  getAutonomyLimit,
+  generateEscalation,
   reminderEngine,
   logger = console,
 }) {
@@ -37,6 +49,29 @@ function createProcessReminderUseCase({
     }
 
     const { task } = await startAgentTask({ digitalEmployeeId, origin: "cron_reminder_job" });
+
+    // Entregable 5.3 — Aplicación Real de Límite de Autonomía.
+    //
+    //   NO EXISTE CONFIGURACIÓN → AUTOAPROBADO → se envía el recordatorio
+    //   normalmente (comportamiento idéntico al existente antes de este
+    //   entregable). Solo un límite explícito con autoApproved === false
+    //   bloquea el envío.
+    const autonomyLimit = await getAutonomyLimit(digitalEmployeeId, reminderType);
+    const blockedByAutonomyLimit = autonomyLimit != null && autonomyLimit.autoApproved === false;
+
+    if (blockedByAutonomyLimit) {
+      await registerAgentDecision({
+        agentTaskId: task.id,
+        input: { reminderType, entityId: entity?.id ?? null },
+        reasoning: `Recordatorio "${reminderType}" bloqueado por Límite de Autonomía (autoApproved=false) — requiere confirmación humana`,
+        action: "reminder_escalated",
+      });
+      await generateEscalation({
+        agentTaskId: task.id,
+        context: { reminderType, entityId: entity?.id ?? null, reason: "autonomy_limit_not_approved" },
+      });
+      return { sent: false, escalated: true };
+    }
 
     let sent = false;
     let failureReason = null;
