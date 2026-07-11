@@ -1,17 +1,20 @@
 const { DomainEventPublisherPort } = require("../../application/ports/domain-event-publisher.port");
-const logger = require("../../../../lib/logger");
+const { CertifyingDomainEventPublisher } = require("../../../shared/events/certifying-domain-event-publisher");
 
 /**
- * Implementación inicial: registra el evento para auditoría/observabilidad.
- * No hay todavía un bus de eventos entre contextos (Automatizaciones es
- * Fase 3, fuera de alcance). Agenda, al integrarse, puede empezar a
- * suscribirse aquí sin que esta clase cambie su contrato (publish(name, payload)).
+ * Entregable 5.2 — Certificación Real de Eventos por Contexto: delega en el
+ * adaptador reutilizable (certifying-domain-event-publisher.js) en vez de
+ * solo registrar por logger. Mismo contrato de puerto, sin cambios en los
+ * casos de uso que lo consumen.
  */
 class ServiceDomainEventsPublisher extends DomainEventPublisherPort {
+  constructor({ registerDomainEvent }) {
+    super();
+    this.delegate = new CertifyingDomainEventPublisher({ registerDomainEvent, originContext: "Servicios" });
+  }
+
   async publish(eventName, payload) {
-    logger.info(`[Servicios] Evento de dominio: ${eventName}`, {
-      serviceId: payload?.service?.id,
-    });
+    return this.delegate.publish(eventName, payload);
   }
 }
 

@@ -1,11 +1,20 @@
 const { DomainEventPublisherPort } = require("../../application/ports/domain-event-publisher.port");
-const logger = require("../../../../lib/logger");
+const { CertifyingDomainEventPublisher } = require("../../../shared/events/certifying-domain-event-publisher");
 
+/**
+ * Entregable 5.2 — Certificación Real de Eventos por Contexto: delega en el
+ * adaptador reutilizable (certifying-domain-event-publisher.js) en vez de
+ * solo registrar por logger. Mismo contrato de puerto, sin cambios en los
+ * casos de uso que lo consumen.
+ */
 class FinanceDomainEventsPublisher extends DomainEventPublisherPort {
+  constructor({ registerDomainEvent }) {
+    super();
+    this.delegate = new CertifyingDomainEventPublisher({ registerDomainEvent, originContext: "Finanzas" });
+  }
+
   async publish(eventName, payload) {
-    logger.info(`[Finance] Evento de dominio: ${eventName}`, {
-      id: payload?.expense?.id ?? payload?.transaction?.id ?? payload?.dailyClose?.id ?? payload?.financialPeriod?.id,
-    });
+    return this.delegate.publish(eventName, payload);
   }
 }
 

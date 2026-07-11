@@ -28,7 +28,11 @@ describe("ManageStaffCapabilitiesUseCase", () => {
     expect(capabilities).toHaveLength(2);
     expect(added.sort()).toEqual(["svc-1", "svc-2"]);
     expect(removed).toEqual([]);
-    expect(eventPublisher.events.filter((e) => e.eventName === "CapacidadAsignada")).toHaveLength(2);
+    const asignadas = eventPublisher.events.filter((e) => e.eventName === "CapacidadAsignada");
+    expect(asignadas).toHaveLength(2);
+    // Entregable 5.2 — Certificación Real de Eventos por Contexto: tenantId debe
+    // viajar en el payload para que pueda certificarse como Evento de Dominio.
+    expect(asignadas.every((e) => e.payload.tenantId === "t1")).toBe(true);
   });
 
   test("retira capacidades que ya no están en el conjunto solicitado", async () => {
@@ -38,7 +42,9 @@ describe("ManageStaffCapabilitiesUseCase", () => {
     const { added, removed } = await execute({ staffId: "s-1", serviceIds: ["svc-2"] });
     expect(added).toEqual(["svc-2"]);
     expect(removed).toEqual(["svc-1"]);
-    expect(eventPublisher.events.some((e) => e.eventName === "CapacidadRevocada")).toBe(true);
+    const revocada = eventPublisher.events.find((e) => e.eventName === "CapacidadRevocada");
+    expect(revocada).toBeDefined();
+    expect(revocada.payload.tenantId).toBe("t1");
   });
 
   test("rechaza si el staff no existe", async () => {

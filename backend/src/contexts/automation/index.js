@@ -39,7 +39,7 @@ const automationRuleRepository = new PrismaAutomationRuleRepository();
 const automationTemplateRepository = new PrismaAutomationTemplateRepository();
 const automationExecutionRepository = new PrismaAutomationExecutionRepository();
 const eventTypeLookup = new PrismaEventTypeLookupRepository();
-const eventPublisher = new AutomationDomainEventsPublisher();
+const eventPublisher = new AutomationDomainEventsPublisher({ registerDomainEvent: events.registerDomainEvent });
 const eventDelivery = new EventsRegisterEventDeliveryAdapter({ registerEventDelivery: events.registerEventDelivery });
 const actionExecutor = new UseCaseActionExecutor({
   sendMessage: communication.sendMessage,

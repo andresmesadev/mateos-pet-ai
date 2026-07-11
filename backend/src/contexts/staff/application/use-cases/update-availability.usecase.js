@@ -47,7 +47,7 @@ function createUpdateAvailabilityUseCase({ staffRepository, availabilityReposito
       throw new InvalidAvailabilityRangeError(`type "${type}" no es válido. Use "base_schedule" o "planned_absence".`);
     }
 
-    await eventPublisher.publish("DisponibilidadActualizada", { staffId, availability, origin: "planned" });
+    await eventPublisher.publish("DisponibilidadActualizada", { staffId, availability, origin: "planned", tenantId: staff.tenantId });
 
     return { availability };
   };

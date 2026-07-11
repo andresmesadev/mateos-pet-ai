@@ -388,7 +388,7 @@ Un segundo establecimiento —diferente al primero— puede ser onboardeado de f
 ---
 
 ### FASE 5 — Operaciones Inteligentes
-**Estado:** En curso — Entregable 5.1 completo (v2.13.0), Entregables 5.2-5.4 pendientes.
+**Estado:** En curso — Entregables 5.1 y 5.2 completos (v2.14.0); Entregables 5.3-5.4 pendientes.
 **Informe de cierre:** pendiente (fase abierta). Ver `docs/history/ENTREGABLE_5_1_COMPLETION_REPORT.md` y `docs/history/ENTREGABLE_5_1_GATE_REVIEW.md` para el cierre del primer entregable.
 
 **Objetivo estratégico**  
@@ -404,6 +404,7 @@ Ningún entregable de la Fase 5 modifica reglas de negocio existentes ni el moto
 5.1 Outbox de Eventos de Dominio → 5.2 Certificación Real de Eventos por Contexto → 5.3 Aplicación Real de Límite de Autonomía → 5.4 Automatizaciones Multi-Evento. (5.1 bloquea 5.2 y 5.4; 5.2 bloquea 5.4; 5.3 es independiente del resto.)
 
 - **5.1 — Outbox de Eventos de Dominio** — ✅ Completado (2026-07-11, v2.13.0). Reintento real de entregas `EventDelivery` en estado `"failed"` para el consumidor Automatizaciones, vía `jobs/event-delivery-retry.job.js` (`node-cron`, cada 15 min), con idempotencia por Regla (`hasSuccessfulExecution`). Cero cambios en el motor conversacional y en los contextos de negocio.
+- **5.2 — Certificación Real de Eventos por Contexto** — ✅ Completado (2026-07-11, v2.14.0). 37 de 41 eventos log-only (Empleados Digitales, Automatizaciones, Comunicación, Finanzas, Servicios, Staff) certificables como Evento de Dominio real vía un único adaptador reutilizable (`contexts/shared/events/certifying-domain-event-publisher.js`), reutilizando `events.registerDomainEvent` (3.0) sin cambios. El propio contexto Eventos queda deliberadamente excluido (evita una recursión infinita real, detectada en el checkpoint de contradicción). 5 eventos del ciclo de vida de Empleados Digitales (`AgentTask`/`AgentDecision`/`Escalation`, sin `tenantId` en el modelo) quedan documentados como deuda técnica explícita — omisión determinística y trazada, no silenciosa. Cero cambios en el motor conversacional y en `domain/` de los contextos de negocio. Ver `docs/history/ENTREGABLE_5_2_COMPLETION_REPORT.md` y `docs/history/ENTREGABLE_5_2_GATE_REVIEW.md`.
 
 **Alternativas evaluadas y descartadas para esta fase (auditoría integral, 2026-07-11)**  
 "Operación Multi-Establecimiento Real" (expansión de la arquitectura multiempresa más allá de lo entregado en 4.1-4.3) y "Ecosistema" (nuevos canales, API pública, apps de cliente/staff) fueron evaluadas junto con "Operaciones Inteligentes" y descartadas por ahora — ambas presuponen una infraestructura reactiva confiable que todavía no existe. Quedan como alternativas futuras, no eliminadas del roadmap conceptual.

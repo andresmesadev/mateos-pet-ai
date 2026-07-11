@@ -9,7 +9,7 @@ function createConfigureAutonomyLimitUseCase({ digitalEmployeeRepository, eventP
     if (!employee) throw new DigitalEmployeeNotFoundError(digitalEmployeeId);
 
     const limit = await digitalEmployeeRepository.setAutonomyLimit(digitalEmployeeId, action.trim(), Boolean(autoApproved));
-    await eventPublisher.publish("LimiteDeAutonomiaConfigurado", { digitalEmployeeId, limit });
+    await eventPublisher.publish("LimiteDeAutonomiaConfigurado", { digitalEmployeeId, limit, tenantId: employee.tenantId });
     return { limit };
   };
 }

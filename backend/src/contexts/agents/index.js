@@ -4,14 +4,17 @@
  * los casos de uso de aplicación. Diseño congelado:
  * docs/history/ENTREGABLE_3_2_GATE_REVIEW.md
  *
- * Sin dependencia de Comunicación ni Eventos en este entregable (Etapa 3,
- * sección 3) — por eso no se integra en contexts/index.js.
+ * Sin dependencia de Comunicación en este entregable (Etapa 3, sección 3) —
+ * por eso no se integra en contexts/index.js. Entregable 5.2: sí depende de
+ * Eventos, únicamente para certificar sus propios eventos como Evento de
+ * Dominio real (events.registerDomainEvent, reutilizado sin cambios).
  */
 const { PrismaDigitalEmployeeRepository } = require("./infrastructure/persistence/prisma-digital-employee.repository");
 const { PrismaAgentTaskRepository } = require("./infrastructure/persistence/prisma-agent-task.repository");
 const { PrismaAgentDecisionRepository } = require("./infrastructure/persistence/prisma-agent-decision.repository");
 const { PrismaEscalationRepository } = require("./infrastructure/persistence/prisma-escalation.repository");
 const { AgentsDomainEventsPublisher } = require("./infrastructure/events/agents-domain-events.publisher");
+const events = require("../events");
 
 const {
   createRegisterDigitalEmployeeUseCase,
@@ -33,7 +36,7 @@ const digitalEmployeeRepository = new PrismaDigitalEmployeeRepository();
 const agentTaskRepository = new PrismaAgentTaskRepository();
 const agentDecisionRepository = new PrismaAgentDecisionRepository();
 const escalationRepository = new PrismaEscalationRepository();
-const eventPublisher = new AgentsDomainEventsPublisher();
+const eventPublisher = new AgentsDomainEventsPublisher({ registerDomainEvent: events.registerDomainEvent });
 
 const registerDigitalEmployee = createRegisterDigitalEmployeeUseCase({ digitalEmployeeRepository, eventPublisher });
 const pauseDigitalEmployee = createPauseDigitalEmployeeUseCase({ digitalEmployeeRepository, eventPublisher });

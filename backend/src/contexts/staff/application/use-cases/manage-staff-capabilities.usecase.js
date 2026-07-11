@@ -49,11 +49,11 @@ function createManageStaffCapabilitiesUseCase({
         }
         throw err;
       }
-      await eventPublisher.publish("CapacidadAsignada", { staffId, serviceId });
+      await eventPublisher.publish("CapacidadAsignada", { staffId, serviceId, tenantId: staff.tenantId });
     }
     for (const serviceId of toRemove) {
       await staffCapabilityRepository.revoke(staffId, serviceId);
-      await eventPublisher.publish("CapacidadRevocada", { staffId, serviceId });
+      await eventPublisher.publish("CapacidadRevocada", { staffId, serviceId, tenantId: staff.tenantId });
     }
 
     const capabilities = await staffCapabilityRepository.listActiveByStaff(staffId);

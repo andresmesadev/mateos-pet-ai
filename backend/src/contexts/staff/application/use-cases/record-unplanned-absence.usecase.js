@@ -28,7 +28,7 @@ function createRecordUnplannedAbsenceUseCase({ staffRepository, availabilityRepo
       reason: reason ?? null,
     });
 
-    await eventPublisher.publish("DisponibilidadActualizada", { staffId, availability, origin: "unplanned" });
+    await eventPublisher.publish("DisponibilidadActualizada", { staffId, availability, origin: "unplanned", tenantId: staff.tenantId });
 
     return { availability };
   };

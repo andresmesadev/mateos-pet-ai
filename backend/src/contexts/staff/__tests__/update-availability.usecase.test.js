@@ -20,6 +20,8 @@ describe("UpdateAvailabilityUseCase", () => {
     });
     expect(availability.type).toBe("base_schedule");
     expect(eventPublisher.events[0].payload.origin).toBe("planned");
+    // Entregable 5.2 — Certificación Real de Eventos por Contexto.
+    expect(eventPublisher.events[0].payload.tenantId).toBe("t1");
   });
 
   test("crea ausencia programada", async () => {

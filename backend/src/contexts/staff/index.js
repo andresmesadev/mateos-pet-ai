@@ -1,6 +1,10 @@
 /**
  * Composition root del contexto Staff. Ensambla las implementaciones de
  * infraestructura e inyecta los puertos en los casos de uso de aplicación.
+ *
+ * Entregable 5.2: depende de Eventos únicamente para certificar sus propios
+ * eventos como Evento de Dominio real (events.registerDomainEvent, reutilizado
+ * sin cambios).
  */
 const { PrismaStaffRepository } = require("./infrastructure/persistence/prisma-staff.repository");
 const { PrismaAvailabilityRepository } = require("./infrastructure/persistence/prisma-availability.repository");
@@ -11,6 +15,7 @@ const { PrismaServiceExistenceReader } = require("./infrastructure/persistence/p
 const { PrismaServiceCategoryReader } = require("./infrastructure/persistence/prisma-service-category.reader");
 const { PrismaBusinessConfigReader } = require("./infrastructure/persistence/prisma-business-config.reader");
 const { StaffDomainEventsPublisher } = require("./infrastructure/events/staff-domain-events.publisher");
+const events = require("../events");
 
 const {
   createRegisterStaffUseCase,
@@ -35,7 +40,7 @@ const settlementRepository = new PrismaSettlementRepository();
 const serviceExistenceReader = new PrismaServiceExistenceReader();
 const serviceCategoryReader = new PrismaServiceCategoryReader();
 const businessConfigReader = new PrismaBusinessConfigReader();
-const eventPublisher = new StaffDomainEventsPublisher();
+const eventPublisher = new StaffDomainEventsPublisher({ registerDomainEvent: events.registerDomainEvent });
 
 const registerStaff = createRegisterStaffUseCase({ staffRepository, eventPublisher });
 const updateStaff = createUpdateStaffUseCase({ staffRepository, eventPublisher });

@@ -16,6 +16,8 @@ describe("RecordUnplannedAbsenceUseCase", () => {
     const { availability } = await execute({ staffId: "s-1", startAt: "2026-07-10T08:00:00Z", endAt: "2026-07-10T12:00:00Z" });
     expect(availability.type).toBe("unplanned_absence");
     expect(eventPublisher.events[0].payload.origin).toBe("unplanned");
+    // Entregable 5.2 — Certificación Real de Eventos por Contexto.
+    expect(eventPublisher.events[0].payload.tenantId).toBe("t1");
   });
 
   test("rechaza si el staff no existe", async () => {

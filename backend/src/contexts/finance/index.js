@@ -1,6 +1,10 @@
 /**
  * Composition root del contexto Finance. Ensambla las implementaciones de
  * infraestructura e inyecta los puertos en los casos de uso de aplicación.
+ *
+ * Entregable 5.2: depende de Eventos únicamente para certificar sus propios
+ * eventos como Evento de Dominio real (events.registerDomainEvent, reutilizado
+ * sin cambios).
  */
 const { PrismaExpenseRepository } = require("./infrastructure/persistence/prisma-expense.repository");
 const { PrismaTransactionRepository } = require("./infrastructure/persistence/prisma-transaction.repository");
@@ -10,6 +14,7 @@ const { PrismaCommissionReader } = require("./infrastructure/persistence/prisma-
 const { PrismaCompletedAppointmentsReader } = require("./infrastructure/persistence/prisma-completed-appointments.reader");
 const { FinanceDomainEventsPublisher } = require("./infrastructure/events/finance-domain-events.publisher");
 const { PrismaUnitOfWork } = require("../shared/persistence/prisma-unit-of-work");
+const events = require("../events");
 
 const {
   createRegisterExpenseUseCase,
@@ -31,7 +36,7 @@ const dailyCloseRepository = new PrismaDailyCloseRepository();
 const financialPeriodRepository = new PrismaFinancialPeriodRepository();
 const commissionReader = new PrismaCommissionReader();
 const completedAppointmentsReader = new PrismaCompletedAppointmentsReader();
-const eventPublisher = new FinanceDomainEventsPublisher();
+const eventPublisher = new FinanceDomainEventsPublisher({ registerDomainEvent: events.registerDomainEvent });
 const unitOfWork = new PrismaUnitOfWork();
 
 const registerExpense = createRegisterExpenseUseCase({ expenseRepository, dailyCloseRepository, eventPublisher });
