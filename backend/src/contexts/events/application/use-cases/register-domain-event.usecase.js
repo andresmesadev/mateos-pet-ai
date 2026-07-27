@@ -15,8 +15,19 @@ const { InvalidDomainEventAttributesError, EventTypeNotFoundError, EventTypeNotA
  * @param {import("../ports/domain-event-repository.port").DomainEventRepositoryPort} deps.domainEventRepository
  * @param {import("../ports/event-type-repository.port").EventTypeRepositoryPort} deps.eventTypeRepository
  * @param {import("../ports/domain-event-publisher.port").DomainEventPublisherPort} deps.eventPublisher
+ * @param {{ notify: Function }} [deps.reactor] Entregable 5.4 — punto de
+ * extensión genérico e inerte por defecto: quien construya este caso de uso
+ * puede sustituir `reactor.notify` para reaccionar a cualquier Evento de
+ * Dominio certificado (independientemente de su contexto productor), sin que
+ * este caso de uso conozca quién lo consume. Su fallo nunca se propaga —
+ * misma garantía de no-propagación que ya rige toda la certificación.
  */
-function createRegisterDomainEventUseCase({ domainEventRepository, eventTypeRepository, eventPublisher }) {
+function createRegisterDomainEventUseCase({
+  domainEventRepository,
+  eventTypeRepository,
+  eventPublisher,
+  reactor = { notify: async () => {} },
+}) {
   return async function execute({ tenantId, eventTypeName, payload, origin, occurredAt }, ctx) {
     if (!tenantId) {
       throw new InvalidDomainEventAttributesError("tenantId es obligatorio (Invariante 4).");
@@ -48,6 +59,13 @@ function createRegisterDomainEventUseCase({ domainEventRepository, eventTypeRepo
     );
 
     await eventPublisher.publish("EventoDeDominioRegistrado", { domainEvent });
+
+    try {
+      await reactor.notify({ domainEvent, eventTypeName, payload }, ctx);
+    } catch (error) {
+      // Nunca debe romper la certificación del Evento de Dominio ya persistido.
+      console.error(`[Eventos] Reactor genérico falló para "${eventTypeName}" — no propagado`, error.message);
+    }
 
     return { domainEvent };
   };

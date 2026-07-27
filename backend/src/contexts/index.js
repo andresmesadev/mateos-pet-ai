@@ -56,12 +56,29 @@ dispatcher.subscribe("CitaCompletada", async (payload, ctx) => {
   );
 });
 
-// Entregable 3.3 — Automatizaciones: suscrita al mismo dispatcher que
-// Staff/Finanzas, para el único disparador certificado hoy. A diferencia de
-// aquellos, su fallo nunca se propaga (Etapa 3, Decisión 4 del diseño
-// congelado) — evaluateAndExecuteRules captura sus propios errores.
-dispatcher.subscribe("CitaCompletada", async (payload, ctx) => {
-  await automation.evaluateAndExecuteRules({ domainEvent: ctx.domainEvent, eventPayload: payload }, ctx);
+// Entregable 5.4 — Automatizaciones Multi-Evento: reemplaza la suscripción
+// puntual de 3.3 (que solo cubría CitaCompletada, único evento antes
+// dispatchado a través del DomainEventDispatcher). Se engancha directamente
+// al punto de certificación (`events.setDomainEventReactor`), que TODO evento
+// certificado atraviesa sin importar su contexto productor — Agenda vía
+// dispatcherWithCertification más abajo, y los otros 6 contextos vía
+// CertifyingDomainEventPublisher (5.2) — sin modificar ninguno de ellos.
+// Exclusión permanente (no negociable, ver checkpoint de contradicción de la
+// Macroetapa 2 del Entregable 5.4): los eventos propios de Automatizaciones
+// son infraestructura interna y nunca deben disparar sus propias reglas —
+// mismo criterio de carve-out aplicado al contexto Eventos durante el
+// Entregable 5.2, documentado explícitamente y no dejado implícito.
+const AUTOMATION_INTERNAL_EVENT_TYPES = new Set([
+  "ReglaDeAutomatizacionRegistrada",
+  "ReglaDeAutomatizacionActivada",
+  "ReglaDeAutomatizacionDesactivada",
+  "PlantillaDeAutomatizacionRegistrada",
+  "PlantillaDeAutomatizacionActivada",
+]);
+
+events.setDomainEventReactor(async ({ domainEvent, eventTypeName, payload }, ctx) => {
+  if (AUTOMATION_INTERNAL_EVENT_TYPES.has(eventTypeName)) return;
+  await automation.evaluateAndExecuteRules({ domainEvent, eventPayload: payload }, ctx);
 });
 
 // Entregable 3.0 — Infraestructura de Eventos: la certificación de un hecho
