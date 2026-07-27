@@ -69,6 +69,19 @@ Representar la identidad y configuración del establecimiento que opera la plata
 - **Módulo** — Una capacidad del sistema que el establecimiento puede activar o desactivar. Cada módulo activo habilita contextos adicionales.
 - **Configuración del Negocio** — Los parámetros operativos del establecimiento: horarios de atención, días hábiles, duración estándar de los servicios, reglas de split de comisiones, mensajes de bienvenida.
 
+**Reconciliación con la implementación (Entregable 6.1, Fase 5 → Fase 6, 2026-07-27)**  
+El modelo `Tenant` (`prisma/schema.prisma`) **es** la implementación de esta entidad — no existe, ni existirá, una entidad `Establecimiento` separada ni una entidad `Organización` superior (decisión arquitectónica adoptada al inicio de la Fase 6, ver `docs/PLAN_MAESTRO.md`, sección Fase 6). Estado real de cada campo declarado arriba, verificado contra el código:
+- **nombre** — implementado (`Tenant.name`).
+- **tipo de negocio** — no existe como campo categórico separado; `activeModules` (Entregable 4.3, Alcance A) cumple esa función operativamente (qué módulos/capacidades están activos determina el comportamiento del establecimiento con mayor precisión que una categoría fija) — **campo declarado aquí considerado redundante, no una brecha pendiente.**
+- **módulos activos** — implementado de forma parcial (`Tenant.activeModules`, arreglo plano sin catálogo ni metadata) — suficiente para la necesidad funcional actual; un catálogo real de Módulo con metadata queda en backlog arquitectónico, sin entregable asignado, salvo necesidad futura evidenciada.
+- **zona horaria** — no implementado por establecimiento (hoy es una constante global única, `lib/timezone.js`); asignado explícitamente al Entregable 6.2 (Fase 6), no a este entregable.
+- **moneda, país** — no implementados; sin consumidor ni requisito funcional evidenciado en ningún entregable cerrado; quedan en backlog arquitectónico transversal, sin fecha.
+- **Configuración del Negocio → horarios de atención** — persistido (`Tenant.businessHours`) pero no aplicado por el motor de disponibilidad; brecha ya reconocida y diferida explícitamente al Entregable 6.2.
+- **→ días hábiles** — cubierto implícitamente por el flag `active` por día dentro de `businessHours`; no requiere campo separado.
+- **→ duración estándar de servicios** — no existe a nivel de establecimiento; la granularidad por Servicio individual (`Service`) ya es más precisa — no se considera una brecha.
+- **→ reglas de split de comisión** — implementado (`Tenant.commissionSplitRate`, Entregable 4.3, Alcance A).
+- **→ mensajes de bienvenida** — no implementado; reasignado conceptualmente al backlog del contexto Comunicación (Entregable 3.1, que ya difirió "Plantilla de Mensaje"), fuera del alcance de este contexto.
+
 **Responsabilidades**
 - Definir qué tipo de negocio es el establecimiento
 - Controlar qué módulos están activos

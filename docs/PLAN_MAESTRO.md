@@ -421,6 +421,47 @@ Los cuatro entregables del roadmap interno (5.1 → 5.4) completos, con el princ
 
 ---
 
+### FASE 6 — Operación Multi-Establecimiento Real
+**Estado:** Definida formalmente (2026-07-27). Entregable 6.1 completado (documental, sin bump de versión); 6.2 → 6.6 pendientes.
+**Decisión de alcance:** ver este documento — la alternativa "Ecosistema" (evaluada junto con esta y con "Operaciones Inteligentes" desde el cierre de la Fase 5) queda oficialmente diferida para una fase posterior, una vez que la operación multi-establecimiento esté completamente consolidada.
+
+**Decisión arquitectónica previa (2026-07-27) — Establecimiento (Tenant) como unidad de aislamiento**  
+Antes de iniciar cualquier entregable de esta fase se auditó formalmente si el sistema requería introducir una entidad "Organización" (agrupando múltiples Establecimientos bajo una misma cuenta) o si la unidad de aislamiento debía seguir siendo el Establecimiento actual (`Tenant`). La alternativa "Organización → Establecimientos" fue evaluada y **descartada por falta de evidencia funcional**: ninguna sección de este documento, del modelo de dominio (`domain-model-v1.md` §1) ni de las decisiones estratégicas fundacionales del producto exige, sugiere o anticipa que un mismo cliente administre múltiples establecimientos desde una única cuenta — el modelo de negocio documentado (expansión comercial "vender a otras clínicas") describe explícitamente cada cliente nuevo como un tenant nuevo e independiente, nunca como una cuenta con múltiples sedes. Además, "Organización" no aparece en ningún bounded context de `domain-model-v1.md`, contradiciendo el §1 (Contexto Negocio), que modela **Establecimiento** como entidad raíz única sin ninguna entidad superior. **El Establecimiento (`Tenant`) se mantiene, por tanto, como la única unidad de aislamiento del sistema** — exactamente como fue concebido desde el inicio del proyecto — y ningún entregable de la Fase 6 introduce una jerarquía de cuentas superior a él.
+
+**Objetivo estratégico**  
+Evolucionar la plataforma desde un sistema orientado a un único establecimiento hacia una plataforma capaz de administrar múltiples establecimientos completamente independientes, preservando el aislamiento operativo y reutilizando toda la infraestructura construida en las fases anteriores.
+
+**El problema que resuelve**  
+La Fase 4 (4.1-4.3) probó que un segundo establecimiento puede onboardearse de forma autónoma, pero no que la operación multi-establecimiento esté consolidada: `Tenant.businessHours` existe en el schema desde antes de 4.3 pero ningún servicio de disponibilidad lo consulta (Alcance B, diferido por Reconciliación Arquitectónica); no existe campo de zona horaria; `Tenant` nunca fue reconciliado formalmente con el `Establecimiento` modelado en `domain-model-v1.md` §1 (diferido explícitamente en 4.2); y no existe evidencia de reporting u operación centralizada entre establecimientos. La plataforma opera hoy, en la práctica, sobre un único negocio real — la Fase 6 cierra esa brecha antes de exponer la plataforma mediante un ecosistema externo (API pública, nuevos canales), que presupone una operación multi-establecimiento ya sólida.
+
+**Principios**  
+- No modificar las reglas de negocio ya consolidadas.
+- Reutilizar la infraestructura existente (Eventos, Automatizaciones, Comunicación, Empleados Digitales y Agenda) — ningún entregable de la Fase 6 rediseña esta infraestructura, solo la parametriza por establecimiento.
+- Mantener el principio de evolución incremental utilizado en las fases anteriores: ningún entregable se implementa sin pasar primero por sus etapas de diseño y checkpoint de contradicción.
+- Priorizar el aislamiento entre establecimientos antes que la exposición mediante APIs o integraciones externas.
+- El Establecimiento (`Tenant`) es y seguirá siendo la única unidad de aislamiento del sistema (ver Decisión arquitectónica previa) — ningún entregable de esta fase introduce una entidad de agrupación superior.
+
+**Advertencia arquitectónica conocida (a resolver explícitamente al inicio de 6.2, no a diferir de nuevo)**  
+Aplicar horario de atención y zona horaria reales en el flujo de reserva exige tocar `scheduling.service.js`/`availability.service.js` — el motor conversacional, protegido desde la Fase 3 por el principio "no reescribir el motor conversacional". Esto ya causó una Reconciliación Arquitectónica real en el Entregable 4.3 (Alcance B diferido). La Fase 6 no debe volver a diferir este punto por tercera vez sin justificación explícita: su Macroetapa 1 debe decidir, con evidencia, si se acepta una Reconciliación Arquitectónica puntual y acotada sobre ese motor, o si existe una vía de wrapper/adaptador (análoga a `business-config.service.js`, 4.3) que lo evite.
+
+**Roadmap interno (preliminar)**  
+6.1 Reconciliación del Modelo de Establecimiento → 6.2 Agenda Multi-Establecimiento → 6.3 Staff Multi-Establecimiento → 6.4 Finanzas por Establecimiento y Consolidadas → 6.5 Automatizaciones Multi-Establecimiento → 6.6 Operación Centralizada.
+
+- **6.1 — Reconciliación del Modelo de Establecimiento** — ✅ Completado (2026-07-27, entregable documental, sin bump de versión — ver "Versionado" en `docs/history/ENTREGABLE_6_1_COMPLETION_REPORT.md`). Cierra la deuda heredada de 4.2/4.3 (Contexto Negocio completo, nunca resuelto formalmente): `docs/architecture/domain-model-v1.md` §1 declara ahora explícitamente que `Tenant` es la implementación de Establecimiento, sin entidad `Organización` ni renombramiento físico (432 ocurrencias del nombre en 115 archivos, descartado por evidencia). Resuelve la disposición de cada campo pendiente del dominio: "tipo de negocio" redundante con `activeModules` (4.3); horarios/zona horaria diferidos explícitamente a 6.2; país/moneda a backlog sin fecha; mensajes de bienvenida reasignado al backlog de Comunicación (3.1). Cero cambios de código, schema o migraciones — verificado por `git diff --stat` y grep exhaustivo. Ver `docs/history/ENTREGABLE_6_1_COMPLETION_REPORT.md` y `docs/history/ENTREGABLE_6_1_GATE_REVIEW.md`.
+- **6.2 — Agenda Multi-Establecimiento** — pendiente. Aplica horario de atención y zona horaria reales sobre el flujo de reserva — punto donde se resuelve la advertencia arquitectónica anterior.
+- **6.3 — Staff Multi-Establecimiento** — pendiente.
+- **6.4 — Finanzas por Establecimiento y Consolidadas** — pendiente.
+- **6.5 — Automatizaciones Multi-Establecimiento** — pendiente.
+- **6.6 — Operación Centralizada** — pendiente. Visibilidad del equipo interno sobre el estado operativo de todos los establecimientos.
+
+**Alternativa diferida**  
+"Ecosistema" (nuevos canales, API pública, apps de cliente/staff) permanece oficialmente diferida para una fase posterior a la Fase 6, una vez que la operación multi-establecimiento esté completamente consolidada.
+
+**Criterio de cierre**  
+Los seis entregables del roadmap interno (6.1 → 6.6) completos, con el aislamiento operativo entre establecimientos verificado por evidencia (no solo por diseño), sin ninguna regla de negocio existente modificada, sin ninguna entidad de agrupación superior al Establecimiento introducida, y con la advertencia arquitectónica sobre el motor conversacional resuelta explícitamente (no diferida de nuevo).
+
+---
+
 ## 6. Reglas para Incorporar Nuevas Funcionalidades
 
 Antes de construir cualquier funcionalidad, deben responderse estas cinco preguntas. Si alguna respuesta es negativa, la funcionalidad no debe desarrollarse en este momento.
