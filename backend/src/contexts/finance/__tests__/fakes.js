@@ -55,6 +55,27 @@ function createFakeTransactionRepository(initial = []) {
     async listByDateRange(tenantId, dateStart, dateEnd) {
       return rows.filter((r) => (!tenantId || r.tenantId === tenantId) && inRange(r.paidAt, dateStart, dateEnd));
     },
+    // Entregable 6.4 — completa el fake con los métodos ya usados por los
+    // casos de uso del POS (findById/findActiveByAppointment/settle/void),
+    // sin tenantId en su firma real: el chequeo de propiedad ocurre en el
+    // caso de uso, no en el repositorio (mismo patrón de void-commission).
+    async findById(transactionId) {
+      return rows.find((r) => r.id === transactionId) || null;
+    },
+    async findActiveByAppointment(appointmentId, origin) {
+      return rows.find((r) => r.appointmentId === appointmentId && r.origin === origin && r.status === "active") || null;
+    },
+    async settle(transactionId, { paymentMethod, notes }) {
+      const row = rows.find((r) => r.id === transactionId);
+      if (paymentMethod !== undefined) row.paymentMethod = paymentMethod;
+      if (notes !== undefined) row.notes = notes;
+      return row;
+    },
+    async void(transactionId, { voidedAt, voidReason }) {
+      const row = rows.find((r) => r.id === transactionId);
+      Object.assign(row, { status: "voided", voidedAt, voidReason });
+      return row;
+    },
   };
 }
 
@@ -131,6 +152,21 @@ function createFakeFinancialPeriodRepository(initial = []) {
   };
 }
 
+function createFakeCompletedAppointmentsReader(initial = []) {
+  return {
+    async findById(tenantId, appointmentId) {
+      return (
+        initial.find((a) => a.id === appointmentId && (!tenantId || a.tenantId === tenantId)) || null
+      );
+    },
+    async listCompletedInRange(tenantId, dateStart, dateEnd) {
+      return initial.filter(
+        (a) => (!tenantId || a.tenantId === tenantId) && a.status === "completed" && inRange(a.endedAt, dateStart, dateEnd)
+      );
+    },
+  };
+}
+
 function createFakeCommissionReader(initial = []) {
   return {
     async listByDateRange(tenantId, dateStart, dateEnd) {
@@ -154,6 +190,7 @@ module.exports = {
   createFakeTransactionRepository,
   createFakeDailyCloseRepository,
   createFakeFinancialPeriodRepository,
+  createFakeCompletedAppointmentsReader,
   createFakeCommissionReader,
   createFakeEventPublisher,
 };

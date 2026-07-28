@@ -163,7 +163,7 @@ describe("POS — guards y comandos sobre Transaction (ADR 007-D3)", () => {
     prisma.appointment.findFirst
       .mockResolvedValueOnce({ id: "appt-1" })
       .mockResolvedValueOnce({ id: "appt-1", status: "completed" });
-    prisma.transaction.findFirst.mockResolvedValue({ id: "tx-sys", origin: "system_appointment_completed", status: "active" });
+    prisma.transaction.findFirst.mockResolvedValue({ id: "tx-sys", tenantId: TENANT, origin: "system_appointment_completed", status: "active" });
     prisma.transaction.create.mockImplementation(async ({ data }) => ({
       id: "tx-2", createdAt: new Date(), paidAt: new Date(), status: "active", origin: "manual_pos_sale",
       voidedAt: null, voidReason: null, user: null, pet: null, appointment: null, items: [],

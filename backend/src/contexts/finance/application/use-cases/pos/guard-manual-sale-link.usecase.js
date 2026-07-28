@@ -32,7 +32,11 @@ function createGuardManualSaleLinkUseCase({ transactionRepository, completedAppo
       appointmentId,
       "system_appointment_completed"
     );
-    if (!systemCharge) {
+    // Entregable 6.4 (Fase 6) — mismo chequeo de propiedad de tenant ya
+    // aplicado en los casos de uso hermanos de este mismo módulo
+    // (settle-system-charge, void-manual-sale): un cobro de sistema de otro
+    // establecimiento se trata igual que si no existiera, sin distinguirlo.
+    if (!systemCharge || (tenantId && systemCharge.tenantId !== tenantId)) {
       throw new InvalidTransactionOperationError(
         `La cita "${appointmentId}" está completada pero no tiene cobro de sistema; ` +
           "no puede vinculársele una venta manual (ADR 007)."
