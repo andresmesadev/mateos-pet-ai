@@ -35,4 +35,9 @@ describe("UpdateStaffUseCase", () => {
     expect(staff.generatesCommission).toBe(false);
     expect(staff.name).toBe("Lina");
   });
+
+  test("Entregable 6.3 — rechaza como StaffNotFoundError si el staff pertenece a otro tenant", async () => {
+    const { execute } = buildUseCase();
+    await expect(execute({ staffId: "s-1", name: "Otro", tenantId: "t2" })).rejects.toBeInstanceOf(StaffNotFoundError);
+  });
 });

@@ -29,4 +29,9 @@ describe("DeactivateStaffUseCase", () => {
     const { execute } = buildUseCase();
     await expect(execute({ staffId: "s-2" })).rejects.toBeInstanceOf(StaffAlreadyInactiveError);
   });
+
+  test("Entregable 6.3 — rechaza como StaffNotFoundError si el staff pertenece a otro tenant", async () => {
+    const { execute } = buildUseCase();
+    await expect(execute({ staffId: "s-1", tenantId: "t2" })).rejects.toBeInstanceOf(StaffNotFoundError);
+  });
 });

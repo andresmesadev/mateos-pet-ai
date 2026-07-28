@@ -157,6 +157,7 @@ router.patch("/staff/:id", async (req, res) => {
     if (name !== undefined || role !== undefined || phone !== undefined || email !== undefined) {
       await updateStaff({
         staffId: id,
+        tenantId,
         ...(name !== undefined ? { name: String(name).trim() } : {}),
         ...(role !== undefined ? { role } : {}),
         ...(phone !== undefined ? { phone: phone?.trim() || null } : {}),
@@ -166,9 +167,9 @@ router.patch("/staff/:id", async (req, res) => {
 
     // Activación/desactivación — casos de uso propios (2.2).
     if (active === false && existing.active) {
-      await deactivateStaff({ staffId: id });
+      await deactivateStaff({ staffId: id, tenantId });
     } else if (active === true && !existing.active) {
-      await reactivateStaff({ staffId: id });
+      await reactivateStaff({ staffId: id, tenantId });
     }
 
     // Disponibilidad semanal JSON: campo legado de Fase 1 (ADR 003 — convive
@@ -199,7 +200,7 @@ router.delete("/staff/:id", async (req, res) => {
     if (!existing) return res.status(404).json({ error: "Staff not found" });
 
     // Regla de dominio 2.2: el roster no borra — desactiva (mismo 204 hacia fuera).
-    await deactivateStaff({ staffId: id });
+    await deactivateStaff({ staffId: id, tenantId });
     res.status(204).end();
   } catch (error) {
     if (mapStaffDomainError(res, error)) return;
@@ -214,8 +215,9 @@ router.delete("/staff/:id", async (req, res) => {
 // PUT /staff/:id/availability — body: { type, schedule?, range? }
 router.put("/staff/:id/availability", async (req, res) => {
   try {
+    const { tenantId } = req.tenant;
     const { type, schedule, range } = req.body ?? {};
-    const { availability } = await updateAvailability({ staffId: req.params.id, type, schedule, range });
+    const { availability } = await updateAvailability({ staffId: req.params.id, type, schedule, range, tenantId });
     res.json({ availability });
   } catch (error) {
     if (mapStaffDomainError(res, error)) return;
@@ -227,8 +229,9 @@ router.put("/staff/:id/availability", async (req, res) => {
 // POST /staff/:id/absences — body: { startAt, endAt, reason }
 router.post("/staff/:id/absences", async (req, res) => {
   try {
+    const { tenantId } = req.tenant;
     const { startAt, endAt, reason } = req.body ?? {};
-    const { availability } = await recordUnplannedAbsence({ staffId: req.params.id, startAt, endAt, reason });
+    const { availability } = await recordUnplannedAbsence({ staffId: req.params.id, startAt, endAt, reason, tenantId });
     res.status(201).json({ availability });
   } catch (error) {
     if (mapStaffDomainError(res, error)) return;
@@ -240,8 +243,9 @@ router.post("/staff/:id/absences", async (req, res) => {
 // PUT /staff/:id/capabilities — body: { serviceIds: string[] }
 router.put("/staff/:id/capabilities", async (req, res) => {
   try {
+    const { tenantId } = req.tenant;
     const { serviceIds } = req.body ?? {};
-    const result = await manageStaffCapabilities({ staffId: req.params.id, serviceIds });
+    const result = await manageStaffCapabilities({ staffId: req.params.id, serviceIds, tenantId });
     res.json(result);
   } catch (error) {
     if (mapStaffDomainError(res, error)) return;

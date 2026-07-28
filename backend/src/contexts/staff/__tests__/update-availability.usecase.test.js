@@ -68,4 +68,16 @@ describe("UpdateAvailabilityUseCase", () => {
     const { execute } = buildUseCase();
     await expect(execute({ staffId: "s-1", type: "weird" })).rejects.toBeInstanceOf(InvalidAvailabilityRangeError);
   });
+
+  test("Entregable 6.3 — rechaza como StaffNotFoundError si el staff pertenece a otro tenant", async () => {
+    const { execute } = buildUseCase();
+    await expect(
+      execute({
+        staffId: "s-1",
+        type: "base_schedule",
+        schedule: { weekday: 1, startTime: "08:00", endTime: "17:00" },
+        tenantId: "t2",
+      })
+    ).rejects.toBeInstanceOf(StaffNotFoundError);
+  });
 });

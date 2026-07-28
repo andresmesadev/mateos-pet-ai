@@ -33,4 +33,11 @@ describe("RecordUnplannedAbsenceUseCase", () => {
       execute({ staffId: "s-1", startAt: "2026-07-10T12:00:00Z", endAt: "2026-07-10T08:00:00Z" })
     ).rejects.toBeInstanceOf(InvalidAvailabilityRangeError);
   });
+
+  test("Entregable 6.3 — rechaza como StaffNotFoundError si el staff pertenece a otro tenant", async () => {
+    const { execute } = buildUseCase();
+    await expect(
+      execute({ staffId: "s-1", startAt: "2026-07-10T08:00:00Z", endAt: "2026-07-10T12:00:00Z", tenantId: "t2" })
+    ).rejects.toBeInstanceOf(StaffNotFoundError);
+  });
 });

@@ -19,7 +19,7 @@ const {
 function createGenerateSettlementUseCase({ staffRepository, commissionRepository, settlementRepository, eventPublisher }) {
   return async function execute({ tenantId, staffId, periodStart, periodEnd }) {
     const staff = await staffRepository.findById(staffId);
-    if (!staff) {
+    if (!staff || (tenantId && staff.tenantId !== tenantId)) {
       throw new StaffNotFoundError(staffId);
     }
 

@@ -13,9 +13,9 @@ const { StaffNotFoundError, StaffAlreadyActiveError } = require("../../domain/er
  * @param {import("../ports/domain-event-publisher.port").DomainEventPublisherPort} deps.eventPublisher
  */
 function createReactivateStaffUseCase({ staffRepository, staffCapabilityRepository, eventPublisher }) {
-  return async function execute({ staffId }) {
+  return async function execute({ staffId, tenantId }) {
     const staff = await staffRepository.findById(staffId);
-    if (!staff) {
+    if (!staff || (tenantId && staff.tenantId !== tenantId)) {
       throw new StaffNotFoundError(staffId);
     }
     if (staff.active) {

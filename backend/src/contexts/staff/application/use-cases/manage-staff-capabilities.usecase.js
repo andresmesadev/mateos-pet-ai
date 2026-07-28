@@ -23,9 +23,9 @@ function createManageStaffCapabilitiesUseCase({
   serviceExistenceReader,
   eventPublisher,
 }) {
-  return async function execute({ staffId, serviceIds }) {
+  return async function execute({ staffId, serviceIds, tenantId }) {
     const staff = await staffRepository.findById(staffId);
-    if (!staff) {
+    if (!staff || (tenantId && staff.tenantId !== tenantId)) {
       throw new StaffNotFoundError(staffId);
     }
 

@@ -13,9 +13,9 @@ const { StaffNotFoundError, InvalidAvailabilityRangeError } = require("../../dom
  * @param {import("../ports/domain-event-publisher.port").DomainEventPublisherPort} deps.eventPublisher
  */
 function createUpdateAvailabilityUseCase({ staffRepository, availabilityRepository, eventPublisher }) {
-  return async function execute({ staffId, type, schedule, range }) {
+  return async function execute({ staffId, type, schedule, range, tenantId }) {
     const staff = await staffRepository.findById(staffId);
-    if (!staff) {
+    if (!staff || (tenantId && staff.tenantId !== tenantId)) {
       throw new StaffNotFoundError(staffId);
     }
 

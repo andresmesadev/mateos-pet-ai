@@ -13,9 +13,9 @@ const VALID_ROLES = ["vet", "groomer", "admin"];
  * @param {import("../ports/domain-event-publisher.port").DomainEventPublisherPort} deps.eventPublisher
  */
 function createUpdateStaffUseCase({ staffRepository, eventPublisher }) {
-  return async function execute({ staffId, name, role, phone, email, generatesCommission }) {
+  return async function execute({ staffId, name, role, phone, email, generatesCommission, tenantId }) {
     const staff = await staffRepository.findById(staffId);
-    if (!staff) {
+    if (!staff || (tenantId && staff.tenantId !== tenantId)) {
       throw new StaffNotFoundError(staffId);
     }
     if (role !== undefined && !VALID_ROLES.includes(role)) {

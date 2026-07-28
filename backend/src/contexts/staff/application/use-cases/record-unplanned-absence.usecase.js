@@ -11,9 +11,9 @@ const { StaffNotFoundError, InvalidAvailabilityRangeError } = require("../../dom
  * @param {import("../ports/domain-event-publisher.port").DomainEventPublisherPort} deps.eventPublisher
  */
 function createRecordUnplannedAbsenceUseCase({ staffRepository, availabilityRepository, eventPublisher }) {
-  return async function execute({ staffId, startAt, endAt, reason }) {
+  return async function execute({ staffId, startAt, endAt, reason, tenantId }) {
     const staff = await staffRepository.findById(staffId);
-    if (!staff) {
+    if (!staff || (tenantId && staff.tenantId !== tenantId)) {
       throw new StaffNotFoundError(staffId);
     }
     if (!startAt || !endAt || new Date(startAt) >= new Date(endAt)) {

@@ -84,4 +84,17 @@ describe("RecordCommissionOnAppointmentCompletedUseCase", () => {
       execute({ appointmentId: "a", staffId: "s-1", serviceId: null, resolvedPrice: 1000 })
     ).rejects.toBeInstanceOf(InvalidCommissionInputError);
   });
+
+  test("Entregable 6.3 — rechaza como StaffNotFoundError si el staff pertenece a otro tenant", async () => {
+    const { execute } = buildUseCase();
+    await expect(
+      execute({
+        tenantId: "t2",
+        appointmentId: "a",
+        staffId: "s-1",
+        serviceId: "svc-grooming",
+        resolvedPrice: 1000,
+      })
+    ).rejects.toBeInstanceOf(StaffNotFoundError);
+  });
 });

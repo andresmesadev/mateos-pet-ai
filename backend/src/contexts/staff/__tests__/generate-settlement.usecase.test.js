@@ -71,4 +71,11 @@ describe("GenerateSettlementUseCase", () => {
       SettlementAlreadyExistsError
     );
   });
+
+  test("Entregable 6.3 — rechaza como StaffNotFoundError si el staff pertenece a otro tenant", async () => {
+    const { execute } = buildUseCase();
+    await expect(
+      execute({ staffId: "s-1", periodStart: PERIOD_START, periodEnd: PERIOD_END, tenantId: "t2" })
+    ).rejects.toBeInstanceOf(StaffNotFoundError);
+  });
 });

@@ -23,7 +23,7 @@ function createResolveStaffAvailabilityUseCase({
   availabilityRepository,
   serviceExistenceReader,
 }) {
-  return async function execute({ serviceId, rangeStart, rangeEnd }) {
+  return async function execute({ serviceId, rangeStart, rangeEnd, tenantId }) {
     const exists = await serviceExistenceReader.exists(serviceId);
     if (!exists) {
       throw new ReferencedServiceNotFoundError(serviceId);
@@ -40,6 +40,7 @@ function createResolveStaffAvailabilityUseCase({
     for (const capability of capableStaff) {
       const staff = await staffRepository.findById(capability.staffId);
       if (!staff || !staff.active) continue;
+      if (tenantId && staff.tenantId !== tenantId) continue;
 
       const availabilityRows = await availabilityRepository.listByStaff(staff.id);
       if (isStaffAvailable(availabilityRows, { weekday, startTime, endTime, rangeStart, rangeEnd })) {

@@ -37,7 +37,7 @@ function createRecordCommissionOnAppointmentCompletedUseCase({
     }
 
     const staff = await staffRepository.findById(staffId);
-    if (!staff) {
+    if (!staff || (tenantId && staff.tenantId !== tenantId)) {
       throw new StaffNotFoundError(staffId);
     }
 
