@@ -209,8 +209,8 @@ const handleQueryMedicalHistory = async (userId, session = {}, analysis = {}, us
 
 // ─── Grooming slot formatting ─────────────────────────────────────────────────
 
-const offerNextGroomingSlot = async (petName, referenceDate) => {
-  const slot = await findNextAvailableGroomingSlot({ referenceDate });
+const offerNextGroomingSlot = async (petName, referenceDate, tenantId) => {
+  const slot = await findNextAvailableGroomingSlot({ referenceDate, tenantId });
 
   if (!slot) {
     return {
@@ -286,6 +286,7 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
   const session = options.session || {};
   const userMessage = options.userMessage || "";
   const userId = options.userId;
+  const tenantId = options.tenantId;
   const currentStep = session.step ?? analysis?.step;
 
   if (!analysis || typeof analysis !== "object") {
@@ -351,7 +352,7 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
         sessionPatch: {},
       };
     }
-    const nextSlot = await offerNextGroomingSlot(session.pet_name, now);
+    const nextSlot = await offerNextGroomingSlot(session.pet_name, now, tenantId);
     return nextSlot;
   }
 
@@ -490,7 +491,7 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
     // ── Grooming ─────────────────────────────────────────────────────────────────
     if (service === "bath_grooming") {
       const groomSvc = parseGroomingService(userMessage) || session.grooming_service;
-      const slotResult = await offerNextGroomingSlot(petName, now);
+      const slotResult = await offerNextGroomingSlot(petName, now, tenantId);
       if (groomSvc && slotResult.sessionPatch) {
         slotResult.sessionPatch.grooming_service = groomSvc;
       }
@@ -513,6 +514,7 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
         referenceDate: now,
         awaitingStepConstant: STEPS.AWAITING_DATE_TIME,
         confirmationStepConstant: STEPS.AWAITING_CONFIRMATION,
+        tenantId,
       });
 
       if (vet) {

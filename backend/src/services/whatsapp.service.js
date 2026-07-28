@@ -386,6 +386,7 @@ const processIncomingMessage = async (body) => {
           serviceType,
           dateKey,
           hour,
+          tenantId,
         });
 
         if (hasConflict) {
@@ -607,6 +608,9 @@ const processIncomingMessage = async (body) => {
       now: new Date(),
       userId: user?.id,
       userName: user?.name ?? null,
+      // Entregable 6.2 (Fase 6) — transporta el tenantId ya disponible en
+      // `user` hasta el motor de disponibilidad (Tenant.businessHours real).
+      tenantId: user?.tenantId ?? null,
     }
   );
 

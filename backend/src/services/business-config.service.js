@@ -1,15 +1,16 @@
 /**
  * Entregable 4.3 (Fase 4) — Configuración por Establecimiento (Alcance A).
  *
- * Fuente real de configuración de negocio, hoy limitada a los dos valores
- * ya consumidos por casos de uso existentes (Servicios, Staff) a través de
- * sus respectivos BusinessConfigReaderPort: módulos activos y tasa de split
- * de comisión. Reemplaza los dos PrismaBusinessConfigReader duplicados que
- * devolvían valores hardcodeados sin distinción de tenant.
+ * Fuente real de configuración de negocio, inicialmente limitada a los dos
+ * valores consumidos por casos de uso existentes (Servicios, Staff) a través
+ * de sus respectivos BusinessConfigReaderPort: módulos activos y tasa de
+ * split de comisión. Reemplaza los dos PrismaBusinessConfigReader duplicados
+ * que devolvían valores hardcodeados sin distinción de tenant.
  *
- * Sin relación con horarios de atención ni zona horaria (Alcance B) — ver
- * Reconciliación Arquitectónica del Entregable 4.3: esos dos requieren
- * tocar el motor conversacional protegido desde 3.4, y quedan diferidos.
+ * Entregable 6.2 (Fase 6) — Agenda Multi-Establecimiento: agrega
+ * `getBusinessHours`, misma fuente (`Tenant.businessHours`) y mismo patrón,
+ * ahora consumida por la Reconciliación Arquitectónica puntual sobre el
+ * motor de disponibilidad (Alcance B de 4.3, diferido hasta este entregable).
  */
 const prisma = require("../lib/prisma");
 
@@ -38,6 +39,22 @@ const getCommissionSplitRate = async (tenantId, _categoryId) => {
     select: { commissionSplitRate: true },
   });
   return tenant ? Number(tenant.commissionSplitRate) : DEFAULT_COMMISSION_SPLIT_RATE;
+};
+
+/**
+ * @param {string} tenantId
+ * @returns {Promise<object|null>} el JSON `Tenant.businessHours` tal cual está
+ *   persistido, o `null` si no hay `tenantId`, el tenant no existe o no tiene
+ *   configuración propia — en cuyo caso el llamador debe aplicar su propio
+ *   comportamiento por defecto (nunca asumir aquí cuál es).
+ */
+const getBusinessHours = async (tenantId) => {
+  if (!tenantId) return null;
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { businessHours: true },
+  });
+  return tenant?.businessHours ?? null;
 };
 
 const updateActiveModules = async (tenantId, modules) => {
@@ -70,6 +87,7 @@ module.exports = {
   DEFAULT_COMMISSION_SPLIT_RATE,
   getActiveModules,
   getCommissionSplitRate,
+  getBusinessHours,
   updateActiveModules,
   updateCommissionSplitRate,
 };

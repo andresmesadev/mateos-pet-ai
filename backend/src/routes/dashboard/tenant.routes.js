@@ -11,6 +11,45 @@ function resolveTenantId(req) {
   return tenantId || (isSuperAdmin ? process.env.SINGLE_TENANT_ID : null) || null;
 }
 
+// Entregable 6.2 (Fase 6) — Agenda Multi-Establecimiento: `businessHours`
+// pasa de ser decorativo a vincular la reserva real (`availability.service.js`).
+// Se endurece su validación en el único punto de entrada (esta ruta) para que
+// una configuración malformada nunca llegue a persistirse — el motor de
+// disponibilidad ya trata cualquier entrada inválida como "sin configurar"
+// (comportamiento legado), pero es mejor rechazarla aquí que dejarla
+// silenciosamente inerte.
+const BUSINESS_HOURS_DAY_KEYS = new Set(["mon", "tue", "wed", "thu", "fri", "sat", "sun"]);
+const HH_MM_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+function validateBusinessHours(businessHours) {
+  if (typeof businessHours !== "object" || businessHours === null || Array.isArray(businessHours)) {
+    return "businessHours debe ser un objeto";
+  }
+  for (const [day, entry] of Object.entries(businessHours)) {
+    if (!BUSINESS_HOURS_DAY_KEYS.has(day)) {
+      return `Día no reconocido en businessHours: "${day}"`;
+    }
+    if (typeof entry !== "object" || entry === null) {
+      return `La configuración de "${day}" debe ser un objeto`;
+    }
+    if (typeof entry.active !== "boolean") {
+      return `"${day}.active" debe ser booleano`;
+    }
+    if (entry.active) {
+      if (typeof entry.open !== "string" || !HH_MM_PATTERN.test(entry.open)) {
+        return `"${day}.open" debe tener formato HH:mm`;
+      }
+      if (typeof entry.close !== "string" || !HH_MM_PATTERN.test(entry.close)) {
+        return `"${day}.close" debe tener formato HH:mm`;
+      }
+      if (entry.open >= entry.close) {
+        return "La hora de apertura debe ser anterior a la hora de cierre";
+      }
+    }
+  }
+  return null;
+}
+
 router.get("/tenant/profile", async (req, res) => {
   try {
     const tenantId = resolveTenantId(req);
@@ -47,14 +86,9 @@ router.put("/tenant/profile", async (req, res) => {
     if (address !== undefined) data.address = address?.trim() || null;
     if (logoUrl !== undefined) data.logoUrl = logoUrl?.trim() || null;
     if (businessHours !== undefined) {
-      if (typeof businessHours === "object" && businessHours !== null) {
-        for (const [, val] of Object.entries(businessHours)) {
-          if (val?.active && typeof val.open === "string" && typeof val.close === "string") {
-            if (val.open >= val.close) {
-              return res.status(400).json({ error: "La hora de apertura debe ser anterior a la hora de cierre" });
-            }
-          }
-        }
+      const validationError = validateBusinessHours(businessHours);
+      if (validationError) {
+        return res.status(400).json({ error: validationError });
       }
       data.businessHours = businessHours;
     }

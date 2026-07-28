@@ -407,9 +407,16 @@ const findAppointmentsByUser = async (userId) => {
 
 /**
  * true si el slot ya no está disponible (ocupado u horario inválido).
+ *
+ * Entregable 6.2 (Fase 6) — Agenda Multi-Establecimiento: recibe `tenantId`
+ * opcional, transportado hasta `isSlotAvailable` para que la verificación de
+ * conflicto en la confirmación final use la misma fuente de verdad
+ * (`Tenant.businessHours`) que el ofrecimiento inicial del horario — cierra
+ * el bypass detectado por grep exhaustivo en la Macroetapa 3 (este era el
+ * único consumidor de `isSlotAvailable` que no transportaba `tenantId`).
  * @returns {Promise<boolean>}
  */
-const checkAppointmentConflict = async ({ date, serviceType, dateKey, hour }) => {
+const checkAppointmentConflict = async ({ date, serviceType, dateKey, hour, tenantId }) => {
   if (!serviceType) {
     throw new Error("serviceType is required");
   }
@@ -433,6 +440,7 @@ const checkAppointmentConflict = async ({ date, serviceType, dateKey, hour }) =>
       dateKey: key,
       hour: h,
       serviceType: availabilityType,
+      tenantId,
     });
 
     if (!available) {

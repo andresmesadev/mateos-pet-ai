@@ -1,6 +1,12 @@
 /**
  * Orquestación de agenda entre conversación y disponibilidad (PostgreSQL).
  * Logs con prefijo [scheduling].
+ *
+ * Entregable 6.2 (Fase 6) — Agenda Multi-Establecimiento: `resolveVetScheduling`/
+ * `resolveGroomingScheduling` reciben ahora un `tenantId` opcional, usado
+ * únicamente para leer `Tenant.businessHours` (vía `business-config.service.js`,
+ * mismo patrón de 4.3) y aplicarlo como fuente real de horario de atención.
+ * Sin `tenantId`, el comportamiento es exactamente el legado de siempre.
  */
 
 const {
@@ -18,6 +24,7 @@ const {
 } = require("../lib/timezone");
 
 const availabilityDb = require("./availability-db.service");
+const { getBusinessHours } = require("./business-config.service");
 
 const normalizeText = (text) => {
   if (typeof text !== "string") {
@@ -338,6 +345,7 @@ const resolveVetScheduling = async ({
   referenceDate = new Date(),
   awaitingStepConstant,
   confirmationStepConstant,
+  tenantId,
 }) => {
   console.log("[Scheduling] Using DB availability");
 
@@ -356,7 +364,14 @@ const resolveVetScheduling = async ({
     return null;
   }
 
-  if (!isBusinessDay(dateKey)) {
+  let businessHours = null;
+  try {
+    businessHours = await getBusinessHours(tenantId);
+  } catch (error) {
+    console.error("[scheduling] Fallo leyendo configuración del establecimiento, se usa comportamiento legado:", error.message);
+  }
+
+  if (!isBusinessDay(dateKey, businessHours)) {
     console.log("[scheduling] CASO 3: día no hábil", dateKey);
     return {
       reply: "Ese día no tenemos atención 😔 ¿Qué otro día te queda bien?",
@@ -364,7 +379,7 @@ const resolveVetScheduling = async ({
     };
   }
 
-  if (!isWithinBusinessHours(SERVICE_TYPES.VET, hour)) {
+  if (!isWithinBusinessHours(SERVICE_TYPES.VET, hour, dateKey, businessHours)) {
     console.log("[scheduling] Hora fuera de horario vet:", hour);
     return {
       reply: "Ese horario está fuera de nuestra atención (11am a 5pm) 😊 ¿Qué otra hora te viene bien?",
@@ -376,6 +391,7 @@ const resolveVetScheduling = async ({
     dateKey,
     hour,
     serviceType: SERVICE_TYPES.VET,
+    tenantId,
   });
 
   if (available) {
@@ -396,6 +412,7 @@ const resolveVetScheduling = async ({
     dateKey,
     requestedHour: hour,
     limit: 3,
+    tenantId,
   });
 
   console.log("[Scheduling] Real alternatives found:", alternatives);
@@ -460,6 +477,7 @@ const resolveGroomingScheduling = async ({
   referenceDate = new Date(),
   awaitingStepConstant,
   confirmationStepConstant,
+  tenantId,
 }) => {
   console.log("[Scheduling] Using DB availability (grooming)");
 
@@ -470,7 +488,14 @@ const resolveGroomingScheduling = async ({
     return null;
   }
 
-  if (!isBusinessDay(dateKey)) {
+  let businessHours = null;
+  try {
+    businessHours = await getBusinessHours(tenantId);
+  } catch (error) {
+    console.error("[scheduling] Fallo leyendo configuración del establecimiento, se usa comportamiento legado:", error.message);
+  }
+
+  if (!isBusinessDay(dateKey, businessHours)) {
     return {
       reply:
         "Ese día no tenemos atención 😔\n¿Deseas otro horario?",
@@ -478,7 +503,7 @@ const resolveGroomingScheduling = async ({
     };
   }
 
-  if (!isWithinBusinessHours(SERVICE_TYPES.GROOMING, hour)) {
+  if (!isWithinBusinessHours(SERVICE_TYPES.GROOMING, hour, dateKey, businessHours)) {
     return {
       reply:
         "Ese horario está fuera de nuestro horario de grooming (11am a 4pm) 😊\n¿Qué otra hora te viene bien?",
@@ -490,6 +515,7 @@ const resolveGroomingScheduling = async ({
     dateKey,
     hour,
     serviceType: SERVICE_TYPES.GROOMING,
+    tenantId,
   });
 
   if (available) {
