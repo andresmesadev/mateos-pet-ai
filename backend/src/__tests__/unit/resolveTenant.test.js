@@ -41,16 +41,27 @@ describe("resolveTenant middleware", () => {
     process.env = originalEnv;
   });
 
-  test("1. NODE_ENV=test, no secret → allow, read headers directly (super admin)", async () => {
+  test("1. NODE_ENV=test, no secret, super admin sin tenantId ni X-View-All-Tenants → 403 (Entregable 6.6)", async () => {
     const req = makeReq({ "x-super-admin": "true" });
     const res = makeRes();
     const next = jest.fn();
 
     await resolveTenant(req, res, next);
 
+    expect(next).not.toHaveBeenCalled();
+    expect(res._status).toBe(403);
+    expect(prisma.tenant.findUnique).not.toHaveBeenCalled();
+  });
+
+  test("1b. NODE_ENV=test, super admin sin tenantId con X-View-All-Tenants=true → allow, viewAllTenants: true", async () => {
+    const req = makeReq({ "x-super-admin": "true", "x-view-all-tenants": "true" });
+    const res = makeRes();
+    const next = jest.fn();
+
+    await resolveTenant(req, res, next);
+
     expect(next).toHaveBeenCalled();
-    expect(req.tenant).toEqual({ isSuperAdmin: true, tenantId: null });
-    // Sin tenantId, no hay tenant que verificar.
+    expect(req.tenant).toEqual({ isSuperAdmin: true, tenantId: null, viewAllTenants: true });
     expect(prisma.tenant.findUnique).not.toHaveBeenCalled();
   });
 
@@ -67,7 +78,7 @@ describe("resolveTenant middleware", () => {
     expect(res._status).toBe(401);
   });
 
-  test("3. Correct token, X-Super-Admin=true, no X-Tenant-Id → { isSuperAdmin: true, tenantId: null }", async () => {
+  test("3. Correct token, X-Super-Admin=true, no X-Tenant-Id, no X-View-All-Tenants → 403 (Entregable 6.6)", async () => {
     process.env.NODE_ENV = "production";
     process.env.INTERNAL_API_SECRET = "mysecret";
     const req = makeReq({ "x-internal-token": "mysecret", "x-super-admin": "true" });
@@ -76,8 +87,25 @@ describe("resolveTenant middleware", () => {
 
     await resolveTenant(req, res, next);
 
+    expect(next).not.toHaveBeenCalled();
+    expect(res._status).toBe(403);
+  });
+
+  test("3b. Correct token, X-Super-Admin=true, no X-Tenant-Id, X-View-All-Tenants=true → allow, viewAllTenants: true", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.INTERNAL_API_SECRET = "mysecret";
+    const req = makeReq({
+      "x-internal-token": "mysecret",
+      "x-super-admin": "true",
+      "x-view-all-tenants": "true",
+    });
+    const res = makeRes();
+    const next = jest.fn();
+
+    await resolveTenant(req, res, next);
+
     expect(next).toHaveBeenCalled();
-    expect(req.tenant).toEqual({ isSuperAdmin: true, tenantId: null });
+    expect(req.tenant).toEqual({ isSuperAdmin: true, tenantId: null, viewAllTenants: true });
   });
 
   test("4. Correct token, X-Super-Admin=true, X-Tenant-Id=xxx → { isSuperAdmin: true, tenantId: 'xxx' }", async () => {
@@ -94,7 +122,7 @@ describe("resolveTenant middleware", () => {
     await resolveTenant(req, res, next);
 
     expect(next).toHaveBeenCalled();
-    expect(req.tenant).toEqual({ isSuperAdmin: true, tenantId: "xxx" });
+    expect(req.tenant).toEqual({ isSuperAdmin: true, tenantId: "xxx", viewAllTenants: false });
   });
 
   test("5. Correct token, X-Super-Admin=false, X-Tenant-Id=xxx → { isSuperAdmin: false, tenantId: 'xxx' }", async () => {
@@ -111,7 +139,7 @@ describe("resolveTenant middleware", () => {
     await resolveTenant(req, res, next);
 
     expect(next).toHaveBeenCalled();
-    expect(req.tenant).toEqual({ isSuperAdmin: false, tenantId: "xxx" });
+    expect(req.tenant).toEqual({ isSuperAdmin: false, tenantId: "xxx", viewAllTenants: false });
   });
 
   test("6. Correct token, X-Super-Admin=false, no X-Tenant-Id → 403", async () => {
@@ -139,7 +167,7 @@ describe("resolveTenant middleware", () => {
     await resolveTenant(req, res, next);
 
     expect(next).toHaveBeenCalled();
-    expect(req.tenant).toEqual({ isSuperAdmin: false, tenantId: "tenant-abc" });
+    expect(req.tenant).toEqual({ isSuperAdmin: false, tenantId: "tenant-abc", viewAllTenants: false });
   });
 
   // Entregable 4.4 — Facturación / Habilitación Comercial: Tenant.active como

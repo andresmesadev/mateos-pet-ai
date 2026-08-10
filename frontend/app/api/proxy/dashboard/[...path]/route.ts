@@ -46,12 +46,20 @@ async function handler(
     ? (req.nextUrl.searchParams.get("tenantId") ?? session.user.tenantId ?? null)
     : (session.user.tenantId ?? null);
 
-  // Build backend URL, forwarding non-tenantId query params
+  // Entregable 6.6 (Fase 6) — Operación Centralizada, Fase B: un super admin
+  // sin tenantId debe declarar explícitamente la intención de ver todos los
+  // establecimientos (`viewAllTenants=1`); sin ese parámetro, el backend
+  // rechaza la request (ver resolveTenant.js). Un usuario normal nunca
+  // puede solicitar esta vista.
+  const viewAllTenants =
+    isSuperAdmin && !tenantId && req.nextUrl.searchParams.get("viewAllTenants") === "1";
+
+  // Build backend URL, forwarding non-tenantId/non-viewAllTenants query params
   const backendUrl = new URL(
     `${BACKEND_URL}/api/dashboard/${path.join("/")}`
   );
   req.nextUrl.searchParams.forEach((value, key) => {
-    if (key !== "tenantId") backendUrl.searchParams.set(key, value);
+    if (key !== "tenantId" && key !== "viewAllTenants") backendUrl.searchParams.set(key, value);
   });
 
   const headers: Record<string, string> = {
@@ -60,6 +68,7 @@ async function handler(
     "X-Super-Admin": String(isSuperAdmin),
   };
   if (tenantId) headers["X-Tenant-Id"] = tenantId;
+  if (viewAllTenants) headers["X-View-All-Tenants"] = "true";
 
   const body =
     req.method !== "GET" && req.method !== "DELETE"
