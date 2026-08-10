@@ -63,4 +63,15 @@ describe("ConfigureAutonomyLimitUseCase", () => {
       InvalidDigitalEmployeeAttributesError
     );
   });
+
+  // Entregable 6.5 — Automatizaciones y Empleados Digitales Multi-Establecimiento.
+  test("rechaza configurar el límite de un Empleado Digital de otro tenant como si no existiera", async () => {
+    const digitalEmployeeRepository = buildRepository([{ id: "de-1", tenantId: "t2" }]);
+    const eventPublisher = buildEventPublisher();
+    const execute = createConfigureAutonomyLimitUseCase({ digitalEmployeeRepository, eventPublisher });
+
+    await expect(
+      execute({ digitalEmployeeId: "de-1", action: "responder_mensaje", autoApproved: true, tenantId: "t1" })
+    ).rejects.toBeInstanceOf(DigitalEmployeeNotFoundError);
+  });
 });

@@ -1,9 +1,12 @@
 const { EscalationNotFoundError, EscalationAlreadyResolvedError } = require("../../domain/errors");
 
 function createAttendEscalationUseCase({ escalationRepository, eventPublisher }) {
-  return async function execute({ escalationId, assignedStaffId = null }) {
+  return async function execute({ escalationId, tenantId = null, assignedStaffId = null }) {
     const escalation = await escalationRepository.findById(escalationId);
-    if (!escalation) throw new EscalationNotFoundError(escalationId);
+    const ownerTenantId = escalation?.agentTask?.digitalEmployee?.tenantId ?? null;
+    if (!escalation || (tenantId && ownerTenantId !== tenantId)) {
+      throw new EscalationNotFoundError(escalationId);
+    }
     if (escalation.status === "atendida") throw new EscalationAlreadyResolvedError(escalationId);
 
     const resolved = await escalationRepository.resolve(escalationId, assignedStaffId);

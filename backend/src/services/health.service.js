@@ -1,7 +1,7 @@
 const OpenAI = require("openai");
 const prisma = require("../lib/prisma");
 
-const APP_VERSION = "2.19.0";
+const APP_VERSION = "2.20.0";
 
 const openaiClient = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,

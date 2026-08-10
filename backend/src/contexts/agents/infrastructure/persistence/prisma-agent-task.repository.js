@@ -7,7 +7,10 @@ class PrismaAgentTaskRepository extends AgentTaskRepositoryPort {
   }
 
   async findById(id) {
-    return prisma.agentTask.findUnique({ where: { id } });
+    return prisma.agentTask.findUnique({
+      where: { id },
+      include: { digitalEmployee: { select: { tenantId: true } } },
+    });
   }
 
   async complete(id, result) {

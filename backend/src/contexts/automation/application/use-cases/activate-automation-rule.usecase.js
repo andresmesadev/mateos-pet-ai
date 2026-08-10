@@ -6,9 +6,11 @@ const { AutomationRuleNotFoundError } = require("../../domain/errors");
  * una Regla ya activa no es un error de negocio.
  */
 function createActivateAutomationRuleUseCase({ automationRuleRepository, eventPublisher }) {
-  return async function execute({ automationRuleId }) {
+  return async function execute({ automationRuleId, tenantId = null }) {
     const rule = await automationRuleRepository.findById(automationRuleId);
-    if (!rule) throw new AutomationRuleNotFoundError(automationRuleId);
+    if (!rule || (tenantId && rule.tenantId !== tenantId)) {
+      throw new AutomationRuleNotFoundError(automationRuleId);
+    }
 
     const activated = rule.active ? rule : await automationRuleRepository.activate(automationRuleId);
     await eventPublisher.publish("ReglaDeAutomatizacionActivada", { rule: activated });

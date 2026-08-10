@@ -30,4 +30,31 @@ describe("AttendEscalationUseCase", () => {
     await execute({ escalationId: "esc-1" });
     await expect(execute({ escalationId: "esc-1" })).rejects.toBeInstanceOf(EscalationAlreadyResolvedError);
   });
+
+  // Entregable 6.5 — Automatizaciones y Empleados Digitales Multi-Establecimiento.
+  test("atiende una Escalación del mismo tenant (verificada vía join agentTask.digitalEmployee.tenantId)", async () => {
+    const escalationRepository = buildRepository([
+      { id: "esc-1", status: "pendiente", agentTask: { digitalEmployee: { tenantId: "t1" } } },
+    ]);
+    const execute = createAttendEscalationUseCase({ escalationRepository, eventPublisher });
+    const { escalation } = await execute({ escalationId: "esc-1", tenantId: "t1" });
+    expect(escalation.status).toBe("atendida");
+  });
+
+  test("rechaza atender una Escalación de otro tenant como si no existiera", async () => {
+    const escalationRepository = buildRepository([
+      { id: "esc-1", status: "pendiente", agentTask: { digitalEmployee: { tenantId: "t2" } } },
+    ]);
+    const execute = createAttendEscalationUseCase({ escalationRepository, eventPublisher });
+    await expect(execute({ escalationId: "esc-1", tenantId: "t1" })).rejects.toBeInstanceOf(EscalationNotFoundError);
+  });
+
+  test("sin tenantId (uso interno) no filtra por tenant", async () => {
+    const escalationRepository = buildRepository([
+      { id: "esc-1", status: "pendiente", agentTask: { digitalEmployee: { tenantId: "t2" } } },
+    ]);
+    const execute = createAttendEscalationUseCase({ escalationRepository, eventPublisher });
+    const { escalation } = await execute({ escalationId: "esc-1" });
+    expect(escalation.status).toBe("atendida");
+  });
 });

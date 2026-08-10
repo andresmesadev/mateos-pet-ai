@@ -81,7 +81,7 @@ describe("POST /automation-rules/:id/activate y /deactivate", () => {
   });
 
   test("desactivar es idempotente (200) incluso si ya está inactiva", async () => {
-    prisma.automationRule.findUnique.mockResolvedValue({ id: "rule-1", active: false });
+    prisma.automationRule.findUnique.mockResolvedValue({ id: "rule-1", tenantId: "tenant-a", active: false });
 
     const res = await request(buildApp()).post("/api/dashboard/automation-rules/rule-1/deactivate");
 
@@ -109,7 +109,7 @@ describe("GET /automation-rules y /automation-rules/:id/executions", () => {
   });
 
   test("consultar ejecuciones de una Regla existente responde 200", async () => {
-    prisma.automationRule.findUnique.mockResolvedValue({ id: "rule-1" });
+    prisma.automationRule.findUnique.mockResolvedValue({ id: "rule-1", tenantId: "tenant-a" });
     prisma.automationExecution.findMany.mockResolvedValue([{ id: "exec-1", status: "success" }]);
 
     const res = await request(buildApp()).get("/api/dashboard/automation-rules/rule-1/executions");

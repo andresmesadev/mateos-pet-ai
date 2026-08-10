@@ -53,7 +53,8 @@ router.post("/automation-rules", async (req, res) => {
 // POST /automation-rules/:id/activate — Activar Regla (Administración).
 router.post("/automation-rules/:id/activate", async (req, res) => {
   try {
-    const { rule } = await activateAutomationRule({ automationRuleId: req.params.id });
+    const { tenantId } = req.tenant;
+    const { rule } = await activateAutomationRule({ automationRuleId: req.params.id, tenantId });
     res.json(rule);
   } catch (error) {
     if (mapAutomationDomainError(res, error)) return;
@@ -65,7 +66,8 @@ router.post("/automation-rules/:id/activate", async (req, res) => {
 // POST /automation-rules/:id/deactivate — Desactivar Regla (Administración).
 router.post("/automation-rules/:id/deactivate", async (req, res) => {
   try {
-    const { rule } = await deactivateAutomationRule({ automationRuleId: req.params.id });
+    const { tenantId } = req.tenant;
+    const { rule } = await deactivateAutomationRule({ automationRuleId: req.params.id, tenantId });
     res.json(rule);
   } catch (error) {
     if (mapAutomationDomainError(res, error)) return;
@@ -89,7 +91,8 @@ router.get("/automation-rules", async (req, res) => {
 // GET /automation-rules/:id/executions — Consultar Historial de Ejecuciones de una Regla.
 router.get("/automation-rules/:id/executions", async (req, res) => {
   try {
-    const { executions } = await getAutomationExecutions({ automationRuleId: req.params.id });
+    const { tenantId } = req.tenant;
+    const { executions } = await getAutomationExecutions({ automationRuleId: req.params.id, tenantId });
     res.json(executions);
   } catch (error) {
     if (mapAutomationDomainError(res, error)) return;

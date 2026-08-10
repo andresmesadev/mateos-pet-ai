@@ -7,7 +7,10 @@ class PrismaEscalationRepository extends EscalationRepositoryPort {
   }
 
   async findById(id) {
-    return prisma.escalation.findUnique({ where: { id } });
+    return prisma.escalation.findUnique({
+      where: { id },
+      include: { agentTask: { include: { digitalEmployee: { select: { tenantId: true } } } } },
+    });
   }
 
   async resolve(id, assignedStaffId) {

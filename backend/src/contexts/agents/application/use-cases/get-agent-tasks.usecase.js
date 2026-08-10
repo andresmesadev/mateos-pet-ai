@@ -1,9 +1,11 @@
 const { DigitalEmployeeNotFoundError } = require("../../domain/errors");
 
 function createGetAgentTasksUseCase({ digitalEmployeeRepository, agentTaskRepository }) {
-  return async function execute({ digitalEmployeeId }) {
+  return async function execute({ digitalEmployeeId, tenantId = null }) {
     const employee = await digitalEmployeeRepository.findById(digitalEmployeeId);
-    if (!employee) throw new DigitalEmployeeNotFoundError(digitalEmployeeId);
+    if (!employee || (tenantId && employee.tenantId !== tenantId)) {
+      throw new DigitalEmployeeNotFoundError(digitalEmployeeId);
+    }
     const tasks = await agentTaskRepository.listByEmployee(digitalEmployeeId);
     return { tasks };
   };

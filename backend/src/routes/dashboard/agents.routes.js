@@ -60,7 +60,8 @@ router.post("/digital-employees", async (req, res) => {
 // POST /digital-employees/:id/pause — Pausar Empleado Digital (Administración).
 router.post("/digital-employees/:id/pause", async (req, res) => {
   try {
-    const { digitalEmployee } = await pauseDigitalEmployee({ digitalEmployeeId: req.params.id });
+    const { tenantId } = req.tenant;
+    const { digitalEmployee } = await pauseDigitalEmployee({ digitalEmployeeId: req.params.id, tenantId });
     res.json(digitalEmployee);
   } catch (error) {
     if (mapAgentsDomainError(res, error)) return;
@@ -72,7 +73,8 @@ router.post("/digital-employees/:id/pause", async (req, res) => {
 // POST /digital-employees/:id/reactivate — Reactivar Empleado Digital (Administración).
 router.post("/digital-employees/:id/reactivate", async (req, res) => {
   try {
-    const { digitalEmployee } = await reactivateDigitalEmployee({ digitalEmployeeId: req.params.id });
+    const { tenantId } = req.tenant;
+    const { digitalEmployee } = await reactivateDigitalEmployee({ digitalEmployeeId: req.params.id, tenantId });
     res.json(digitalEmployee);
   } catch (error) {
     if (mapAgentsDomainError(res, error)) return;
@@ -84,8 +86,9 @@ router.post("/digital-employees/:id/reactivate", async (req, res) => {
 // POST /digital-employees/:id/autonomy-limits — Configurar Límite de Autonomía (Administración).
 router.post("/digital-employees/:id/autonomy-limits", async (req, res) => {
   try {
+    const { tenantId } = req.tenant;
     const { action, autoApproved } = req.body ?? {};
-    const { limit } = await configureAutonomyLimit({ digitalEmployeeId: req.params.id, action, autoApproved });
+    const { limit } = await configureAutonomyLimit({ digitalEmployeeId: req.params.id, action, autoApproved, tenantId });
     res.status(201).json(limit);
   } catch (error) {
     if (mapAgentsDomainError(res, error)) return;
@@ -109,7 +112,8 @@ router.get("/digital-employees", async (req, res) => {
 // GET /digital-employees/:id/tasks — Consultar Tareas de un Empleado Digital.
 router.get("/digital-employees/:id/tasks", async (req, res) => {
   try {
-    const { tasks } = await getAgentTasks({ digitalEmployeeId: req.params.id });
+    const { tenantId } = req.tenant;
+    const { tasks } = await getAgentTasks({ digitalEmployeeId: req.params.id, tenantId });
     res.json(tasks);
   } catch (error) {
     if (mapAgentsDomainError(res, error)) return;
@@ -121,7 +125,8 @@ router.get("/digital-employees/:id/tasks", async (req, res) => {
 // GET /agent-tasks/:id/decisions — Consultar Decisiones de una Tarea.
 router.get("/agent-tasks/:id/decisions", async (req, res) => {
   try {
-    const { decisions } = await getAgentDecisions({ agentTaskId: req.params.id });
+    const { tenantId } = req.tenant;
+    const { decisions } = await getAgentDecisions({ agentTaskId: req.params.id, tenantId });
     res.json(decisions);
   } catch (error) {
     if (mapAgentsDomainError(res, error)) return;
@@ -145,8 +150,9 @@ router.get("/escalations/pending", async (req, res) => {
 // POST /escalations/:id/attend — Atender Escalación (Administración).
 router.post("/escalations/:id/attend", async (req, res) => {
   try {
+    const { tenantId } = req.tenant;
     const { assignedStaffId } = req.body ?? {};
-    const { escalation } = await attendEscalation({ escalationId: req.params.id, assignedStaffId });
+    const { escalation } = await attendEscalation({ escalationId: req.params.id, tenantId, assignedStaffId });
     res.json(escalation);
   } catch (error) {
     if (mapAgentsDomainError(res, error)) return;

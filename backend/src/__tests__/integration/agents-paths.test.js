@@ -66,7 +66,7 @@ describe("POST /digital-employees/:id/pause y /reactivate", () => {
   });
 
   test("pausar un Empleado Digital ya pausado responde 409", async () => {
-    prisma.digitalEmployee.findUnique.mockResolvedValue({ id: "de-1", status: "pausado" });
+    prisma.digitalEmployee.findUnique.mockResolvedValue({ id: "de-1", tenantId: "tenant-a", status: "pausado" });
 
     const res = await request(buildApp()).post("/api/dashboard/digital-employees/de-1/pause");
 
@@ -74,7 +74,7 @@ describe("POST /digital-employees/:id/pause y /reactivate", () => {
   });
 
   test("pausa correctamente un Empleado Digital activo", async () => {
-    prisma.digitalEmployee.findUnique.mockResolvedValue({ id: "de-1", status: "activo" });
+    prisma.digitalEmployee.findUnique.mockResolvedValue({ id: "de-1", tenantId: "tenant-a", status: "activo" });
     prisma.digitalEmployee.update.mockResolvedValue({ id: "de-1", status: "pausado" });
 
     const res = await request(buildApp()).post("/api/dashboard/digital-employees/de-1/pause");
@@ -109,7 +109,11 @@ describe("GET /escalations/pending y POST /escalations/:id/attend", () => {
   });
 
   test("atender una Escalación ya atendida responde 409", async () => {
-    prisma.escalation.findUnique.mockResolvedValue({ id: "esc-1", status: "atendida" });
+    prisma.escalation.findUnique.mockResolvedValue({
+      id: "esc-1",
+      status: "atendida",
+      agentTask: { digitalEmployee: { tenantId: "tenant-a" } },
+    });
 
     const res = await request(buildApp()).post("/api/dashboard/escalations/esc-1/attend");
 
@@ -117,7 +121,11 @@ describe("GET /escalations/pending y POST /escalations/:id/attend", () => {
   });
 
   test("atiende correctamente una Escalación pendiente", async () => {
-    prisma.escalation.findUnique.mockResolvedValue({ id: "esc-1", status: "pendiente" });
+    prisma.escalation.findUnique.mockResolvedValue({
+      id: "esc-1",
+      status: "pendiente",
+      agentTask: { digitalEmployee: { tenantId: "tenant-a" } },
+    });
     prisma.escalation.update.mockResolvedValue({ id: "esc-1", status: "atendida" });
 
     const res = await request(buildApp()).post("/api/dashboard/escalations/esc-1/attend");

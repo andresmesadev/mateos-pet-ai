@@ -69,4 +69,24 @@ describe("PauseDigitalEmployeeUseCase / ReactivateDigitalEmployeeUseCase", () =>
     const reactivate = createReactivateDigitalEmployeeUseCase({ digitalEmployeeRepository, eventPublisher });
     await expect(reactivate({ digitalEmployeeId: "de-1" })).rejects.toBeInstanceOf(DigitalEmployeeAlreadyActiveError);
   });
+
+  // Entregable 6.5 — Automatizaciones y Empleados Digitales Multi-Establecimiento.
+  test("pausar un Empleado Digital de otro tenant rechaza como si no existiera", async () => {
+    const digitalEmployeeRepository = buildRepository([{ id: "de-1", tenantId: "t2", status: "activo" }]);
+    const pause = createPauseDigitalEmployeeUseCase({ digitalEmployeeRepository, eventPublisher });
+    await expect(pause({ digitalEmployeeId: "de-1", tenantId: "t1" })).rejects.toBeInstanceOf(DigitalEmployeeNotFoundError);
+  });
+
+  test("reactivar un Empleado Digital de otro tenant rechaza como si no existiera", async () => {
+    const digitalEmployeeRepository = buildRepository([{ id: "de-1", tenantId: "t2", status: "pausado" }]);
+    const reactivate = createReactivateDigitalEmployeeUseCase({ digitalEmployeeRepository, eventPublisher });
+    await expect(reactivate({ digitalEmployeeId: "de-1", tenantId: "t1" })).rejects.toBeInstanceOf(DigitalEmployeeNotFoundError);
+  });
+
+  test("pausar/reactivar del mismo tenant funciona con verificación explícita", async () => {
+    const digitalEmployeeRepository = buildRepository([{ id: "de-1", tenantId: "t1", status: "activo" }]);
+    const pause = createPauseDigitalEmployeeUseCase({ digitalEmployeeRepository, eventPublisher });
+    const { digitalEmployee } = await pause({ digitalEmployeeId: "de-1", tenantId: "t1" });
+    expect(digitalEmployee.status).toBe("pausado");
+  });
 });
