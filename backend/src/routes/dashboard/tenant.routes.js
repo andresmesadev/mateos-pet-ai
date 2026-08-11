@@ -159,4 +159,85 @@ router.get("/stats", async (req, res) => {
   }
 });
 
+/**
+ * Entregable 6.6 (Fase 6) — Operación Centralizada, Fase A: capacidad
+ * administrativa de solo lectura, gateada exclusivamente por
+ * `req.tenant.viewAllTenants` (mecanismo cerrado en la Fase B). Nunca
+ * expone registros individuales — solo agregados por tenant, calculados
+ * desde `Transaction`/`Expense` (nunca `DailyClose`, que depende de que
+ * el tenant haya cerrado el día). `Commission`/payroll queda fuera de
+ * alcance por decisión explícita del diseño congelado.
+ */
+router.get("/tenants/overview", async (req, res) => {
+  try {
+    if (!req.tenant.viewAllTenants) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const tenants = await prisma.tenant.findMany({
+      where: { active: true },
+      select: { id: true, name: true, plan: true, active: true },
+    });
+    const tenantIds = tenants.map((t) => t.id);
+
+    const [userCounts, appointmentCounts, conversationCounts, revenueSums, expenseSums] =
+      await Promise.all([
+        prisma.user.groupBy({
+          by: ["tenantId"],
+          where: { tenantId: { in: tenantIds } },
+          _count: { _all: true },
+        }),
+        prisma.appointment.groupBy({
+          by: ["tenantId"],
+          where: { tenantId: { in: tenantIds } },
+          _count: { _all: true },
+        }),
+        prisma.conversation.groupBy({
+          by: ["tenantId"],
+          where: { tenantId: { in: tenantIds } },
+          _count: { _all: true },
+        }),
+        prisma.transaction.groupBy({
+          by: ["tenantId"],
+          where: { tenantId: { in: tenantIds }, status: "active" },
+          _sum: { total: true },
+        }),
+        prisma.expense.groupBy({
+          by: ["tenantId"],
+          where: { tenantId: { in: tenantIds } },
+          _sum: { amount: true },
+        }),
+      ]);
+
+    const toMap = (rows) => new Map(rows.map((r) => [r.tenantId, r]));
+    const usersMap = toMap(userCounts);
+    const apptMap = toMap(appointmentCounts);
+    const convMap = toMap(conversationCounts);
+    const revenueMap = toMap(revenueSums);
+    const expenseMap = toMap(expenseSums);
+
+    const overview = tenants.map((t) => {
+      const revenueTotal = Number(revenueMap.get(t.id)?._sum?.total ?? 0);
+      const expenseTotal = Number(expenseMap.get(t.id)?._sum?.amount ?? 0);
+      return {
+        tenantId: t.id,
+        name: t.name,
+        plan: t.plan,
+        active: t.active,
+        usersCount: usersMap.get(t.id)?._count?._all ?? 0,
+        appointmentsCount: apptMap.get(t.id)?._count?._all ?? 0,
+        conversationsCount: convMap.get(t.id)?._count?._all ?? 0,
+        revenueTotal,
+        expenseTotal,
+        netTotal: revenueTotal - expenseTotal,
+      };
+    });
+
+    res.json({ tenants: overview, generatedAt: new Date().toISOString() });
+  } catch (error) {
+    console.error("[Dashboard] Tenants overview error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 module.exports = router;
