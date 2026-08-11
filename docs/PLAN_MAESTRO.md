@@ -422,7 +422,7 @@ Los cuatro entregables del roadmap interno (5.1 → 5.4) completos, con el princ
 ---
 
 ### FASE 6 — Operación Multi-Establecimiento Real
-**Estado:** Definida formalmente (2026-07-27). Entregable 6.1 completado (documental, sin bump de versión); Entregable 6.2 completado (2026-07-28, v2.17.0); Entregable 6.3 completado (2026-07-28, v2.18.0); Entregable 6.4 completado (2026-07-28, v2.19.0, alcance reducido — "Consolidadas" removida y remitida a 6.6); Entregable 6.5 completado (renombrado "Automatizaciones y Empleados Digitales Multi-Establecimiento", 2026-08-10, v2.20.0); Entregable 6.6 Fase B (saneamiento del hueco cross-tenant accidental) completada (2026-08-10, v2.21.0); Fase A (formalización de la capacidad administrativa `GET /tenants/overview`) completada (2026-08-11, v2.22.0). **Los seis entregables del roadmap interno de la Fase 6 (6.1 → 6.6) quedan completos.**
+**Estado:** ✅ **Fase cerrada oficialmente (2026-08-11, versión de cierre `v2.22.0`).** Definida formalmente el 2026-07-27. Entregable 6.1 completado (documental, sin bump de versión); Entregable 6.2 completado (2026-07-28, v2.17.0); Entregable 6.3 completado (2026-07-28, v2.18.0); Entregable 6.4 completado (2026-07-28, v2.19.0, alcance reducido — "Consolidadas" removida y remitida a 6.6); Entregable 6.5 completado (renombrado "Automatizaciones y Empleados Digitales Multi-Establecimiento", 2026-08-10, v2.20.0); Entregable 6.6 Fase B (saneamiento del hueco cross-tenant accidental) completada (2026-08-10, v2.21.0); Fase A (formalización de la capacidad administrativa `GET /tenants/overview`) completada (2026-08-11, v2.22.0). Los seis entregables del roadmap interno de la Fase 6 (6.1 → 6.6) están completos; retrospectiva completa, decisiones arquitectónicas permanentes y deudas deliberadamente diferidas en `docs/history/PHASE_6_COMPLETION_REPORT.md`.
 **Decisión de alcance:** ver este documento — la alternativa "Ecosistema" (evaluada junto con esta y con "Operaciones Inteligentes" desde el cierre de la Fase 5) queda oficialmente diferida para una fase posterior, una vez que la operación multi-establecimiento esté completamente consolidada.
 
 **Decisión arquitectónica previa (2026-07-27) — Establecimiento (Tenant) como unidad de aislamiento**  
@@ -457,8 +457,8 @@ Aplicar horario de atención y zona horaria reales en el flujo de reserva exige 
 **Alternativa diferida**  
 "Ecosistema" (nuevos canales, API pública, apps de cliente/staff) permanece oficialmente diferida para una fase posterior a la Fase 6, una vez que la operación multi-establecimiento esté completamente consolidada.
 
-**Criterio de cierre**  
-Los seis entregables del roadmap interno (6.1 → 6.6) completos, con el aislamiento operativo entre establecimientos verificado por evidencia (no solo por diseño), sin ninguna regla de negocio existente modificada, sin ninguna entidad de agrupación superior al Establecimiento introducida, y con la advertencia arquitectónica sobre el motor conversacional resuelta explícitamente (no diferida de nuevo).
+**Criterio de cierre — ✅ cumplido (2026-08-11)**  
+Los seis entregables del roadmap interno (6.1 → 6.6) completos, con el aislamiento operativo entre establecimientos verificado por evidencia (no solo por diseño), sin ninguna regla de negocio existente modificada, sin ninguna entidad de agrupación superior al Establecimiento introducida, y con la advertencia arquitectónica sobre el motor conversacional resuelta explícitamente (no diferida de nuevo — Reconciliación Arquitectónica puntual aceptada en 6.2).
 
 ---
 
