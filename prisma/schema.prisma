@@ -54,6 +54,7 @@ model Tenant {
   channels         Channel[]
   digitalEmployees DigitalEmployee[]
   automationRules  AutomationRule[]
+  apiKeys          ApiKey[]
 }
 
 model Staff {
@@ -835,4 +836,23 @@ model AutomationExecution {
 
   @@index([automationRuleId, createdAt])
   @@index([domainEventId])
+}
+
+// ── API pública, Fase 1 (Ecosistema) ────────────────────────────────────────
+// Mecanismo de autenticación de terceros. La key en texto plano nunca se
+// persiste — solo su hash (keyHash, único). Sin catálogo de recursos propio
+// todavía: este entregable construye únicamente el mecanismo de identidad.
+model ApiKey {
+  id        String    @id @default(cuid())
+  tenantId  String
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  keyHash   String    @unique
+  scopes    String[]  @default([])
+
+  createdAt  DateTime  @default(now())
+  revokedAt  DateTime?
+  lastUsedAt DateTime?
+
+  @@index([tenantId])
 }

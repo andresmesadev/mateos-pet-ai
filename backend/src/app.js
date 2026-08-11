@@ -67,9 +67,10 @@ const dashboardRoutes = require("./routes/dashboard.routes");
 app.use("/api", routes);
 
 const { resolveTenant } = require("./middleware/resolveTenant");
+const { requireInternalToken } = require("./middleware/requireInternalToken");
 app.use("/api/dashboard", dashboardRateLimit, resolveTenant, dashboardRoutes);
 // Superficies públicas sin autenticación — rate limit obligatorio (hallazgo A5)
-app.use("/api/billing", publicRateLimit, billingRouter);
+app.use("/api/billing", publicRateLimit, requireInternalToken, billingRouter);
 app.use("/api/onboarding", publicRateLimit, onboardingRoutes);
 
 app.use(errorHandler);
