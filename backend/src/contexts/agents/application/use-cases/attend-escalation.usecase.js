@@ -10,7 +10,7 @@ function createAttendEscalationUseCase({ escalationRepository, eventPublisher })
     if (escalation.status === "atendida") throw new EscalationAlreadyResolvedError(escalationId);
 
     const resolved = await escalationRepository.resolve(escalationId, assignedStaffId);
-    await eventPublisher.publish("EscalaciónAtendida", { escalation: resolved });
+    await eventPublisher.publish("EscalaciónAtendida", { escalation: resolved, tenantId: ownerTenantId });
     return { escalation: resolved };
   };
 }

@@ -22,7 +22,7 @@ function createGenerateEscalationUseCase({ agentTaskRepository, escalationReposi
       context,
       status: "pendiente",
     });
-    await eventPublisher.publish("EscalaciónGenerada", { escalation });
+    await eventPublisher.publish("EscalaciónGenerada", { escalation, tenantId: task.digitalEmployee?.tenantId ?? null });
     return { escalation };
   };
 }

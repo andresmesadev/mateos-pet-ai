@@ -7,7 +7,7 @@ function createCompleteAgentTaskUseCase({ agentTaskRepository, eventPublisher })
     if (task.status !== "en_proceso") throw new AgentTaskAlreadyClosedError(agentTaskId, task.status);
 
     const completed = await agentTaskRepository.complete(agentTaskId, result);
-    await eventPublisher.publish("TareaCompletada", { task: completed });
+    await eventPublisher.publish("TareaCompletada", { task: completed, tenantId: task.digitalEmployee?.tenantId ?? null });
     return { task: completed };
   };
 }

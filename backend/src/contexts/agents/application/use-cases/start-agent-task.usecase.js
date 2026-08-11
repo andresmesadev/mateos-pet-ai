@@ -18,7 +18,7 @@ function createStartAgentTaskUseCase({ digitalEmployeeRepository, agentTaskRepos
       origin: origin.trim(),
       status: "en_proceso",
     });
-    await eventPublisher.publish("TareaIniciada", { task });
+    await eventPublisher.publish("TareaIniciada", { task, tenantId: employee.tenantId });
     return { task };
   };
 }

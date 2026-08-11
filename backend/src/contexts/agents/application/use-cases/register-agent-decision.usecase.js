@@ -22,7 +22,7 @@ function createRegisterAgentDecisionUseCase({ agentTaskRepository, agentDecision
       reasoning: reasoning.trim(),
       action: action.trim(),
     });
-    await eventPublisher.publish("DecisiónRegistrada", { decision });
+    await eventPublisher.publish("DecisiónRegistrada", { decision, tenantId: task.digitalEmployee?.tenantId ?? null });
     return { decision };
   };
 }
