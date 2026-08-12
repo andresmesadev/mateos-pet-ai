@@ -33,7 +33,7 @@ async function clientAuth(req, res, next) {
     data: { lastUsedAt: new Date() },
   });
 
-  req.clientAuth = { tenantId: session.tenantId, userId: session.userId };
+  req.clientAuth = { tenantId: session.tenantId, userId: session.userId, sessionId: session.id };
   return next();
 }
 

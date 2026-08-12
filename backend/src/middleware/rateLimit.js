@@ -39,6 +39,21 @@ const clientAuthRequestCodeRateLimit = rateLimit({
   },
 });
 
+// Revocación de Sesión y Gestión Mínima de ApiKey — verify-code solo tenía el
+// límite global del router (30/min/IP). Segunda capa dedicada, misma ventana
+// de 15 min que request-code pero más laxa (10 en vez de 5): la defensa
+// principal contra fuerza bruta sigue siendo MAX_ATTEMPTS=5 por código en
+// client-auth.service.js, no este límite.
+const clientAuthVerifyCodeRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    res.status(429).send(rateLimitMessage);
+  },
+});
+
 module.exports = {
   testRateLimit,
   dashboardRateLimit,
@@ -46,4 +61,5 @@ module.exports = {
   publicRateLimit,
   publicApiRateLimit,
   clientAuthRequestCodeRateLimit,
+  clientAuthVerifyCodeRateLimit,
 };

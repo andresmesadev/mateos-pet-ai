@@ -240,4 +240,60 @@ router.get("/tenants/overview", async (req, res) => {
   }
 });
 
+/**
+ * Gestión Mínima de ApiKey (Revocación de Sesión y Gestión Mínima de
+ * ApiKey). Solo lectura y revocación — la creación permanece fuera de
+ * alcance (deuda documentada, sigue vía acceso directo a la base de datos).
+ * keyHash nunca se incluye en la respuesta.
+ *
+ * GET /api/dashboard/api-keys
+ */
+router.get("/api-keys", async (req, res) => {
+  try {
+    const tenantId = resolveTenantId(req);
+    if (!tenantId) return res.status(403).json({ error: "Forbidden" });
+
+    const apiKeys = await prisma.apiKey.findMany({
+      where: { tenantId },
+      select: { id: true, scopes: true, createdAt: true, revokedAt: true, lastUsedAt: true },
+      orderBy: { createdAt: "desc" },
+    });
+
+    res.json({ apiKeys });
+  } catch (error) {
+    console.error("[Dashboard] GET /api-keys error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/**
+ * POST /api/dashboard/api-keys/:id/revoke
+ * Ownership obligatorio vía (id, tenantId) en una sola consulta. Idempotente:
+ * revocar una key ya revocada responde 200 sin error, sin filtrar estado por
+ * código de respuesta.
+ */
+router.post("/api-keys/:id/revoke", async (req, res) => {
+  try {
+    const tenantId = resolveTenantId(req);
+    if (!tenantId) return res.status(403).json({ error: "Forbidden" });
+
+    const { id } = req.params;
+    const apiKey = await prisma.apiKey.findFirst({ where: { id, tenantId } });
+    if (!apiKey) {
+      return res.status(404).json({ error: "ApiKey no encontrada" });
+    }
+
+    const revoked = await prisma.apiKey.update({
+      where: { id: apiKey.id },
+      data: { revokedAt: apiKey.revokedAt ?? new Date() },
+      select: { id: true, scopes: true, createdAt: true, revokedAt: true, lastUsedAt: true },
+    });
+
+    res.json({ apiKey: revoked });
+  } catch (error) {
+    console.error("[Dashboard] POST /api-keys/:id/revoke error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 module.exports = router;

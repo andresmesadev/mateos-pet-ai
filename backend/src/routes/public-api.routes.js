@@ -9,11 +9,14 @@
  * POST /auth/request-code y /auth/verify-code (Identidad de Cliente),
  * POST /appointments (write:appointments — Reserva de Cita), GET
  * /appointments (read:appointments) y POST /appointments/:id/cancel
- * (write:appointments) — Gestión de Cita. Estos cuatro últimos, además de
- * apiKeyAuth, exigen clientAuth. resolve-service-price queda fuera —
- * bypass de aislamiento en petId/clientId, documentado como deuda
- * separada. Sin edición/reprogramación de citas, sin clientes/mascotas/
- * finanzas/Empleados Digitales/Automatizaciones/Eventos/complete-appointment.
+ * (write:appointments) — Gestión de Cita, POST /auth/logout (Revocación de
+ * Sesión). Estos cinco últimos, además de apiKeyAuth, exigen clientAuth.
+ * resolve-service-price queda fuera — bypass de aislamiento en
+ * petId/clientId, documentado como deuda separada. Sin edición/
+ * reprogramación de citas, sin clientes/mascotas/finanzas/Empleados
+ * Digitales/Automatizaciones/Eventos/complete-appointment. Gestión de
+ * ApiKey (listar/revocar) vive en el dashboard, no aquí — ver
+ * routes/dashboard/tenant.routes.js.
  */
 const express = require("express");
 const router = express.Router();
@@ -23,7 +26,7 @@ const { listAvailableServices, getServiceCategory } = require("../contexts/servi
 const { ServiceNotFoundError } = require("../contexts/services/domain/errors");
 const { resolveStaffAvailability } = require("../contexts/staff");
 const { ReferencedServiceNotFoundError } = require("../contexts/staff/domain/errors");
-const { clientAuthRequestCodeRateLimit } = require("../middleware/rateLimit");
+const { clientAuthRequestCodeRateLimit, clientAuthVerifyCodeRateLimit } = require("../middleware/rateLimit");
 const {
   suggestAvailableVetSlots,
   findNextAvailableGroomingSlot,
@@ -345,7 +348,7 @@ router.post("/auth/request-code", clientAuthRequestCodeRateLimit, async (req, re
  * Respuesta: { token } — token de sesión de cliente opaco, para usar en
  * X-Client-Token en endpoints futuros que lo requieran.
  */
-router.post("/auth/verify-code", async (req, res) => {
+router.post("/auth/verify-code", clientAuthVerifyCodeRateLimit, async (req, res) => {
   try {
     const { tenantId } = req.apiKey;
     const { phone, code } = req.body ?? {};
@@ -360,6 +363,29 @@ router.post("/auth/verify-code", async (req, res) => {
     res.json({ token: result.token });
   } catch (error) {
     console.error("[PublicApi] POST /auth/verify-code error:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/**
+ * POST /api/public/auth/logout
+ * Revoca exclusivamente la ClientSession del token presentado en
+ * X-Client-Token (req.clientAuth.sessionId) — nunca otras sesiones del mismo
+ * cliente. Sin body, sin scope adicional (mismo criterio que el resto de
+ * rutas de auth).
+ */
+router.post("/auth/logout", clientAuth, async (req, res) => {
+  try {
+    const { sessionId } = req.clientAuth;
+
+    await prisma.clientSession.update({
+      where: { id: sessionId },
+      data: { revokedAt: new Date() },
+    });
+
+    res.json({ message: "Sesión cerrada" });
+  } catch (error) {
+    console.error("[PublicApi] POST /auth/logout error:", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
 });

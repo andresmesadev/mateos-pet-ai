@@ -97,7 +97,7 @@ describe("clientAuth middleware", () => {
     await clientAuth(req, res, next);
 
     expect(next).toHaveBeenCalled();
-    expect(req.clientAuth).toEqual({ tenantId: "tenant-a", userId: "user-1" });
+    expect(req.clientAuth).toEqual({ tenantId: "tenant-a", userId: "user-1", sessionId: "s1" });
   });
 
   test("busca la sesión por el hash del token, nunca por el valor en texto plano", async () => {
