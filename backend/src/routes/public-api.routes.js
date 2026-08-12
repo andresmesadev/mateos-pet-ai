@@ -5,19 +5,26 @@
  * exclusivamente de req.apiKey.tenantId — nunca de body/params/query.
  *
  * Alcance congelado: GET /services (read:services), POST /availability
- * (read:availability). resolve-service-price queda fuera — bypass de
- * aislamiento en petId/clientId, documentado como deuda separada. Sin
- * creación/modificación de citas, sin clientes/mascotas/finanzas/Empleados
+ * (read:availability), POST /availability/slots (read:availability),
+ * POST /auth/request-code y /auth/verify-code (Identidad de Cliente).
+ * resolve-service-price queda fuera — bypass de aislamiento en
+ * petId/clientId, documentado como deuda separada. Sin creación/
+ * modificación de citas, sin clientes/mascotas/finanzas/Empleados
  * Digitales/Automatizaciones/Eventos/complete-appointment.
  */
 const express = require("express");
 const router = express.Router();
 
 const { requireScope } = require("../middleware/requireScope");
-const { listAvailableServices } = require("../contexts/services");
+const { listAvailableServices, getServiceCategory } = require("../contexts/services");
+const { ServiceNotFoundError } = require("../contexts/services/domain/errors");
 const { resolveStaffAvailability } = require("../contexts/staff");
 const { ReferencedServiceNotFoundError } = require("../contexts/staff/domain/errors");
 const { clientAuthRequestCodeRateLimit } = require("../middleware/rateLimit");
+const {
+  suggestAvailableVetSlots,
+  findNextAvailableGroomingSlot,
+} = require("../services/availability-db.service");
 const { requestVerificationCode, verifyCodeAndCreateSession } = require("../services/client-auth.service");
 
 function toPublicService(service) {
@@ -89,6 +96,51 @@ router.post("/availability", requireScope("read:availability"), async (req, res)
       return res.status(404).json({ error: "serviceId no encontrado" });
     }
     console.error("[PublicApi] POST /availability error:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Puente Servicios → bucket de disponibilidad (Disponibilidad Real de
+// Horarios). Solo las dos categorías canónicas del contexto Servicios
+// tienen bucket conocido — cualquier otra responde explícitamente "sin
+// disponibilidad", nunca un bucket inventado ni un error.
+const CATEGORY_TO_AVAILABILITY_BUCKET = { veterinary: "vet", grooming: "grooming" };
+
+/**
+ * POST /api/public/availability/slots
+ * Body: { serviceId: string, dateKey?: string }
+ * Reutiliza suggestAvailableVetSlots/findNextAvailableGroomingSlot
+ * (availability-db.service.js) sin modificarlas — mismos exports ya
+ * usados por el motor conversacional desde 6.2.
+ */
+router.post("/availability/slots", requireScope("read:availability"), async (req, res) => {
+  try {
+    const { tenantId } = req.apiKey;
+    const { serviceId, dateKey } = req.body ?? {};
+
+    if (!serviceId || typeof serviceId !== "string") {
+      return res.status(400).json({ error: "serviceId es requerido" });
+    }
+
+    const { categoryName } = await getServiceCategory({ serviceId, tenantId });
+    const bucket = CATEGORY_TO_AVAILABILITY_BUCKET[categoryName] ?? null;
+
+    if (!bucket) {
+      return res.json({ available: false, slots: null });
+    }
+
+    if (bucket === "vet") {
+      const { dateKey: resolvedDateKey, hours } = await suggestAvailableVetSlots({ dateKey, tenantId });
+      return res.json({ available: hours.length > 0, slots: { dateKey: resolvedDateKey, hours } });
+    }
+
+    const slot = await findNextAvailableGroomingSlot({ tenantId });
+    return res.json({ available: Boolean(slot), slots: slot });
+  } catch (error) {
+    if (error instanceof ServiceNotFoundError) {
+      return res.status(404).json({ error: "serviceId no encontrado" });
+    }
+    console.error("[PublicApi] POST /availability/slots error:", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
 });

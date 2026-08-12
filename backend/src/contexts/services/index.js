@@ -23,6 +23,7 @@ const {
   createChangeServicePriceUseCase,
   createResolveServicePriceUseCase,
   createListAvailableServicesUseCase,
+  createGetServiceCategoryUseCase,
 } = require("./application/use-cases");
 
 const serviceRepository = new PrismaServiceRepository();
@@ -38,6 +39,7 @@ const deactivateService = createDeactivateServiceUseCase({ serviceRepository, ev
 const changeServicePrice = createChangeServicePriceUseCase({ serviceRepository, priceRuleRepository, targetExistenceReader, eventPublisher });
 const resolveServicePrice = createResolveServicePriceUseCase({ serviceRepository, priceRuleRepository, targetExistenceReader });
 const listAvailableServices = createListAvailableServicesUseCase({ serviceRepository, serviceCategoryReader, businessConfigReader });
+const getServiceCategory = createGetServiceCategoryUseCase({ serviceRepository, serviceCategoryReader });
 
 module.exports = {
   createService,
@@ -46,4 +48,5 @@ module.exports = {
   changeServicePrice,
   resolveServicePrice,
   listAvailableServices,
+  getServiceCategory,
 };
