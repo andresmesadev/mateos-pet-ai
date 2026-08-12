@@ -471,4 +471,5 @@ module.exports = {
   findAppointmentsByUser,
   checkAppointmentConflict,
   cancelAppointment,
+  syncCancelToCalendar,
 };

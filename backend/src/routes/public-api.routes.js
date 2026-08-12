@@ -7,11 +7,13 @@
  * Alcance congelado: GET /services (read:services), POST /availability
  * (read:availability), POST /availability/slots (read:availability),
  * POST /auth/request-code y /auth/verify-code (Identidad de Cliente),
- * POST /appointments (write:appointments — Reserva de Cita, único recurso
- * que además exige clientAuth). resolve-service-price queda fuera — bypass
- * de aislamiento en petId/clientId, documentado como deuda separada. Sin
- * gestión de citas (ver/cancelar), sin clientes/mascotas/finanzas/Empleados
- * Digitales/Automatizaciones/Eventos/complete-appointment.
+ * POST /appointments (write:appointments — Reserva de Cita), GET
+ * /appointments (read:appointments) y POST /appointments/:id/cancel
+ * (write:appointments) — Gestión de Cita. Estos cuatro últimos, además de
+ * apiKeyAuth, exigen clientAuth. resolve-service-price queda fuera —
+ * bypass de aislamiento en petId/clientId, documentado como deuda
+ * separada. Sin edición/reprogramación de citas, sin clientes/mascotas/
+ * finanzas/Empleados Digitales/Automatizaciones/Eventos/complete-appointment.
  */
 const express = require("express");
 const router = express.Router();
@@ -28,8 +30,15 @@ const {
 } = require("../services/availability-db.service");
 const { requestVerificationCode, verifyCodeAndCreateSession } = require("../services/client-auth.service");
 const { clientAuth } = require("../middleware/clientAuth");
-const { createAppointment, buildAppointmentDateTime } = require("../services/appointment.service");
+const {
+  createAppointment,
+  buildAppointmentDateTime,
+  getUserAppointments,
+  syncCancelToCalendar,
+} = require("../services/appointment.service");
 const { SlotAlreadyBookedError } = require("../services/errors/slot-already-booked.error");
+const { isAllowedTransition } = require("../services/appointment-status.service");
+const prisma = require("../lib/prisma");
 
 function toPublicService(service) {
   return {
@@ -44,6 +53,16 @@ function toPublicService(service) {
 
 function toPublicStaff(staff) {
   return { id: staff.id, name: staff.name };
+}
+
+function toPublicAppointment(appointment) {
+  return {
+    id: appointment.id,
+    date: appointment.date,
+    status: appointment.status,
+    petName: appointment.petName,
+    petType: appointment.petType,
+  };
 }
 
 /**
@@ -231,9 +250,73 @@ router.post("/appointments", clientAuth, requireScope("write:appointments"), asy
 });
 
 /**
+ * Gestión de Cita (Portal del Cliente) — ver y cancelar las propias citas.
+ * Mismos middlewares y verificación cruzada que la reserva. Sin edición ni
+ * reprogramación en este alcance.
+ *
+ * GET /api/public/appointments
+ * Reutiliza getUserAppointments(userId) sin modificarlo — ya filtra por
+ * estados activos y fecha futura; userId ya está acotado a un tenant por
+ * ClientSession, sin necesidad de filtro adicional.
+ */
+router.get("/appointments", clientAuth, requireScope("read:appointments"), async (req, res) => {
+  try {
+    const { tenantId } = req.apiKey;
+    const { userId, tenantId: clientTenantId } = req.clientAuth;
+
+    if (tenantId !== clientTenantId) {
+      return res.status(403).json({ error: "La sesión de cliente no corresponde a esta ApiKey" });
+    }
+
+    const appointments = await getUserAppointments(userId);
+    res.json({ appointments: appointments.map(toPublicAppointment) });
+  } catch (error) {
+    console.error("[PublicApi] GET /appointments error:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/**
+ * POST /api/public/appointments/:id/cancel
+ * Ownership obligatorio vía (id, userId, tenantId) en una sola consulta.
+ * Reutiliza isAllowedTransition (appointment-status.service.js) y
+ * syncCancelToCalendar (appointment.service.js, recién exportada) sin
+ * duplicar ninguna de las dos.
+ */
+router.post("/appointments/:id/cancel", clientAuth, requireScope("write:appointments"), async (req, res) => {
+  try {
+    const { tenantId } = req.apiKey;
+    const { userId, tenantId: clientTenantId } = req.clientAuth;
+
+    if (tenantId !== clientTenantId) {
+      return res.status(403).json({ error: "La sesión de cliente no corresponde a esta ApiKey" });
+    }
+
+    const { id } = req.params;
+    const appointment = await prisma.appointment.findFirst({ where: { id, userId, tenantId } });
+    if (!appointment) {
+      return res.status(404).json({ error: "Cita no encontrada" });
+    }
+    if (!isAllowedTransition(appointment.status, "cancelled")) {
+      return res.status(422).json({ error: `No se puede cancelar una cita en estado "${appointment.status}"` });
+    }
+
+    const cancelled = await prisma.appointment.update({
+      where: { id: appointment.id },
+      data: { status: "cancelled" },
+    });
+    syncCancelToCalendar(cancelled);
+
+    res.json(toPublicAppointment(cancelled));
+  } catch (error) {
+    console.error("[PublicApi] POST /appointments/:id/cancel error:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/**
  * Identidad de Cliente (Portal del Cliente) — entregable acotado a
- * autenticación. Sin recursos posteriores (reserva/gestión de citas) en
- * este alcance. tenantId siempre de req.apiKey.tenantId.
+ * autenticación. tenantId siempre de req.apiKey.tenantId.
  *
  * POST /api/public/auth/request-code
  * Body: { phone: string }

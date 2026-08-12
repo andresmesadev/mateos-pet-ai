@@ -16,7 +16,7 @@ const getHealth = async (req, res) => {
         database: "error",
         openai: "error",
       },
-      version: "2.28.0",
+      version: "2.29.0",
     });
   }
 };
