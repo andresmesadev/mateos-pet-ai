@@ -25,10 +25,25 @@ const publicRateLimit = createLimiter(10);
 // global por IP, misma granularidad que el resto de limitadores del proyecto.
 const publicApiRateLimit = createLimiter(30);
 
+// Identidad de Cliente — request-code envía un mensaje real de WhatsApp por
+// cada solicitud exitosa; límite deliberadamente más estricto (ventana de
+// 15 min, no la ventana de 1 min del resto) para evitar floodear el
+// WhatsApp de un número real o agotar el canal del tenant.
+const clientAuthRequestCodeRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    res.status(429).send(rateLimitMessage);
+  },
+});
+
 module.exports = {
   testRateLimit,
   dashboardRateLimit,
   webhookRateLimit,
   publicRateLimit,
   publicApiRateLimit,
+  clientAuthRequestCodeRateLimit,
 };

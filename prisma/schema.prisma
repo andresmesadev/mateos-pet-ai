@@ -55,6 +55,8 @@ model Tenant {
   digitalEmployees DigitalEmployee[]
   automationRules  AutomationRule[]
   apiKeys          ApiKey[]
+  clientVerificationCodes ClientVerificationCode[]
+  clientSessions          ClientSession[]
 }
 
 model Staff {
@@ -223,6 +225,9 @@ model User {
   // deja de ser global y pasa a ser por tenant (dos establecimientos
   // distintos pueden tener cada uno un cliente con el mismo número).
   @@unique([tenantId, phone])
+
+  clientVerificationCodes ClientVerificationCode[]
+  clientSessions          ClientSession[]
 }
 
 model Pet {
@@ -855,4 +860,42 @@ model ApiKey {
   lastUsedAt DateTime?
 
   @@index([tenantId])
+}
+
+// ── Identidad de Cliente (Ecosistema, Portal del Cliente) ───────────────────
+// Segunda capa de identidad, separada de ApiKey (nivel tenant/app) y de la
+// sesión de staff (NextAuth). Ninguno de los dos modelos persiste el código
+// ni el token en texto plano — solo su hash SHA-256.
+model ClientVerificationCode {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  codeHash String
+  attempts Int    @default(0)
+
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime
+  consumedAt  DateTime?
+
+  @@index([tenantId, userId, consumedAt])
+}
+
+model ClientSession {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tokenHash String    @unique
+
+  createdAt  DateTime  @default(now())
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  lastUsedAt DateTime?
+
+  @@index([tenantId, userId])
 }

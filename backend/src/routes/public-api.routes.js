@@ -17,6 +17,8 @@ const { requireScope } = require("../middleware/requireScope");
 const { listAvailableServices } = require("../contexts/services");
 const { resolveStaffAvailability } = require("../contexts/staff");
 const { ReferencedServiceNotFoundError } = require("../contexts/staff/domain/errors");
+const { clientAuthRequestCodeRateLimit } = require("../middleware/rateLimit");
+const { requestVerificationCode, verifyCodeAndCreateSession } = require("../services/client-auth.service");
 
 function toPublicService(service) {
   return {
@@ -87,6 +89,57 @@ router.post("/availability", requireScope("read:availability"), async (req, res)
       return res.status(404).json({ error: "serviceId no encontrado" });
     }
     console.error("[PublicApi] POST /availability error:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/**
+ * Identidad de Cliente (Portal del Cliente) — entregable acotado a
+ * autenticación. Sin recursos posteriores (reserva/gestión de citas) en
+ * este alcance. tenantId siempre de req.apiKey.tenantId.
+ *
+ * POST /api/public/auth/request-code
+ * Body: { phone: string }
+ * Respuesta siempre genérica — exista o no el usuario — para evitar
+ * enumeración de teléfonos registrados en el tenant.
+ */
+router.post("/auth/request-code", clientAuthRequestCodeRateLimit, async (req, res) => {
+  try {
+    const { tenantId } = req.apiKey;
+    const { phone } = req.body ?? {};
+
+    const result = await requestVerificationCode({ tenantId, phone });
+    if (result.badRequest) {
+      return res.status(400).json({ error: "phone es requerido" });
+    }
+    res.json({ message: "Si el teléfono está registrado, recibirás un código por WhatsApp." });
+  } catch (error) {
+    console.error("[PublicApi] POST /auth/request-code error:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/**
+ * POST /api/public/auth/verify-code
+ * Body: { phone: string, code: string }
+ * Respuesta: { token } — token de sesión de cliente opaco, para usar en
+ * X-Client-Token en endpoints futuros que lo requieran.
+ */
+router.post("/auth/verify-code", async (req, res) => {
+  try {
+    const { tenantId } = req.apiKey;
+    const { phone, code } = req.body ?? {};
+
+    const result = await verifyCodeAndCreateSession({ tenantId, phone, code });
+    if (result.badRequest) {
+      return res.status(400).json({ error: "phone y code son requeridos" });
+    }
+    if (!result.ok) {
+      return res.status(401).json({ error: "Código inválido o expirado" });
+    }
+    res.json({ token: result.token });
+  } catch (error) {
+    console.error("[PublicApi] POST /auth/verify-code error:", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
 });
