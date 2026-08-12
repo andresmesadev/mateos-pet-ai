@@ -6,10 +6,11 @@
  *
  * Alcance congelado: GET /services (read:services), POST /availability
  * (read:availability), POST /availability/slots (read:availability),
- * POST /auth/request-code y /auth/verify-code (Identidad de Cliente).
- * resolve-service-price queda fuera — bypass de aislamiento en
- * petId/clientId, documentado como deuda separada. Sin creación/
- * modificación de citas, sin clientes/mascotas/finanzas/Empleados
+ * POST /auth/request-code y /auth/verify-code (Identidad de Cliente),
+ * POST /appointments (write:appointments — Reserva de Cita, único recurso
+ * que además exige clientAuth). resolve-service-price queda fuera — bypass
+ * de aislamiento en petId/clientId, documentado como deuda separada. Sin
+ * gestión de citas (ver/cancelar), sin clientes/mascotas/finanzas/Empleados
  * Digitales/Automatizaciones/Eventos/complete-appointment.
  */
 const express = require("express");
@@ -26,6 +27,9 @@ const {
   findNextAvailableGroomingSlot,
 } = require("../services/availability-db.service");
 const { requestVerificationCode, verifyCodeAndCreateSession } = require("../services/client-auth.service");
+const { clientAuth } = require("../middleware/clientAuth");
+const { createAppointment, buildAppointmentDateTime } = require("../services/appointment.service");
+const { SlotAlreadyBookedError } = require("../services/errors/slot-already-booked.error");
 
 function toPublicService(service) {
   return {
@@ -141,6 +145,87 @@ router.post("/availability/slots", requireScope("read:availability"), async (req
       return res.status(404).json({ error: "serviceId no encontrado" });
     }
     console.error("[PublicApi] POST /availability/slots error:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/**
+ * Reserva de Cita (Portal del Cliente) — único recurso del catálogo público
+ * que exige clientAuth además de apiKeyAuth: identifica de qué app/tenant
+ * viene la request (ApiKey) y de qué cliente específico (ClientSession).
+ *
+ * POST /api/public/appointments
+ * Body: { serviceId, dateKey, hour, petName, petType, address?, groomingBreed?, groomingSize? }
+ *
+ * userId exclusivamente de req.clientAuth.userId; tenantId exclusivamente
+ * de req.apiKey.tenantId, verificado igual a req.clientAuth.tenantId antes
+ * de continuar. Reutiliza getServiceCategory (verificación de tenant +
+ * bucket) y createAppointment (sin modificarlo) — la protección de doble
+ * reserva ya existe en el índice único que createAppointment ya respeta
+ * (SlotAlreadyBookedError → 409).
+ */
+router.post("/appointments", clientAuth, requireScope("write:appointments"), async (req, res) => {
+  try {
+    const { tenantId } = req.apiKey;
+    const { userId, tenantId: clientTenantId } = req.clientAuth;
+
+    if (tenantId !== clientTenantId) {
+      return res.status(403).json({ error: "La sesión de cliente no corresponde a esta ApiKey" });
+    }
+
+    const { serviceId, dateKey, hour, petName, petType, address, groomingBreed, groomingSize } = req.body ?? {};
+
+    if (!serviceId || typeof serviceId !== "string") {
+      return res.status(400).json({ error: "serviceId es requerido" });
+    }
+    if (!petName || !String(petName).trim()) {
+      return res.status(400).json({ error: "petName es requerido" });
+    }
+    if (!petType || !String(petType).trim()) {
+      return res.status(400).json({ error: "petType es requerido" });
+    }
+
+    const { categoryName } = await getServiceCategory({ serviceId, tenantId });
+    const bucket = CATEGORY_TO_AVAILABILITY_BUCKET[categoryName] ?? null;
+    if (!bucket) {
+      return res.status(422).json({ error: "Este servicio no admite reserva de horario" });
+    }
+
+    let date;
+    try {
+      date = buildAppointmentDateTime(dateKey, hour);
+    } catch (dateError) {
+      return res.status(400).json({ error: "dateKey y hour deben ser válidos" });
+    }
+
+    const appointment = await createAppointment({
+      userId,
+      tenantId,
+      petName,
+      petType,
+      serviceType: bucket,
+      date,
+      status: "confirmed",
+      address,
+      groomingBreed,
+      groomingSize,
+    });
+
+    res.status(201).json({
+      id: appointment.id,
+      date: appointment.date,
+      status: appointment.status,
+      petName: appointment.petName,
+      petType: appointment.petType,
+    });
+  } catch (error) {
+    if (error instanceof ServiceNotFoundError) {
+      return res.status(404).json({ error: "serviceId no encontrado" });
+    }
+    if (error instanceof SlotAlreadyBookedError) {
+      return res.status(409).json({ error: "El horario solicitado ya fue reservado" });
+    }
+    console.error("[PublicApi] POST /appointments error:", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
 });
