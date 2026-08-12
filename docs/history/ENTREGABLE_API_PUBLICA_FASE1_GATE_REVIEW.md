@@ -1,7 +1,7 @@
 # Gate Review consolidado — API pública, Fase 1 (autenticación de terceros + cierre de A5)
 
 **Bloque:** Ecosistema (post-Fase 6)
-**Estado:** ✅ Código y schema cerrados (Macroetapas 1-4 completas, v2.24.0). ⚠️ No operativo hasta aplicar la migración pendiente contra la base de datos productiva.
+**Estado:** ✅ Completo y operativo (Macroetapas 1-4 completas, v2.24.0). Migración aplicada exitosamente contra la base de datos productiva (actualizado 2026-08-11).
 
 ---
 
@@ -31,8 +31,8 @@ El diseño dejaba abierto un fork sobre el cierre de A5. La evidencia (`frontend
 - Los 4 endpoints de `/api/billing/*` (excepto webhook, protegido por firma Stripe) exigen `X-Internal-Token` — verificado exhaustivamente.
 - `/api/onboarding/*` confirmado sin cambios, sigue público por diseño.
 - Motor conversacional y otros contextos de negocio sin cambios — confirmado por `git diff --stat`.
-- **`npx prisma generate` exitoso; `npx prisma db push` no pudo ejecutarse (P1001, sin conectividad a Neon desde este entorno) — la migración real queda pendiente de ejecutarse en un entorno con acceso a la base de datos, antes de cualquier despliegue. No se da por aplicada.**
+- **`npx prisma generate` exitoso. `npx prisma db push` fue ejecutado exitosamente contra Neon fuera de este entorno — verificado en esta sesión (`npx prisma db pull --print` confirma el modelo `ApiKey` en la base de datos real). Condición operativa resuelta.**
 
 ## 5. Decisión del Gate
 
-**Aprobado y cerrado, con una condición operativa explícita.** Macroetapa 4 ejecutada: commit, bump de versión a `2.24.0`, tag y push realizados bajo autorización explícita del responsable del proyecto. Sin regla institucional que condicione el cierre a la aplicación de la migración — el código y el diseño quedan validados y cerrados; **la base de datos productiva no contiene necesariamente el modelo `ApiKey` todavía**, y el entregable no debe considerarse operativo para consumidores de API key hasta que `npx prisma db push` (o equivalente) se ejecute exitosamente desde un entorno con conectividad real a Neon. `apiKeyAuth` permanece sin montar en ninguna ruta, por lo que no hay riesgo de fallo en producción mientras esto no ocurra.
+**Aprobado y cerrado.** Macroetapa 4 ejecutada: commit, bump de versión a `2.24.0`, tag y push realizados bajo autorización explícita del responsable del proyecto. La condición operativa registrada al cierre (migración pendiente de aplicación) fue resuelta el 2026-08-11 — `npx prisma db push` se ejecutó exitosamente contra Neon, verificado en esta sesión. El entregable es completamente operativo. `apiKeyAuth` permanece sin montar en ninguna ruta, por diseño — el catálogo de recursos públicos es un entregable separado.

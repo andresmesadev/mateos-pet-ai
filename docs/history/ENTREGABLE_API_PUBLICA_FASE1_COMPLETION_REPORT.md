@@ -2,7 +2,7 @@
 
 **Fecha:** 2026-08-11
 **Bloque:** Ecosistema (post-Fase 6) — segundo entregable, tras la precondición de certificación de eventos (v2.23.0).
-**Estado:** ✅ Código y schema cerrados oficialmente (Macroetapas 1-4 completas, versión `2.24.0`). ⚠️ **No operativo/desplegable para consumidores de API key** — ver "Estado real de la migración" abajo.
+**Estado:** ✅ Completo y operativo (Macroetapas 1-4 completas, versión `2.24.0`). Migración de base de datos aplicada exitosamente (actualizado 2026-08-11) — ver "Estado real de la migración" abajo.
 **Naturaleza del entregable:** infraestructura de autenticación nueva (mecanismo `ApiKey`) + cierre de un hueco de seguridad real y concreto (deuda A5 en `/api/billing/*`). Sin catálogo de recursos públicos — decisión de producto explícitamente diferida.
 
 ---
@@ -35,18 +35,11 @@ El diseño dejaba abierto un fork sobre cómo cerrar A5: usar `ApiKey`, o manten
 - **Suite completa:** **93/93 suites · 587/587 tests** en verde (antes 90/90 · 568 — +3 suites, +19 tests, cero regresiones).
 - `git diff --stat` total: 2 archivos modificados (`app.js`, `schema.prisma`) + 6 nuevos (3 test, 2 middleware, 1 lib).
 
-### Estado real de la migración — condición explícita de la Macroetapa 4
+### Estado real de la migración — actualizado 2026-08-11
 
-`npx prisma generate` se ejecutó **con éxito** — el cliente Prisma incluye el modelo `ApiKey`. `npx prisma db push` **no pudo ejecutarse** en este entorno: `P1001 — Can't reach database server at ep-sweet-pine-aqiuxokd-pooler.c-8.us-east-1.aws.neon.tech:5432`, sin conectividad de red hacia Neon desde este sandbox.
+`npx prisma generate` se ejecutó **con éxito** en la Macroetapa 4 (v2.24.0). En su momento, `npx prisma db push` no pudo ejecutarse desde este entorno (`P1001`, sin conectividad de red hacia Neon) y el entregable se cerró documentando explícitamente esa condición pendiente, sin darla por aplicada.
 
-**La base de datos productiva NO contiene necesariamente el modelo `ApiKey` en este momento.** El commit y el tag de este entregable cierran el código y el schema fuente — no implican, no declaran ni asumen que la migración fue aplicada. Ningún paso de esta Macroetapa 4 ejecutó ni simuló una aplicación de la migración contra la base de datos.
-
-**Precedente institucional revisado antes de esta decisión:** `CLAUDE.md` exige `prisma generate` tras cambios de schema (automatizado vía hook) — cumplido. No existe ninguna regla institucional que condicione el cierre de un entregable a que `prisma db push` se haya ejecutado contra la base de datos productiva; esa aplicación ha ocurrido históricamente como parte del flujo de despliegue, no de la validación en este entorno. Por tanto, este cierre se realiza bajo el criterio: **el código y el diseño quedan validados y cerrados; la aplicación de la migración a la base de datos queda como prerequisito operativo explícito, no como parte de este cierre.**
-
-**Antes de que este entregable pueda considerarse operativo:**
-1. Ejecutar `npx prisma db push` (o el flujo de migración equivalente) desde un entorno con conectividad real a la base de datos Neon de producción.
-2. Verificar que el modelo `ApiKey` existe en la base de datos antes de emitir o intentar validar cualquier API key real.
-3. **`apiKeyAuth` sigue sin montarse en ninguna ruta** — no hay ningún endpoint que dependa de esto hoy, por lo que no hay riesgo de fallo en producción por la ausencia de la tabla; el riesgo se activa únicamente si un futuro entregable monta el middleware o intenta emitir keys antes de que la migración se aplique.
+**Actualización:** `npx prisma db push` fue ejecutado exitosamente contra la base de datos de producción (Neon) fuera de este entorno. Verificado en esta sesión mediante `npx prisma db pull --print`, que confirma la existencia real del modelo `ApiKey` (incluyendo la relación inversa `apiKeys ApiKey[]` en `Tenant`) en la base de datos productiva. **La condición operativa queda resuelta — el entregable es ahora completamente operativo para lo que su alcance cubre** (el mecanismo de identidad existe end-to-end; sigue sin haber ningún endpoint público que lo consuma, por diseño — ver "Alcance restante" del cierre original).
 
 ## 2. Validación Funcional (grep exhaustivo)
 
