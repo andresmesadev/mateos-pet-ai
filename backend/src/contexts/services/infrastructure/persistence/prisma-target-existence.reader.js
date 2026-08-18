@@ -7,18 +7,27 @@ const { TargetExistenceReaderPort } = require("../../application/ports/target-ex
  * incorporar su estructura completa a Servicios — solo lee lo necesario.
  */
 class PrismaTargetExistenceReader extends TargetExistenceReaderPort {
-  async clientExists(clientId) {
-    const client = await prisma.user.findUnique({ where: { id: clientId }, select: { id: true } });
+  async clientExists(clientId, tenantId = null) {
+    const client = await prisma.user.findFirst({
+      where: { id: clientId, ...(tenantId ? { tenantId } : {}) },
+      select: { id: true },
+    });
     return Boolean(client);
   }
 
-  async petExists(petId) {
-    const pet = await prisma.pet.findUnique({ where: { id: petId }, select: { id: true } });
+  async petExists(petId, tenantId = null) {
+    const pet = await prisma.pet.findFirst({
+      where: { id: petId, ...(tenantId ? { tenantId } : {}) },
+      select: { id: true },
+    });
     return Boolean(pet);
   }
 
-  async getPetAttributes(petId) {
-    const pet = await prisma.pet.findUnique({ where: { id: petId }, select: { breed: true } });
+  async getPetAttributes(petId, tenantId = null) {
+    const pet = await prisma.pet.findFirst({
+      where: { id: petId, ...(tenantId ? { tenantId } : {}) },
+      select: { breed: true },
+    });
     if (!pet) return null;
     // El modelo físico Pet no persiste "tamaño" hoy; queda como atributo
     // ausente hasta que el contexto Mascotas lo incorpore (fuera de alcance

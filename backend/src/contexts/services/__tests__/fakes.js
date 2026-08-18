@@ -89,14 +89,17 @@ function createFakeBusinessConfigReader(activeModules = ["grooming", "veterinary
 
 function createFakeTargetExistenceReader({ clients = [], pets = [] } = {}) {
   return {
-    async clientExists(clientId) {
-      return clients.includes(clientId);
+    async clientExists(clientId, tenantId = null) {
+      return clients.some(
+        (c) => (typeof c === "string" ? c === clientId : c.id === clientId) &&
+          (!tenantId || (typeof c === "object" && c.tenantId === tenantId))
+      );
     },
-    async petExists(petId) {
-      return pets.some((p) => p.id === petId);
+    async petExists(petId, tenantId = null) {
+      return pets.some((p) => p.id === petId && (!tenantId || p.tenantId === tenantId));
     },
-    async getPetAttributes(petId) {
-      const pet = pets.find((p) => p.id === petId);
+    async getPetAttributes(petId, tenantId = null) {
+      const pet = pets.find((p) => p.id === petId && (!tenantId || p.tenantId === tenantId));
       return pet ? { breedId: pet.breedId || null, size: pet.size || null } : null;
     },
   };

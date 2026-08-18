@@ -12,9 +12,9 @@ const { ServiceNotFoundError, ServiceInactiveError } = require("../../domain/err
  * @param {import("../ports/target-existence-reader.port").TargetExistenceReaderPort} deps.targetExistenceReader
  */
 function createResolveServicePriceUseCase({ serviceRepository, priceRuleRepository, targetExistenceReader }) {
-  return async function execute({ serviceId, petId = null, clientId = null }) {
+  return async function execute({ serviceId, tenantId = null, petId = null, clientId = null }) {
     const service = await serviceRepository.findById(serviceId);
-    if (!service) {
+    if (!service || (tenantId && service.tenantId !== tenantId)) {
       throw new ServiceNotFoundError(serviceId);
     }
     if (!service.active) {
@@ -26,7 +26,7 @@ function createResolveServicePriceUseCase({ serviceRepository, priceRuleReposito
     let breedId = null;
     let size = null;
     if (petId) {
-      const petAttributes = await targetExistenceReader.getPetAttributes(petId);
+      const petAttributes = await targetExistenceReader.getPetAttributes(petId, tenantId);
       if (petAttributes) {
         breedId = petAttributes.breedId;
         size = petAttributes.size;

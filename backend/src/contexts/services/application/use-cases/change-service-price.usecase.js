@@ -46,13 +46,13 @@ function createChangeServicePriceUseCase({
   targetExistenceReader,
   eventPublisher,
 }) {
-  return async function execute({ serviceId, target, newPrice }) {
+  return async function execute({ serviceId, tenantId = null, target, newPrice }) {
     if (newPrice == null || Number(newPrice) < 0) {
       throw new InvalidPriceError(newPrice);
     }
 
     const service = await serviceRepository.findById(serviceId);
-    if (!service) {
+    if (!service || (tenantId && service.tenantId !== tenantId)) {
       throw new ServiceNotFoundError(serviceId);
     }
 
@@ -65,11 +65,11 @@ function createChangeServicePriceUseCase({
     }
 
     if (targetType === "client") {
-      const exists = await targetExistenceReader.clientExists(targetId);
+      const exists = await targetExistenceReader.clientExists(targetId, tenantId);
       if (!exists) throw new PriceRuleTargetNotFoundError(targetType, targetId);
     }
     if (targetType === "pet") {
-      const exists = await targetExistenceReader.petExists(targetId);
+      const exists = await targetExistenceReader.petExists(targetId, tenantId);
       if (!exists) throw new PriceRuleTargetNotFoundError(targetType, targetId);
     }
 

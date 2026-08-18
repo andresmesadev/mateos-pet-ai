@@ -84,4 +84,25 @@ describe("ChangeServicePriceUseCase", () => {
 
     priceRuleRepository.findActiveByTarget = originalFindActiveByTarget;
   });
+
+  test("rechaza un serviceId de otro tenant cuando se provee tenantId (B3)", async () => {
+    const { execute } = buildUseCase();
+    await expect(
+      execute({ serviceId: "s-1", tenantId: "otro-tenant", target: { type: "base" }, newPrice: 1000 })
+    ).rejects.toBeInstanceOf(ServiceNotFoundError);
+  });
+
+  test("rechaza un cliente de otro tenant aunque exista globalmente (B3)", async () => {
+    const { execute } = buildUseCase({ clients: [{ id: "client-1", tenantId: "otro-tenant" }] });
+    await expect(
+      execute({ serviceId: "s-1", tenantId: "t1", target: { type: "client", clientId: "client-1" }, newPrice: 1000 })
+    ).rejects.toBeInstanceOf(PriceRuleTargetNotFoundError);
+  });
+
+  test("rechaza una mascota de otro tenant aunque exista globalmente (B3)", async () => {
+    const { execute } = buildUseCase({ pets: [{ id: "pet-1", tenantId: "otro-tenant" }] });
+    await expect(
+      execute({ serviceId: "s-1", tenantId: "t1", target: { type: "pet", petId: "pet-1" }, newPrice: 1000 })
+    ).rejects.toBeInstanceOf(PriceRuleTargetNotFoundError);
+  });
 });

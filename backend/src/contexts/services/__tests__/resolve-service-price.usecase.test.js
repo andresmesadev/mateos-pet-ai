@@ -57,4 +57,25 @@ describe("ResolveServicePriceUseCase", () => {
     const result = await execute({ serviceId: "s-1" });
     expect(result).not.toHaveProperty("events");
   });
+
+  test("rechaza un serviceId de otro tenant cuando se provee tenantId (B3)", async () => {
+    const { execute } = buildUseCase();
+    await expect(execute({ serviceId: "s-1", tenantId: "otro-tenant" })).rejects.toBeInstanceOf(ServiceNotFoundError);
+  });
+
+  test("acepta un serviceId del mismo tenant cuando se provee tenantId", async () => {
+    const { execute } = buildUseCase();
+    const result = await execute({ serviceId: "s-1", tenantId: "t1" });
+    expect(result.finalPrice).toBe(30000);
+  });
+
+  test("ignora una mascota de otro tenant al resolver atributos (B3)", async () => {
+    const { execute } = buildUseCase({
+      rules: [{ id: "r1", serviceId: "s-1", targetType: "breed", targetId: "labrador", price: 22000, active: true }],
+      pets: [{ id: "pet-1", tenantId: "otro-tenant", breedId: "labrador" }],
+    });
+    const result = await execute({ serviceId: "s-1", tenantId: "t1", petId: "pet-1" });
+    expect(result.finalPrice).toBe(30000);
+    expect(result.source).toBe("service_base_price");
+  });
 });

@@ -153,7 +153,12 @@ router.patch("/services/:id", async (req, res) => {
 
     // Precio base — único lugar: ChangeServicePriceUseCase (target base).
     if (basePrice !== undefined) {
-      await changeServicePrice({ serviceId: id, target: null, newPrice: basePrice !== null ? Number(basePrice) : 0 });
+      await changeServicePrice({
+        serviceId: id,
+        tenantId: tenantId ?? null,
+        target: null,
+        newPrice: basePrice !== null ? Number(basePrice) : 0,
+      });
     }
 
     // Desactivación por caso de uso; la reactivación no tiene caso de uso en
