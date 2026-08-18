@@ -23,6 +23,7 @@ const { sendMessage } = require("../../contexts/communication");
 const { hashSecret } = require("../../lib/clientAuthCrypto");
 const { apiKeyAuth } = require("../../middleware/apiKeyAuth");
 const publicApiRoutes = require("../../routes/public-api.routes");
+const logger = require("../../lib/logger");
 
 function buildApp() {
   const app = express();
@@ -161,6 +162,7 @@ describe("POST /api/public/auth/logout", () => {
     prisma.apiKey.findUnique.mockResolvedValue(KEY_TENANT_A);
     prisma.clientSession.findUnique.mockResolvedValue(SESSION);
     prisma.clientSession.update.mockResolvedValue({ ...SESSION, revokedAt: new Date() });
+    const loggerInfoSpy = jest.spyOn(logger, "info").mockImplementation(() => {});
 
     const res = await request(buildApp())
       .post("/api/public/auth/logout")
@@ -171,6 +173,12 @@ describe("POST /api/public/auth/logout", () => {
     const calls = prisma.clientSession.update.mock.calls;
     const revokeCall = calls.find((call) => call[0].data?.revokedAt);
     expect(revokeCall[0]).toEqual({ where: { id: "session-1" }, data: { revokedAt: expect.any(Date) } });
+    expect(loggerInfoSpy).toHaveBeenCalledWith(
+      "[PublicApi] Sesión de cliente cerrada",
+      { tenantId: "tenant-a", userId: "user-1", sessionId: "session-1" }
+    );
+
+    loggerInfoSpy.mockRestore();
   });
 
   test("una sesión ya revocada no puede volver a autenticar (logout no reutilizable)", async () => {

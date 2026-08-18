@@ -18,6 +18,7 @@ jest.mock("../../services/business-config.service", () => ({
 
 const prisma = require("../../lib/prisma");
 const tenantRoutes = require("../../routes/dashboard/tenant.routes");
+const logger = require("../../lib/logger");
 
 const TENANT_ID = "tenant-a";
 
@@ -66,7 +67,7 @@ describe("POST /api/dashboard/api-keys/:id/revoke", () => {
     expect(prisma.apiKey.update).not.toHaveBeenCalled();
   });
 
-  test("revoca una ApiKey activa, seteando revokedAt", async () => {
+  test("revoca una ApiKey activa, seteando revokedAt y registrando un log estructurado", async () => {
     prisma.apiKey.findFirst.mockResolvedValue({ id: "key-1", tenantId: TENANT_ID, revokedAt: null });
     prisma.apiKey.update.mockResolvedValue({
       id: "key-1",
@@ -75,6 +76,7 @@ describe("POST /api/dashboard/api-keys/:id/revoke", () => {
       revokedAt: new Date(),
       lastUsedAt: null,
     });
+    const loggerInfoSpy = jest.spyOn(logger, "info").mockImplementation(() => {});
 
     const res = await request(buildApp()).post("/api/dashboard/api-keys/key-1/revoke");
 
@@ -85,6 +87,9 @@ describe("POST /api/dashboard/api-keys/:id/revoke", () => {
       select: { id: true, scopes: true, createdAt: true, revokedAt: true, lastUsedAt: true },
     });
     expect(res.body.apiKey).not.toHaveProperty("keyHash");
+    expect(loggerInfoSpy).toHaveBeenCalledWith("[Dashboard] ApiKey revocada", { tenantId: TENANT_ID, apiKeyId: "key-1" });
+
+    loggerInfoSpy.mockRestore();
   });
 
   test("es idempotente: revocar una ApiKey ya revocada responde 200 sin cambiar la fecha original", async () => {

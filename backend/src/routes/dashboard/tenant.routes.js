@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const prisma = require("../../lib/prisma");
+const logger = require("../../lib/logger");
 const {
   updateActiveModules,
   updateCommissionSplitRate,
@@ -288,6 +289,7 @@ router.post("/api-keys/:id/revoke", async (req, res) => {
       data: { revokedAt: apiKey.revokedAt ?? new Date() },
       select: { id: true, scopes: true, createdAt: true, revokedAt: true, lastUsedAt: true },
     });
+    logger.info("[Dashboard] ApiKey revocada", { tenantId, apiKeyId: apiKey.id });
 
     res.json({ apiKey: revoked });
   } catch (error) {

@@ -42,6 +42,7 @@ const {
 const { SlotAlreadyBookedError } = require("../services/errors/slot-already-booked.error");
 const { isAllowedTransition } = require("../services/appointment-status.service");
 const prisma = require("../lib/prisma");
+const logger = require("../lib/logger");
 
 function toPublicService(service) {
   return {
@@ -376,12 +377,13 @@ router.post("/auth/verify-code", clientAuthVerifyCodeRateLimit, async (req, res)
  */
 router.post("/auth/logout", clientAuth, async (req, res) => {
   try {
-    const { sessionId } = req.clientAuth;
+    const { sessionId, tenantId, userId } = req.clientAuth;
 
     await prisma.clientSession.update({
       where: { id: sessionId },
       data: { revokedAt: new Date() },
     });
+    logger.info("[PublicApi] Sesión de cliente cerrada", { tenantId, userId, sessionId });
 
     res.json({ message: "Sesión cerrada" });
   } catch (error) {
