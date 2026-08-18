@@ -463,7 +463,7 @@ Los seis entregables del roadmap interno (6.1 → 6.6) completos, con el aislami
 ---
 
 ### FASE 7 — Ecosistema
-**Estado:** 🚧 Formalizada el 2026-08-13. Roadmap interno retroactivo 7.1 → 7.10 completo (v2.23.0 → v2.32.0, construido antes de esta formalización bajo la metodología de macroetapas de cada entregable, sin que existiera todavía este documento). Backlog abierto sin resolver — ver "Lo que queda pendiente".
+**Estado:** ✅ Fase cerrada oficialmente (2026-08-13, entregable de cierre documental, sin bump de versión). Formalizada el 2026-08-13. Roadmap interno retroactivo 7.1 → 7.10 completo (v2.23.0 → v2.32.0, construido antes de esta formalización bajo la metodología de macroetapas de cada entregable, sin que existiera todavía este documento).
 **Nota de formalización retroactiva:** los diez entregables 7.1 → 7.10 se construyeron y cerraron individualmente (cada uno con su propio informe de cierre y Gate Review en `docs/history/`) antes de que el bloque "Ecosistema" recibiera nombre formal de fase en este documento. Esta sección no reabre ni modifica ninguna de esas decisiones — únicamente les da la ubicación que les correspondía en el Plan Maestro, cerrando la brecha de proceso identificada el 2026-08-13.
 
 **Objetivo estratégico**  
@@ -489,15 +489,20 @@ Ningún entregable de la Fase 7 modifica el motor conversacional (`whatsapp.serv
 - **7.9 — Trazabilidad Mínima (Alcance A)** — ✅ Completado (v2.31.0). Logging estructurado de cada revocación exitosa. Alcance B (atribución por staff individual) diferido explícitamente — el dashboard no tiene modelo de identidad multi-staff.
 - **7.10 — Corrección del bypass de aislamiento en resolución de precios** — ✅ Completado (v2.32.0). `tenantId` propagado a `ResolveServicePriceUseCase`/`ChangeServicePriceUseCase` — endurecimiento preventivo, el bypass era inexplotable en cualquier camino de producción existente.
 
-**Lo que queda pendiente (backlog abierto de la fase, ninguno resuelto ni agravado por 7.1-7.10)**  
-- **Decisión raíz, sin tomar:** ¿quién consume la API pública — apps propias del equipo, integradores externos, o ambos? De esta decisión dependen directamente las dos siguientes.
-- Creación y expiración de `ApiKey` vía API — hoy solo existen por acceso directo a la base de datos.
-- Política de CORS para consumidores externos — hoy solo permite el `FRONTEND_URL` configurado.
+**Decisión raíz resuelta (2026-08-13) — Opción C: apps propias hoy, terceros no descartados**  
+Se auditó la evidencia disponible antes de decidir: `domain-model-v1.md` §11 ya modela "Portal del Cliente" como un canal de primera clase de la propia plataforma, en la misma categoría que WhatsApp/Email/Dashboard — nunca como una superficie para integradores externos. No existe en todo el proyecto ninguna mención a un programa de partners, marketplace de integraciones, o tercero real identificado como consumidor. Con esa evidencia, se descartó tanto declarar la API exclusiva para siempre (Opción A, afirmación que el proyecto no tiene base para hacer) como abrirla ya a terceros (Opción B, sin ningún consumidor real que lo justifique). **Se adopta la Opción C:** la API pública sirve hoy exclusivamente a canales propios del equipo (Portal del Cliente); la puerta a integradores externos queda abierta conceptualmente pero sin ningún trabajo adicional mientras no exista un segundo consumidor real que lo justifique.
+
+**Consecuencia directa sobre el backlog** — con la Opción C, ninguno de los siguientes entregables tiene ya urgencia arquitectónica; se archivan como backlog condicional, no como trabajo pendiente de esta fase:
+- Creación y expiración de `ApiKey` vía API — innecesario mientras el propio equipo siga gestionando sus keys por acceso directo a la base de datos; se retoma solo si aparece un segundo consumidor real.
+- Política de CORS para terceros — innecesaria mientras el único consumidor sea un canal propio (sin `Origin` de navegador de un tercero que bloquear).
+- Alcance B de Trazabilidad (atribución por staff individual) — sigue diferido, ahora sin presión de un caso de uso multi-consumidor que lo urgiera.
+
+**Backlog condicional restante (no bloquea el cierre de la fase, no depende de la decisión raíz)**  
 - Vinculación `serviceId` ↔ `Appointment` al reservar desde el Portal — limitación heredada de `createAppointment`, no corregida por decisión explícita.
 - `resolve-service-price` permanece excluido del catálogo público — su reincorporación, ahora que el bypass de 7.10 está corregido, es una decisión de alcance separada, no automática.
 
-**Criterio de cierre**  
-No cumplido todavía. La fase permanece abierta hasta que la decisión raíz de consumidores se tome explícitamente y los entregables que dependen de ella (creación/expiración de `ApiKey`, CORS) se completen o se descarten con la misma justificación exigida por la Sección 6 de este documento.
+**Criterio de cierre — ✅ cumplido (2026-08-13)**  
+Los diez entregables del roadmap interno (7.1 → 7.10) completos, la decisión raíz de consumidores tomada explícitamente con evidencia (Opción C), y el backlog que dependía de ella archivado como condicional en vez de urgente. Cualquier trabajo posterior sobre creación/expiración de `ApiKey`, CORS, o apertura a terceros corresponde a una nueva fase o a la reapertura justificada de ésta, a decidir formalmente cuando exista un segundo consumidor real.
 
 ---
 
