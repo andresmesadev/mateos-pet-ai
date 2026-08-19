@@ -7,7 +7,7 @@ type InactiveClient = {
   phone: string;
   name: string | null;
   pets: { name: string; type: string }[];
-  lastAppointmentDate: string | null;
+  lastVisitDate: string | null;
 };
 
 type PageProps = {
