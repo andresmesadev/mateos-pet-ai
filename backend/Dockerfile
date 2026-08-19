@@ -13,6 +13,11 @@ COPY prisma /app/prisma
 
 WORKDIR /app
 RUN npm ci --only=production
+
+# prisma generate solo necesita que DATABASE_URL exista para cargar prisma.config.ts,
+# no se conecta a la base de datos real. El valor real llega en runtime vía Render.
+ARG DATABASE_URL=postgresql://placeholder:placeholder@localhost:5432/placeholder
+ENV DATABASE_URL=${DATABASE_URL}
 RUN npx prisma generate
 
 WORKDIR /app/backend
