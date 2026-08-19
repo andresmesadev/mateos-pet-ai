@@ -65,7 +65,9 @@ export default function DashboardLayout({
 
         {/* Contenido principal — encima de los orbes */}
         <div className="relative z-10 lg:pl-64">
-          <DashboardTopbar />
+          <Suspense fallback={null}>
+            <DashboardTopbar />
+          </Suspense>
           <main className="px-4 py-6 md:px-8 md:py-8">
             <Suspense fallback={null}>
               <BreadcrumbNav />

@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { connection } from "next/server";
 import { Wallet } from "lucide-react";
 
 import { PageHeader } from "@/components/dashboard/page-header";
@@ -35,6 +36,7 @@ function LoadingSkeleton() {
 }
 
 export default async function PosPage({ searchParams }: PageProps) {
+  await connection();
   const { tab: rawTab, date, period, tenant } = await searchParams;
   const tab: PosTab = isValidTab(rawTab) ? rawTab : "venta";
 

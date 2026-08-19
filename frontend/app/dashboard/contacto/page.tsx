@@ -1,4 +1,5 @@
 import { Users } from "lucide-react";
+import { connection } from "next/server";
 
 import { ClientsTable } from "@/components/dashboard/clients-table";
 import { PetsTable } from "@/components/dashboard/pets-table";
@@ -9,6 +10,7 @@ type ContactoPageProps = {
 };
 
 export default async function ContactoPage({ searchParams }: ContactoPageProps) {
+  await connection();
   const { pet } = await searchParams;
 
   return (

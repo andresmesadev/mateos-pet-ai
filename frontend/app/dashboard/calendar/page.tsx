@@ -1,4 +1,5 @@
 import { Calendar } from "lucide-react";
+import { connection } from "next/server";
 
 import { auth } from "@/auth";
 import { apiUrl, makeServerHeaders } from "@/lib/api";
@@ -37,6 +38,7 @@ function resolveRange(bh: BusinessHours | null): { hourStart: number; hourEnd: n
 }
 
 export default async function CalendarPage({ searchParams }: PageProps) {
+  await connection();
   const { date, tenant } = await searchParams;
   const session = await auth();
   const headers = makeServerHeaders(session, tenant);
