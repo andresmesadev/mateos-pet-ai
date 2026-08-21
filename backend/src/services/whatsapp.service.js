@@ -332,7 +332,25 @@ const processIncomingMessage = async (body) => {
   logger.info("[Conversation] Current step:", previous.step ?? "(none)");
 
   if (previous.step === "completed") {
-    previous = { ...previous, step: null };
+    // Limpia también los datos de la reserva ya cerrada — dejar step: null sin
+    // limpiar el resto hacía que un mensaje posterior sin relación (ej. "Gracias")
+    // reutilizara pet_name/requested_service de la cita ya agendada y disparara
+    // una nueva oferta de horario. Mismo criterio de reinicio ya usado por la
+    // rama de saludo en conversation.service.js.
+    previous = {
+      ...previous,
+      step: null,
+      pet_name: null,
+      pet_type: null,
+      requested_service: null,
+      grooming_service: null,
+      scheduling_date_key: null,
+      scheduling_hour: null,
+      date: null,
+      time: null,
+      domicilio: null,
+      domicilio_address: null,
+    };
   }
 
   if (scheduling.detectHumanEscalation(parsed.text)) {
