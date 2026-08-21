@@ -403,7 +403,7 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
   }
 
   // ── 4. Flujo completado ───────────────────────────────────────────────────────
-  if (analysis.step === STEPS.COMPLETED) {
+  if (currentStep === STEPS.COMPLETED) {
     return {
       reply: "¡Hola de nuevo! 😊 Soy Lina, ¿en qué te podemos colaborar hoy? 🐾",
       step: null,
