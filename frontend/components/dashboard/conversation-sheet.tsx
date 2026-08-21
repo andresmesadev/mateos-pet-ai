@@ -72,7 +72,8 @@ function ConversationContent({ conversationId }: { conversationId: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    void (async () => {
+
+    async function load(background: boolean) {
       try {
         const res = await fetch(
           proxyUrl(`/api/dashboard/conversations/${conversationId}/messages`),
@@ -80,14 +81,32 @@ function ConversationContent({ conversationId }: { conversationId: string }) {
         );
         if (!res.ok) throw new Error("No se pudo cargar la conversación");
         const data: ConversationDetail = await res.json();
-        if (!cancelled) { setDetail(data); setError(null); }
+        if (cancelled) return;
+        // En los sondeos de fondo, solo actualiza si de verdad llegaron
+        // mensajes nuevos — evita re-render/scroll innecesario en cada tick.
+        setDetail((prev) => {
+          if (background && prev && prev.messages.length === data.messages.length) {
+            return prev;
+          }
+          return data;
+        });
+        setError(null);
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Error al cargar mensajes");
+        if (!cancelled && !background) {
+          setError(err instanceof Error ? err.message : "Error al cargar mensajes");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
-    })();
-    return () => { cancelled = true; };
+    }
+
+    void load(false);
+    const intervalId = window.setInterval(() => void load(true), 4000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
   }, [conversationId]);
 
   useEffect(() => {

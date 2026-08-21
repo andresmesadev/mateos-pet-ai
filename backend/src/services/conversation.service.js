@@ -463,10 +463,21 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
           }
           if (userPets && userPets.length === 1) {
             const onlyPet = userPets[0];
-            return buildRuleBasedReply(
+            const nested = await buildRuleBasedReply(
               { ...analysis, pet_name: onlyPet.name, pet_type: onlyPet.type },
               options
             );
+            // El autocompletado solo vive dentro de esta llamada recursiva —
+            // sin esto, la sesión persistida nunca se entera de qué mascota
+            // se resolvió, y la cita termina creándose con un nombre genérico.
+            return {
+              ...nested,
+              sessionPatch: {
+                ...(nested.sessionPatch || {}),
+                pet_name: onlyPet.name,
+                pet_type: onlyPet.type,
+              },
+            };
           }
         } catch { /* si falla el lookup, caemos al flujo normal */ }
       }

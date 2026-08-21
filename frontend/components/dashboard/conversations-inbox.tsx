@@ -58,7 +58,8 @@ export function ConversationsInbox({
   useEffect(() => {
     let cancelled = false;
 
-    void (async () => {
+    async function load(background: boolean) {
+      if (!background) setLoading(true);
       try {
         const response = await fetch(
           proxyUrl(`/api/dashboard/conversations?page=${page}&limit=20`),
@@ -79,7 +80,7 @@ export function ConversationsInbox({
       } catch (err) {
         console.error(err);
 
-        if (!cancelled) {
+        if (!cancelled && !background) {
           setError(
             err instanceof Error
               ? err.message
@@ -92,10 +93,22 @@ export function ConversationsInbox({
           setLoading(false);
         }
       }
-    })();
+    }
+
+    void load(false);
+
+    // Actualización en vivo: solo tiene sentido en la primera página — es
+    // donde aparecen las conversaciones nuevas/recién actualizadas. Los
+    // reintentos de fondo nunca muestran el skeleton ni el error visible,
+    // para no interrumpir a quien está mirando la lista.
+    const intervalId =
+      page === 1
+        ? window.setInterval(() => void load(true), 5000)
+        : null;
 
     return () => {
       cancelled = true;
+      if (intervalId) window.clearInterval(intervalId);
     };
   }, [page]);
 
