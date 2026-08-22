@@ -26,6 +26,10 @@ const {
   searchRelevantMemories,
   buildSemanticContext,
 } = require("./semantic-memory.service");
+const {
+  searchRelevantKnowledge,
+  buildKnowledgeContext,
+} = require("./business-knowledge.service");
 const { processVoiceMessage } = require("./audio.service");
 const { processImageMessage } = require("./image.service");
 const { createRecord } = require("./medical-record.service");
@@ -576,6 +580,33 @@ const processIncomingMessage = async (body) => {
     } catch (error) {
       logger.error(
         "[WhatsApp] Semantic memory search failed:",
+        error.message
+      );
+    }
+  }
+
+  // Base de conocimiento del negocio (notas del Establecimiento, ej.
+  // ingestadas desde Obsidian vía scripts/ingest-knowledge.js) — mismo
+  // mecanismo de inyección de contexto que la memoria por cliente, pero
+  // acotado por tenantId. No cambia ninguna regla de negocio ni la lógica
+  // de decisión del bot: solo enriquece lo que la IA ve antes de responder.
+  if (tenantId) {
+    try {
+      const knowledge = await searchRelevantKnowledge({
+        tenantId,
+        query: parsed.text,
+        limit: 5,
+      });
+      const knowledgeContext = buildKnowledgeContext(knowledge);
+      if (knowledgeContext) {
+        logger.info("[BusinessKnowledge] Context injected");
+        semanticContext = semanticContext
+          ? `${semanticContext}\n\n${knowledgeContext}`
+          : knowledgeContext;
+      }
+    } catch (error) {
+      logger.error(
+        "[WhatsApp] Business knowledge search failed:",
         error.message
       );
     }

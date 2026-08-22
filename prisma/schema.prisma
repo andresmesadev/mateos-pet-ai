@@ -57,6 +57,7 @@ model Tenant {
   apiKeys          ApiKey[]
   clientVerificationCodes ClientVerificationCode[]
   clientSessions          ClientSession[]
+  knowledgeChunks         KnowledgeChunk[]
 }
 
 model Staff {
@@ -419,6 +420,27 @@ model MemoryEmbedding {
   metadata       Json?
 
   createdAt      DateTime @default(now())
+}
+
+/// Base de conocimiento del negocio (motor conversacional): fragmentos de
+/// notas del Establecimiento (ej. exportadas de Obsidian), con su embedding
+/// (pgvector), acotados por tenantId — a diferencia de MemoryEmbedding
+/// (memoria por cliente), esto es conocimiento compartido por todo el
+/// tenant. Se ingesta vía scripts/ingest-knowledge.js.
+model KnowledgeChunk {
+  id        String   @id @default(cuid())
+
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  source    String?
+  content   String
+  embedding Unsupported("vector(1536)")
+  metadata  Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
 }
 
 model Appointment {
