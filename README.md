@@ -26,7 +26,7 @@ Estos documentos definen el rumbo del producto. Cualquier propuesta que los cont
 - Cuenta **Neon** (PostgreSQL con extensión `vector`)
 - Cuenta **Meta for Developers** (WhatsApp Cloud API)
 - Cuenta **OpenAI** con API key
-- **ngrok** (o túnel similar) para desarrollo local con webhook de Meta
+- Un túnel HTTPS (ej. Cloudflare Tunnel) para desarrollo local con webhook de Meta, o usar directamente el dominio de la VPS de producción para pruebas
 
 ---
 
@@ -134,30 +134,14 @@ Abre `http://localhost:3001/dashboard`.
 
 ---
 
-## 5. ngrok + WhatsApp (desarrollo local)
+## 5. Webhook de WhatsApp (desarrollo local)
 
-Meta necesita una URL pública HTTPS para el webhook.
+Meta necesita una URL pública HTTPS para el webhook. En producción, el backend vive en la VPS con dominio propio y Nginx/SSL (ver sección de despliegue). Para pruebas locales, expón el puerto 3000 con cualquier túnel HTTPS (ej. Cloudflare Tunnel) o apunta temporalmente contra la URL pública de la VPS.
 
-### 5.1 Exponer el backend
-
-Con el backend en el puerto 3000:
-
-```bash
-# Opción A — ngrok global
-ngrok http 3000
-
-# Opción B — desde dependencias del backend
-cd backend
-npx ngrok http 3000
-```
-
-Copia la URL HTTPS que muestra ngrok, por ejemplo:  
-`https://abc123.ngrok-free.app`
-
-### 5.2 Configurar Meta Developer Console
+### 5.1 Configurar Meta Developer Console
 
 1. [developers.facebook.com](https://developers.facebook.com) → tu app → **WhatsApp** → **Configuration**
-2. **Callback URL:** `https://abc123.ngrok-free.app/webhook`
+2. **Callback URL:** la URL HTTPS pública que apunta a tu backend (túnel local o dominio de la VPS) + `/webhook`
 3. **Verify token:** el mismo valor que `WHATSAPP_VERIFY_TOKEN` en `backend/.env`
 4. Suscríbete al campo **messages**
 5. En **API Setup**, copia **Phone number ID** y genera un **Access token** → `backend/.env`
@@ -165,10 +149,10 @@ Copia la URL HTTPS que muestra ngrok, por ejemplo:
 
 Los POST al webhook (`/webhook` y `/api/webhook`) validan la firma `X-Hub-Signature-256` con ese secret. Sin él, Meta recibirá `401 Unauthorized`.
 
-### 5.3 Probar
+### 5.2 Probar
 
 1. Backend corriendo (`npm run dev` en `backend/`)
-2. ngrok activo apuntando al puerto 3000
+2. Túnel HTTPS activo apuntando al puerto 3000 (o backend accesible en la VPS)
 3. Envía un mensaje de WhatsApp al número de prueba de Meta
 4. Revisa logs en la terminal del backend: `[WhatsApp]`, `[Conversation]`, `[Scheduling]`
 
@@ -231,14 +215,14 @@ Si PostgreSQL u OpenAI fallan, el JSON incluye `"status": "degraded"` y el servi
 | Problema | Qué revisar |
 |----------|-------------|
 | Webhook 403 | `WHATSAPP_VERIFY_TOKEN` coincide con Meta |
-| No llegan mensajes | ngrok activo, callback `/webhook`, suscripción a `messages` |
+| No llegan mensajes | túnel/dominio activo, callback `/webhook`, suscripción a `messages` |
 | Error Prisma / DB | `DATABASE_URL` correcta, migraciones aplicadas, extensión `vector` en Neon |
 | Webhook POST sin firma válida | Revisa `WHATSAPP_APP_SECRET` (App Dashboard → Configuración → Básica) |
 | OpenAI falla | `OPENAI_API_KEY` válida y con crédito |
 | Dashboard en 0 | Backend en `:3000`, PostgreSQL accesible |
 | Health check degraded | Revisa `DATABASE_URL` y `OPENAI_API_KEY`; prueba `GET /api/health` |
 | 429 Demasiadas solicitudes | Rate limit por IP: test 20/min, dashboard 60/min, webhook 100/min |
-| Puerto ocupado | Cambia `PORT` en `backend/.env` y actualiza ngrok |
+| Puerto ocupado | Cambia `PORT` en `backend/.env` y actualiza el túnel |
 
 ---
 
@@ -314,9 +298,9 @@ chmod +x scripts/deploy.sh
 
 Para desarrollo local sin contenedores, sigue las secciones 2–4 de este README.
 
-### Railway / Render
+### VPS (producción actual)
 
-Despliega **backend** y **frontend** como servicios separados (o solo backend si usas dashboard aparte).
+El backend y el frontend corren vía `docker-compose` en una VPS propia (Oracle Cloud), detrás de Nginx con certificado SSL (Let's Encrypt) sobre un dominio propio — requerido porque Meta exige HTTPS para el webhook de WhatsApp.
 
 | Variable | Backend | Frontend |
 |----------|---------|----------|
@@ -338,11 +322,9 @@ Despliega **backend** y **frontend** como servicios separados (o solo backend si
 | `NEXTAUTH_URL` | — | ✅ URL pública del dashboard |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | — | ✅ |
 
-**Backend (Render/Railway):** build desde raíz del repo con `backend/Dockerfile` (context `.`) o `npm ci` en `backend/` + `npx prisma migrate deploy` en raíz antes del start.
+Despliegue: `scripts/deploy.sh` en el host (git pull + migraciones + `docker-compose up -d --build`). Ver sección "Sin Docker (servidor / VPS)" arriba.
 
-**Frontend:** build `npm ci && npm run build`, start `npm start` con `PORT=3001`.
-
-Webhook de Meta: la **Callback URL** debe apuntar a la URL pública HTTPS del backend (`https://tu-backend.com/webhook`).
+Webhook de Meta: la **Callback URL** debe apuntar al dominio HTTPS de la VPS (`https://tu-dominio.com/webhook`).
 
 ---
 

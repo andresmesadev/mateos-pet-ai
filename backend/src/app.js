@@ -25,7 +25,7 @@ const onboardingRoutes = require("./routes/onboarding.routes");
 
 const app = express();
 
-// Necesario para que express-rate-limit confíe en la IP real detrás de ngrok/proxy
+// Necesario para que express-rate-limit confíe en la IP real detrás de Nginx/proxy
 app.set("trust proxy", 1);
 
 const webhookRawParser = express.raw({ type: "application/json" });
