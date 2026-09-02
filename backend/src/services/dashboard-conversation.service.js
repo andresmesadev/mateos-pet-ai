@@ -42,29 +42,46 @@ const mapConversationSummary = (conversation) => {
   };
 };
 
+/**
+ * Un mismo cliente (userId) puede tener varias filas en Conversation —
+ * findOrCreateConversation (conversation-persistence.service.js) crea una
+ * nueva cada vez que el flujo de reserva anterior llega a "completed". Son
+ * ciclos internos de sesión, no chats distintos: el listado debe agrupar por
+ * cliente (una fila = un hilo de WhatsApp), no por Conversation.
+ */
 const listConversations = async (query = {}) => {
   const { page, limit, skip } = parsePagination(query);
   const tenantId = query.tenantId ?? null;
   const where = tenantId ? { tenantId } : {};
 
-  const [conversations, total] = await Promise.all([
-    prisma.conversation.findMany({
-      where,
-      orderBy: { updatedAt: "desc" },
-      skip,
-      take: limit,
-      include: {
-        user: {
-          select: { phone: true, name: true },
+  const grouped = await prisma.conversation.groupBy({
+    by: ["userId"],
+    where,
+    _max: { updatedAt: true },
+  });
+
+  const total = grouped.length;
+  const pageUserIds = grouped
+    .sort((a, b) => new Date(b._max.updatedAt) - new Date(a._max.updatedAt))
+    .slice(skip, skip + limit)
+    .map((g) => g.userId);
+
+  const representatives = await Promise.all(
+    pageUserIds.map((userId) =>
+      prisma.conversation.findFirst({
+        where: { ...where, userId },
+        orderBy: { updatedAt: "desc" },
+        include: {
+          user: { select: { phone: true, name: true } },
+          messages: { orderBy: { createdAt: "desc" }, take: 1 },
         },
-        messages: {
-          orderBy: { createdAt: "desc" },
-          take: 1,
-        },
-      },
-    }),
-    prisma.conversation.count({ where }),
-  ]);
+      })
+    )
+  );
+
+  // Preserva el orden por actividad más reciente calculado arriba.
+  const byUserId = new Map(representatives.filter(Boolean).map((c) => [c.userId, c]));
+  const conversations = pageUserIds.map((id) => byUserId.get(id)).filter(Boolean);
 
   return {
     data: conversations.map(mapConversationSummary),
@@ -77,6 +94,12 @@ const listConversations = async (query = {}) => {
   };
 };
 
+/**
+ * El id recibido es el de la Conversation más reciente del cliente (la que
+ * el listado usa como representante del hilo). El historial mostrado agrega
+ * los mensajes de TODAS las Conversation del mismo userId — mismo criterio
+ * de agrupación que listConversations — para que se vea como un único chat.
+ */
 const getConversationMessages = async (conversationId) => {
   const id = String(conversationId || "").trim();
 
@@ -97,8 +120,14 @@ const getConversationMessages = async (conversationId) => {
     return null;
   }
 
+  const threadConversations = await prisma.conversation.findMany({
+    where: { userId: conversation.userId, tenantId: conversation.tenantId },
+    select: { id: true },
+  });
+  const threadConversationIds = threadConversations.map((c) => c.id);
+
   const messages = await prisma.message.findMany({
-    where: { conversationId: id },
+    where: { conversationId: { in: threadConversationIds } },
     orderBy: { createdAt: "asc" },
     select: {
       id: true,

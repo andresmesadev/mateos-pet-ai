@@ -138,7 +138,7 @@ export function AddPetToOwnerFlow({ open, onOpenChange, onCreated }: Props) {
   return (
     <>
       <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent className="flex max-h-[90vh] w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-md">
+        <DialogContent className="flex max-h-[92vh] w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-xl">
           {step === "search" && (
             <>
               <DialogHeader>

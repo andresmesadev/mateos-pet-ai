@@ -121,7 +121,7 @@ export function NewOwnerPetsSheet({ open, onOpenChange, onCreated }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!saving) onOpenChange(v); }}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-h-[92vh] w-full max-w-2xl overflow-y-auto">
         <DialogHeader>
           <div className="mb-1 flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500/15 ring-1 ring-sky-500/25">

@@ -125,6 +125,37 @@ router.get("/appointments/upcoming", async (req, res) => {
   }
 });
 
+// GET /appointments/month?year=YYYY&month=0-11  (defaults to current Bogotá month)
+// Alimenta la vista "Mes" del dashboard (week-calendar.tsx), que hasta ahora
+// solo recibía las citas de la semana actual desde el server component y no
+// mostraba nada fuera de esa semana en la grilla mensual.
+router.get("/appointments/month", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    const tenantFilter = tenantId ? { tenantId } : {};
+
+    const nowBogota = new Date(`${getBogotaYmd()}T12:00:00.000Z`);
+    const year = Number.isFinite(Number(req.query.year)) ? Number(req.query.year) : nowBogota.getUTCFullYear();
+    const month = Number.isFinite(Number(req.query.month)) ? Number(req.query.month) : nowBogota.getUTCMonth();
+
+    const monthStartYmd = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+    const monthStart = bogotaDayStart(monthStartYmd);
+    const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+    const monthEnd = new Date(monthStart.getTime() + daysInMonth * 86_400_000);
+
+    const rows = await prisma.appointment.findMany({
+      where: { ...tenantFilter, date: { gte: monthStart, lt: monthEnd } },
+      orderBy: { date: "asc" },
+      include: APPOINTMENT_INCLUDE,
+    });
+
+    res.json({ year, month, appointments: rows.map(mapAppointmentRow) });
+  } catch (error) {
+    console.error("[Dashboard] Month appointments error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // GET /appointments/week?date=YYYY-MM-DD  (defaults to current Bogotá week Mon–Sun)
 router.get("/appointments/week", async (req, res) => {
   try {
