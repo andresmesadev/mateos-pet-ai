@@ -10,6 +10,9 @@
 const { LegacyWhatsappEngineAdapter } = require("./infrastructure/engine/legacy-whatsapp-engine.adapter");
 const { resolveTenantId } = require("./infrastructure/engine/resolve-tenant-id");
 const { createProcessIncomingMessageUseCase } = require("./application/use-cases/process-incoming-message.usecase");
+// Entregable 8.3 (D-E2): STEPS.HUMAN_TAKEOVER, ya el vocabulario cerrado del
+// motor legado — evita repetir el string literal en este composition root.
+const { STEPS } = require("../../services/conversation.service");
 
 const agents = require("../agents");
 const { DigitalEmployeeNotActiveError } = require("../agents/domain/errors");
@@ -31,6 +34,7 @@ const processIncomingMessage = createProcessIncomingMessageUseCase({
   conversationalEngine,
   resolveTenantId,
   logger,
+  humanTakeoverStep: STEPS.HUMAN_TAKEOVER,
 });
 
 module.exports = {

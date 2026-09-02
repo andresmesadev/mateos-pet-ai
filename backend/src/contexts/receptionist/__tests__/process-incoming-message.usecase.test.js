@@ -127,6 +127,24 @@ describe("ProcessIncomingMessageUseCase", () => {
     expect(deps.completedTasks).toHaveLength(0);
   });
 
+  test("Entregable 8.3 (D-E2): escala por step === humanTakeoverStep aunque requires_human_attention sea false", async () => {
+    const deps = buildDeps({
+      engineResult: {
+        processed: true,
+        reply: "Te comunico con Lina",
+        text: "hablar con alguien",
+        conversation: { id: "conv-4" },
+        session: { step: "human_takeover", requires_human_attention: false },
+      },
+    });
+    const execute = createProcessIncomingMessageUseCase(deps);
+
+    await execute({});
+
+    expect(deps.escalatedConversations).toEqual([{ conversationId: "conv-4" }]);
+    expect(deps.escalations).toHaveLength(1);
+  });
+
   test("escalamiento sobre conversación ya escalada: idempotente, no falla el procesamiento", async () => {
     const deps = buildDeps({
       engineResult: {
