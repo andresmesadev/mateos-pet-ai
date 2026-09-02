@@ -6,6 +6,10 @@ const getClient = () => {
   if (!_client) {
     _client = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
+      // Entregable 8.1 (D-F2): un 429/503 transitorio ya no pierde el turno
+      // completo del cliente — el SDK reintenta con backoff exponencial
+      // nativo antes de propagar el error al catch de cada llamada.
+      maxRetries: 2,
     });
   }
 
@@ -40,6 +44,7 @@ Tu única tarea es leer el mensaje del cliente y devolver datos estructurados en
 - intent: string
 - pet_type: "dog" | "cat" | "other" | null
 - pet_name: string con el nombre de la mascota si lo dice, si no null
+- client_name: string con el nombre de la PERSONA (el dueño, no la mascota) si lo dice, si no null
 - requested_service: "bath_grooming" | "veterinary_consultation" | "medication" | "general_appointment" | null
 - date: fecha mencionada en texto libre o null
 - time: hora mencionada en texto libre o null
@@ -49,6 +54,7 @@ Tu única tarea es leer el mensaje del cliente y devolver datos estructurados en
 - "Quiero baño para mi perro" → intent: schedule_appointment, requested_service: bath_grooming, pet_type: dog, pet_name: null
 - "Hola" → intent: greeting, el resto null
 - Si menciona nombre de la mascota (ej. "se llama Max"), guarda pet_name: "Max"
+- Si el cliente dice su propio nombre (ej. "Soy Juan", "Mi nombre es María", "Habla Carlos"), guarda client_name: "Juan" — nunca confundas el nombre de la persona con el de la mascota
 - Si pide medicamentos → requested_service: medication
 - Si pide consulta o veterinario → veterinary_consultation
 - "Quiero cancelar mi cita" → intent: cancel_appointment
@@ -65,7 +71,7 @@ Tu única tarea es leer el mensaje del cliente y devolver datos estructurados en
 - "Mi gato no puede comer pescado" → intent: save_medical_info
 - "Le pusieron la vacuna antirrábica ayer" → intent: save_medical_info
 - Responde ÚNICAMENTE un objeto JSON válido con exactamente estas claves:
-  intent, pet_type, pet_name, requested_service, date, time`;
+  intent, pet_type, pet_name, client_name, requested_service, date, time`;
 
 const buildSystemPrompt = (semanticContext) => {
   const context = typeof semanticContext === "string" ? semanticContext.trim() : "";
@@ -80,23 +86,39 @@ Memorias relevantes del usuario:
 ${context}`;
 };
 
+// Entregable 8.1 (D-M1): normaliza `history` a un array de
+// { role: "user"|"assistant", content } — mismo formato ya validado por
+// context-builder.service.js. Cualquier entrada que no sea un array la
+// vacía en vez de fallar — ausencia de historial nunca rompe el análisis.
+const normalizeHistory = (history) =>
+  Array.isArray(history)
+    ? history.filter(
+        (m) =>
+          m &&
+          (m.role === "user" || m.role === "assistant") &&
+          typeof m.content === "string" &&
+          m.content.trim()
+      )
+    : [];
+
 const resolveAnalyzeInput = (input) => {
   if (typeof input === "string") {
-    return { message: input, semanticContext: "" };
+    return { message: input, semanticContext: "", history: [] };
   }
 
   if (input && typeof input === "object") {
     return {
       message: input.message ?? "",
       semanticContext: input.semanticContext ?? "",
+      history: normalizeHistory(input.history),
     };
   }
 
-  return { message: "", semanticContext: "" };
+  return { message: "", semanticContext: "", history: [] };
 };
 
 const analyzeMessage = async (input) => {
-  const { message, semanticContext } = resolveAnalyzeInput(input);
+  const { message, semanticContext, history } = resolveAnalyzeInput(input);
   const userMessage = typeof message === "string" ? message.trim() : "";
 
   if (!userMessage) {
@@ -114,11 +136,15 @@ const analyzeMessage = async (input) => {
   }
 
   try {
+    // Entregable 8.1 (D-M1): el historial ya no se descarta — se inserta
+    // entre el system prompt y el mensaje actual. Antes: siempre exactamente
+    // dos mensajes (system+user), sin memoria de turnos previos.
     const response = await getClient().chat.completions.create({
       model: "gpt-4.1-mini",
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: buildSystemPrompt(contextText) },
+        ...history,
         { role: "user", content: userMessage },
       ],
     });
@@ -223,21 +249,29 @@ const generateReply = async ({
   semanticContext,
   userMessage,
   suggestedReply,
+  history,
 } = {}) => {
+  const normalizedHistory = normalizeHistory(history);
   const contextText =
     typeof semanticContext === "string" ? semanticContext.trim() : "";
 
-  if (!contextText) {
-    return null;
+  // Entregable 8.1 (D-F4): ya no se corta aquí sin contexto semántico — el
+  // llamador (conversation.service.js) decide si vale la pena intentar
+  // redactar con IA; esta función solo arma el prompt con lo que reciba.
+  if (contextText) {
+    console.log(`[OpenAI] Reply semantic context length: ${contextText.length}`);
   }
 
-  console.log(`[OpenAI] Reply semantic context length: ${contextText.length}`);
-
   try {
+    // Entregable 8.1 (D-M1): mismo criterio que analyzeMessage — el historial
+    // se inserta antes del mensaje actual (que sigue siendo el "resumen"
+    // enriquecido de buildReplyUserPrompt, no el texto crudo, para no
+    // duplicar el turno actual dos veces en el prompt).
     const response = await getClient().chat.completions.create({
       model: "gpt-4.1-mini",
       messages: [
         { role: "system", content: buildReplySystemPrompt(contextText) },
+        ...normalizedHistory,
         {
           role: "user",
           content: buildReplyUserPrompt({
