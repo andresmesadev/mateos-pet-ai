@@ -506,6 +506,26 @@ Los diez entregables del roadmap interno (7.1 → 7.10) completos, la decisión 
 
 ---
 
+### FASE 8 — Calidad del Motor Conversacional
+**Estado:** 🚧 En curso. Declarada el 2026-09-02, tras el ADR 010.
+**Origen:** informe comparativo externo (`Mateos Pet AI vs. Sancho Agent IA`, 2026-09-01), que auditó memoria/estado/flujo del motor conversacional y encontró carencias funcionales reales, verificadas contra el código antes de aceptarse.
+
+**Objetivo estratégico**
+Cerrar las carencias reales del motor conversacional en las tres capas que determinan su calidad: memoria (qué recuerda el modelo), estado (cómo se gobierna el wizard) y flujo (cómo se procesa cada mensaje entrante) — sin introducir dominio de negocio nuevo ni reescribir el motor.
+
+**Principio permanente de la fase**
+Ningún entregable de la Fase 8 reescribe el motor conversacional ni introduce lógica de negocio nueva — corrige carencias de la capa de runtime (memoria, concurrencia, idempotencia) reutilizando la persistencia ya existente. Todo cambio que toque un archivo protegido desde la Fase 3 pasa primero por Reconciliación Arquitectónica explícita (ADR 010 la habilita para este bloque, no la da por sentada para trabajo futuro).
+
+**Roadmap interno (preliminar)**
+8.1 Contención y Memoria Conversacional (D-E5, D-E4, D-F4, D-F2, D-M1) → 8.2 Concurrencia y Durabilidad (D-E3, D-F1) → 8.3 Modelado de Estado (D-E1, D-E2).
+
+- **8.2 — Concurrencia y Durabilidad** — ✅ Completado (2026-09-02, v2.34.0). Mutex en memoria por remitente (`phone-lock.service.js`) en vez del advisory lock de Postgres de Sancho — verificado que el backend corre una única instancia en el VPS, evitando envolver todo el pipeline en una transacción; lock de Postgres diferido explícitamente a si el proyecto escala horizontalmente. Cola durable (`InboundJob` + `jobs/inbound-message.job.js`, patrón `node-cron` de 5.1): `webhook.controller.js` ya no procesa inline, encola y responde 200; el worker reclama y ejecuta el mismo pipeline de siempre. Cierra además una regresión real introducida por 8.1: sin la cola, un crash entre persistir el mensaje y responder dejaba al cliente sin respuesta y sin recuperación, porque la deduplicación de 8.1 descartaba el reintento de Meta. Cero cambios en `contexts/`. Ver `docs/history/ENTREGABLE_8_2_COMPLETION_REPORT.md` y `docs/history/ENTREGABLE_8_2_GATE_REVIEW.md`.
+- **8.3 — Modelado de Estado** — ✅ Completado (2026-09-02, v2.35.0). Alcance reducido respecto al informe externo, con evidencia: la auditoría de la Macroetapa 1 encontró que el escalamiento a humano (`Conversation.status`) ya tenía una FSM real desde el Entregable 3.1 (`contexts/communication`), y que el wizard de reserva es intencionalmente interrumpible desde cualquier paso — una tabla estricta de transiciones (patrón de Sancho) habría prohibido resets legítimos. Se implementó en su lugar un vocabulario cerrado (`STEPS`, ampliado con `HUMAN_TAKEOVER`, antes un string literal fuera del enum) con validación de diagnóstico no bloqueante (`session-steps.service.js`), y se reforzó la señal que dispara el escalamiento (`step === STEPS.HUMAN_TAKEOVER`, además del flag legado ya existente). Cambios en `contexts/` confinados al wiring de `receptionist`. **Cierra el roadmap interno de la Fase 8 (8.1 → 8.3).** Ver `docs/history/ENTREGABLE_8_3_COMPLETION_REPORT.md` y `docs/history/ENTREGABLE_8_3_GATE_REVIEW.md`.
+
+- **8.1 — Contención y Memoria Conversacional** — ✅ Completado (2026-09-02, v2.33.0). Reconciliación Arquitectónica puntual (ADR 010, Opción A+B): historial real de `Message` enviado al LLM por primera vez (`context-builder.service.js`, nuevo, patrón inspirado en `context_builder.py` de Sancho Agent IA); deduplicación de webhook por `wamid` (`Message.externalId`, columna nueva); todos los mensajes de un batch de Meta procesados (antes: solo `messages[0]`); respuesta con IA ya no se corta sin contexto RAG; reintentos con backoff en OpenAI. Cero cambios en `contexts/` ni en el contrato externo del motor. Ver `docs/history/ENTREGABLE_8_1_COMPLETION_REPORT.md` y `docs/history/ENTREGABLE_8_1_GATE_REVIEW.md`.
+
+---
+
 ## 6. Reglas para Incorporar Nuevas Funcionalidades
 
 Antes de construir cualquier funcionalidad, deben responderse estas cinco preguntas. Si alguna respuesta es negativa, la funcionalidad no debe desarrollarse en este momento.
