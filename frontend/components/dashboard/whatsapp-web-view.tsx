@@ -189,10 +189,12 @@ function ChatDetailPane({ conversationId }: { conversationId: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setDetail(null);
 
     async function load(background: boolean) {
+      if (!background) {
+        setLoading(true);
+        setDetail(null);
+      }
       try {
         const res = await fetch(
           proxyUrl(`/api/dashboard/conversations/${conversationId}/messages`),
