@@ -67,8 +67,40 @@ const findOrCreateUser = async (phone, tenantId = null) => {
   }
 };
 
+/**
+ * Guarda el nombre del cliente solo si aún no lo tenía (no sobrescribe uno
+ * ya capturado por el dashboard o una conversación anterior). No-op segura
+ * si el userId no existe.
+ */
+const updateUserNameIfMissing = async (userId, name) => {
+  const id = String(userId || "").trim();
+  const trimmedName = String(name || "").trim();
+
+  if (!id || !trimmedName) {
+    return null;
+  }
+
+  try {
+    const user = await prisma.user.findUnique({ where: { id }, select: { name: true } });
+    if (!user || user.name) {
+      return null;
+    }
+
+    const updated = await prisma.user.update({
+      where: { id },
+      data: { name: trimmedName },
+    });
+    console.log("[UserService] Client name captured");
+    return updated;
+  } catch (error) {
+    console.error("[UserService] updateUserNameIfMissing error:", error.message);
+    return null;
+  }
+};
+
 module.exports = {
   findUserByPhone,
   createUser,
   findOrCreateUser,
+  updateUserNameIfMissing,
 };

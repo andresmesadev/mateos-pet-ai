@@ -1,0 +1,879 @@
+<title>Estado del Producto</title>
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --ground: #F1F4F1;
+    --surface: #FFFFFF;
+    --surface-sunken: #E9EDE9;
+    --ink: #16241D;
+    --ink-muted: #4B5B52;
+    --ink-faint: #7C897F;
+    --line: #D8DED8;
+    --line-strong: #B9C4B8;
+
+    --accent: #1F6F5C;
+    --accent-ink: #0E3A2F;
+    --accent-soft: #DDEBE5;
+
+    --accent-2: #B8722F;
+    --accent-2-ink: #6B3F16;
+    --accent-2-soft: #F3E4D2;
+
+    --success: #3F8F5F;
+    --success-soft: #E1F0E6;
+    --warning: #C68A2E;
+    --warning-soft: #FBEEDA;
+    --critical: #B54B3D;
+    --critical-soft: #F8E4E0;
+
+    --shadow: 0 1px 2px rgba(22, 36, 29, 0.06), 0 8px 24px -12px rgba(22, 36, 29, 0.18);
+    --radius: 14px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #10160F;
+      --surface: #171F1B;
+      --surface-sunken: #1E2822;
+      --ink: #E7EDE7;
+      --ink-muted: #A9B6AB;
+      --ink-faint: #78877B;
+      --line: #2B362F;
+      --line-strong: #3C4A3F;
+
+      --accent: #5CB89E;
+      --accent-ink: #CFF0E4;
+      --accent-soft: #1C332C;
+
+      --accent-2: #E0A15E;
+      --accent-2-ink: #FBE6CC;
+      --accent-2-soft: #3A2A17;
+
+      --success: #6CBE8C;
+      --success-soft: #1B3324;
+      --warning: #E0B15C;
+      --warning-soft: #3A2E14;
+      --critical: #E08476;
+      --critical-soft: #3A211D;
+
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px -16px rgba(0, 0, 0, 0.5);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #10160F;
+    --surface: #171F1B;
+    --surface-sunken: #1E2822;
+    --ink: #E7EDE7;
+    --ink-muted: #A9B6AB;
+    --ink-faint: #78877B;
+    --line: #2B362F;
+    --line-strong: #3C4A3F;
+
+    --accent: #5CB89E;
+    --accent-ink: #CFF0E4;
+    --accent-soft: #1C332C;
+
+    --accent-2: #E0A15E;
+    --accent-2-ink: #FBE6CC;
+    --accent-2-soft: #3A2A17;
+
+    --success: #6CBE8C;
+    --success-soft: #1B3324;
+    --warning: #E0B15C;
+    --warning-soft: #3A2E14;
+    --critical: #E08476;
+    --critical-soft: #3A211D;
+
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px -16px rgba(0, 0, 0, 0.5);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 56px 24px 96px;
+  }
+
+  h1, h2, h3 {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 600;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  .mono {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- Header ---------- */
+
+  .masthead {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding-bottom: 36px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .masthead h1 {
+    font-size: clamp(30px, 4.5vw, 40px);
+    letter-spacing: -0.01em;
+    color: var(--ink);
+  }
+
+  .masthead .dek {
+    color: var(--ink-muted);
+    font-size: 16.5px;
+    max-width: 62ch;
+  }
+
+  .version-pill {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 7px;
+    align-self: flex-start;
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    padding: 6px 14px 6px 12px;
+    box-shadow: var(--shadow);
+  }
+  .version-pill .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--success);
+    flex: none;
+  }
+  .version-pill .label {
+    font-size: 12px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .version-pill .num {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 600;
+    font-size: 14px;
+  }
+
+  /* ---------- Stat strip ---------- */
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-top: 32px;
+  }
+  .stat {
+    background: var(--surface);
+    padding: 20px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .stat .n {
+    font-family: "Fraunces", serif;
+    font-size: 34px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--accent);
+  }
+  .stat .n .of { color: var(--ink-faint); font-size: 20px; font-weight: 500; }
+  .stat .l {
+    font-size: 13px;
+    color: var(--ink-muted);
+  }
+
+  /* ---------- Section shell ---------- */
+
+  section { margin-top: 56px; }
+
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 22px;
+  }
+  .section-head h2 { font-size: 22px; }
+  .section-head .tag {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--ink-faint);
+    white-space: nowrap;
+  }
+  .section-note {
+    color: var(--ink-muted);
+    font-size: 14.5px;
+    margin: -12px 0 22px;
+    max-width: 68ch;
+  }
+
+  /* ---------- Phase timeline ---------- */
+
+  .timeline {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .timeline::before {
+    content: "";
+    position: absolute;
+    left: 19px;
+    top: 10px;
+    bottom: 10px;
+    width: 2px;
+    background: var(--line-strong);
+  }
+  .phase {
+    position: relative;
+    display: grid;
+    grid-template-columns: 40px 1fr;
+    gap: 18px;
+    padding: 14px 0;
+  }
+  .phase .node {
+    position: relative;
+    z-index: 1;
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    border: 1.5px solid var(--accent);
+    color: var(--accent-ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .phase .body {
+    padding-top: 4px;
+  }
+  .phase .title-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .phase h3 {
+    font-size: 17px;
+    font-weight: 600;
+  }
+  .phase .ver {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--ink-faint);
+  }
+  .phase p {
+    margin: 5px 0 0;
+    color: var(--ink-muted);
+    font-size: 14.5px;
+    max-width: 60ch;
+  }
+  .badge-done {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--success);
+    background: var(--success-soft);
+    border-radius: 999px;
+    padding: 3px 9px 3px 7px;
+  }
+  .badge-done svg { width: 11px; height: 11px; }
+
+  /* ---------- Ecosistema track ---------- */
+
+  .eco-shell {
+    border: 1.5px dashed var(--line-strong);
+    border-radius: var(--radius);
+    padding: 24px;
+    background: var(--surface);
+  }
+  .eco-flag {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 12px 14px;
+    background: var(--success-soft);
+    border-radius: 10px;
+    margin-bottom: 22px;
+  }
+  .eco-flag .ic { color: var(--success); flex: none; margin-top: 2px; }
+  .eco-flag p {
+    margin: 0;
+    font-size: 13.5px;
+    color: var(--ink);
+    line-height: 1.5;
+  }
+
+  .eco-list {
+    display: flex;
+    flex-direction: column;
+  }
+  .eco-item {
+    display: grid;
+    grid-template-columns: 68px 1fr;
+    gap: 16px;
+    padding: 12px 0;
+    border-top: 1px solid var(--line);
+  }
+  .eco-item:first-child { border-top: none; }
+  .eco-item .v {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12.5px;
+    color: var(--accent-2);
+    font-weight: 600;
+    padding-top: 2px;
+  }
+  .eco-item .name {
+    font-size: 14.5px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .eco-item .desc {
+    font-size: 13px;
+    color: var(--ink-muted);
+    margin-top: 2px;
+  }
+
+  /* ---------- Debts ---------- */
+
+  .debts {
+    display: grid;
+    gap: 10px;
+  }
+  .debt {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 14px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 13px 16px;
+  }
+  .sev {
+    width: 6px;
+    align-self: stretch;
+    border-radius: 4px;
+    margin: -13px 0;
+    padding: 13px 0;
+  }
+  .sev-block { background: var(--critical); }
+  .sev-decision { background: var(--warning); }
+  .sev-note { background: var(--ink-faint); opacity: 0.4; }
+
+  .debt .name { font-size: 14.5px; font-weight: 500; }
+  .debt .why { font-size: 12.5px; color: var(--ink-muted); margin-top: 2px; }
+  .chip {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 4px 9px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .chip-block { color: var(--critical); background: var(--critical-soft); }
+  .chip-decision { color: var(--warning); background: var(--warning-soft); }
+
+  /* ---------- Closing ---------- */
+
+  .closing {
+    margin-top: 56px;
+    padding: 26px 26px;
+    background: var(--accent-soft);
+    border-radius: var(--radius);
+    display: flex;
+    gap: 18px;
+    align-items: flex-start;
+  }
+  .closing .ic { color: var(--accent); flex: none; margin-top: 3px; }
+  .closing h3 {
+    font-size: 16.5px;
+    color: var(--accent-ink);
+    margin-bottom: 6px;
+  }
+  .closing p {
+    margin: 0;
+    font-size: 14.5px;
+    color: var(--accent-ink);
+    line-height: 1.6;
+    max-width: 62ch;
+  }
+
+  /* ---------- Maturity track ---------- */
+
+  .maturity-track {
+    display: flex;
+    align-items: center;
+    overflow-x: auto;
+    padding: 4px 2px 14px;
+    margin-bottom: 24px;
+  }
+  .stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    flex: none;
+    width: 104px;
+    position: relative;
+  }
+  .stage .rail {
+    position: absolute;
+    top: 13px;
+    left: -52px;
+    width: 104px;
+    height: 2px;
+    background: var(--line-strong);
+    z-index: 0;
+  }
+  .stage:first-child .rail { display: none; }
+  .stage.done .rail { background: var(--success); }
+  .stage .dot {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    position: relative; z-index: 1;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1.5px solid var(--line-strong);
+    background: var(--surface);
+    color: var(--ink-faint);
+  }
+  .stage.done .dot {
+    background: var(--success);
+    border-color: var(--success);
+    color: var(--surface);
+  }
+  .stage.current .dot {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--surface);
+    box-shadow: 0 0 0 4px var(--accent-soft);
+  }
+  .stage .label {
+    font-size: 12px;
+    text-align: center;
+    color: var(--ink-faint);
+    line-height: 1.3;
+  }
+  .stage.done .label { color: var(--ink-muted); }
+  .stage.current .label { color: var(--accent-ink); font-weight: 600; }
+
+  .readiness-list {
+    display: grid;
+    gap: 9px;
+  }
+  .readiness-item {
+    display: flex;
+    gap: 11px;
+    align-items: flex-start;
+    font-size: 14px;
+  }
+  .readiness-item .mark {
+    flex: none;
+    width: 19px; height: 19px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin-top: 1px;
+  }
+  .readiness-item.ok .mark { background: var(--success-soft); color: var(--success); }
+  .readiness-item.missing .mark { background: var(--critical-soft); color: var(--critical); }
+  .readiness-item .mark svg { width: 11px; height: 11px; }
+  .readiness-item .t { color: var(--ink); }
+  .readiness-item .t .sub { display: block; color: var(--ink-muted); font-size: 12.5px; margin-top: 1px; }
+
+  .readiness-cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+    margin-top: 22px;
+  }
+  .readiness-cols h4 {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-faint);
+    margin: 0 0 12px;
+    font-weight: 600;
+  }
+
+  footer {
+    margin-top: 48px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--ink-faint);
+    font-family: "IBM Plex Mono", monospace;
+  }
+
+  @media (max-width: 600px) {
+    .stats { grid-template-columns: 1fr; }
+    .phase { grid-template-columns: 32px 1fr; gap: 12px; }
+    .phase .node { width: 32px; height: 32px; font-size: 12px; }
+    .eco-item { grid-template-columns: 1fr; gap: 4px; }
+    .readiness-cols { grid-template-columns: 1fr; gap: 20px; }
+  }
+</style>
+
+<div class="page">
+
+  <header class="masthead">
+    <span class="eyebrow">Mateos Pet AI — NexoVet</span>
+    <h1>Estado del producto</h1>
+    <p class="dek">Panorama de lo construido hasta hoy: las 7 fases del roadmap oficial, cerradas de punta a punta, y el backlog condicional que queda a la espera de un segundo consumidor real.</p>
+    <span class="version-pill">
+      <span class="dot"></span>
+      <span class="label">Versión en producción</span>
+      <span class="num">v2.32.0</span>
+    </span>
+  </header>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="n">7<span class="of">/7</span></div>
+      <div class="l">Fases oficiales del roadmap — completas</div>
+    </div>
+    <div class="stat">
+      <div class="n">10<span class="of">/10</span></div>
+      <div class="l">Entregables de la Fase 7 — Ecosistema (v2.23 → v2.32)</div>
+    </div>
+    <div class="stat">
+      <div class="n">5</div>
+      <div class="l">Ítems en backlog condicional — ninguno urgente</div>
+    </div>
+  </div>
+
+  <section>
+    <div class="section-head">
+      <h2>El roadmap oficial</h2>
+      <span class="tag">docs/PLAN_MAESTRO.md</span>
+    </div>
+    <p class="section-note">Siete fases, cada una cerrada formalmente con su propia retrospectiva. Esto es el producto: agenda, staff, finanzas, WhatsApp con IA, automatizaciones, aislamiento multi-establecimiento real, y un canal propio fuera de WhatsApp.</p>
+
+    <div class="timeline">
+      <div class="phase">
+        <div class="node">1</div>
+        <div class="body">
+          <div class="title-row">
+            <h3>Sistema Operativo del Negocio</h3>
+            <span class="badge-done"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Completa</span>
+          </div>
+          <p>Catálogo de servicios, staff y finanzas como sistema operativo real, con casos de uso expuestos al dashboard.</p>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="node">2</div>
+        <div class="body">
+          <div class="title-row">
+            <h3>Empleados Digitales Especializados</h3>
+            <span class="badge-done"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Completa</span>
+          </div>
+          <p>Eventos de dominio, Comunicación, Automatizaciones, y los primeros dos agentes reales: Recepcionista y Coordinador de Agenda IA.</p>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="node">3</div>
+        <div class="body">
+          <div class="title-row">
+            <h3>Plataforma Comercial</h3>
+            <span class="badge-done"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Completa</span>
+          </div>
+          <p>Onboarding autónomo, configuración por establecimiento, y facturación real vía Stripe — el negocio opera como SaaS.</p>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="node">4</div>
+        <div class="body">
+          <div class="title-row">
+            <h3>Operaciones Inteligentes</h3>
+            <span class="badge-done"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Completa</span>
+          </div>
+          <p>Entrega confiable de eventos, certificación real por contexto, y límites de autonomía aplicados a los agentes.</p>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="node">5</div>
+        <div class="body">
+          <div class="title-row">
+            <h3>Operación Multi-Establecimiento Real</h3>
+            <span class="badge-done"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Completa</span>
+          </div>
+          <p>Horario y zona horaria reales por sede, cierre de 22 huecos de autorización cross-tenant, y una vista administrativa consolidada.</p>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="node">6</div>
+        <div class="body">
+          <div class="title-row">
+            <h3>Reconciliación del modelo de dominio</h3>
+            <span class="badge-done"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Completa</span>
+          </div>
+          <p>Establecimiento (Tenant) confirmado como única unidad de aislamiento del sistema — cierre formal del roadmap oficial, 2026-08-11.</p>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="node">7</div>
+        <div class="body">
+          <div class="title-row">
+            <h3>Ecosistema</h3>
+            <span class="badge-done"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Completa</span>
+          </div>
+          <p>API pública autenticada y Portal del Cliente — un canal propio fuera de WhatsApp, con identidad, catálogo y ciclo de citas completos. Formalizada y cerrada el 2026-08-13, retroactiva a diez entregables ya construidos.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Fase 7 — Ecosistema, por entregable</h2>
+      <span class="tag">v2.23.0 → v2.32.0</span>
+    </div>
+
+    <div class="eco-shell">
+      <div class="eco-flag">
+        <svg class="ic" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <p><strong>Decisión raíz resuelta (Opción C, 2026-08-13):</strong> la API sirve hoy exclusivamente a canales propios del equipo — el Portal del Cliente. Abrirla a integradores externos queda posible, pero sin ningún trabajo pendiente mientras no exista un segundo consumidor real.</p>
+      </div>
+
+      <div class="eco-list">
+        <div class="eco-item">
+          <span class="v">v2.23</span>
+          <div>
+            <div class="name">Certificación de eventos de Empleados Digitales</div>
+            <div class="desc">Cierra el último hueco de trazabilidad heredado de la Fase 2.</div>
+          </div>
+        </div>
+        <div class="eco-item">
+          <span class="v">v2.24</span>
+          <div>
+            <div class="name">API pública, Fase 1</div>
+            <div class="desc">ApiKey por hash, middleware de autenticación, primer consumidor externo posible.</div>
+          </div>
+        </div>
+        <div class="eco-item">
+          <span class="v">v2.25</span>
+          <div>
+            <div class="name">Catálogo de recursos v1</div>
+            <div class="desc">Servicios y disponibilidad de staff expuestos con scopes.</div>
+          </div>
+        </div>
+        <div class="eco-item">
+          <span class="v">v2.26</span>
+          <div>
+            <div class="name">Identidad de cliente</div>
+            <div class="desc">Login por teléfono + código OTP entregado por WhatsApp.</div>
+          </div>
+        </div>
+        <div class="eco-item">
+          <span class="v">v2.27</span>
+          <div>
+            <div class="name">Disponibilidad real de horarios</div>
+            <div class="desc">Conecta el catálogo público al motor de agenda ya existente.</div>
+          </div>
+        </div>
+        <div class="eco-item">
+          <span class="v">v2.28</span>
+          <div>
+            <div class="name">Reserva de cita</div>
+            <div class="desc">Primer endpoint de escritura — un cliente reserva sin pasar por WhatsApp.</div>
+          </div>
+        </div>
+        <div class="eco-item">
+          <span class="v">v2.29</span>
+          <div>
+            <div class="name">Gestión de cita</div>
+            <div class="desc">Ver y cancelar las propias citas desde el Portal.</div>
+          </div>
+        </div>
+        <div class="eco-item">
+          <span class="v">v2.30</span>
+          <div>
+            <div class="name">Revocación de sesión y gestión mínima de ApiKey</div>
+            <div class="desc">Logout de cliente y revocación de credenciales comprometidas.</div>
+          </div>
+        </div>
+        <div class="eco-item">
+          <span class="v">v2.31</span>
+          <div>
+            <div class="name">Trazabilidad mínima</div>
+            <div class="desc">Registro estructurado de cada revocación — quién exactamente queda diferido.</div>
+          </div>
+        </div>
+        <div class="eco-item">
+          <span class="v">v2.32</span>
+          <div>
+            <div class="name">Corrección de aislamiento en resolución de precios</div>
+            <div class="desc">Endurecimiento preventivo — el hueco no era explotable, pero ya no existe.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Backlog condicional</h2>
+      <span class="tag">5 ítems · ninguno urgente</span>
+    </div>
+    <p class="section-note">Ninguno es un defecto activo en producción ni bloquea nada hoy. Tres quedaron archivados por la decisión raíz — se retoman solo si aparece un segundo consumidor real de la API. Dos son mejoras diferidas de forma deliberada, sin relación con esa decisión.</p>
+
+    <div class="debts">
+      <div class="debt">
+        <span class="sev sev-note"></span>
+        <div>
+          <div class="name">Creación y expiración de ApiKey vía API</div>
+          <div class="why">Innecesario mientras el propio equipo gestione sus keys por acceso directo a la base de datos.</div>
+        </div>
+        <span class="chip" style="color: var(--ink-faint); background: var(--surface-sunken);">Condicional</span>
+      </div>
+      <div class="debt">
+        <span class="sev sev-note"></span>
+        <div>
+          <div class="name">Política de CORS para terceros</div>
+          <div class="why">Innecesaria mientras el único consumidor sea un canal propio, sin origen de navegador que bloquear.</div>
+        </div>
+        <span class="chip" style="color: var(--ink-faint); background: var(--surface-sunken);">Condicional</span>
+      </div>
+      <div class="debt">
+        <span class="sev sev-note"></span>
+        <div>
+          <div class="name">Atribución de quién revoca una ApiKey</div>
+          <div class="why">El dashboard tiene un único login de administrador por sede, no cuentas por persona.</div>
+        </div>
+        <span class="chip" style="color: var(--ink-faint); background: var(--surface-sunken);">Condicional</span>
+      </div>
+      <div class="debt">
+        <span class="sev sev-note"></span>
+        <div>
+          <div class="name">Vinculación serviceId ↔ Appointment</div>
+          <div class="why">Heredado del motor conversacional original, sin corregir por decisión explícita.</div>
+        </div>
+        <span class="chip" style="color: var(--ink-faint); background: var(--surface-sunken);">Diferida</span>
+      </div>
+      <div class="debt">
+        <span class="sev sev-note"></span>
+        <div>
+          <div class="name">resolve-service-price fuera del catálogo público</div>
+          <div class="why">El bypass de aislamiento que lo excluía ya está corregido (7.10) — reincorporarlo es una decisión de alcance aparte.</div>
+        </div>
+        <span class="chip" style="color: var(--ink-faint); background: var(--surface-sunken);">Diferida</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="closing">
+    <svg class="ic" width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M6 10.5L9 13.5L14.5 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <div>
+      <h3>Las 7 fases están cerradas</h3>
+      <p>No queda ninguna decisión pendiente que bloquee trabajo. El backlog condicional se retoma exclusivamente si aparece un segundo consumidor real de la API pública — hasta entonces, no es prioridad de ningún entregable futuro.</p>
+    </div>
+  </div>
+
+  <section>
+    <div class="section-head">
+      <h2>Madurez del producto</h2>
+      <span class="tag">2026-08-13</span>
+    </div>
+    <p class="section-note">Completar las 7 fases mide qué tan sólida es la arquitectura, no qué tan probado está el producto con uso real. Esta es esa segunda medida.</p>
+
+    <div class="maturity-track">
+      <div class="stage done"><div class="rail"></div><div class="dot"><svg viewBox="0 0 16 16" fill="none" width="12" height="12"><path d="M3 8.5L6.5 12L13 4.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="label">PoC</div></div>
+      <div class="stage done"><div class="rail"></div><div class="dot"><svg viewBox="0 0 16 16" fill="none" width="12" height="12"><path d="M3 8.5L6.5 12L13 4.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="label">Prototipo</div></div>
+      <div class="stage done"><div class="rail"></div><div class="dot"><svg viewBox="0 0 16 16" fill="none" width="12" height="12"><path d="M3 8.5L6.5 12L13 4.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="label">MVP</div></div>
+      <div class="stage current"><div class="rail"></div><div class="dot">4</div><div class="label">Alpha</div></div>
+      <div class="stage"><div class="rail"></div><div class="dot">5</div><div class="label">Beta<br>Cerrada</div></div>
+      <div class="stage"><div class="rail"></div><div class="dot">6</div><div class="label">Beta<br>Abierta</div></div>
+      <div class="stage"><div class="rail"></div><div class="dot">7</div><div class="label">RC</div></div>
+      <div class="stage"><div class="rail"></div><div class="dot">8</div><div class="label">GA /<br>Producción</div></div>
+    </div>
+
+    <p style="font-size: 14.5px; color: var(--ink-muted); margin: 0 0 4px;"><strong style="color: var(--ink);">Estamos en Alpha.</strong> Código real y funcional, con 681 tests de backend en verde, pero sin uso real todavía: la base de datos tiene 2.903 usuarios y 5.308 registros médicos migrados de la operación histórica, y aun así <span class="mono">0</span> citas, <span class="mono">0</span> conversaciones, <span class="mono">0</span> ApiKeys y <span class="mono">0</span> sesiones de cliente creadas jamás por el sistema nuevo.</p>
+
+    <div class="readiness-cols">
+      <div>
+        <h4>Ya resuelto</h4>
+        <div class="readiness-list">
+          <div class="readiness-item ok">
+            <span class="mark"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <span class="t">Monitoreo de errores<span class="sub">Sentry configurado en el backend</span></span>
+          </div>
+          <div class="readiness-item ok">
+            <span class="mark"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <span class="t">CI/CD<span class="sub">GitHub Actions — build y deploy automatizados</span></span>
+          </div>
+          <div class="readiness-item ok">
+            <span class="mark"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <span class="t">Aislamiento multi-tenant<span class="sub">Verificado exhaustivamente, no solo por diseño</span></span>
+          </div>
+          <div class="readiness-item ok">
+            <span class="mark"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <span class="t">Cobertura de backend<span class="sub">104 suites · 681 tests</span></span>
+          </div>
+        </div>
+      </div>
+      <div>
+        <h4>Bloquea Beta Cerrada</h4>
+        <div class="readiness-list">
+          <div class="readiness-item missing">
+            <span class="mark"><svg viewBox="0 0 16 16" fill="none"><path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></span>
+            <span class="t">Términos de Servicio y Política de Privacidad<span class="sub">No negociable — se recogen teléfonos, OTP y datos médicos de mascotas</span></span>
+          </div>
+          <div class="readiness-item missing">
+            <span class="mark"><svg viewBox="0 0 16 16" fill="none"><path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></span>
+            <span class="t">Uso real controlado<span class="sub">El motor de citas/conversaciones nunca procesó tráfico real</span></span>
+          </div>
+          <div class="readiness-item missing">
+            <span class="mark"><svg viewBox="0 0 16 16" fill="none"><path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></span>
+            <span class="t">Tests de frontend<span class="sub">0 tests hoy — el dashboard depende de verificación manual</span></span>
+          </div>
+          <div class="readiness-item missing">
+            <span class="mark"><svg viewBox="0 0 16 16" fill="none"><path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></span>
+            <span class="t">Cuentas por staff individual<span class="sub">Hoy un único login de admin por establecimiento</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Generado a partir de docs/PLAN_MAESTRO.md, CLAUDE.md y el historial de entregables — 2026-08-13
+  </footer>
+
+</div>

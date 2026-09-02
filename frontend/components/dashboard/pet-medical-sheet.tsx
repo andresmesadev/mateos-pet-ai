@@ -258,7 +258,7 @@ function PetMedicalSheetContent({
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex shrink-0 items-start justify-between border-b border-white/[0.06] px-6 py-5">
+      <div className="flex shrink-0 items-start justify-between gap-4 border-b border-white/[0.06] py-5 pl-6 pr-14">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-xl ring-1 ring-amber-500/25">
             {getPetEmoji(pet.type)}
@@ -550,7 +550,7 @@ export function PetMedicalSheet({ pet, open, onOpenChange, onRecordAdded }: PetM
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showClose
-        className="flex max-h-[90vh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
+        className="flex h-[92vh] w-full max-w-[95vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl"
       >
         {open && pet ? (
           <PetMedicalSheetContent key={pet.id} pet={pet} onRecordAdded={onRecordAdded} />

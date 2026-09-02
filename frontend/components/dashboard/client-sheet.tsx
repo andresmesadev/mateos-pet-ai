@@ -381,7 +381,7 @@ export function ClientSheet({
 }: ClientSheetProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
+      <DialogContent className="flex h-[92vh] w-full max-w-[95vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
         {open && clientId ? (
           <ClientSheetContent key={clientId} clientId={clientId} />
         ) : null}
