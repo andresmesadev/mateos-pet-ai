@@ -77,7 +77,8 @@ describe("processOneJob", () => {
     expect(markInboundJobDone).toHaveBeenCalledWith("job-2");
   });
 
-  test("fallo de sendMessage no rompe el job (se marca done igual — el mensaje sí se analizó)", async () => {
+  test("Entregable 8.4 (D-F6): fallo persistente de sendMessage reintenta el envío 3 veces y luego marca done igual (el mensaje sí se analizó)", async () => {
+    jest.useFakeTimers();
     claimNextInboundJob.mockResolvedValue({ id: "job-3", payload: {} });
     processIncomingMessage.mockResolvedValue({
       processed: true,
@@ -88,10 +89,38 @@ describe("processOneJob", () => {
     });
     sendMessage.mockRejectedValue(new Error("proveedor caído"));
 
-    await processOneJob();
+    const promise = processOneJob();
+    await jest.runAllTimersAsync();
+    await promise;
 
+    expect(sendMessage).toHaveBeenCalledTimes(3);
     expect(markInboundJobDone).toHaveBeenCalledWith("job-3");
     expect(markInboundJobFailed).not.toHaveBeenCalled();
+    jest.useRealTimers();
+  });
+
+  test("Entregable 8.4 (D-F6): falla transitoria (2 intentos) y el 3ro entrega la respuesta", async () => {
+    jest.useFakeTimers();
+    claimNextInboundJob.mockResolvedValue({ id: "job-3b", payload: {} });
+    processIncomingMessage.mockResolvedValue({
+      processed: true,
+      from: "573000000000",
+      reply: "hola",
+      user: { id: "user-1", tenantId: "tenant-1" },
+      conversation: { id: "conv-1" },
+    });
+    sendMessage
+      .mockRejectedValueOnce(new Error("timeout"))
+      .mockRejectedValueOnce(new Error("timeout"))
+      .mockResolvedValueOnce({ message: {} });
+
+    const promise = processOneJob();
+    await jest.runAllTimersAsync();
+    await promise;
+
+    expect(sendMessage).toHaveBeenCalledTimes(3);
+    expect(markInboundJobDone).toHaveBeenCalledWith("job-3b");
+    jest.useRealTimers();
   });
 
   test("fallo de processIncomingMessage marca el job como failed (para reintento)", async () => {

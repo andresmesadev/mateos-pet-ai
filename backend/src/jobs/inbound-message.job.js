@@ -18,6 +18,17 @@ const cron = require("node-cron");
  * reintento de Automatizaciones, esto es la vía primaria de respuesta al
  * cliente — cada tick drena la cola completa, no un job por tick, para no
  * acumular atraso bajo ráfagas de mensajes.
+ *
+ * D-F6 (informe externo, corregido en este mismo entregable): un fallo de
+ * `sendMessage` se registraba y se descartaba en silencio — el job quedaba
+ * `done` (el análisis sí ocurrió) pero el cliente nunca recibía su respuesta
+ * y nada la reintentaba. Reintentar todo el job reprocesaría el pipeline
+ * completo desde cero (arriesgando efectos duplicados — otra cita, otra
+ * mascota creada), así que el reintento vive aquí, acotado al envío: hasta
+ * `MAX_SEND_ATTEMPTS` intentos con backoff corto, dentro de la misma
+ * ejecución del job. Cubre el caso real (falla transitoria de Meta/red); un
+ * fallo permanente (token inválido) seguiría fallando igual en un reintento
+ * completo del job, así que no se ganaría nada difiriéndolo.
  */
 const { processIncomingMessage } = require("../contexts/receptionist");
 const { sendMessage } = require("../contexts/communication");
@@ -28,30 +39,42 @@ const {
 } = require("../services/inbound-job.service");
 
 const CRON_EXPRESSION = "*/5 * * * * *";
+const MAX_SEND_ATTEMPTS = 3;
+const SEND_RETRY_DELAY_MS = 1000;
 
-// Mismo comportamiento de envío que webhook.controller.js tenía antes de
-// este entregable — movido aquí sin cambios de criterio, solo de ubicación.
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const deliverReply = async (result) => {
   if (!result?.processed || !result?.from || !result?.reply) {
     return;
   }
 
   if (result.user?.id) {
-    try {
-      await sendMessage({
-        tenantId: result.user.tenantId ?? null,
-        userId: result.user.id,
-        conversationId: result.conversation?.id ?? null,
-        phone: result.from,
-        content: result.reply,
-        origin: "agente",
-      });
-    } catch (error) {
-      console.error(
-        `[InboundMessageJob] No se pudo enviar respuesta a ${result.from}:`,
-        error.message
-      );
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= MAX_SEND_ATTEMPTS; attempt += 1) {
+      try {
+        await sendMessage({
+          tenantId: result.user.tenantId ?? null,
+          userId: result.user.id,
+          conversationId: result.conversation?.id ?? null,
+          phone: result.from,
+          content: result.reply,
+          origin: "agente",
+        });
+        return;
+      } catch (error) {
+        lastError = error;
+        if (attempt < MAX_SEND_ATTEMPTS) {
+          await delay(SEND_RETRY_DELAY_MS * attempt);
+        }
+      }
     }
+
+    console.error(
+      `[InboundMessageJob] No se pudo enviar respuesta a ${result.from} tras ${MAX_SEND_ATTEMPTS} intentos:`,
+      lastError.message
+    );
   } else {
     // Caso residual: no se pudo resolver user/conversation. Sin Comunicación
     // no hay a qué conversación adjuntar el mensaje — se registra, no se
