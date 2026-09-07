@@ -10,9 +10,14 @@ export const authConfig = {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = Boolean(auth?.user);
       const isDashboard = nextUrl.pathname.startsWith("/dashboard");
+      const isPrint = nextUrl.pathname.startsWith("/print");
       const isLogin = nextUrl.pathname === "/login";
 
-      if (isDashboard) {
+      // Fix post-auditoría de seguridad (2026-09-07, hallazgo F1): /print
+      // quedaba fuera de este gate (el default `return true` lo dejaba
+      // pasar sin sesión), exponiendo historial clínico completo + datos
+      // del dueño a cualquiera que tuviera el id de la mascota.
+      if (isDashboard || isPrint) {
         return isLoggedIn;
       }
 

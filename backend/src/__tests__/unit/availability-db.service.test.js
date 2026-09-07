@@ -121,6 +121,44 @@ describe("suggestAvailableVetSlots — sugerencias consistentes con la configura
   });
 });
 
+describe("isSlotAvailable — aislamiento cross-tenant (hallazgo de seguridad F4, 2026-09-07)", () => {
+  beforeEach(() => {
+    prisma.tenant.findUnique.mockResolvedValue({ businessHours: null });
+  });
+
+  test("con tenantId, la consulta de citas se filtra a ese tenant (directo o vía dueño)", async () => {
+    await isSlotAvailable({ dateKey: THURSDAY, hour: 12, serviceType: "vet", tenantId: "t-1" });
+
+    expect(prisma.appointment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [{ tenantId: "t-1" }, { user: { tenantId: "t-1" } }],
+        }),
+      })
+    );
+  });
+
+  test("una cita confirmada de OTRO tenant no ocupa el slot del tenant consultado", async () => {
+    // El mock ignora el `where` (no es una BD real) — simula que la única
+    // cita del día pertenece a otro tenant, y confirma que igual se reporta
+    // disponible porque el filtro ya se aplicó en la consulta real.
+    prisma.appointment.findMany.mockResolvedValue([]);
+
+    const available = await isSlotAvailable({ dateKey: THURSDAY, hour: 12, serviceType: "vet", tenantId: "t-1" });
+    expect(available).toBe(true);
+  });
+
+  test("sin tenantId, conserva el comportamiento legado (sin filtro por tenant)", async () => {
+    await isSlotAvailable({ dateKey: THURSDAY, hour: 12, serviceType: "vet" });
+
+    expect(prisma.appointment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.not.objectContaining({ OR: expect.anything() }),
+      })
+    );
+  });
+});
+
 describe("findNextAvailableGroomingSlot — coherente con la configuración real", () => {
   test("con establecimiento configurado, el slot encontrado respeta esa ventana horaria", async () => {
     prisma.tenant.findUnique.mockResolvedValue({

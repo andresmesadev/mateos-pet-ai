@@ -88,8 +88,17 @@ const appointmentToSlot = (row) => {
 
 /**
  * Citas activas de un día (YYYY-MM-DD).
+ *
+ * Fix post-auditoría de seguridad (2026-09-07, hallazgo F4): esta consulta
+ * no filtraba por tenant — en un despliegue multi-establecimiento, las
+ * citas confirmadas de CUALQUIER tenant marcaban un slot como ocupado para
+ * todos los demás (oráculo de ocupación cross-tenant + denegación de
+ * reservas). Con `tenantId` se filtra a ese establecimiento (cita directa
+ * o vía su dueño); sin `tenantId` se conserva el comportamiento legado
+ * (todas las citas) — caso real solo en despliegues single-tenant, donde
+ * no existe otro tenant con quien cruzarse.
  */
-const getAppointmentsByDate = async (dateKey) => {
+const getAppointmentsByDate = async (dateKey, tenantId) => {
   const key = toDateKey(dateKey);
 
   if (!key) {
@@ -105,6 +114,7 @@ const getAppointmentsByDate = async (dateKey) => {
       where: {
         date: { gte: start, lte: end },
         status: { not: "cancelled" },
+        ...(tenantId ? { OR: [{ tenantId }, { user: { tenantId } }] } : {}),
       },
       orderBy: { date: "asc" },
     });
@@ -116,9 +126,9 @@ const getAppointmentsByDate = async (dateKey) => {
   }
 };
 
-const getBookedHoursForDate = async (dateKey, serviceType) => {
+const getBookedHoursForDate = async (dateKey, serviceType, tenantId) => {
   const type = normalizeServiceType(serviceType);
-  const appointments = await getAppointmentsByDate(dateKey);
+  const appointments = await getAppointmentsByDate(dateKey, tenantId);
   const hours = new Set();
 
   for (const appt of appointments) {
@@ -144,7 +154,7 @@ const getBookedHoursForDate = async (dateKey, serviceType) => {
  * ya resuelta — evita volver a consultarla en llamadas repetidas dentro de un
  * mismo bucle de búsqueda (`findNextAvailableGroomingSlot`, `suggestAvailableVetSlots`).
  */
-const isSlotAvailableWithConfig = async ({ dateKey, hour, serviceType, businessHours, referenceDate }) => {
+const isSlotAvailableWithConfig = async ({ dateKey, hour, serviceType, businessHours, referenceDate, tenantId }) => {
   const key = toDateKey(dateKey);
   const h = Number(hour);
   const type = normalizeServiceType(serviceType);
@@ -169,7 +179,7 @@ const isSlotAvailableWithConfig = async ({ dateKey, hour, serviceType, businessH
       return false;
     }
 
-    const booked = await getBookedHoursForDate(key, type);
+    const booked = await getBookedHoursForDate(key, type, tenantId);
 
     if (booked.has(h)) {
       console.log("[AvailabilityDB] Slot occupied:", key, h, type);
@@ -208,7 +218,7 @@ const isSlotAvailable = async ({ dateKey, hour, serviceType, tenantId, reference
   } catch (error) {
     console.error("[AvailabilityDB] isSlotAvailable: fallo leyendo configuración del establecimiento, se usa comportamiento legado:", error.message);
   }
-  return isSlotAvailableWithConfig({ dateKey, hour, serviceType, businessHours, referenceDate });
+  return isSlotAvailableWithConfig({ dateKey, hour, serviceType, businessHours, referenceDate, tenantId });
 };
 
 /**
@@ -248,6 +258,7 @@ const findNextAvailableGroomingSlot = async (options = {}) => {
           serviceType: SERVICE_TYPES.GROOMING,
           businessHours,
           referenceDate,
+          tenantId: options.tenantId,
         });
 
         if (available) {
@@ -310,7 +321,7 @@ const suggestAvailableVetSlots = async ({
       }
     }
 
-    const booked = await getBookedHoursForDate(key, SERVICE_TYPES.VET);
+    const booked = await getBookedHoursForDate(key, SERVICE_TYPES.VET, tenantId);
     const suggestions = [];
     const { startHour, endHourExclusive } = resolveHourWindow(SERVICE_TYPES.VET, key, businessHours);
 

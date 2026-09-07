@@ -25,11 +25,17 @@ const sendWhatsAppMessage = async (to, message) => {
     },
   };
 
+  // Fix post-auditoría de seguridad (2026-09-07, hallazgo F7): antes se
+  // logueaba `bodyPreview` (texto del mensaje, incluye códigos de
+  // verificación del Portal del Cliente) junto al teléfono destino —
+  // cualquiera con acceso de lectura a los logs podía tomar un OTP vigente
+  // y el número al que pertenece. Ya no se loguea el contenido del mensaje,
+  // solo metadata operativa (longitud, no el texto).
   console.log("[WhatsApp API] Enviando mensaje:", {
     url,
     to: payload.to,
     phoneNumberId,
-    bodyPreview: message?.slice?.(0, 80) ?? message,
+    bodyLength: typeof message === "string" ? message.length : null,
   });
 
   try {
@@ -40,10 +46,10 @@ const sendWhatsAppMessage = async (to, message) => {
       },
     });
 
-    console.log(
-      "[WhatsApp API] Mensaje enviado correctamente:",
-      JSON.stringify(response.data, null, 2)
-    );
+    console.log("[WhatsApp API] Mensaje enviado correctamente:", {
+      messaging_product: response.data?.messaging_product,
+      wamid: response.data?.messages?.[0]?.id ?? null,
+    });
     return response.data;
   } catch (error) {
     if (error.response?.data) {

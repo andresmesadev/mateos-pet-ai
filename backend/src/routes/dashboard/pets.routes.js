@@ -204,19 +204,29 @@ router.get("/pets/:id/records", async (req, res) => {
 router.post("/pets/:id/records", async (req, res) => {
   try {
     const { id } = req.params;
+    const { tenantId } = req.tenant;
     const {
       type, title, detail, date,
       reason, findings, diagnosis, treatment, recommendations,
       weight, nextControlAt, staffId,
     } = req.body ?? {};
 
-    const pet = await prisma.pet.findUnique({
-      where: { id },
+    // Fix post-auditoría de seguridad (2026-09-07, hallazgo F9): antes se
+    // buscaba la mascota solo por id, sin tenant — cualquier usuario
+    // autenticado podía crear registros médicos en la mascota de otro
+    // establecimiento. Mismo criterio que el resto de este archivo.
+    const pet = await prisma.pet.findFirst({
+      where: tenantId ? { id, tenantId } : { id },
       select: { id: true },
     });
 
     if (!pet) {
       return res.status(404).json({ error: "Pet not found" });
+    }
+
+    if (staffId && tenantId) {
+      const staff = await prisma.staff.findFirst({ where: { id: staffId, tenantId }, select: { id: true } });
+      if (!staff) return res.status(400).json({ error: "Staff not found" });
     }
 
     const record = await createRecord(id, type || "note", title, detail, date, {
@@ -267,14 +277,18 @@ router.post("/pets/:id/records", async (req, res) => {
 router.patch("/pets/:petId/records/:recordId", async (req, res) => {
   try {
     const { petId, recordId } = req.params;
+    const { tenantId } = req.tenant;
     const {
       title, detail, date,
       reason, findings, diagnosis, treatment, recommendations,
       weight, nextControlAt,
     } = req.body ?? {};
 
+    // Fix post-auditoría de seguridad (2026-09-07, hallazgo F10): el guard
+    // solo comparaba id+petId (ambos controlados por el atacante), sin
+    // tenant — permitía editar registros médicos de otro establecimiento.
     const existing = await prisma.medicalRecord.findFirst({
-      where: { id: recordId, petId },
+      where: { id: recordId, petId, ...(tenantId ? { pet: { tenantId } } : {}) },
       select: { id: true },
     });
     if (!existing) return res.status(404).json({ error: "Record not found" });
@@ -341,8 +355,12 @@ router.patch("/medical-records/:id/dismiss", async (req, res) => {
 router.delete("/pets/:petId/records/:recordId", async (req, res) => {
   try {
     const { petId, recordId } = req.params;
+    const { tenantId } = req.tenant;
+    // Fix post-auditoría de seguridad (2026-09-07, hallazgo F11): mismo
+    // defecto que el PATCH hermano — sin tenant, cualquier usuario podía
+    // borrar registros médicos de otro establecimiento.
     const existing = await prisma.medicalRecord.findFirst({
-      where: { id: recordId, petId },
+      where: { id: recordId, petId, ...(tenantId ? { pet: { tenantId } } : {}) },
       select: { id: true },
     });
     if (!existing) return res.status(404).json({ error: "Record not found" });
@@ -430,7 +448,16 @@ router.get("/pets/:id/report", async (req, res) => {
 router.patch("/pets/:id", async (req, res) => {
   try {
     const { id } = req.params;
+    const { tenantId } = req.tenant;
     const { name, breed, gender, birthDate, weight, sterilized, notes } = req.body ?? {};
+
+    // Fix post-auditoría de seguridad (2026-09-07, hallazgo F12): esta ruta
+    // no verificaba ownership en absoluto (a diferencia de DELETE /pets/:id,
+    // unas líneas más abajo, que sí lo hace) — cualquier usuario autenticado
+    // podía editar la mascota de otro establecimiento.
+    const existing = await prisma.pet.findFirst({ where: tenantId ? { id, tenantId } : { id } });
+    if (!existing) return res.status(404).json({ error: "Pet not found" });
+
     const updated = await updatePet(id, { name, breed, gender, birthDate, weight, sterilized, notes });
     res.json({
       id: updated.id,

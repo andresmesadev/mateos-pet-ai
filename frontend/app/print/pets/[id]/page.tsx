@@ -71,6 +71,12 @@ export default async function PetPrintPage({ params, searchParams }: PageProps) 
   const { id } = await params;
   const { tenant } = await searchParams;
   const session = await auth();
+
+  // Fix post-auditoría de seguridad (2026-09-07, hallazgo F1): no confiar
+  // únicamente en el matcher del middleware para la autenticación de esta
+  // ruta — verificación explícita aquí también.
+  if (!session?.user) notFound();
+
   const headers = makeServerHeaders(session, tenant);
 
   const res = await fetch(apiUrl(`/api/dashboard/pets/${id}/report`), {

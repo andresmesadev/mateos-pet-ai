@@ -119,6 +119,10 @@ describe("GET/PATCH /escalations — evolución de Conversation.status", () => {
   });
 
   test("resuelve una escalación: status vuelve a activa", async () => {
+    // Fix post-auditoría de seguridad (F6): la ruta ahora verifica primero
+    // que la conversación pertenezca al tenant del caller (findFirst) antes
+    // de tocar el caso de uso.
+    prisma.conversation.findFirst.mockResolvedValue({ id: "conv-2" });
     // Primera llamada (findById dentro del caso de uso): aún escalada.
     // Segunda llamada (la ruta releyendo tras resolver): ya activa.
     prisma.conversation.findUnique
@@ -150,6 +154,7 @@ describe("GET/PATCH /escalations — evolución de Conversation.status", () => {
   });
 
   test("resolver una conversación ya no escalada es idempotente (200, no error)", async () => {
+    prisma.conversation.findFirst.mockResolvedValue({ id: "conv-3" });
     prisma.conversation.findUnique.mockResolvedValue({ id: "conv-3", status: "activa" });
 
     const res = await request(buildApp()).patch("/api/dashboard/escalations/conv-3/resolve");
