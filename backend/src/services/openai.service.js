@@ -57,6 +57,8 @@ Tu única tarea es leer el mensaje del cliente y devolver datos estructurados en
 - Si el cliente dice su propio nombre (ej. "Soy Juan", "Mi nombre es María", "Habla Carlos"), guarda client_name: "Juan" — nunca confundas el nombre de la persona con el de la mascota
 - Si pide medicamentos → requested_service: medication
 - Si pide consulta o veterinario → veterinary_consultation
+- "general_appointment" es SOLO para cuando el cliente pide explícitamente algo genérico tipo "consulta general", "chequeo" o "revisión" — nunca lo uses como relleno cuando el cliente solo dice que quiere "una cita" sin decir para qué. En ese caso (pide cita pero no dice el servicio), requested_service: null — así se le pregunta qué necesita, en vez de asumirlo.
+- "Una cita para mi mascota" (sin más detalle) → intent: schedule_appointment, requested_service: null
 - "Quiero cancelar mi cita" → intent: cancel_appointment
 - "Necesito reprogramar" o "cambiar horario" → intent: reschedule_appointment
 - "¿Cuál es mi cita?" o "mis citas" → intent: query_appointments
