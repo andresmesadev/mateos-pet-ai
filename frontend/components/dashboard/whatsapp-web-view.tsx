@@ -164,9 +164,9 @@ function MessageBubble({ message }: { message: ConversationMessage }) {
               : { left: -8, borderTop: `8px solid ${WA_IN_BUBBLE}`, borderLeft: "8px solid transparent" }
           }
         />
-        <p className="whitespace-pre-wrap break-words pr-12">{message.content}</p>
+        <p className="whitespace-pre-wrap break-words pr-20">{message.content}</p>
         <span
-          className="pointer-events-none absolute bottom-1 right-2 flex items-center gap-1 text-[11px]"
+          className="pointer-events-none absolute bottom-1 right-2 flex items-center gap-1 whitespace-nowrap text-[11px]"
           style={{ color: isOutgoing ? "rgba(233,237,239,0.65)" : WA_MUTED }}
         >
           {formatColombiaTime(message.createdAt).split(", ").pop()}
