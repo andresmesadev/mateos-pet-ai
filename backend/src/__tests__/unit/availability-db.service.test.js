@@ -67,6 +67,37 @@ describe("isSlotAvailable — con tenantId y configuración real del establecimi
   });
 });
 
+describe("isSlotAvailable — hora ya pasada hoy (hallazgo operativo 2026-09-03)", () => {
+  test("una hora ya pasada hoy (con margen de 30 min) no está disponible, aunque nada la haya reservado", async () => {
+    // referenceDate: 1pm hora Bogotá del mismo THURSDAY — la hora 12 (mediodía) ya pasó
+    const referenceDate = new Date("2026-01-08T18:00:00.000Z");
+    const available = await isSlotAvailable({
+      dateKey: THURSDAY,
+      hour: 12,
+      serviceType: "vet",
+      referenceDate,
+    });
+    expect(available).toBe(false);
+  });
+
+  test("una hora futura hoy sigue disponible", async () => {
+    const referenceDate = new Date("2026-01-08T18:00:00.000Z"); // 1pm Bogotá
+    const available = await isSlotAvailable({
+      dateKey: THURSDAY,
+      hour: 15,
+      serviceType: "vet",
+      referenceDate,
+    });
+    expect(available).toBe(true);
+  });
+
+  test("sin referenceDate (comportamiento por defecto) no filtra por fecha distinta a la real de hoy", async () => {
+    // THURSDAY es una fecha fija de prueba, no "hoy" real — no debe filtrarse por hora pasada.
+    const available = await isSlotAvailable({ dateKey: THURSDAY, hour: 12, serviceType: "vet" });
+    expect(available).toBe(true);
+  });
+});
+
 describe("suggestAvailableVetSlots — sugerencias consistentes con la configuración real", () => {
   test("sin tenantId, sugiere dentro del horario legado (11-16)", async () => {
     const { hours } = await suggestAvailableVetSlots({ dateKey: THURSDAY, requestedHour: 12 });
@@ -81,6 +112,12 @@ describe("suggestAvailableVetSlots — sugerencias consistentes con la configura
     const { hours } = await suggestAvailableVetSlots({ dateKey: THURSDAY, requestedHour: 8, tenantId: "t-1" });
     expect(hours.every((h) => h >= 8 && h < 10)).toBe(true);
     expect(hours).not.toContain(12); // 12h era válido en el horario legado, pero no en el configurado
+  });
+
+  test("no sugiere horas ya pasadas hoy (hallazgo operativo 2026-09-03)", async () => {
+    const referenceDate = new Date("2026-01-08T18:00:00.000Z"); // 1pm Bogotá
+    const { hours } = await suggestAvailableVetSlots({ dateKey: THURSDAY, referenceDate });
+    expect(hours.every((h) => h >= 14)).toBe(true); // 12h y 13h ya pasaron (con margen)
   });
 });
 

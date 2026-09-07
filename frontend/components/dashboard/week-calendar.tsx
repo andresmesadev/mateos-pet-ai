@@ -345,6 +345,26 @@ export function WeekCalendar({
     return { year: d.getUTCFullYear(), month: d.getUTCMonth() };
   });
 
+  // La vista "Mes" no puede depender solo de `appointments` (citas de la
+  // semana del server component) — necesita las citas de todo el mes.
+  const [monthAppointments, setMonthAppointments] = useState<TodayAppointment[]>([]);
+
+  useEffect(() => {
+    if (view !== "month") return;
+    let cancelled = false;
+    fetch(`/api/proxy/dashboard/appointments/month?year=${monthDate.year}&month=${monthDate.month}`, {
+      cache: "no-store",
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (!cancelled && json?.appointments) setMonthAppointments(json.appointments);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [view, monthDate.year, monthDate.month]);
+
   function navigate(ymd: string) {
     const params = new URLSearchParams(searchParams.toString());
     params.set("date", ymd);
@@ -515,7 +535,7 @@ export function WeekCalendar({
         <MonthView
           year={monthDate.year}
           month={monthDate.month}
-          appointments={appointments}
+          appointments={monthAppointments}
           today={today}
           onDayClick={(ymd) => {
             setCurrentDay(ymd);

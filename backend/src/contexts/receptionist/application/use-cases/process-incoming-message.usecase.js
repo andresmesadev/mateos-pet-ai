@@ -24,6 +24,7 @@ const TENANT_UNRESOLVED_LOG_REASON = "Tenant no resuelto o inactivo — mensaje 
  * @param {import("../ports/conversational-engine-adapter.port").ConversationalEngineAdapterPort} deps.conversationalEngine
  * @param {Function} [deps.resolveTenantId] — (body) => Promise<string|null>, resolución de tenant previa a iniciar la Tarea
  * @param {{ warn: Function, error: Function }} [deps.logger]
+ * @param {string} [deps.humanTakeoverStep] — valor de session.step que marca transferencia a humano (Entregable 8.3, D-E2)
  */
 function createProcessIncomingMessageUseCase({
   getDigitalEmployees,
@@ -37,6 +38,12 @@ function createProcessIncomingMessageUseCase({
   conversationalEngine,
   resolveTenantId,
   logger = console,
+  // Entregable 8.3 (D-E2): antes, `escalated` dependía únicamente del flag
+  // legado `session.requires_human_attention`. Ambos se escriben juntos hoy
+  // (conversation.service.js), pero reforzar con el valor ya validado de
+  // STEPS reduce la dependencia de una sola señal — sin introducir una
+  // tercera fuente de verdad nueva, ambas ya existían.
+  humanTakeoverStep = "human_takeover",
 }) {
   async function resolveReceptionist(tenantId) {
     const { digitalEmployees } = await getDigitalEmployees({ tenantId });
@@ -50,7 +57,8 @@ function createProcessIncomingMessageUseCase({
   function buildDecisionFields(result) {
     const intent = result?.analysis?.intent ?? null;
     const step = result?.session?.step ?? null;
-    const escalated = result?.session?.requires_human_attention === true;
+    const escalated =
+      result?.session?.requires_human_attention === true || step === humanTakeoverStep;
     const reasoning = escalated
       ? `Escalamiento humano detectado (intent=${intent ?? "desconocido"})`
       : `intent=${intent ?? "desconocido"}, step=${step ?? "(ninguno)"}`;

@@ -373,6 +373,13 @@ model Message {
   // notificación proactiva de una respuesta conversacional.
   origin          String   @default("cliente")
 
+  // Entregable 8.1 (D-E4) — el `wamid` de Meta (message.id) para mensajes
+  // entrantes de WhatsApp. Nulo para mensajes salientes/de sistema y para
+  // cualquier fila anterior a este entregable. Único: si Meta reintenta la
+  // entrega de un webhook por timeout, el segundo intento se detecta antes
+  // de reprocesar (ver findMessageByExternalId, conversation-persistence).
+  externalId      String?  @unique
+
   createdAt       DateTime @default(now())
 
   memoryEmbeddings MemoryEmbedding[]
@@ -920,4 +927,31 @@ model ClientSession {
   lastUsedAt DateTime?
 
   @@index([tenantId, userId])
+}
+
+// ── Cola durable de mensajes entrantes (Entregable 8.2, Fase 8) ────────────
+// Diseño: docs/history/ENTREGABLE_8_2_GATE_REVIEW.md — patrón inspirado en
+// inbound_jobs.py de Sancho Agent IA (ver ADR 010), reescrito en Prisma. El
+// webhook encola (transacción corta) y responde 200 de inmediato; un worker
+// (jobs/inbound-message.job.js) reclama y procesa. Cierra D-F1 (sin cola
+// durable, un crash a mitad de turno perdía el mensaje para siempre) y, tras
+// D-E4 (8.1), una regresión real: un reintento de Meta cuyo wamid ya quedó
+// persistido en Message se descarta por deduplicación — sin esta cola, ese
+// mensaje no tenía ninguna otra vía de recuperación.
+model InboundJob {
+  id              String    @id @default(cuid())
+  provider        String    // "whatsapp" — único hoy, deja la puerta abierta a otros canales
+  providerEventId String    // wamid (message.id de Meta) del primer mensaje soportado del payload
+  payload         Json      // body completo del webhook, tal cual llegó
+
+  status    String    @default("received") // "received" | "claimed" | "done" | "failed"
+  attempts  Int       @default(0)
+  lastError String?
+
+  claimedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@unique([provider, providerEventId])
+  @@index([status, createdAt])
 }

@@ -108,7 +108,7 @@ export function VetConsultationDialog({ open, onOpenChange, petId, petName, onSa
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="flex max-h-[90vh] w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-2xl">
+      <DialogContent className="flex h-[92vh] w-full max-w-[95vw] flex-col gap-0 overflow-y-auto p-0 sm:max-w-5xl">
         <DialogHeader className="border-b px-6 py-4">
           <DialogTitle className="flex items-center gap-2">
             <span>🩺</span>

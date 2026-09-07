@@ -8,8 +8,8 @@ const {
 } = require("./conversation.service");
 const { getSession, updateSession } = require("./memory.service");
 const scheduling = require("./scheduling.service");
-const { findOrCreateUser } = require("./user.service");
-const { findOrCreatePet, findPetByNameAndOwner } = require("./pet.service");
+const { findOrCreateUser, updateUserNameIfMissing } = require("./user.service");
+const { findOrCreatePet, findPetByNameAndOwner, resolveAppointmentPetName } = require("./pet.service");
 const {
   buildAppointmentDateTime,
   mapSessionServiceType,
@@ -20,8 +20,12 @@ const { formatSlotForUser } = require("../lib/timezone");
 const {
   findOrCreateConversation,
   saveMessage,
+  findMessageByExternalId,
+  getConversationMessages,
   syncConversationState,
 } = require("./conversation-persistence.service");
+const { buildConversationHistory } = require("./context-builder.service");
+const { runExclusive } = require("./phone-lock.service");
 const {
   searchRelevantMemories,
   buildSemanticContext,
@@ -35,7 +39,7 @@ const { processImageMessage } = require("./image.service");
 const { createRecord } = require("./medical-record.service");
 const { getTenantByPhone } = require("./tenant.service");
 
-const persistUserMessage = async (user, conversation, content) => {
+const persistUserMessage = async (user, conversation, content, externalId) => {
   if (!user?.id || !conversation?.id || !content) return;
 
   try {
@@ -44,6 +48,7 @@ const persistUserMessage = async (user, conversation, content) => {
       userId: user.id,
       role: "user",
       content,
+      externalId,
     });
     logger.info("[WhatsApp] Message persisted");
   } catch (error) {
@@ -99,25 +104,20 @@ const verifyWebhookSignature = (mode, token, challenge) => {
   return null;
 };
 
-const parseIncomingMessage = (body) => {
-  const value = body?.entry?.[0]?.changes?.[0]?.value;
-  const message = value?.messages?.[0];
-
-  if (!message) {
-    return null;
-  }
-
+// Normaliza un único objeto `message` del payload de Meta (ya resuelto el
+// `phoneNumberId` de su `value`) a la forma interna que consume el resto del
+// motor. Compartida por parseIncomingMessage (compatibilidad, un mensaje) y
+// parseIncomingMessages (Entregable 8.1 — D-E5, todos los mensajes del batch).
+const normalizeIncomingMessage = (message, phoneNumberId) => {
   const from = message.from;
 
   if (!from) {
     return null;
   }
 
-  // phone_number_id identifica la línea WhatsApp Business (= un tenant)
-  const phoneNumberId =
-    value?.metadata?.phone_number_id ||
-    process.env.WHATSAPP_PHONE_NUMBER_ID ||
-    null;
+  // Entregable 8.1 (D-E4): wamid de Meta, transportado hasta la persistencia
+  // para poder detectar un reintento de webhook antes de reprocesar.
+  const wamid = message.id ?? null;
 
   if (message.type === "audio" && message.audio?.id) {
     return {
@@ -126,6 +126,7 @@ const parseIncomingMessage = (body) => {
       type: "audio",
       mediaId: message.audio.id,
       phoneNumberId,
+      wamid,
     };
   }
 
@@ -137,11 +138,12 @@ const parseIncomingMessage = (body) => {
       mediaId: message.image.id,
       mimeType: message.image.mime_type || "image/jpeg",
       phoneNumberId,
+      wamid,
     };
   }
 
   if (message.type === "document") {
-    return { from, text: null, type: "document", phoneNumberId };
+    return { from, text: null, type: "document", phoneNumberId, wamid };
   }
 
   let text = null;
@@ -161,15 +163,76 @@ const parseIncomingMessage = (body) => {
     return null;
   }
 
-  return { from, text, type: message.type, phoneNumberId };
+  return { from, text, type: message.type, phoneNumberId, wamid };
 };
 
-const processIncomingMessage = async (body) => {
-  const parsed = parseIncomingMessage(body);
+// Preservada sin cambios de comportamiento: solo ve el primer mensaje del
+// payload. resolve-tenant-id.js (Recepcionista IA) sigue dependiendo de esta
+// firma exacta para resolver el tenant antes de invocar el motor — Meta
+// agrupa mensajes del mismo remitente/línea en un mismo payload, así que el
+// primero es representativo del tenant de todo el batch.
+const parseIncomingMessage = (body) => {
+  const value = body?.entry?.[0]?.changes?.[0]?.value;
+  const message = value?.messages?.[0];
 
-  if (!parsed) {
-    logger.info("[WhatsApp] Payload ignorado (sin mensaje de texto soportado)");
-    return { received: true, processed: false };
+  if (!message) {
+    return null;
+  }
+
+  // phone_number_id identifica la línea WhatsApp Business (= un tenant)
+  const phoneNumberId =
+    value?.metadata?.phone_number_id ||
+    process.env.WHATSAPP_PHONE_NUMBER_ID ||
+    null;
+
+  return normalizeIncomingMessage(message, phoneNumberId);
+};
+
+// Entregable 8.1 (D-E5): parseIncomingMessage solo veía entry[0].changes[0]
+// .messages[0] — el resto del batch de Meta se descartaba en silencio. Esta
+// función itera las tres dimensiones completas y devuelve todos los mensajes
+// soportados, en el orden en que Meta los entregó.
+const parseIncomingMessages = (body) => {
+  const entries = Array.isArray(body?.entry) ? body.entry : [];
+  const parsed = [];
+
+  for (const entry of entries) {
+    const changes = Array.isArray(entry?.changes) ? entry.changes : [];
+
+    for (const change of changes) {
+      const value = change?.value;
+      const phoneNumberId =
+        value?.metadata?.phone_number_id ||
+        process.env.WHATSAPP_PHONE_NUMBER_ID ||
+        null;
+      const messages = Array.isArray(value?.messages) ? value.messages : [];
+
+      for (const message of messages) {
+        const normalized = normalizeIncomingMessage(message, phoneNumberId);
+        if (normalized) {
+          parsed.push(normalized);
+        }
+      }
+    }
+  }
+
+  return parsed;
+};
+
+// Entregable 8.1 (D-E5): procesa un mensaje ya normalizado. Es exactamente el
+// cuerpo que antes vivía dentro de processIncomingMessage(body) — sin ningún
+// cambio de comportamiento — extraído para poder invocarse una vez por cada
+// mensaje del batch en vez de una sola vez por payload.
+const processSingleIncomingMessage = async (parsed) => {
+  // Entregable 8.1 (D-E4): un reintento de webhook de Meta (mismo wamid, por
+  // timeout de nuestro lado) se detecta ANTES de gastar Whisper/Vision/LLM y
+  // de tocar sesión o BD — corta aquí, antes de cualquier efecto secundario.
+  if (parsed.wamid) {
+    const existing = await findMessageByExternalId(parsed.wamid);
+    if (existing) {
+      logger.info(`[WhatsApp] Mensaje duplicado ignorado (wamid ${parsed.wamid})`);
+      return { received: true, processed: false, duplicate: true };
+    }
   }
 
   if (parsed.type === "audio" && parsed.mediaId) {
@@ -231,7 +294,7 @@ const processIncomingMessage = async (body) => {
       // parsed.text es null para audio no transcrito/documento/imagen —
       // persistUserMessage no-opea sin contenido (guard existente), mismo
       // comportamiento que antes de este reordenamiento.
-      await persistUserMessage(user, conversation, parsed.text);
+      await persistUserMessage(user, conversation, parsed.text, parsed.wamid);
     } catch (error) {
       logger.error("[WhatsApp] Error loading conversation:", error.message);
     }
@@ -457,7 +520,7 @@ const processIncomingMessage = async (body) => {
         const appointment = await createAppointment({
           userId: user.id,
           tenantId: user.tenantId || null,
-          petName: previous.pet_name || "Mascota",
+          petName: await resolveAppointmentPetName(previous.pet_name, user.id),
           petType: previous.pet_type || "other",
           serviceType,
           date: appointmentDate,
@@ -612,11 +675,26 @@ const processIncomingMessage = async (body) => {
     }
   }
 
+  // Entregable 8.1 (D-M1): historial real de la conversación, leído de
+  // `Message` (ya persistido, nunca antes enviado al LLM). El mensaje actual
+  // ya fue guardado por persistUserMessage más arriba — es la última fila,
+  // se excluye aquí para no duplicarlo (va aparte, como mensaje "user" final).
+  let history = [];
+  if (conversation?.id) {
+    try {
+      const pastMessages = await getConversationMessages(conversation.id);
+      history = buildConversationHistory(pastMessages.slice(0, -1));
+    } catch (error) {
+      logger.error("[WhatsApp] Error loading conversation history:", error.message);
+    }
+  }
+
   let analysis = null;
   try {
     analysis = await analyzeMessage({
       message: parsed.text,
       semanticContext,
+      history,
     });
   } catch (error) {
     logger.error("[WhatsApp] Error al analizar mensaje:", error.message);
@@ -625,6 +703,14 @@ const processIncomingMessage = async (body) => {
   logger.info("AI Analysis:", analysis);
 
   const mergedAnalysis = mergeSessionData(previous, analysis);
+
+  // Captura pasiva del nombre del cliente (nunca sobrescribe uno existente)
+  // — mismo criterio aditivo que la captura de mascota, sin alterar el flujo.
+  if (user && !isEmptyValue(mergedAnalysis?.client_name)) {
+    updateUserNameIfMissing(user.id, mergedAnalysis.client_name).catch((error) =>
+      logger.error("[WhatsApp] Error al capturar nombre del cliente:", error.message)
+    );
+  }
 
   let pet = null;
   if (
@@ -652,6 +738,7 @@ const processIncomingMessage = async (body) => {
       session: previous,
       semanticContext,
       userMessage: parsed.text,
+      history,
     },
     {
       now: new Date(),
@@ -675,7 +762,7 @@ const processIncomingMessage = async (body) => {
         await createAppointment({
           userId: user.id,
           tenantId: user.tenantId || null,
-          petName: previous.pet_name || "Mascota",
+          petName: await resolveAppointmentPetName(previous.pet_name, user.id),
           petType: previous.pet_type || "other",
           serviceType,
           date: appointmentDate,
@@ -722,8 +809,49 @@ const processIncomingMessage = async (body) => {
   };
 };
 
+// Entregable 8.1 (D-E5): punto de entrada real, mismo nombre/contrato externo
+// que antes (webhook.controller.js → receptionist → engine adapter siguen
+// invocando processIncomingMessage(body) esperando un único resultado con
+// {from, reply, user, conversation}). Internamente ahora procesa TODOS los
+// mensajes del batch en orden — cada uno se persiste y actualiza sesión con
+// normalidad — pero solo el resultado del último se retorna para responder,
+// preservando el contrato de una única respuesta por webhook. Los mensajes
+// intermedios de un batch ya no se pierden en silencio (antes: descartados
+// sin persistir ni actualizar sesión); solo su respuesta individual no se
+// envía por separado — limitación conocida, documentada en el Gate Review
+// de 8.1, no resuelta en este entregable (exigiría cambiar el contrato de
+// respuesta única de webhook.controller.js).
+const processIncomingMessage = async (body) => {
+  const messages = parseIncomingMessages(body);
+
+  if (messages.length === 0) {
+    logger.info("[WhatsApp] Payload ignorado (sin mensaje de texto soportado)");
+    return { received: true, processed: false };
+  }
+
+  if (messages.length > 1) {
+    logger.info(
+      `[WhatsApp] Payload con ${messages.length} mensajes agrupados por Meta — procesando todos en orden`
+    );
+  }
+
+  // Entregable 8.2 (D-E3): serializa por remitente — dos invocaciones
+  // concurrentes de processIncomingMessage para el mismo `from` (dos
+  // webhooks casi simultáneos, o el worker de la cola de 8.2 procesando dos
+  // jobs del mismo teléfono a la vez) ya no leen la sesión desde el mismo
+  // estado inicial en paralelo. Mensajes de remitentes distintos no se
+  // bloquean entre sí.
+  let result = null;
+  for (const parsed of messages) {
+    result = await runExclusive(parsed.from, () => processSingleIncomingMessage(parsed));
+  }
+
+  return result;
+};
+
 module.exports = {
   verifyWebhookSignature,
   parseIncomingMessage,
+  parseIncomingMessages,
   processIncomingMessage,
 };

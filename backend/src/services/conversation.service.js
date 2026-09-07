@@ -11,6 +11,11 @@ const STEPS = {
   AWAITING_DATE_TIME: "awaiting_date_time",
   AWAITING_CONFIRMATION: "awaiting_confirmation",
   COMPLETED: "completed",
+  // Entregable 8.3 (D-E1): antes "human_takeover" vivía como string literal
+  // fuera de este enum (línea de detección de transferencia a humano, más
+  // abajo) — exactamente el bug que D-E1 describe: un valor de session.step
+  // que no pertenecía al vocabulario cerrado.
+  HUMAN_TAKEOVER: "human_takeover",
 };
 
 const scheduling = require("./scheduling.service");
@@ -268,10 +273,13 @@ const resolveGenerateReplyInput = (input, options = {}) => {
       session: input.session || {},
       semanticContext: input.semanticContext || "",
       userMessage: input.userMessage || "",
+      // Entregable 8.1 (D-M1): historial ya construido por
+      // context-builder.service.js (whatsapp.service.js), pasado tal cual.
+      history: Array.isArray(input.history) ? input.history : [],
       options,
     };
   }
-  return { analysis: input, session: {}, semanticContext: "", userMessage: "", options };
+  return { analysis: input, session: {}, semanticContext: "", userMessage: "", history: [], options };
 };
 
 const shouldUseRuleReplyOnly = (ruleResult, analysis) => {
@@ -299,7 +307,7 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
   if (detectHumanTakeoverIntent(userMessage)) {
     return {
       reply: "Con gusto 🐾 Te comunico con Lina, en un momento te atiende. También puedes escribirnos directamente si es urgente.",
-      step: "human_takeover",
+      step: STEPS.HUMAN_TAKEOVER,
       sessionPatch: { requires_human_attention: true },
       forceRuleReply: true,
     };
@@ -564,7 +572,7 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
 // ─── Entry point ──────────────────────────────────────────────────────────────
 
 const generateReply = async (input, legacyOptions) => {
-  const { analysis, session, semanticContext, userMessage, options } =
+  const { analysis, session, semanticContext, userMessage, history, options } =
     resolveGenerateReplyInput(input, legacyOptions);
 
   const ruleResult = await buildRuleBasedReply(analysis, {
@@ -592,7 +600,12 @@ const generateReply = async (input, legacyOptions) => {
 
   const contextText = typeof semanticContext === "string" ? semanticContext.trim() : "";
 
-  if (!contextText || shouldUseRuleReplyOnly(ruleResult, analysis)) {
+  // Entregable 8.1 (D-F4): antes, sin contexto semántico (contextText vacío)
+  // ni siquiera se intentaba redactar con IA — un cliente nuevo sin historial
+  // embebido recibía solo la plantilla de reglas. semanticContext vacío ya no
+  // corta el intento; generateReplyWithAI (openai.service.js) redacta con lo
+  // que haya, incluso sin memorias relevantes.
+  if (shouldUseRuleReplyOnly(ruleResult, analysis)) {
     return ruleResult;
   }
 
@@ -603,6 +616,7 @@ const generateReply = async (input, legacyOptions) => {
       semanticContext: contextText,
       userMessage,
       suggestedReply: ruleResult.reply,
+      history,
     });
     if (aiReply) return { ...ruleResult, reply: aiReply };
   } catch (error) {
