@@ -21,6 +21,7 @@ const errorHandler = require("./middlewares/error.middleware");
 const { startReminderJob } = require("./jobs/reminder.job");
 const { startEventDeliveryRetryJob } = require("./jobs/event-delivery-retry.job");
 const { startInboundMessageJob } = require("./jobs/inbound-message.job");
+const { startAbandonedConversationJob } = require("./jobs/abandoned-conversation.job");
 const { router: billingRouter, webhookHandler } = require("./routes/billing.routes");
 const onboardingRoutes = require("./routes/onboarding.routes");
 
@@ -87,4 +88,5 @@ app.listen(PORT, () => {
   startReminderJob();
   startEventDeliveryRetryJob();
   startInboundMessageJob();
+  startAbandonedConversationJob();
 });

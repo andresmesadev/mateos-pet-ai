@@ -654,6 +654,10 @@ const getConfirmationReply = () => ({
 
 module.exports = {
   STEPS,
+  // Mejora post-Fase 8 (2026-09-08): abandoned-conversation.job.js necesita
+  // el mismo vocabulario de "wizard activo" que ya usa este archivo —
+  // exportado en vez de duplicar la lista en el job (fuente única).
+  BOOKING_STEPS,
   confirmationKeywords,
   normalizeText,
   isConfirmationMessage,

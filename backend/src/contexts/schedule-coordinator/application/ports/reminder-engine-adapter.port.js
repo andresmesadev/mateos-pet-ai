@@ -20,6 +20,10 @@ class ReminderEngineAdapterPort {
   async sendAndMarkFollowUp(_appointment) {
     throw new Error("ReminderEngineAdapterPort.sendAndMarkFollowUp no implementado");
   }
+  // Mejora post-Fase 8 (2026-09-08).
+  async sendAndMarkAbandonedBookingReminder(_conversation) {
+    throw new Error("ReminderEngineAdapterPort.sendAndMarkAbandonedBookingReminder no implementado");
+  }
 }
 
 module.exports = { ReminderEngineAdapterPort };

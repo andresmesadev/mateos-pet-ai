@@ -174,7 +174,14 @@ const syncConversationState = async (conversationId, { intent, step }) => {
 
   const data = {};
   if (intent !== undefined) data.intent = intent;
-  if (step !== undefined) data.step = step;
+  if (step !== undefined) {
+    data.step = step;
+    // Mejora post-Fase 8 (2026-09-08): cualquier turno que escribe step es
+    // actividad real del cliente — invalida un abandono detectado antes,
+    // para que abandoned-conversation.job.js pueda volver a avisar si el
+    // wizard se abandona de nuevo más tarde.
+    data.abandonReminderSent = false;
+  }
 
   if (Object.keys(data).length === 0) {
     return null;

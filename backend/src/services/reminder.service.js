@@ -6,6 +6,11 @@ const logger = require("../lib/logger");
 // en este archivo.
 const { sendMessage } = require("../contexts/communication");
 
+// Mejora post-Fase 8 (2026-09-08): mismo vocabulario de "wizard activo" que
+// conversation.service.js ya usa — exportado desde ahí para no duplicar la
+// lista (ver conversation.service.js, comentario del export).
+const { BOOKING_STEPS } = require("./conversation.service");
+
 const {
 
   toDateKey,
@@ -892,6 +897,91 @@ const markFollowUpSent = async (appointmentId) => {
   logger.info("[ReminderService] Follow-up marked sent:", id);
 };
 
+// ── Wizard de reserva abandonado (mejora post-Fase 8, 2026-09-08) ───────────
+// Mismo patrón get*/build*/send*/mark* que el resto de este archivo — la
+// única diferencia real es la fuente (Conversation, no Appointment/
+// MedicalRecord) y la ventana corta (minutos, no días): un wizard
+// abandonado hace 30-90 min sigue dentro de la ventana de 24h de WhatsApp,
+// así que no necesita plantilla pre-aprobada, a diferencia de un cliente
+// inactivo hace semanas.
+const ABANDON_MIN_MINUTES = 30;
+const ABANDON_MAX_MINUTES = 90;
+
+const getAbandonedBookingConversations = async (tenantId) => {
+  if (!tenantId) {
+    throw new Error("tenantId is required (Entregable 4.1 — saneamiento tenant-blind)");
+  }
+  try {
+    const now = Date.now();
+    const windowStart = new Date(now - ABANDON_MAX_MINUTES * 60_000);
+    const windowEnd = new Date(now - ABANDON_MIN_MINUTES * 60_000);
+
+    const conversations = await prisma.conversation.findMany({
+      where: {
+        tenantId,
+        status: "activa",
+        step: { in: Array.from(BOOKING_STEPS) },
+        abandonReminderSent: false,
+        updatedAt: { gte: windowStart, lte: windowEnd },
+      },
+      include: { user: { select: { id: true, phone: true } } },
+      orderBy: { updatedAt: "asc" },
+    });
+
+    logger.info(
+      `[ReminderService] Abandoned booking conversations (${ABANDON_MIN_MINUTES}-${ABANDON_MAX_MINUTES} min): ${conversations.length}`
+    );
+
+    return conversations;
+  } catch (error) {
+    logger.error("[ReminderService] getAbandonedBookingConversations error:", error.message);
+    throw error;
+  }
+};
+
+const buildAbandonedBookingReminderMessage = (conversation) => {
+  const sessionData =
+    conversation?.sessionData && typeof conversation.sessionData === "object" && !Array.isArray(conversation.sessionData)
+      ? conversation.sessionData
+      : {};
+  const petName = String(sessionData.pet_name || "").trim();
+  const petPart = petName ? ` para ${petName}` : "";
+
+  return `Hola 👋 vi que estábamos agendando tu cita${petPart} y no supe más de ti — ¿seguimos? 🐾\n\nCuando quieras retomamos justo donde quedamos, aquí mismo.`;
+};
+
+const sendAbandonedBookingReminder = async (conversation) => {
+  const phone = String(conversation?.user?.phone || "").trim();
+  const userId = conversation?.user?.id ?? conversation?.userId;
+  if (!phone || !userId) {
+    logger.warn("[ReminderService] Skipped abandoned booking reminder — missing phone/userId:", conversation?.id);
+    return false;
+  }
+  const message = buildAbandonedBookingReminderMessage(conversation);
+  try {
+    await sendMessage({
+      tenantId: conversation?.tenantId ?? null,
+      userId,
+      conversationId: conversation?.id ?? null,
+      phone,
+      content: message,
+      origin: "sistema",
+    });
+  } catch (error) {
+    logger.error("[ReminderService] Failed to send abandoned booking reminder:", conversation.id, phone, error.message);
+    return false;
+  }
+  logger.info("[ReminderService] Abandoned booking reminder sent:", conversation.id, phone);
+  return true;
+};
+
+const markAbandonedBookingReminderSent = async (conversationId) => {
+  const id = String(conversationId || "").trim();
+  if (!id) throw new Error("conversationId is required");
+  await prisma.conversation.update({ where: { id }, data: { abandonReminderSent: true } });
+  logger.info("[ReminderService] Abandoned booking reminder marked sent:", id);
+};
+
 const resetGroomingReminderForPet = async (petId) => {
 
   const id = String(petId || "").trim();
@@ -938,22 +1028,26 @@ module.exports = {
   getUpcomingDewormingReminders,
   getUpcomingGroomingReminders,
   getConsultationsForFollowUp,
+  getAbandonedBookingConversations,
   sendReminder,
   sendVaccineReminder,
   sendDewormingReminder,
   sendGroomingReminder,
   sendFollowUp,
+  sendAbandonedBookingReminder,
   markReminderSent,
   markVaccineReminderSent,
   markDewormingReminderSent,
   markGroomingReminderSent,
   markFollowUpSent,
+  markAbandonedBookingReminderSent,
   resetGroomingReminderForPet,
   buildReminderMessage,
   buildVaccineReminderMessage,
   buildDewormingReminderMessage,
   buildGroomingReminderMessage,
   buildFollowUpMessage,
+  buildAbandonedBookingReminderMessage,
 };
 
 
