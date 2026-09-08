@@ -1,4 +1,4 @@
-const { sendWhatsAppMessage } = require("../../../../services/whatsapp-api.service");
+const { sendWhatsAppMessage, sendWhatsAppTemplateMessage } = require("../../../../services/whatsapp-api.service");
 const { ChannelProviderPort } = require("../../application/ports/channel-provider.port");
 
 /**
@@ -13,6 +13,15 @@ class WhatsAppChannelProvider extends ChannelProviderPort {
       throw new Error(`WhatsAppChannelProvider no soporta el tipo de canal "${channelType}".`);
     }
     const result = await sendWhatsAppMessage(to, content);
+    return result !== null;
+  }
+
+  // Mejora post-Fase 8 (2026-09-08).
+  async sendTemplate(channelType, to, templateName, languageCode, components) {
+    if (channelType !== "whatsapp") {
+      throw new Error(`WhatsAppChannelProvider no soporta el tipo de canal "${channelType}".`);
+    }
+    const result = await sendWhatsAppTemplateMessage(to, templateName, languageCode, components);
     return result !== null;
   }
 }

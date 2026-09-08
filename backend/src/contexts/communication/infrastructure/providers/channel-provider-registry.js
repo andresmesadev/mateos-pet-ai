@@ -20,6 +20,15 @@ class ChannelProviderRegistry extends ChannelProviderPort {
     }
     return provider.send(channelType, to, content);
   }
+
+  // Mejora post-Fase 8 (2026-09-08).
+  async sendTemplate(channelType, to, templateName, languageCode, components) {
+    const provider = this.providersByType[channelType];
+    if (!provider) {
+      throw new Error(`No hay proveedor de infraestructura registrado para el tipo de canal "${channelType}".`);
+    }
+    return provider.sendTemplate(channelType, to, templateName, languageCode, components);
+  }
 }
 
 function buildChannelProviderRegistry() {

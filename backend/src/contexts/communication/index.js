@@ -18,6 +18,7 @@ const {
   createRegisterChannelUseCase,
   createDeactivateChannelUseCase,
   createSendMessageUseCase,
+  createSendTemplateMessageUseCase,
   createEscalateConversationUseCase,
   createResolveConversationEscalationUseCase,
   createGetChannelsUseCase,
@@ -40,6 +41,14 @@ const sendMessage = createSendMessageUseCase({
   channelProvider,
   eventPublisher,
 });
+// Mejora post-Fase 8 (2026-09-08).
+const sendTemplateMessage = createSendTemplateMessageUseCase({
+  channelRepository,
+  conversationRepository,
+  messageRepository,
+  channelProvider,
+  eventPublisher,
+});
 const escalateConversation = createEscalateConversationUseCase({ conversationRepository, eventPublisher });
 const resolveConversationEscalation = createResolveConversationEscalationUseCase({ conversationRepository, eventPublisher });
 const getChannels = createGetChannelsUseCase({ channelRepository });
@@ -50,6 +59,7 @@ module.exports = {
   registerChannel,
   deactivateChannel,
   sendMessage,
+  sendTemplateMessage,
   escalateConversation,
   resolveConversationEscalation,
   getChannels,

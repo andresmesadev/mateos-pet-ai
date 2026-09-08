@@ -74,6 +74,90 @@ const sendWhatsAppMessage = async (to, message) => {
   }
 };
 
+// Mejora post-Fase 8 (2026-09-08): plantillas pre-aprobadas de Meta — la
+// única forma de que el negocio le escriba primero a un cliente fuera de la
+// ventana de 24h de mensajería libre (política de WhatsApp, no algo que
+// nuestro código pueda evitar). Mismo tratamiento de errores/logs que
+// sendWhatsAppMessage — solo cambia la forma del payload (`type: "template"`
+// en vez de `type: "text"`).
+const sendWhatsAppTemplateMessage = async (to, templateName, languageCode, components = []) => {
+  const phoneNumberId = String(
+    process.env.WHATSAPP_PHONE_NUMBER_ID || ""
+  ).trim();
+  const accessToken = String(process.env.WHATSAPP_ACCESS_TOKEN || "").trim();
+
+  if (!phoneNumberId || !accessToken) {
+    console.error(
+      "[WhatsApp API] Faltan WHATSAPP_PHONE_NUMBER_ID o WHATSAPP_ACCESS_TOKEN en .env"
+    );
+    return null;
+  }
+
+  if (!templateName || !languageCode) {
+    console.error(
+      "[WhatsApp API] sendWhatsAppTemplateMessage requiere templateName y languageCode"
+    );
+    return null;
+  }
+
+  const url = `https://graph.facebook.com/${GRAPH_API_VERSION}/${phoneNumberId}/messages`;
+
+  const payload = {
+    messaging_product: "whatsapp",
+    to: String(to),
+    type: "template",
+    template: {
+      name: templateName,
+      language: { code: languageCode },
+      ...(Array.isArray(components) && components.length > 0 ? { components } : {}),
+    },
+  };
+
+  console.log("[WhatsApp API] Enviando plantilla:", {
+    url,
+    to: payload.to,
+    phoneNumberId,
+    templateName,
+    languageCode,
+  });
+
+  try {
+    const response = await axios.post(url, payload, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    console.log("[WhatsApp API] Plantilla enviada correctamente:", {
+      messaging_product: response.data?.messaging_product,
+      wamid: response.data?.messages?.[0]?.id ?? null,
+    });
+    return response.data;
+  } catch (error) {
+    if (error.response?.data) {
+      console.error(
+        "[WhatsApp API] Error de Meta (response.data):",
+        JSON.stringify(error.response.data, null, 2)
+      );
+      console.error(
+        "[WhatsApp API] HTTP status:",
+        error.response.status,
+        error.response.statusText
+      );
+    } else {
+      console.error("[WhatsApp API] Error de red o request:", error.message);
+    }
+
+    if (error.config) {
+      console.error("[WhatsApp API] Request URL:", error.config.url);
+    }
+
+    return null;
+  }
+};
+
 module.exports = {
   sendWhatsAppMessage,
+  sendWhatsAppTemplateMessage,
 };
