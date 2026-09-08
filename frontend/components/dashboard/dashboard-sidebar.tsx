@@ -71,13 +71,13 @@ function NavLink({
       )}
     >
       {active && (
-        <span className="absolute inset-y-2 left-0 w-[3px] rounded-r-full bg-sidebar-primary shadow-[0_0_10px_2px_oklch(0.74_0.13_182_/_50%)]" />
+        <span className="absolute inset-y-2 left-0 w-[3px] rounded-r-full bg-sidebar-primary shadow-[0_0_10px_2px_oklch(0.72_0.14_232_/_50%)]" />
       )}
       <Icon
         className={cn(
           "h-[18px] w-[18px] shrink-0 transition-colors",
           active
-            ? "text-sidebar-primary drop-shadow-[0_0_6px_oklch(0.74_0.13_182_/_60%)]"
+            ? "text-sidebar-primary drop-shadow-[0_0_6px_oklch(0.72_0.14_232_/_60%)]"
             : "text-sidebar-foreground/40 group-hover:text-sidebar-foreground"
         )}
       />
@@ -104,8 +104,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     >
       {/* Marca */}
       <div className="flex items-center gap-3 border-b border-sidebar-border px-4 py-4">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sidebar-primary/30 to-sidebar-primary/10 ring-1 ring-sidebar-primary/40 shadow-[0_0_16px_-2px_oklch(0.74_0.13_182_/_40%)]">
-          <PawPrint className="h-5 w-5 text-sidebar-primary drop-shadow-[0_0_6px_oklch(0.74_0.13_182_/_80%)]" />
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sidebar-primary/30 to-sidebar-primary/10 ring-1 ring-sidebar-primary/40 shadow-[0_0_16px_-2px_oklch(0.72_0.14_232_/_40%)]">
+          <PawPrint className="h-5 w-5 text-sidebar-primary drop-shadow-[0_0_6px_oklch(0.72_0.14_232_/_80%)]" />
         </div>
         <div className="min-w-0">
           <p className="truncate text-sm font-bold leading-tight tracking-tight gradient-text">
@@ -133,10 +133,10 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
       {/* Card Agente IA activo */}
       <div className="px-3 pb-3">
-        <div className="rounded-xl border border-sidebar-primary/15 bg-gradient-to-br from-sidebar-primary/10 to-transparent p-3 shadow-[0_0_20px_-6px_oklch(0.74_0.13_182_/_25%)] backdrop-blur-sm">
+        <div className="rounded-xl border border-sidebar-primary/15 bg-gradient-to-br from-sidebar-primary/10 to-transparent p-3 shadow-[0_0_20px_-6px_oklch(0.72_0.14_232_/_25%)] backdrop-blur-sm">
           <div className="flex items-center gap-2">
             <div className="relative shrink-0">
-              <Bot className="h-4 w-4 text-sidebar-primary drop-shadow-[0_0_4px_oklch(0.74_0.13_182_/_80%)]" />
+              <Bot className="h-4 w-4 text-sidebar-primary drop-shadow-[0_0_4px_oklch(0.72_0.14_232_/_80%)]" />
               <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400 shadow-[0_0_4px_oklch(0.7_0.2_145_/_80%)]" />
             </div>
             <p className="text-xs font-semibold text-emerald-400">Agente IA activo</p>
