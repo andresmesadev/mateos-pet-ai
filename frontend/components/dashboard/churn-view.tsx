@@ -112,20 +112,29 @@ export function ChurnView({ clients }: { clients: ChurnClient[] }) {
 
       {/* Lista agrupada por riesgo cuando filtro = all */}
       {filter === "all" ? (
-        RISK_ORDER.map((level) => {
-          const group = clients.filter((c) => c.riskLevel === level);
-          if (!group.length) return null;
-          return (
-            <div key={level} className="rounded-lg border overflow-hidden">
-              <div className={`px-4 py-2 text-xs font-medium ${RISK_CONFIG[level].badgeClass}`}>
-                {SECTION_LABELS[level]}
+        clients.length === 0 ? (
+          <div className="rounded-lg border py-16 text-center">
+            <p className="text-sm font-medium">Sin riesgo de abandono</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Ningún cliente está tardando más de lo habitual en volver.
+            </p>
+          </div>
+        ) : (
+          RISK_ORDER.map((level) => {
+            const group = clients.filter((c) => c.riskLevel === level);
+            if (!group.length) return null;
+            return (
+              <div key={level} className="rounded-lg border overflow-hidden">
+                <div className={`px-4 py-2 text-xs font-medium ${RISK_CONFIG[level].badgeClass}`}>
+                  {SECTION_LABELS[level]}
+                </div>
+                <ul className="divide-y">
+                  {group.map((c) => <ChurnRow key={c.id} client={c} />)}
+                </ul>
               </div>
-              <ul className="divide-y">
-                {group.map((c) => <ChurnRow key={c.id} client={c} />)}
-              </ul>
-            </div>
-          );
-        })
+            );
+          })
+        )
       ) : (
         <div className="rounded-lg border overflow-hidden">
           <ul className="divide-y">

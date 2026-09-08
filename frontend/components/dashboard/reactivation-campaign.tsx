@@ -247,7 +247,7 @@ export function ReactivationCampaign({ clients }: Props) {
                       className="h-4 w-4 accent-primary shrink-0"
                       disabled={sending}
                     />
-                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold ring-1 ${isSelected ? "bg-orange-500/20 text-orange-300 ring-orange-500/30" : "bg-muted text-muted-foreground ring-black/[0.08]"}`}>
+                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold ring-1 ${isSelected ? "bg-orange-500/20 text-orange-700 ring-orange-500/30" : "bg-muted text-muted-foreground ring-black/[0.08]"}`}>
                       {initials}
                     </div>
                     <div className="flex-1 min-w-0">
