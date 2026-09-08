@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Eye, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { Eye, Pencil, Plus, Search, Trash2, Users, X } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useTenant, tenantQuery } from "@/lib/use-tenant";
 
@@ -190,7 +190,7 @@ export function ClientsTable() {
             </div>
           ) : clients.length === 0 ? (
             <EmptyState
-              icon={["👋"].join("")}
+              icon={<Users className="h-7 w-7" />}
               title="No hay clientes registrados"
               description="Los clientes apareceran aqui cuando alguien escriba por WhatsApp."
               hint="El agente WhatsApp esta activo"

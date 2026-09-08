@@ -486,7 +486,7 @@ export function WeekCalendar({
       <div className="flex flex-wrap items-center gap-2 mb-4">
         {/* Navigation */}
         <div className="flex items-center gap-1">
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={prevPeriod}>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={prevPeriod} aria-label="Período anterior">
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <button
@@ -495,7 +495,7 @@ export function WeekCalendar({
           >
             Hoy
           </button>
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={nextPeriod}>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={nextPeriod} aria-label="Período siguiente">
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

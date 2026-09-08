@@ -163,7 +163,7 @@ export function AddPetToOwnerFlow({ open, onOpenChange, onCreated }: Props) {
                       autoFocus
                       disabled={searching}
                     />
-                    <Button type="submit" size="icon" disabled={searching || !phoneQuery.trim()}>
+                    <Button type="submit" size="icon" disabled={searching || !phoneQuery.trim()} aria-label="Buscar">
                       <Search className="h-4 w-4" />
                     </Button>
                   </div>

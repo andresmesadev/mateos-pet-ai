@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { PartyPopper } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -231,7 +232,7 @@ export function OpportunitiesView({ data }: { data: OpportunitiesData }) {
   if (total === 0) {
     return (
       <EmptyState
-        icon="🎉"
+        icon={<PartyPopper className="h-7 w-7" />}
         title="Sin acciones pendientes"
         description="El agente no ha detectado recordatorios pendientes todavía."
       />

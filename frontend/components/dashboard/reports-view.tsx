@@ -214,7 +214,7 @@ export function ReportsView() {
           ))}
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setOffset((o) => o - 1)}>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setOffset((o) => o - 1)} aria-label="Período anterior">
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <span className="min-w-[140px] text-center text-sm capitalize text-muted-foreground">
@@ -226,6 +226,7 @@ export function ReportsView() {
             className="h-8 w-8"
             onClick={() => setOffset((o) => o + 1)}
             disabled={offset >= 0}
+            aria-label="Período siguiente"
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
@@ -276,16 +277,17 @@ export function ReportsView() {
           <div className="mb-4 flex items-center justify-between">
             <h3 className="text-sm font-semibold">Ingresos por mes</h3>
             <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setRevenueYear((y) => y - 1)}>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setRevenueYear((y) => y - 1)} aria-label="Año anterior">
                 <ChevronLeft className="h-3.5 w-3.5" />
               </Button>
               <span className="text-xs text-muted-foreground">{revenueYear}</span>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7"
+                className="h-8 w-8"
                 onClick={() => setRevenueYear((y) => y + 1)}
                 disabled={revenueYear >= new Date().getFullYear()}
+                aria-label="Año siguiente"
               >
                 <ChevronRight className="h-3.5 w-3.5" />
               </Button>

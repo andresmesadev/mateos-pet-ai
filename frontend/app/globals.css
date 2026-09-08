@@ -39,6 +39,8 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-warm-foreground: var(--warm-foreground);
+  --color-warm: var(--warm);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -81,58 +83,73 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --warm: oklch(0.65 0.19 45);
+  --warm-foreground: oklch(0.98 0 0);
 }
 
 .dark {
-  /* ── Space navy profundo ─────────────────────────────────── */
-  --background: oklch(0.115 0.025 258);
-  --foreground: oklch(0.96 0.006 250);
+  /* ── Paleta "Caring Teal + Warm Paw" (2026-09-08) ──────────
+   * Reemplaza el navy/cyan tech-frío original por una paleta pensada
+   * para una veterinaria/peluquería: teal (cuidado, confianza clínica)
+   * como color primario + naranja cálido (acento — calidez, "huella"),
+   * mismo criterio que el preset "Veterinary Clinic" del design system
+   * (ui-ux-pro-max). Fondo teal-carbón en vez de azul-violeta puro para
+   * que el glassmorphism tenga un tinte cálido/orgánico, no corporativo-frío.
+   */
+
+  /* ── Fondo teal-carbón profundo ───────────────────────────── */
+  --background: oklch(0.13 0.025 200);
+  --foreground: oklch(0.96 0.008 190);
 
   /* ── Cards semi-transparentes para glassmorphism ─────────── */
-  --card: oklch(0.22 0.022 256 / 70%);
-  --card-foreground: oklch(0.96 0.006 250);
+  --card: oklch(0.24 0.03 197 / 68%);
+  --card-foreground: oklch(0.96 0.008 190);
 
   /* ── Popovers/dropdowns opacos (legibilidad) ─────────────── */
-  --popover: oklch(0.19 0.022 258);
-  --popover-foreground: oklch(0.96 0.006 250);
+  --popover: oklch(0.20 0.03 198);
+  --popover-foreground: oklch(0.96 0.008 190);
 
-  /* ── Electric cyan primario más vibrante ─────────────────── */
-  --primary: oklch(0.78 0.18 195);
-  --primary-foreground: oklch(0.10 0.03 230);
+  /* ── Teal vibrante (cuidado clínico, confianza) ───────────── */
+  --primary: oklch(0.74 0.13 182);
+  --primary-foreground: oklch(0.12 0.03 195);
 
-  --secondary: oklch(0.28 0.022 255 / 80%);
-  --secondary-foreground: oklch(0.96 0.006 250);
-  --muted: oklch(0.28 0.022 255 / 70%);
-  --muted-foreground: oklch(0.66 0.018 250);
-  --accent: oklch(0.30 0.04 210 / 80%);
-  --accent-foreground: oklch(0.96 0.006 250);
+  --secondary: oklch(0.29 0.028 197 / 80%);
+  --secondary-foreground: oklch(0.96 0.008 190);
+  --muted: oklch(0.29 0.028 197 / 70%);
+  --muted-foreground: oklch(0.68 0.022 190);
+  --accent: oklch(0.31 0.045 195 / 80%);
+  --accent-foreground: oklch(0.96 0.008 190);
 
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 8%);
   --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.78 0.18 195);
+  --ring: oklch(0.74 0.13 182);
 
-  --chart-1: oklch(0.78 0.18 195);
-  --chart-2: oklch(0.7 0.15 160);
-  --chart-3: oklch(0.65 0.22 290);
-  --chart-4: oklch(0.75 0.15 90);
-  --chart-5: oklch(0.7 0.16 30);
+  /* ── Naranja cálido: acento de marca ("huella"/calidez) ───── */
+  --warm: oklch(0.74 0.16 55);
+  --warm-foreground: oklch(0.14 0.03 55);
+
+  --chart-1: oklch(0.74 0.13 182);
+  --chart-2: oklch(0.74 0.16 55);
+  --chart-3: oklch(0.78 0.15 95);
+  --chart-4: oklch(0.70 0.13 235);
+  --chart-5: oklch(0.68 0.18 22);
 
   /* ── Sidebar semi-transparente ───────────────────────────── */
-  --sidebar: oklch(0.13 0.018 258 / 85%);
-  --sidebar-foreground: oklch(0.92 0.008 250);
-  --sidebar-primary: oklch(0.78 0.18 195);
-  --sidebar-primary-foreground: oklch(0.10 0.03 230);
-  --sidebar-accent: oklch(0.25 0.025 255 / 70%);
-  --sidebar-accent-foreground: oklch(0.96 0.006 250);
+  --sidebar: oklch(0.14 0.025 197 / 85%);
+  --sidebar-foreground: oklch(0.93 0.012 190);
+  --sidebar-primary: oklch(0.74 0.13 182);
+  --sidebar-primary-foreground: oklch(0.12 0.03 195);
+  --sidebar-accent: oklch(0.26 0.03 197 / 70%);
+  --sidebar-accent-foreground: oklch(0.96 0.008 190);
   --sidebar-border: oklch(1 0 0 / 6%);
-  --sidebar-ring: oklch(0.78 0.18 195);
+  --sidebar-ring: oklch(0.74 0.13 182);
 
   /* ── Custom glow tokens ──────────────────────────────────── */
-  --glow-cyan: 0 0 20px oklch(0.78 0.18 195 / 40%), 0 0 40px oklch(0.78 0.18 195 / 15%);
-  --glow-violet: 0 0 20px oklch(0.65 0.25 290 / 35%), 0 0 40px oklch(0.65 0.25 290 / 12%);
-  --gradient-text-from: oklch(0.78 0.18 195);
-  --gradient-text-to: oklch(0.65 0.25 290);
+  --glow-cyan: 0 0 20px oklch(0.74 0.13 182 / 40%), 0 0 40px oklch(0.74 0.13 182 / 15%);
+  --glow-violet: 0 0 20px oklch(0.74 0.16 55 / 35%), 0 0 40px oklch(0.74 0.16 55 / 12%);
+  --gradient-text-from: oklch(0.74 0.13 182);
+  --gradient-text-to: oklch(0.74 0.16 55);
 }
 
 @layer base {
@@ -171,12 +188,24 @@
 
 /* ── Utilidades premium reutilizables ─────────────────────────── */
 @layer utilities {
-  /* Glassmorphism real: blur + bg mínimo + inset highlight */
+  /* Glassmorphism "liquid glass" (2026-09-08): blur más pronunciado +
+   * saturate() para que el vidrio capte y realce el color de lo que hay
+   * detrás (el efecto "líquido"/refractivo, no solo desenfoque plano) +
+   * highlight especular superior (simula una fuente de luz) + sombra de
+   * profundidad. Mismo nombre de clase que antes — cero cambios en los
+   * componentes que ya la usan (dashboard-topbar, dashboard-sidebar,
+   * metric-card, home/sections).
+   */
   .glass-card {
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(24px) saturate(165%);
+    -webkit-backdrop-filter: blur(24px) saturate(165%);
+    background-image: linear-gradient(
+      160deg,
+      oklch(1 0 0 / 6%) 0%,
+      oklch(1 0 0 / 0%) 45%
+    );
     box-shadow:
-      0 1px 0 oklch(1 0 0 / 7%) inset,
+      0 1px 0 oklch(1 0 0 / 10%) inset,
       0 -1px 0 oklch(0 0 0 / 25%) inset,
       0 8px 32px -8px oklch(0 0 0 / 55%);
   }
@@ -203,21 +232,21 @@
     background-clip: text;
   }
 
-  /* Texto con gradiente blanco → cyan sutil (para números) */
+  /* Texto con gradiente blanco → teal sutil (para números) */
   .gradient-text-value {
     background: linear-gradient(
       145deg,
-      oklch(0.98 0.005 250) 0%,
-      oklch(0.85 0.08 200) 100%
+      oklch(0.98 0.006 190) 0%,
+      oklch(0.85 0.08 185) 100%
     );
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
-  /* Borde luminoso cyan */
+  /* Borde luminoso teal */
   .neon-border-cyan {
-    border-color: oklch(0.78 0.18 195 / 40%);
-    box-shadow: 0 0 0 1px oklch(0.78 0.18 195 / 20%);
+    border-color: oklch(0.74 0.13 182 / 40%);
+    box-shadow: 0 0 0 1px oklch(0.74 0.13 182 / 20%);
   }
 }

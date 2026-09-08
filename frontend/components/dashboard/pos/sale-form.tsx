@@ -305,7 +305,7 @@ export function SaleForm() {
                   onClick={() => setPaymentMethod(m.value)}
                   className={`flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-all duration-150 ${
                     paymentMethod === m.value
-                      ? "border-primary/40 bg-primary/15 text-primary shadow-[0_0_0_1px_oklch(0.74_0.13_195/0.3)]"
+                      ? "border-primary/40 bg-primary/15 text-primary shadow-[0_0_0_1px_oklch(0.74_0.13_182/0.3)]"
                       : "border-white/[0.06] bg-background/50 text-muted-foreground hover:border-white/15 hover:bg-accent hover:text-foreground"
                   }`}
                 >

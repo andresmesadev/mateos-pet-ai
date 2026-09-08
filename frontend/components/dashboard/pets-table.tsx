@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Eye, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { Eye, Pencil, Plus, PawPrint, Search, Trash2, X } from "lucide-react";
 import { useTenant, tenantQuery } from "@/lib/use-tenant";
 
 import { PetMedicalSheet } from "@/components/dashboard/pet-medical-sheet";
@@ -215,7 +215,7 @@ export function PetsTable({
             </div>
           ) : pets.length === 0 ? (
             <EmptyState
-              icon="🐾"
+              icon={<PawPrint className="h-7 w-7" />}
               title="No hay mascotas registradas"
               description="Las mascotas se registran solas cuando los clientes conversan por WhatsApp y mencionan a sus compañeros peludos."
               hint="El agente WhatsApp está activo"

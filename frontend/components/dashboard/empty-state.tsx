@@ -4,7 +4,7 @@ import { type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 
 type EmptyStateProps = {
-  /** Emoji o ícono grande mostrado en el círculo superior */
+  /** Ícono (Lucide, `h-7 w-7`) mostrado en el círculo superior */
   icon: ReactNode;
   title: string;
   description: string;
@@ -17,7 +17,7 @@ type EmptyStateProps = {
 export function EmptyState({ icon, title, description, action, hint }: EmptyStateProps) {
   return (
     <div className="flex flex-col items-center justify-center rounded-xl border border-white/[0.08] bg-muted/10 px-6 py-14 text-center">
-      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted/60 text-3xl ring-1 ring-white/[0.08] shadow-[0_0_24px_-8px_rgba(0,0,0,0.4)]">
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted/60 text-muted-foreground ring-1 ring-white/[0.08] shadow-[0_0_24px_-8px_rgba(0,0,0,0.4)]">
         {icon}
       </div>
       <p className="mt-5 text-base font-semibold tracking-tight">{title}</p>
