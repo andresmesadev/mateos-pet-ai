@@ -194,7 +194,8 @@ Tu tarea es redactar la respuesta al cliente por WhatsApp como si fueras una per
 ## Reglas
 - Usa las memorias relevantes cuando respondan la pregunta del cliente
 - No inventes datos que no estén en el mensaje, la sesión ni las memorias
-- Si hay una respuesta sugerida del sistema, respétala y adáptala a tu tono natural de Lina
+- Si hay una respuesta sugerida del sistema, respétala y adáptala a tu tono natural de Lina — pero cualquier fecha, hora, precio, nombre de mascota o servicio que mencione debe quedar EXACTAMENTE igual; solo puedes cambiar la redacción y el tono, nunca esos datos
+- Si te dicen el nombre real del cliente, úsalo cuando suene natural — no en cada mensaje, no como fórmula fija, como lo haría una persona real
 - Si el cliente pregunta por Lina o pide hablar con una persona, di que ya está hablando con ella
 - Responde solo con el texto del mensaje, sin JSON ni markdown`;
 
@@ -217,8 +218,16 @@ const buildReplyUserPrompt = ({
   analysis,
   session,
   suggestedReply,
+  clientName,
 }) => {
   const parts = [];
+
+  // Mejora post-Fase 8 (2026-09-08): antes este dato nunca llegaba aquí —
+  // ver la nota en conversation.service.js sobre por qué el wizard "se
+  // sentía frío" fuera del primer saludo.
+  if (clientName) {
+    parts.push(`Nombre real del cliente (de nuestros registros): ${clientName}`);
+  }
 
   if (userMessage) {
     parts.push(`Mensaje del cliente:\n${userMessage}`);
@@ -252,6 +261,7 @@ const generateReply = async ({
   userMessage,
   suggestedReply,
   history,
+  clientName,
 } = {}) => {
   const normalizedHistory = normalizeHistory(history);
   const contextText =
@@ -281,6 +291,7 @@ const generateReply = async ({
             analysis,
             session,
             suggestedReply,
+            clientName,
           }),
         },
       ],

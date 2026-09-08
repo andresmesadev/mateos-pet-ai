@@ -282,11 +282,24 @@ const resolveGenerateReplyInput = (input, options = {}) => {
   return { analysis: input, session: {}, semanticContext: "", userMessage: "", history: [], options };
 };
 
+// Mejora post-Fase 8 (2026-09-08): antes, cualquier respuesta que avanzara el
+// wizard (step en BOOKING_STEPS) se devolvía textual, sin pasar nunca por
+// generateReplyWithAI — en la práctica, casi toda una reserva real (nombre de
+// mascota, tipo, horario, domicilio, confirmación) salía como texto fijo
+// idéntico siempre, mientras el prompt cálido de Lina (REPLY_SYSTEM_PROMPT)
+// solo se usaba para ask_info y un par de ramas sueltas. Se quita ese bloqueo
+// — el dato (fecha/hora/servicio) lo sigue decidiendo únicamente esta
+// función; generateReplyWithAI solo puede adaptar el TONO de `suggestedReply`
+// (mismo mecanismo, sin ampliar, que ya usan ask_info y la pregunta de
+// veterinaria/grooming desde antes de este cambio). Los intents de gestión
+// (cancelar/reprogramar/consultar) y las ramas con forceRuleReply explícito
+// (saludo, "sin cita necesaria") siguen fijas — no formaban parte de este
+// hallazgo ("el wizard de reserva se siente frío"), y tocarlas es un cambio
+// de alcance distinto.
 const shouldUseRuleReplyOnly = (ruleResult, analysis) => {
   if (ruleResult?.forceRuleReply) return true;
   if (MANAGEMENT_INTENTS.has(analysis?.intent)) return true;
-  const step = ruleResult?.step;
-  return step != null && BOOKING_STEPS.has(step);
+  return false;
 };
 
 const buildRuleBasedReply = async (analysis, options = {}) => {
@@ -617,6 +630,13 @@ const generateReply = async (input, legacyOptions) => {
       userMessage,
       suggestedReply: ruleResult.reply,
       history,
+      // Mejora post-Fase 8 (2026-09-08): antes generateReplyWithAI nunca
+      // recibía el nombre real del cliente (User.name) — solo la rama de
+      // saludo lo usaba, y únicamente ahí. Se pasa aquí para que, con el
+      // wizard ya elegible para reformularse (ver shouldUseRuleReplyOnly),
+      // Lina pueda usarlo quien es donde suene natural, en vez de que
+      // desaparezca después del primer "hola".
+      clientName: options?.userName || null,
     });
     if (aiReply) return { ...ruleResult, reply: aiReply };
   } catch (error) {
