@@ -7,9 +7,14 @@ const logger = require("../lib/logger");
 const { sendMessage } = require("../contexts/communication");
 
 // Mejora post-Fase 8 (2026-09-08): mismo vocabulario de "wizard activo" que
-// conversation.service.js ya usa — exportado desde ahí para no duplicar la
-// lista (ver conversation.service.js, comentario del export).
-const { BOOKING_STEPS } = require("./conversation.service");
+// usa conversation.service.js — importado del módulo hoja compartido
+// (domain/booking-steps.js), NO de conversation.service.js directamente.
+// Ese import directo existió por unos minutos y creó un ciclo real
+// (conversation.service.js → appointment.service.js → reminder.service.js →
+// conversation.service.js) que dejaba BOOKING_STEPS en `undefined` según el
+// orden de carga del proceso — ver domain/booking-steps.js para el detalle
+// completo del bug y el fix.
+const { BOOKING_STEPS } = require("./domain/booking-steps");
 
 const {
 

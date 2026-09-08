@@ -2,21 +2,12 @@
 // Responsibilities: receive session + analysis, orchestrate domain calls, return reply + session patch.
 // Business logic lives in domain services; this file manages wizard state and message formatting.
 
-const STEPS = {
-  AWAITING_PET_NAME: "awaiting_pet_name",
-  AWAITING_PET_TYPE: "awaiting_pet_type",
-  AWAITING_GROOMING_SLOT_CONFIRM: "awaiting_grooming_slot_confirm",
-  AWAITING_DOMICILIO: "awaiting_domicilio",
-  AWAITING_DOMICILIO_ADDRESS: "awaiting_domicilio_address",
-  AWAITING_DATE_TIME: "awaiting_date_time",
-  AWAITING_CONFIRMATION: "awaiting_confirmation",
-  COMPLETED: "completed",
-  // Entregable 8.3 (D-E1): antes "human_takeover" vivía como string literal
-  // fuera de este enum (línea de detección de transferencia a humano, más
-  // abajo) — exactamente el bug que D-E1 describe: un valor de session.step
-  // que no pertenecía al vocabulario cerrado.
-  HUMAN_TAKEOVER: "human_takeover",
-};
+// Fix (2026-09-08): STEPS/BOOKING_STEPS se movieron a domain/booking-steps.js
+// (módulo hoja sin dependencias) para romper un ciclo real con
+// reminder.service.js — ver ese archivo para el detalle completo. Se siguen
+// reexportando desde aquí sin cambios para no romper a quien ya los importa
+// de conversation.service.js (whatsapp.service.js, entre otros).
+const { STEPS, BOOKING_STEPS } = require("./domain/booking-steps");
 
 const scheduling = require("./scheduling.service");
 const { findNextAvailableGroomingSlot } = require("./availability-db.service");
@@ -55,18 +46,6 @@ const {
 } = require("./domain/intent-detector.service");
 
 const { trySaveMedicalInfo } = require("./domain/medical-auto-capture.service");
-
-// ─── Wizard step sets ─────────────────────────────────────────────────────────
-
-const BOOKING_STEPS = new Set([
-  STEPS.AWAITING_PET_NAME,
-  STEPS.AWAITING_PET_TYPE,
-  STEPS.AWAITING_GROOMING_SLOT_CONFIRM,
-  STEPS.AWAITING_DOMICILIO,
-  STEPS.AWAITING_DOMICILIO_ADDRESS,
-  STEPS.AWAITING_DATE_TIME,
-  STEPS.AWAITING_CONFIRMATION,
-]);
 
 // ─── Confirmation protocol ────────────────────────────────────────────────────
 
@@ -653,10 +632,9 @@ const getConfirmationReply = () => ({
 });
 
 module.exports = {
+  // Reexportados desde domain/booking-steps.js — ver el fix del 2026-09-08
+  // arriba (import) para por qué viven ahí y no aquí.
   STEPS,
-  // Mejora post-Fase 8 (2026-09-08): abandoned-conversation.job.js necesita
-  // el mismo vocabulario de "wizard activo" que ya usa este archivo —
-  // exportado en vez de duplicar la lista en el job (fuente única).
   BOOKING_STEPS,
   confirmationKeywords,
   normalizeText,
