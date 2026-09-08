@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import {
@@ -91,7 +91,7 @@ function DeltaBadge({ pct }: { pct: number | null }) {
     <span
       className={cn(
         "inline-flex items-center gap-0.5 text-xs font-medium",
-        neutral ? "text-muted-foreground" : up ? "text-emerald-400" : "text-red-400"
+        neutral ? "text-muted-foreground" : up ? "text-emerald-700" : "text-red-700"
       )}
     >
       {neutral ? (
@@ -136,9 +136,9 @@ const REMINDER_ICONS = {
 };
 
 const REMINDER_TINTS = {
-  vaccine: "bg-blue-500/20 text-blue-400",
-  deworming: "bg-orange-500/20 text-orange-400",
-  grooming: "bg-purple-500/20 text-purple-400",
+  vaccine: "bg-blue-500/20 text-blue-700",
+  deworming: "bg-orange-500/20 text-orange-700",
+  grooming: "bg-purple-500/20 text-purple-700",
 };
 
 // ── Main component ─────────────────────────────────────────────────────────────
@@ -242,28 +242,28 @@ export function ReportsView() {
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <MetricCard
             icon={DollarSign}
-            tint="bg-emerald-500/15 text-emerald-400"
+            tint="bg-emerald-500/15 text-emerald-700"
             label="Ingresos"
             value={formatCOP(summary.revenue.value)}
             delta={<DeltaBadge pct={summary.revenue.pct} />}
           />
           <MetricCard
             icon={CalendarDays}
-            tint="bg-blue-500/15 text-blue-400"
+            tint="bg-blue-500/15 text-blue-700"
             label="Citas"
             value={summary.appointments.value.toString()}
             delta={<DeltaBadge pct={summary.appointments.pct} />}
           />
           <MetricCard
             icon={Users}
-            tint="bg-violet-500/15 text-violet-400"
+            tint="bg-violet-500/15 text-violet-700"
             label="Propietarios nuevos"
             value={summary.newClients.value.toString()}
             delta={<DeltaBadge pct={summary.newClients.pct} />}
           />
           <MetricCard
             icon={PawPrint}
-            tint="bg-amber-500/15 text-amber-400"
+            tint="bg-amber-500/15 text-amber-700"
             label="Mascotas atendidas"
             value={summary.petsAttended.value.toString()}
             delta={<DeltaBadge pct={summary.petsAttended.pct} />}
@@ -273,7 +273,7 @@ export function ReportsView() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Revenue by month */}
-        <div className="rounded-xl border border-white/[0.06] bg-card p-5 shadow-sm">
+        <div className="rounded-xl border border-black/[0.06] bg-card p-5 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="text-sm font-semibold">Ingresos por mes</h3>
             <div className="flex items-center gap-1">
@@ -301,7 +301,7 @@ export function ReportsView() {
         </div>
 
         {/* Top services */}
-        <div className="rounded-xl border border-white/[0.06] bg-card p-5 shadow-sm">
+        <div className="rounded-xl border border-black/[0.06] bg-card p-5 shadow-sm">
           <h3 className="mb-4 text-sm font-semibold">Servicios más atendidos</h3>
           {loading ? (
             <div className="space-y-2">
@@ -333,9 +333,9 @@ export function ReportsView() {
       </div>
 
       {/* Upcoming reminders */}
-      <div className="rounded-xl border border-white/[0.06] bg-card p-5 shadow-sm">
+      <div className="rounded-xl border border-black/[0.06] bg-card p-5 shadow-sm">
         <div className="mb-4 flex items-center gap-2">
-          <Bell className="h-4 w-4 text-amber-400" />
+          <Bell className="h-4 w-4 text-amber-700" />
           <h3 className="text-sm font-semibold">Próximas fechas críticas — 30 días</h3>
           {!loading && reminders.length > 0 && (
             <Badge variant="secondary" className="ml-auto">{reminders.length}</Badge>
@@ -348,7 +348,7 @@ export function ReportsView() {
         ) : reminders.length === 0 ? (
           <p className="text-sm text-muted-foreground">Sin recordatorios próximos en los próximos 30 días.</p>
         ) : (
-          <div className="divide-y divide-white/[0.04]">
+          <div className="divide-y divide-black/[0.04]">
             {reminders.map((r) => {
               const Icon = REMINDER_ICONS[r.type] ?? Bell;
               const tint = REMINDER_TINTS[r.type] ?? "bg-muted text-muted-foreground";
@@ -369,7 +369,7 @@ export function ReportsView() {
                     <p
                       className={cn(
                         "text-[10px]",
-                        days <= 3 ? "text-red-400" : days <= 7 ? "text-amber-400" : "text-muted-foreground"
+                        days <= 3 ? "text-red-700" : days <= 7 ? "text-amber-700" : "text-muted-foreground"
                       )}
                     >
                       {days === 0 ? "Hoy" : days === 1 ? "Mañana" : `En ${days} días`}
@@ -383,7 +383,7 @@ export function ReportsView() {
       </div>
 
       {/* Retention */}
-      <div className="rounded-xl border border-white/[0.06] bg-card p-5 shadow-sm">
+      <div className="rounded-xl border border-black/[0.06] bg-card p-5 shadow-sm">
         <h3 className="mb-4 text-sm font-semibold">Retención — últimos 6 meses</h3>
         {loading ? (
           <Skeleton className="h-32 w-full rounded" />
@@ -393,18 +393,18 @@ export function ReportsView() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-white/[0.06] text-left text-xs text-muted-foreground">
+                <tr className="border-b border-black/[0.06] text-left text-xs text-muted-foreground">
                   <th className="pb-2 font-normal">Mes</th>
                   <th className="pb-2 text-right font-normal">Nuevos</th>
                   <th className="pb-2 text-right font-normal">Total citas</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/[0.04]">
+              <tbody className="divide-y divide-black/[0.04]">
                 {retention.map((r) => (
                   <tr key={r.label}>
                     <td className="py-2 capitalize text-muted-foreground">{r.label}</td>
-                    <td className="py-2 text-right tabular-nums text-violet-400">{r.newClients}</td>
-                    <td className="py-2 text-right tabular-nums text-blue-400">{r.returningVisits}</td>
+                    <td className="py-2 text-right tabular-nums text-violet-700">{r.newClients}</td>
+                    <td className="py-2 text-right tabular-nums text-blue-700">{r.returningVisits}</td>
                   </tr>
                 ))}
               </tbody>

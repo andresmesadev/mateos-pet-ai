@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -16,8 +16,8 @@ type EmptyStateProps = {
 
 export function EmptyState({ icon, title, description, action, hint }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-white/[0.08] bg-muted/10 px-6 py-14 text-center">
-      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted/60 text-muted-foreground ring-1 ring-white/[0.08] shadow-[0_0_24px_-8px_rgba(0,0,0,0.4)]">
+    <div className="flex flex-col items-center justify-center rounded-xl border border-black/[0.08] bg-muted/10 px-6 py-14 text-center">
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted/60 text-muted-foreground ring-1 ring-black/[0.08] shadow-[0_0_24px_-8px_rgba(15,23,42,0.12)]">
         {icon}
       </div>
       <p className="mt-5 text-base font-semibold tracking-tight">{title}</p>
@@ -30,7 +30,7 @@ export function EmptyState({ icon, title, description, action, hint }: EmptyStat
       )}
 
       {hint && (
-        <div className="mt-5 flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/5 px-3 py-1.5 text-xs text-emerald-400">
+        <div className="mt-5 flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/5 px-3 py-1.5 text-xs text-emerald-700">
           <span className="relative flex h-2 w-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />

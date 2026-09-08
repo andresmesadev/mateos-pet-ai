@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -81,7 +81,7 @@ export function DailyCloseSheet() {
       <Button
         size="sm"
         variant="outline"
-        className="h-8 text-xs font-medium border-teal-500/40 text-teal-400 hover:bg-teal-500/10 hover:text-teal-300"
+        className="h-8 text-xs font-medium border-teal-500/40 text-teal-700 hover:bg-teal-500/10 hover:text-teal-300"
         onClick={openSheet}
       >
         Cerrar día
@@ -93,11 +93,11 @@ export function DailyCloseSheet() {
           onClick={() => setOpen(false)}
         >
           <div
-            className="w-full max-w-md rounded-2xl border border-white/[0.12] bg-background shadow-2xl overflow-hidden"
+            className="w-full max-w-md rounded-2xl border border-black/[0.12] bg-background shadow-2xl overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-white/[0.06]">
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-black/[0.06]">
               <div>
                 <h2 className="text-base font-semibold">Cierre del día</h2>
                 {data && (
@@ -128,7 +128,7 @@ export function DailyCloseSheet() {
               )}
 
               {error && (
-                <div className="py-6 text-center text-sm text-red-400">{error}</div>
+                <div className="py-6 text-center text-sm text-red-700">{error}</div>
               )}
 
               {data && !loading && (
@@ -207,7 +207,7 @@ export function DailyCloseSheet() {
             </div>
 
             {/* Footer */}
-            <div className="px-5 pb-5 pt-3 border-t border-white/[0.06]">
+            <div className="px-5 pb-5 pt-3 border-t border-black/[0.06]">
               <Button
                 variant="outline"
                 className="w-full"

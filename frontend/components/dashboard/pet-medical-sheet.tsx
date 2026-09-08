@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -61,12 +61,12 @@ const ACTION_BUTTONS: {
   bg: string;
   ring: string;
 }[] = [
-  { id: "consultation", label: "Consulta",        icon: Stethoscope, color: "text-sky-400",    bg: "bg-sky-500/10",    ring: "ring-sky-500/25 border-sky-500/20" },
-  { id: "vaccine",      label: "Vacuna",           icon: Syringe,     color: "text-emerald-400",bg: "bg-emerald-500/10",ring: "ring-emerald-500/25 border-emerald-500/20" },
-  { id: "deworming",    label: "Desparasitación",  icon: Pill,        color: "text-violet-400", bg: "bg-violet-500/10", ring: "ring-violet-500/25 border-violet-500/20" },
-  { id: "grooming",     label: "Peluquería",       icon: Scissors,    color: "text-amber-400",  bg: "bg-amber-500/10",  ring: "ring-amber-500/25 border-amber-500/20" },
-  { id: "allergy",      label: "Alergia",          icon: AlertCircle, color: "text-rose-400",   bg: "bg-rose-500/10",   ring: "ring-rose-500/25 border-rose-500/20" },
-  { id: "note",         label: "Nota",             icon: StickyNote,  color: "text-muted-foreground", bg: "bg-accent/40", ring: "ring-white/10 border-white/[0.06]" },
+  { id: "consultation", label: "Consulta",        icon: Stethoscope, color: "text-sky-700",    bg: "bg-sky-500/10",    ring: "ring-sky-500/25 border-sky-500/20" },
+  { id: "vaccine",      label: "Vacuna",           icon: Syringe,     color: "text-emerald-700",bg: "bg-emerald-500/10",ring: "ring-emerald-500/25 border-emerald-500/20" },
+  { id: "deworming",    label: "Desparasitación",  icon: Pill,        color: "text-violet-700", bg: "bg-violet-500/10", ring: "ring-violet-500/25 border-violet-500/20" },
+  { id: "grooming",     label: "Peluquería",       icon: Scissors,    color: "text-amber-700",  bg: "bg-amber-500/10",  ring: "ring-amber-500/25 border-amber-500/20" },
+  { id: "allergy",      label: "Alergia",          icon: AlertCircle, color: "text-rose-700",   bg: "bg-rose-500/10",   ring: "ring-rose-500/25 border-rose-500/20" },
+  { id: "note",         label: "Nota",             icon: StickyNote,  color: "text-muted-foreground", bg: "bg-accent/40", ring: "ring-black/10 border-black/[0.06]" },
 ];
 
 const FORM_LABELS: Record<ActiveForm, { title: string; titlePlaceholder: string; detailLabel: string; detailPlaceholder: string; nextLabel?: string }> = {
@@ -258,7 +258,7 @@ function PetMedicalSheetContent({
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex shrink-0 items-start justify-between gap-4 border-b border-white/[0.06] py-5 pl-6 pr-14">
+      <div className="flex shrink-0 items-start justify-between gap-4 border-b border-black/[0.06] py-5 pl-6 pr-14">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-xl ring-1 ring-amber-500/25">
             {getPetEmoji(pet.type)}
@@ -292,8 +292,8 @@ function PetMedicalSheetContent({
       <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-6 py-5">
 
         {/* Ficha */}
-        <div className="rounded-xl border border-white/[0.06] bg-card">
-          <div className="flex items-center justify-between border-b border-white/[0.04] px-4 py-3">
+        <div className="rounded-xl border border-black/[0.06] bg-card">
+          <div className="flex items-center justify-between border-b border-black/[0.04] px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ficha clínica</p>
             {!editingProfile && (
               <button
@@ -331,7 +331,7 @@ function PetMedicalSheetContent({
                     placeholder="+57 300 000 0000" />
                 </div>
               </div>
-              <div className="border-t border-white/[0.06] pt-3">
+              <div className="border-t border-black/[0.06] pt-3">
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Datos clínicos</p>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -386,7 +386,7 @@ function PetMedicalSheetContent({
               </div>
             </div>
           ) : (
-            <div className="divide-y divide-white/[0.04]">
+            <div className="divide-y divide-black/[0.04]">
               {(
                 [
                   profile.breed      ? ["Raza",           profile.breed] : null,
@@ -424,7 +424,7 @@ function PetMedicalSheetContent({
                     onClick={() => openForm(btn.id)}
                     className={cn(
                       "group flex flex-col items-center gap-2 rounded-xl border p-3 transition-all duration-150",
-                      "hover:-translate-y-0.5 hover:shadow-[0_4px_16px_-4px_rgba(0,0,0,0.4)]",
+                      "hover:-translate-y-0.5 hover:shadow-[0_4px_16px_-4px_rgba(15,23,42,0.12)]",
                       btn.ring,
                       btn.bg
                     )}

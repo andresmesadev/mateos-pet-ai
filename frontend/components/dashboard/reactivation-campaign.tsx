@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 
@@ -168,7 +168,7 @@ export function ReactivationCampaign({ clients }: Props) {
           <p className="font-medium text-green-800 dark:text-green-300">
             ✓ Campaña enviada — {result.sent} mensaje{result.sent === 1 ? "" : "s"} enviado{result.sent === 1 ? "" : "s"}
           </p>
-          <p className="text-green-700 dark:text-green-400 text-xs">
+          <p className="text-green-700 dark:text-green-700 text-xs">
             {result.failed > 0 && `${result.failed} fallidos · `}
             {result.noPhone > 0 && `${result.noPhone} sin teléfono (omitidos) · `}
             {result.total} seleccionados en total
@@ -231,7 +231,7 @@ export function ReactivationCampaign({ clients }: Props) {
             </button>
           </div>
 
-          <ul className="divide-y divide-white/[0.05]">
+          <ul className="divide-y divide-black/[0.05]">
             {paginated.map((client) => {
               const phone = formatPhone(client.phone);
               const hasPhone = !isNoPhone(client.phone);
@@ -247,7 +247,7 @@ export function ReactivationCampaign({ clients }: Props) {
                       className="h-4 w-4 accent-primary shrink-0"
                       disabled={sending}
                     />
-                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold ring-1 ${isSelected ? "bg-orange-500/20 text-orange-300 ring-orange-500/30" : "bg-muted text-muted-foreground ring-white/[0.08]"}`}>
+                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold ring-1 ${isSelected ? "bg-orange-500/20 text-orange-300 ring-orange-500/30" : "bg-muted text-muted-foreground ring-black/[0.08]"}`}>
                       {initials}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -258,7 +258,7 @@ export function ReactivationCampaign({ clients }: Props) {
                         {hasPhone ? (
                           <span className="text-xs text-muted-foreground">{phone}</span>
                         ) : (
-                          <span className="rounded-full bg-orange-500/10 px-2 py-0.5 text-[11px] font-medium text-orange-400">Sin teléfono</span>
+                          <span className="rounded-full bg-orange-500/10 px-2 py-0.5 text-[11px] font-medium text-orange-700">Sin teléfono</span>
                         )}
                       </div>
                       <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">

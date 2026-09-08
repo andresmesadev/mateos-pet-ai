@@ -12,7 +12,7 @@ function AmbientOrbs() {
       <div
         className="absolute -left-48 -top-48 h-[700px] w-[700px] animate-pulse rounded-full"
         style={{
-          background: "radial-gradient(circle, oklch(0.72 0.14 232 / 8%) 0%, transparent 70%)",
+          background: "radial-gradient(circle, oklch(0.72 0.16 232 / 16%) 0%, transparent 70%)",
           animationDuration: "8s",
         }}
       />
@@ -20,7 +20,7 @@ function AmbientOrbs() {
       <div
         className="absolute -bottom-32 -right-48 h-[600px] w-[600px] animate-pulse rounded-full"
         style={{
-          background: "radial-gradient(circle, oklch(0.72 0.15 152 / 6%) 0%, transparent 70%)",
+          background: "radial-gradient(circle, oklch(0.72 0.16 152 / 13%) 0%, transparent 70%)",
           animationDuration: "12s",
           animationDelay: "4s",
         }}
@@ -29,7 +29,7 @@ function AmbientOrbs() {
       <div
         className="absolute right-1/4 top-1/3 h-[400px] w-[400px] animate-pulse rounded-full"
         style={{
-          background: "radial-gradient(circle, oklch(0.72 0.14 232 / 4%) 0%, transparent 70%)",
+          background: "radial-gradient(circle, oklch(0.72 0.16 232 / 9%) 0%, transparent 70%)",
           animationDuration: "10s",
           animationDelay: "2s",
         }}
@@ -46,15 +46,15 @@ export default function DashboardLayout({
   return (
     <ToastProvider>
       <div
-        className="dark relative min-h-screen bg-background text-foreground"
+        className="relative min-h-screen bg-background text-foreground"
         style={{
           backgroundImage: [
             /* Gradiente ambiental azul cielo arriba izquierda */
-            "radial-gradient(ellipse 75% 45% at 10% -5%, oklch(0.55 0.12 230 / 14%) 0%, transparent 55%)",
+            "radial-gradient(ellipse 75% 45% at 10% -5%, oklch(0.72 0.14 232 / 16%) 0%, transparent 55%)",
             /* Gradiente ambiental verde fresco abajo derecha */
-            "radial-gradient(ellipse 55% 40% at 90% 105%, oklch(0.55 0.13 152 / 9%) 0%, transparent 55%)",
+            "radial-gradient(ellipse 55% 40% at 90% 105%, oklch(0.72 0.15 152 / 12%) 0%, transparent 55%)",
             /* Grid puntual sutil */
-            "radial-gradient(circle at 1px 1px, oklch(1 0 0 / 5%) 1px, transparent 0)",
+            "radial-gradient(circle at 1px 1px, oklch(0.4 0.03 235 / 7%) 1px, transparent 0)",
           ].join(", "),
           backgroundSize: "100% 100%, 100% 100%, 28px 28px",
         }}

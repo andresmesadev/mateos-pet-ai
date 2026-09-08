@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -273,7 +273,7 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
               {client.pets.map((pet) => (
                 <li
                   key={pet.id}
-                  className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-card px-3 py-2.5"
+                  className="flex items-center justify-between rounded-xl border border-black/[0.06] bg-card px-3 py-2.5"
                 >
                   <div className="flex items-center gap-2.5">
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-base ring-1 ring-amber-500/20">

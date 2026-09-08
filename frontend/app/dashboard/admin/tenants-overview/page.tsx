@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+﻿import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { Building2 } from "lucide-react";
 
@@ -50,7 +50,7 @@ export default async function TenantsOverviewPage() {
         title="Operación centralizada"
         description="Resumen agregado, solo lectura, de todos los establecimientos activos"
         icon={Building2}
-        tint="bg-indigo-500/15 text-indigo-400"
+        tint="bg-indigo-500/15 text-indigo-700"
       />
 
       {!res.ok && (

@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+﻿import { Suspense } from "react";
 import { PawPrint } from "lucide-react";
 
 import { PetsTable } from "@/components/dashboard/pets-table";
@@ -32,7 +32,7 @@ export default async function DashboardPetsPage({
         title="Mascotas"
         description="Consulta y administra el historial médico de cada paciente"
         icon={PawPrint}
-        tint="bg-amber-500/15 text-amber-400"
+        tint="bg-amber-500/15 text-amber-700"
       />
 
       <Suspense fallback={<PetsLoading />}>

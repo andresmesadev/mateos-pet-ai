@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { Plus, Trash2, Users } from "lucide-react";
@@ -125,7 +125,7 @@ export function NewOwnerPetsSheet({ open, onOpenChange, onCreated }: Props) {
         <DialogHeader>
           <div className="mb-1 flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500/15 ring-1 ring-sky-500/25">
-              <Users className="h-4 w-4 text-sky-400" />
+              <Users className="h-4 w-4 text-sky-700" />
             </div>
             <div>
               <DialogTitle>Nuevo propietario + mascota(s)</DialogTitle>
@@ -179,7 +179,7 @@ export function NewOwnerPetsSheet({ open, onOpenChange, onCreated }: Props) {
                   Mascota{pets.length > 1 ? "s" : ""}
                 </p>
                 {pets.map((pet, index) => (
-                  <div key={pet.uid} className="space-y-3 rounded-xl border border-white/[0.06] bg-accent/20 p-4">
+                  <div key={pet.uid} className="space-y-3 rounded-xl border border-black/[0.06] bg-accent/20 p-4">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Mascota {index + 1}</span>
                       {pets.length > 1 && (
@@ -237,7 +237,7 @@ export function NewOwnerPetsSheet({ open, onOpenChange, onCreated }: Props) {
                   type="button"
                   onClick={addPet}
                   disabled={saving}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-white/[0.1] py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                  className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-black/[0.1] py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
                 >
                   <Plus className="h-3.5 w-3.5" /> Agregar otra mascota
                 </button>

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { OpportunitiesView } from "@/components/dashboard/opportunities-view";
@@ -77,7 +77,7 @@ export function RecuperacionView({ data, initialTab, oppCount, inactiveCount, ch
           <div className="flex gap-3 flex-wrap">
             <div className="flex items-center gap-3 rounded-xl border-t-2 border-t-red-500/60 border border-red-500/20 bg-red-500/5 px-4 py-3 min-w-[110px]">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/15 shrink-0">
-                <span className="text-xs font-bold text-red-400">!</span>
+                <span className="text-xs font-bold text-red-700">!</span>
               </div>
               <div>
                 <p className="text-2xl font-bold tabular-nums text-red-300 leading-none">{churnHigh}</p>
@@ -86,7 +86,7 @@ export function RecuperacionView({ data, initialTab, oppCount, inactiveCount, ch
             </div>
             <div className="flex items-center gap-3 rounded-xl border-t-2 border-t-amber-500/60 border border-amber-500/20 bg-amber-500/5 px-4 py-3 min-w-[110px]">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/15 shrink-0">
-                <span className="text-xs font-bold text-amber-400">~</span>
+                <span className="text-xs font-bold text-amber-700">~</span>
               </div>
               <div>
                 <p className="text-2xl font-bold tabular-nums text-amber-300 leading-none">{churnMed}</p>
@@ -95,7 +95,7 @@ export function RecuperacionView({ data, initialTab, oppCount, inactiveCount, ch
             </div>
             <div className="flex items-center gap-3 rounded-xl border-t-2 border-t-yellow-500/60 border border-yellow-500/20 bg-yellow-500/5 px-4 py-3 min-w-[110px]">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-500/15 shrink-0">
-                <span className="text-xs font-bold text-yellow-400">↓</span>
+                <span className="text-xs font-bold text-yellow-700">↓</span>
               </div>
               <div>
                 <p className="text-2xl font-bold tabular-nums text-yellow-300 leading-none">{churnLow}</p>

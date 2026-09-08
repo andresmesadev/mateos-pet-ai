@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { PartyPopper } from "lucide-react";
@@ -83,11 +83,11 @@ function ActionRow({
             <span className="text-muted-foreground text-xs">· {entry.ownerName}</span>
           )}
           {entry.isOverdue && (
-            <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] font-medium text-red-400">Vencido</span>
+            <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] font-medium text-red-700">Vencido</span>
           )}
         </div>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
-          <span className={`text-xs ${entry.isOverdue ? "text-red-400 font-medium" : "text-muted-foreground"}`}>
+          <span className={`text-xs ${entry.isOverdue ? "text-red-700 font-medium" : "text-muted-foreground"}`}>
             {formatDate(entry.dueAt)}
           </span>
           {entry.notes && (
@@ -97,7 +97,7 @@ function ActionRow({
       </div>
       <div className="flex gap-1.5 shrink-0">
         {entry.ownerPhone && (
-          <Button asChild size="sm" variant="outline" className="h-7 px-2.5 text-xs gap-1.5 text-green-700 border-green-200 hover:bg-green-50 dark:text-green-400 dark:border-green-900 dark:hover:bg-green-950">
+          <Button asChild size="sm" variant="outline" className="h-7 px-2.5 text-xs gap-1.5 text-green-700 border-green-200 hover:bg-green-50 dark:text-green-700 dark:border-green-900 dark:hover:bg-green-950">
             <a
               href={whatsappUrl(entry.ownerPhone, actionWhatsApp(entry, typeLabel))}
               target="_blank"
@@ -176,14 +176,14 @@ function ActionSection({
               {entries.length}
             </Badge>
             {overdueCount > 0 && (
-              <Badge className="border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-400">
+              <Badge className="border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-700">
                 {overdueCount} vencida{overdueCount === 1 ? "" : "s"}
               </Badge>
             )}
           </span>
           <span className="ml-auto flex items-center gap-2">
             {bulkState === "done" && bulkResult && (
-              <span className="text-xs font-normal text-green-700 dark:text-green-400">
+              <span className="text-xs font-normal text-green-700 dark:text-green-700">
                 ✓ {bulkResult.sent} enviado{bulkResult.sent === 1 ? "" : "s"}
                 {bulkResult.noPhone > 0 && `, ${bulkResult.noPhone} sin teléfono`}
               </span>

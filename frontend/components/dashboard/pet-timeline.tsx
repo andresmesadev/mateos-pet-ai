@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { Eye, EyeOff, Pencil, Trash2 } from "lucide-react";
@@ -17,19 +17,19 @@ import { formatStatus, statusBadgeClass } from "@/lib/appointments";
 // ── Icons / labels per kind ──────────────────────────────────
 
 const KIND_META: Record<string, { icon: string; label: string; color: string }> = {
-  consultation: { icon: "🩺", label: "Consulta veterinaria", color: "text-blue-600 dark:text-blue-400" },
-  grooming: { icon: "✂️", label: "Grooming", color: "text-violet-600 dark:text-violet-400" },
+  consultation: { icon: "🩺", label: "Consulta veterinaria", color: "text-blue-600 dark:text-blue-700" },
+  grooming: { icon: "✂️", label: "Grooming", color: "text-violet-600 dark:text-violet-700" },
   other_appt: { icon: "📅", label: "Cita", color: "text-muted-foreground" },
-  vaccine: { icon: "💉", label: "Vacuna", color: "text-green-600 dark:text-green-400" },
-  deworming: { icon: "💊", label: "Desparasitación", color: "text-green-600 dark:text-green-400" },
-  exam: { icon: "🔬", label: "Examen", color: "text-cyan-600 dark:text-cyan-400" },
-  image: { icon: "🩻", label: "Imagen", color: "text-cyan-600 dark:text-cyan-400" },
-  treatment: { icon: "🩹", label: "Tratamiento", color: "text-blue-600 dark:text-blue-400" },
-  allergy: { icon: "🤧", label: "Alergia", color: "text-orange-600 dark:text-orange-400" },
+  vaccine: { icon: "💉", label: "Vacuna", color: "text-green-600 dark:text-green-700" },
+  deworming: { icon: "💊", label: "Desparasitación", color: "text-green-600 dark:text-green-700" },
+  exam: { icon: "🔬", label: "Examen", color: "text-cyan-600 dark:text-cyan-700" },
+  image: { icon: "🩻", label: "Imagen", color: "text-cyan-600 dark:text-cyan-700" },
+  treatment: { icon: "🩹", label: "Tratamiento", color: "text-blue-600 dark:text-blue-700" },
+  allergy: { icon: "🤧", label: "Alergia", color: "text-orange-600 dark:text-orange-700" },
   note: { icon: "📝", label: "Nota", color: "text-muted-foreground" },
-  cancelled: { icon: "✗", label: "Cancelada", color: "text-red-500 dark:text-red-400" },
-  no_show: { icon: "✗", label: "No asistió", color: "text-red-500 dark:text-red-400" },
-  next_action: { icon: "📌", label: "Control pendiente", color: "text-amber-600 dark:text-amber-400" },
+  cancelled: { icon: "✗", label: "Cancelada", color: "text-red-500 dark:text-red-700" },
+  no_show: { icon: "✗", label: "No asistió", color: "text-red-500 dark:text-red-700" },
+  next_action: { icon: "📌", label: "Control pendiente", color: "text-amber-600 dark:text-amber-700" },
 };
 
 function kindMeta(kind: string) {
@@ -399,7 +399,7 @@ function NextActionsSection({ actions: initial, onReload }: { actions: NextActio
 
   return (
     <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-4 py-3 dark:border-amber-900 dark:bg-amber-950/20">
-      <p className="mb-2 text-xs font-semibold uppercase text-amber-700 dark:text-amber-400">
+      <p className="mb-2 text-xs font-semibold uppercase text-amber-700 dark:text-amber-700">
         📌 Próximas acciones
       </p>
       <ul className="space-y-2">
@@ -407,7 +407,7 @@ function NextActionsSection({ actions: initial, onReload }: { actions: NextActio
           <li key={a.id} className="flex items-start justify-between gap-2 text-sm">
             <div className="flex flex-col min-w-0">
               <span className="text-foreground font-medium">{a.title}</span>
-              <span className="text-xs text-amber-600 dark:text-amber-400">
+              <span className="text-xs text-amber-600 dark:text-amber-700">
                 {formatRecordDate(a.date)}
               </span>
               {a.detail && (

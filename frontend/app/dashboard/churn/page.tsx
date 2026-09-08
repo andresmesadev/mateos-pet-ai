@@ -1,4 +1,4 @@
-import { auth } from "@/auth";
+﻿import { auth } from "@/auth";
 import { apiUrl, makeServerHeaders } from "@/lib/api";
 import { ChurnView } from "@/components/dashboard/churn-view";
 
@@ -46,15 +46,15 @@ export default async function ChurnPage({ searchParams }: PageProps) {
       {/* Resumen */}
       <div className="grid grid-cols-3 gap-4 max-w-lg">
         <div className="rounded-lg border bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900 p-3 text-center">
-          <div className="text-2xl font-bold text-red-700 dark:text-red-400">{high.length}</div>
+          <div className="text-2xl font-bold text-red-700 dark:text-red-700">{high.length}</div>
           <div className="text-xs text-red-600 dark:text-red-500 mt-0.5">Riesgo alto</div>
         </div>
         <div className="rounded-lg border bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900 p-3 text-center">
-          <div className="text-2xl font-bold text-amber-700 dark:text-amber-400">{medium.length}</div>
+          <div className="text-2xl font-bold text-amber-700 dark:text-amber-700">{medium.length}</div>
           <div className="text-xs text-amber-600 dark:text-amber-500 mt-0.5">Riesgo medio</div>
         </div>
         <div className="rounded-lg border bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-900 p-3 text-center">
-          <div className="text-2xl font-bold text-yellow-700 dark:text-yellow-400">{low.length}</div>
+          <div className="text-2xl font-bold text-yellow-700 dark:text-yellow-700">{low.length}</div>
           <div className="text-xs text-yellow-600 dark:text-yellow-500 mt-0.5">Riesgo bajo</div>
         </div>
       </div>

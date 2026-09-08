@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
 import {
@@ -418,7 +418,7 @@ export function WhatsAppWebView({ initialConversationId = null }: { initialConve
 
   return (
     <div
-      className="flex overflow-hidden rounded-xl border border-white/[0.08]"
+      className="flex overflow-hidden rounded-xl border border-black/[0.08]"
       style={{ height: "calc(100dvh - 190px)", minHeight: 480, maxHeight: "calc(100dvh - 190px)" }}
     >
       {/* Sidebar de chats */}

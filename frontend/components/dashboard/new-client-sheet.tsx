@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { UserPlus } from "lucide-react";
@@ -71,7 +71,7 @@ export function NewClientSheet({ open, onOpenChange, onCreated }: Props) {
         <DialogHeader>
           <div className="mb-1 flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-500/15 ring-1 ring-violet-500/25">
-              <UserPlus className="h-4 w-4 text-violet-400" />
+              <UserPlus className="h-4 w-4 text-violet-700" />
             </div>
             <div>
               <DialogTitle>Nuevo cliente</DialogTitle>

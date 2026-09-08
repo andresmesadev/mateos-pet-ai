@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useState } from "react";
 import { Eye, Pencil, Plus, PawPrint, Search, Trash2, X } from "lucide-react";
@@ -302,7 +302,7 @@ export function PetsTable({
 
           {/* Paginación */}
           {!loading && !error && totalPages > 1 && (
-            <div className="mt-4 flex items-center justify-between border-t border-white/[0.06] pt-4">
+            <div className="mt-4 flex items-center justify-between border-t border-black/[0.06] pt-4">
               <p className="text-xs text-muted-foreground">
                 Página {page} de {totalPages} · mostrando {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, total)} de {total.toLocaleString()}
               </p>

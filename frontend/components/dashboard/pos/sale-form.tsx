@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -81,7 +81,7 @@ function ClientSearch({ onSelect }: { onSelect: (c: ClientResult | null) => void
         <p className="text-xs text-muted-foreground px-1">Buscando…</p>
       )}
       {results.length > 0 && (
-        <div className="absolute z-20 w-full rounded-xl border border-white/[0.08] bg-popover shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+        <div className="absolute z-20 w-full rounded-xl border border-black/[0.08] bg-popover shadow-[0_8px_32px_rgba(15,23,42,0.12)]">
           {results.map((c) => (
             <button
               key={c.id}
@@ -89,7 +89,7 @@ function ClientSearch({ onSelect }: { onSelect: (c: ClientResult | null) => void
               className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors first:rounded-t-xl last:rounded-b-xl hover:bg-accent"
               onClick={() => { onSelect(c); setQuery(c.name ?? c.phone); setResults([]); }}
             >
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-xs font-bold text-violet-400">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-xs font-bold text-violet-700">
                 {(c.name?.trim()?.[0] ?? "#").toUpperCase()}
               </div>
               <div className="min-w-0">
@@ -181,7 +181,7 @@ export function SaleForm() {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15 ring-1 ring-emerald-500/30">
-          <Check className="h-8 w-8 text-emerald-400" />
+          <Check className="h-8 w-8 text-emerald-700" />
         </div>
         <p className="text-lg font-semibold">¡Cobro registrado!</p>
         <p className="text-sm text-muted-foreground">Redirigiendo a la caja del día…</p>
@@ -195,13 +195,13 @@ export function SaleForm() {
         {/* ── Columna izquierda ─────────────────────────── */}
         <div className="space-y-5">
           {/* Cliente */}
-          <section className="rounded-xl border border-white/[0.08] border-t-2 border-t-violet-500/50 bg-card p-5">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-violet-400/80">Cliente</p>
+          <section className="rounded-xl border border-black/[0.08] border-t-2 border-t-violet-500/50 bg-card p-5">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-violet-700/80">Cliente</p>
             <ClientSearch onSelect={(c) => { setClient(c); setPetId(""); }} />
             {client && (
-              <div className="mt-3 rounded-lg border border-white/[0.06] bg-accent/40 px-4 py-3">
+              <div className="mt-3 rounded-lg border border-black/[0.06] bg-accent/40 px-4 py-3">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-violet-500/20 text-sm font-bold text-violet-400">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-violet-500/20 text-sm font-bold text-violet-700">
                     {(client.name?.trim()?.[0] ?? "#").toUpperCase()}
                   </div>
                   <div className="min-w-0">
@@ -221,7 +221,7 @@ export function SaleForm() {
                           className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all duration-150 ${
                             petId === p.id
                               ? "border-primary/50 bg-primary/15 text-primary"
-                              : "border-white/[0.08] bg-background/50 hover:border-white/20 hover:bg-accent"
+                              : "border-black/[0.08] bg-background/50 hover:border-black/20 hover:bg-accent"
                           }`}
                         >
                           {getPetEmoji(p.type)} {p.name}
@@ -235,8 +235,8 @@ export function SaleForm() {
           </section>
 
           {/* Ítems */}
-          <section className="rounded-xl border border-white/[0.08] border-t-2 border-t-teal-500/50 bg-card p-5">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-teal-400/80">Ítems del cobro</p>
+          <section className="rounded-xl border border-black/[0.08] border-t-2 border-t-teal-500/50 bg-card p-5">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-teal-700/80">Ítems del cobro</p>
             <div className="space-y-2">
               {/* Header */}
               <div className="grid grid-cols-[1fr_56px_120px_32px] gap-2 px-1">
@@ -288,15 +288,15 @@ export function SaleForm() {
             <button
               type="button"
               onClick={() => setLines((p) => [...p, newLine()])}
-              className="mt-3 flex items-center gap-1.5 rounded-lg border border-dashed border-white/[0.1] px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+              className="mt-3 flex items-center gap-1.5 rounded-lg border border-dashed border-black/[0.1] px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
             >
               <Plus className="h-3.5 w-3.5" /> Agregar ítem
             </button>
           </section>
 
           {/* Método de pago */}
-          <section className="rounded-xl border border-white/[0.08] border-t-2 border-t-amber-500/50 bg-card p-5">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-amber-400/80">Método de pago</p>
+          <section className="rounded-xl border border-black/[0.08] border-t-2 border-t-amber-500/50 bg-card p-5">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-amber-700/80">Método de pago</p>
             <div className="flex flex-wrap gap-2">
               {PAYMENT_METHODS.map((m) => (
                 <button
@@ -306,7 +306,7 @@ export function SaleForm() {
                   className={`flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-all duration-150 ${
                     paymentMethod === m.value
                       ? "border-primary/40 bg-primary/15 text-primary shadow-[0_0_0_1px_oklch(0.72_0.14_232/0.3)]"
-                      : "border-white/[0.06] bg-background/50 text-muted-foreground hover:border-white/15 hover:bg-accent hover:text-foreground"
+                      : "border-black/[0.06] bg-background/50 text-muted-foreground hover:border-black/15 hover:bg-accent hover:text-foreground"
                   }`}
                 >
                   <span>{m.icon}</span>
@@ -317,7 +317,7 @@ export function SaleForm() {
           </section>
 
           {/* Notas */}
-          <section className="rounded-xl border border-white/[0.08] bg-card p-5">
+          <section className="rounded-xl border border-black/[0.08] bg-card p-5">
             <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Notas (opcional)</p>
             <Input
               placeholder="Observaciones del cobro…"
@@ -329,8 +329,8 @@ export function SaleForm() {
 
         {/* ── Columna derecha: resumen ──────────────────── */}
         <div className="space-y-4">
-          <div className="sticky top-24 rounded-xl border border-white/[0.08] border-t-2 border-t-emerald-500/50 bg-card p-5">
-            <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-emerald-400/80">Resumen del cobro</p>
+          <div className="sticky top-24 rounded-xl border border-black/[0.08] border-t-2 border-t-emerald-500/50 bg-card p-5">
+            <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-emerald-700/80">Resumen del cobro</p>
 
             {/* Líneas */}
             <div className="space-y-2">
@@ -353,7 +353,7 @@ export function SaleForm() {
             </div>
 
             {/* Divider + total */}
-            <div className="my-4 border-t border-white/[0.06]" />
+            <div className="my-4 border-t border-black/[0.06]" />
             <div className="flex items-baseline justify-between">
               <span className="text-sm font-medium text-muted-foreground">Total</span>
               <span className="text-3xl font-bold tabular-nums tracking-tight text-primary">

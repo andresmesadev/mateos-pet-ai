@@ -1,4 +1,4 @@
-import { CalendarCheck, CheckCircle2, UserPlus } from "lucide-react";
+﻿import { CalendarCheck, CheckCircle2, UserPlus } from "lucide-react";
 
 import { MetricCard } from "@/components/dashboard/metric-card";
 
@@ -14,7 +14,7 @@ function Delta({ value, suffix = "" }: { value: number; suffix?: string }) {
   const positive = value > 0;
   return (
     <span
-      className={`text-xs font-medium ${positive ? "text-emerald-500" : "text-red-400"}`}
+      className={`text-xs font-medium ${positive ? "text-emerald-500" : "text-red-700"}`}
     >
       {positive ? "↑" : "↓"} {positive ? "+" : ""}
       {value}
@@ -28,21 +28,21 @@ export function MetricsCards({ metrics }: { metrics: MetricsData }) {
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       <MetricCard
         icon={CalendarCheck}
-        tint="bg-teal-500/15 text-teal-400"
+        tint="bg-teal-500/15 text-teal-700"
         label="Citas esta semana"
         value={String(metrics.appointmentsThisWeek.count)}
         delta={<Delta value={metrics.appointmentsThisWeek.delta} />}
       />
       <MetricCard
         icon={CheckCircle2}
-        tint="bg-emerald-500/15 text-emerald-400"
+        tint="bg-emerald-500/15 text-emerald-700"
         label="Tasa de confirmación"
         value={`${metrics.confirmationRate.rate}%`}
         delta={<Delta value={metrics.confirmationRate.delta} suffix="pp" />}
       />
       <MetricCard
         icon={UserPlus}
-        tint="bg-violet-500/15 text-violet-400"
+        tint="bg-violet-500/15 text-violet-700"
         label="Clientes nuevos este mes"
         value={String(metrics.newClientsThisMonth.count)}
         delta={<Delta value={metrics.newClientsThisMonth.delta} />}

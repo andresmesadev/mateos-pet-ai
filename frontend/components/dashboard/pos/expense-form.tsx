@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -77,7 +77,7 @@ export function ExpenseForm() {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-rose-500/15 ring-1 ring-rose-500/30">
-          <Check className="h-8 w-8 text-rose-400" />
+          <Check className="h-8 w-8 text-rose-700" />
         </div>
         <p className="text-lg font-semibold">¡Egreso registrado!</p>
         <p className="text-sm text-muted-foreground">Redirigiendo a la caja del día…</p>
@@ -93,7 +93,7 @@ export function ExpenseForm() {
         {/* ── Columna izquierda ─────────────────────────── */}
         <div className="space-y-5">
           {/* Categoría */}
-          <section className="rounded-xl border border-white/[0.06] bg-card p-5">
+          <section className="rounded-xl border border-black/[0.06] bg-card p-5">
             <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Categoría</p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
               {CATEGORIES.map((cat) => (
@@ -103,8 +103,8 @@ export function ExpenseForm() {
                   onClick={() => setCategory(cat)}
                   className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-all duration-150 ${
                     category === cat
-                      ? `border-white/15 ${EXPENSE_CATEGORY_COLORS[cat]}`
-                      : "border-white/[0.06] text-muted-foreground hover:border-white/12 hover:bg-accent hover:text-foreground"
+                      ? `border-black/15 ${EXPENSE_CATEGORY_COLORS[cat]}`
+                      : "border-black/[0.06] text-muted-foreground hover:border-black/12 hover:bg-accent hover:text-foreground"
                   }`}
                 >
                   <span className={`h-2 w-2 rounded-full ${category === cat ? "bg-current" : "bg-muted-foreground/30"}`} />
@@ -115,7 +115,7 @@ export function ExpenseForm() {
           </section>
 
           {/* Descripción y monto */}
-          <section className="rounded-xl border border-white/[0.06] bg-card p-5">
+          <section className="rounded-xl border border-black/[0.06] bg-card p-5">
             <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Detalle</p>
             <div className="space-y-3">
               <div>
@@ -150,7 +150,7 @@ export function ExpenseForm() {
           </section>
 
           {/* Método de pago */}
-          <section className="rounded-xl border border-white/[0.06] bg-card p-5">
+          <section className="rounded-xl border border-black/[0.06] bg-card p-5">
             <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">¿Cómo se pagó?</p>
             <div className="flex flex-wrap gap-2">
               {PAYMENT_METHODS.map((m) => (
@@ -161,7 +161,7 @@ export function ExpenseForm() {
                   className={`flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-all duration-150 ${
                     paymentMethod === m.value
                       ? "border-rose-500/40 bg-rose-500/10 text-rose-300"
-                      : "border-white/[0.06] text-muted-foreground hover:border-white/15 hover:bg-accent hover:text-foreground"
+                      : "border-black/[0.06] text-muted-foreground hover:border-black/15 hover:bg-accent hover:text-foreground"
                   }`}
                 >
                   <span>{m.icon}</span>
@@ -172,7 +172,7 @@ export function ExpenseForm() {
           </section>
 
           {/* Notas */}
-          <section className="rounded-xl border border-white/[0.06] bg-card p-5">
+          <section className="rounded-xl border border-black/[0.06] bg-card p-5">
             <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Notas (opcional)</p>
             <Input
               placeholder="Proveedor, factura, observaciones…"
@@ -184,7 +184,7 @@ export function ExpenseForm() {
 
         {/* ── Columna derecha: resumen ──────────────────── */}
         <div>
-          <div className="sticky top-24 rounded-xl border border-white/[0.06] bg-card p-5">
+          <div className="sticky top-24 rounded-xl border border-black/[0.06] bg-card p-5">
             <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Resumen del egreso</p>
 
             <div className="space-y-3">
@@ -202,10 +202,10 @@ export function ExpenseForm() {
               </div>
             </div>
 
-            <div className="my-4 border-t border-white/[0.06]" />
+            <div className="my-4 border-t border-black/[0.06]" />
             <div className="flex items-baseline justify-between">
               <span className="text-sm font-medium text-muted-foreground">Total egreso</span>
-              <span className="text-3xl font-bold tabular-nums tracking-tight text-rose-400">
+              <span className="text-3xl font-bold tabular-nums tracking-tight text-rose-700">
                 -{formatCOP(amtNum)}
               </span>
             </div>

@@ -1,4 +1,4 @@
-import { Users } from "lucide-react";
+﻿import { Users } from "lucide-react";
 import { connection } from "next/server";
 
 import { ClientsTable } from "@/components/dashboard/clients-table";
@@ -19,7 +19,7 @@ export default async function ContactoPage({ searchParams }: ContactoPageProps) 
         title="Clientes"
         description="Clientes y mascotas registrados"
         icon={Users}
-        tint="bg-violet-500/15 text-violet-400"
+        tint="bg-violet-500/15 text-violet-700"
       />
 
       <div className="space-y-6">

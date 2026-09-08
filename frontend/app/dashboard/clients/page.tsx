@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+﻿import { Suspense } from "react";
 import { Users } from "lucide-react";
 
 import { ClientsTable } from "@/components/dashboard/clients-table";
@@ -22,7 +22,7 @@ export default function DashboardClientsPage() {
         title="Propietarios"
         description="Perfiles registrados por WhatsApp y su actividad reciente"
         icon={Users}
-        tint="bg-violet-500/15 text-violet-400"
+        tint="bg-violet-500/15 text-violet-700"
       />
 
       <Suspense fallback={<ClientsLoading />}>

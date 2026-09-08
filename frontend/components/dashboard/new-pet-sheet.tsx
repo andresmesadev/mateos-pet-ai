@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { PawPrint } from "lucide-react";
@@ -91,7 +91,7 @@ export function NewPetSheet({ open, onOpenChange, onCreated, defaultOwnerPhone }
         <DialogHeader>
           <div className="mb-1 flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/15 ring-1 ring-amber-500/25">
-              <PawPrint className="h-4 w-4 text-amber-400" />
+              <PawPrint className="h-4 w-4 text-amber-700" />
             </div>
             <div>
               <DialogTitle>Nueva mascota</DialogTitle>
@@ -132,7 +132,7 @@ export function NewPetSheet({ open, onOpenChange, onCreated, defaultOwnerPhone }
                     className={`flex flex-col items-center gap-1 rounded-xl border py-2.5 text-xs font-medium transition-all duration-150 ${
                       type === pt.value
                         ? "border-amber-500/40 bg-amber-500/10 text-amber-300"
-                        : "border-white/[0.06] text-muted-foreground hover:border-white/15 hover:bg-accent"
+                        : "border-black/[0.06] text-muted-foreground hover:border-black/15 hover:bg-accent"
                     }`}
                   >
                     <span className="text-base">{pt.label.split(" ")[0]}</span>
@@ -156,7 +156,7 @@ export function NewPetSheet({ open, onOpenChange, onCreated, defaultOwnerPhone }
             </div>
 
             {/* Separador dueño */}
-            <div className="border-t border-white/[0.06] pt-1">
+            <div className="border-t border-black/[0.06] pt-1">
               <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Dueño
               </p>

@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { AlertTriangle, ArrowRight, MessageCircle, Pin, RotateCcw } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -60,14 +60,14 @@ export async function OpportunitiesWidget({ headers }: { headers: Headers }) {
     <Link href="/dashboard/recuperacion?tab=oportunidades" className="block h-full">
       <Card className={`group h-full glass-card transition-all duration-200 hover:-translate-y-0.5 ${
         isEmpty
-          ? "border border-white/[0.08] hover:border-white/[0.12]"
+          ? "border border-black/[0.08] hover:border-black/[0.12]"
           : hasOverdue
-            ? "border border-white/[0.08] border-t-2 border-t-amber-500/50 bg-amber-500/[0.04] hover:border-amber-500/30 hover:shadow-[0_0_24px_rgba(245,158,11,0.12)]"
-            : "border border-white/[0.08] border-t-2 border-t-sky-500/50 bg-sky-500/[0.04] hover:border-sky-500/30 hover:shadow-[0_0_24px_rgba(14,165,233,0.12)]"
+            ? "border border-black/[0.08] border-t-2 border-t-amber-500/50 bg-amber-500/[0.04] hover:border-amber-500/30 hover:shadow-[0_0_24px_rgba(245,158,11,0.12)]"
+            : "border border-black/[0.08] border-t-2 border-t-sky-500/50 bg-sky-500/[0.04] hover:border-sky-500/30 hover:shadow-[0_0_24px_rgba(14,165,233,0.12)]"
       }`}>
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-            <Pin className={`h-4 w-4 shrink-0 ${isEmpty ? "text-muted-foreground" : hasOverdue ? "text-amber-400" : "text-sky-400"}`} />
+            <Pin className={`h-4 w-4 shrink-0 ${isEmpty ? "text-muted-foreground" : hasOverdue ? "text-amber-700" : "text-sky-700"}`} />
             Recordatorios pendientes
             {!isEmpty && (
               <Badge className={hasOverdue
@@ -89,7 +89,7 @@ export async function OpportunitiesWidget({ headers }: { headers: Headers }) {
               ))}
             </div>
           )}
-          <p className={`mt-2 flex items-center gap-1.5 text-xs ${hasOverdue && !isEmpty ? "font-medium text-amber-400" : "text-muted-foreground"}`}>
+          <p className={`mt-2 flex items-center gap-1.5 text-xs ${hasOverdue && !isEmpty ? "font-medium text-amber-700" : "text-muted-foreground"}`}>
             {hasOverdue && !isEmpty && <AlertTriangle className="h-3.5 w-3.5 shrink-0" />}
             {hasOverdue && !isEmpty
               ? `${actionsSummary.overduePets} mascota${actionsSummary.overduePets === 1 ? "" : "s"} con acción vencida`
@@ -105,7 +105,7 @@ export async function OpportunitiesWidget({ headers }: { headers: Headers }) {
 // ── Encabezado de panel con enlace "Ver todas" ────────────────
 function PanelHeader({ title, href, linkLabel }: { title: string; href: string; linkLabel: string }) {
   return (
-    <CardHeader className="flex flex-row items-center justify-between border-b border-white/[0.12] pb-3">
+    <CardHeader className="flex flex-row items-center justify-between border-b border-black/[0.12] pb-3">
       <CardTitle className="text-sm font-semibold tracking-tight">{title}</CardTitle>
       <Link
         href={href}
@@ -163,7 +163,7 @@ function PetAiIllustration() {
 export async function ConversationsActiveSection({ headers }: { headers: Headers }) {
   const conversations = await fetchActiveConversations(headers);
   return (
-    <Card className="h-full border-t-2 border-t-emerald-500/50 border-white/[0.10] glass-card bg-emerald-500/[0.03]">
+    <Card className="h-full border-t-2 border-t-emerald-500/50 border-black/[0.10] glass-card bg-emerald-500/[0.03]">
       <PanelHeader title="Conversaciones activas" href="/dashboard/conversations" linkLabel="Ver todas" />
       <CardContent className="p-0">
         {conversations.length === 0 ? (
@@ -179,7 +179,7 @@ export async function ConversationsActiveSection({ headers }: { headers: Headers
                   href={`/dashboard/conversations?conversation=${c.id}`}
                   className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-accent/50"
                 >
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-400">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-700">
                     <MessageCircle className="h-[18px] w-[18px]" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -239,7 +239,7 @@ function reminderDate(dueAt: string): string {
 export async function RemindersSection({ headers }: { headers: Headers }) {
   const reminders: UpcomingReminder[] = await fetchUpcomingReminders(headers);
   return (
-    <Card className="h-full border-t-2 border-t-amber-500/50 border-white/[0.10] glass-card bg-amber-500/[0.03]">
+    <Card className="h-full border-t-2 border-t-amber-500/50 border-black/[0.10] glass-card bg-amber-500/[0.03]">
       <PanelHeader title="Recordatorios próximos" href="/dashboard/recuperacion" linkLabel="Ver todos" />
       <CardContent className="p-0">
         {reminders.length === 0 ? (
@@ -286,12 +286,12 @@ export async function ChurnWidget({ headers }: { headers: Headers }) {
     <Link href="/dashboard/recuperacion?tab=churn" className="block h-full">
       <Card className={`group h-full glass-card transition-all duration-200 hover:-translate-y-0.5 ${
         isEmpty
-          ? "border border-white/[0.08] hover:border-white/[0.12]"
-          : "border border-white/[0.08] border-t-2 border-t-rose-500/50 bg-rose-500/[0.04] hover:border-rose-500/30 hover:shadow-[0_0_24px_rgba(244,63,94,0.12)]"
+          ? "border border-black/[0.08] hover:border-black/[0.12]"
+          : "border border-black/[0.08] border-t-2 border-t-rose-500/50 bg-rose-500/[0.04] hover:border-rose-500/30 hover:shadow-[0_0_24px_rgba(244,63,94,0.12)]"
       }`}>
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-            <AlertTriangle className={`h-4 w-4 shrink-0 ${isEmpty ? "text-muted-foreground" : "text-red-400"}`} />
+            <AlertTriangle className={`h-4 w-4 shrink-0 ${isEmpty ? "text-muted-foreground" : "text-red-700"}`} />
             Riesgo de abandono
             {!isEmpty && (
               <Badge className="border-red-500/30 bg-red-500/15 text-red-300">
@@ -308,7 +308,7 @@ export async function ChurnWidget({ headers }: { headers: Headers }) {
               {churnAtRisk.length} cliente{churnAtRisk.length === 1 ? "" : "s"} sin visitar en más tiempo del habitual.
             </p>
           )}
-          <p className={`mt-2 flex items-center gap-1.5 text-xs ${churnHigh > 0 ? "font-medium text-red-400" : "text-muted-foreground"}`}>
+          <p className={`mt-2 flex items-center gap-1.5 text-xs ${churnHigh > 0 ? "font-medium text-red-700" : "text-muted-foreground"}`}>
             {churnHigh > 0 && <span className="inline-block h-2 w-2 rounded-full bg-red-400" />}
             {churnHigh > 0 ? `${churnHigh} en riesgo alto` : "Ver análisis de churn"}
             <ArrowRight className="ml-auto h-3.5 w-3.5 opacity-50" />
@@ -328,12 +328,12 @@ export async function ReactivarWidget({ headers }: { headers: Headers }) {
     <Link href="/dashboard/recuperacion?tab=reactivar" className="block h-full">
       <Card className={`group h-full glass-card transition-all duration-200 hover:-translate-y-0.5 ${
         isEmpty
-          ? "border border-white/[0.08] hover:border-white/[0.12]"
-          : "border border-white/[0.08] border-t-2 border-t-orange-500/50 bg-orange-500/[0.04] hover:border-orange-500/30 hover:shadow-[0_0_24px_rgba(249,115,22,0.12)]"
+          ? "border border-black/[0.08] hover:border-black/[0.12]"
+          : "border border-black/[0.08] border-t-2 border-t-orange-500/50 bg-orange-500/[0.04] hover:border-orange-500/30 hover:shadow-[0_0_24px_rgba(249,115,22,0.12)]"
       }`}>
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-            <RotateCcw className={`h-4 w-4 shrink-0 ${isEmpty ? "text-muted-foreground" : "text-orange-400"}`} />
+            <RotateCcw className={`h-4 w-4 shrink-0 ${isEmpty ? "text-muted-foreground" : "text-orange-700"}`} />
             Clientes a reactivar
             {!isEmpty && (
               <Badge className="border-orange-500/30 bg-orange-500/15 text-orange-300">

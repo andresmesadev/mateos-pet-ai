@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -67,7 +67,7 @@ function NavLink({
         "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
         active
           ? "bg-gradient-to-r from-sidebar-primary/20 to-sidebar-primary/0 text-sidebar-primary"
-          : "text-sidebar-foreground/55 hover:bg-white/[0.05] hover:text-sidebar-foreground"
+          : "text-sidebar-foreground/55 hover:bg-black/[0.05] hover:text-sidebar-foreground"
       )}
     >
       {active && (
@@ -139,7 +139,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
               <Bot className="h-4 w-4 text-sidebar-primary drop-shadow-[0_0_4px_oklch(0.72_0.14_232_/_80%)]" />
               <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400 shadow-[0_0_4px_oklch(0.7_0.2_145_/_80%)]" />
             </div>
-            <p className="text-xs font-semibold text-emerald-400">Agente IA activo</p>
+            <p className="text-xs font-semibold text-emerald-700">Agente IA activo</p>
           </div>
           <p className="mt-1 text-[11px] leading-relaxed text-sidebar-foreground/50">
             Respondiendo en WhatsApp y agendando citas automáticamente.
@@ -150,7 +150,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       {/* Perfil + logout */}
       <div
         className="flex items-center gap-3 border-t border-sidebar-border px-4 py-3"
-        style={{ background: "oklch(1 0 0 / 3%)" }}
+        style={{ background: "oklch(0 0 0 / 3%)" }}
       >
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sidebar-primary/30 to-sidebar-primary/10 text-[11px] font-bold text-sidebar-primary ring-1 ring-sidebar-primary/30">
           {initials}
@@ -163,7 +163,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           type="button"
           onClick={() => signOut({ callbackUrl: "/login" })}
           aria-label="Cerrar sesión"
-          className="rounded-lg p-1.5 text-sidebar-foreground/40 transition-colors hover:bg-white/[0.06] hover:text-sidebar-foreground"
+          className="rounded-lg p-1.5 text-sidebar-foreground/40 transition-colors hover:bg-black/[0.06] hover:text-sidebar-foreground"
         >
           <LogOut className="h-4 w-4" />
         </button>
@@ -183,7 +183,7 @@ export function DashboardSidebar() {
       <button
         type="button"
         onClick={() => setMobileOpen(true)}
-        className="fixed left-4 top-4 z-40 rounded-lg border border-white/[0.08] bg-white/[0.06] p-2 text-foreground shadow-sm backdrop-blur-md lg:hidden"
+        className="fixed left-4 top-4 z-40 rounded-lg border border-black/[0.08] bg-black/[0.06] p-2 text-foreground shadow-sm backdrop-blur-md lg:hidden"
         aria-label="Abrir menú"
       >
         <Menu className="h-5 w-5" />
@@ -205,7 +205,7 @@ export function DashboardSidebar() {
             <button
               type="button"
               onClick={() => setMobileOpen(false)}
-              className="absolute right-3 top-4 z-10 rounded-lg p-1.5 text-sidebar-foreground/60 hover:bg-white/[0.06]"
+              className="absolute right-3 top-4 z-10 rounded-lg p-1.5 text-sidebar-foreground/60 hover:bg-black/[0.06]"
               aria-label="Cerrar menú"
             >
               <X className="h-5 w-5" />

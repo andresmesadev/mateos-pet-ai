@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -28,7 +28,7 @@ export function PosTabs({ active }: { active: PosTab }) {
   }
 
   return (
-    <div className="mb-6 flex gap-1 overflow-x-auto rounded-xl border border-white/[0.06] bg-card p-1">
+    <div className="mb-6 flex gap-1 overflow-x-auto rounded-xl border border-black/[0.06] bg-card p-1">
       {TABS.map(({ id, label, icon: Icon }) => {
         const isActive = active === id;
         return (
@@ -38,7 +38,7 @@ export function PosTabs({ active }: { active: PosTab }) {
             className={cn(
               "flex shrink-0 items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-150",
               isActive
-                ? "bg-primary/15 text-primary shadow-[0_1px_3px_rgba(0,0,0,0.3)]"
+                ? "bg-primary/15 text-primary shadow-[0_1px_3px_rgba(15,23,42,0.10)]"
                 : "text-muted-foreground hover:bg-accent hover:text-foreground"
             )}
           >

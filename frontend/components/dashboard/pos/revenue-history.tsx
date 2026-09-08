@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { auth } from "@/auth";
@@ -77,7 +77,7 @@ export async function RevenueHistory({ period: rawPeriod, tenant }: { period?: s
       <div className="flex items-center gap-3">
         <Link
           href={`/dashboard/pos?tab=historial&period=${prev}`}
-          className="flex items-center gap-1 rounded-lg border border-white/[0.06] px-3 py-1.5 text-sm font-medium transition-colors hover:bg-accent"
+          className="flex items-center gap-1 rounded-lg border border-black/[0.06] px-3 py-1.5 text-sm font-medium transition-colors hover:bg-accent"
         >
           <ChevronLeft className="h-4 w-4" />
           {periodLabel(prev)}
@@ -86,7 +86,7 @@ export async function RevenueHistory({ period: rawPeriod, tenant }: { period?: s
         {!isCurrent ? (
           <Link
             href={`/dashboard/pos?tab=historial&period=${next}`}
-            className="flex items-center gap-1 rounded-lg border border-white/[0.06] px-3 py-1.5 text-sm font-medium transition-colors hover:bg-accent"
+            className="flex items-center gap-1 rounded-lg border border-black/[0.06] px-3 py-1.5 text-sm font-medium transition-colors hover:bg-accent"
           >
             {periodLabel(next)}
             <ChevronRight className="h-4 w-4" />
@@ -114,7 +114,7 @@ export async function RevenueHistory({ period: rawPeriod, tenant }: { period?: s
             <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
               vs {periodLabel(prev)}
             </p>
-            <p className={`mt-1 text-2xl font-bold tabular-nums ${metrics.delta >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+            <p className={`mt-1 text-2xl font-bold tabular-nums ${metrics.delta >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
               {metrics.delta >= 0 ? "▲" : "▼"} {formatCOP(Math.abs(metrics.delta))}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">{formatCOP(metrics.totalPrev)} mes anterior</p>
@@ -124,12 +124,12 @@ export async function RevenueHistory({ period: rawPeriod, tenant }: { period?: s
 
       {/* Breakdown */}
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-xl border border-white/[0.06] bg-card p-5">
+        <div className="rounded-xl border border-black/[0.06] bg-card p-5">
           <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Por servicio</p>
           {metrics.byItem.length === 0 ? (
             <p className="text-sm text-muted-foreground">Sin cobros este mes.</p>
           ) : (
-            <ul className="divide-y divide-white/[0.04]">
+            <ul className="divide-y divide-black/[0.04]">
               {metrics.byItem.map((row) => (
                 <li key={row.description} className="flex items-center justify-between py-2 text-sm">
                   <div>
@@ -143,12 +143,12 @@ export async function RevenueHistory({ period: rawPeriod, tenant }: { period?: s
           )}
         </div>
 
-        <div className="rounded-xl border border-white/[0.06] bg-card p-5">
+        <div className="rounded-xl border border-black/[0.06] bg-card p-5">
           <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Por método de pago</p>
           {metrics.byMethod.length === 0 ? (
             <p className="text-sm text-muted-foreground">Sin cobros este mes.</p>
           ) : (
-            <ul className="divide-y divide-white/[0.04]">
+            <ul className="divide-y divide-black/[0.04]">
               {metrics.byMethod.map((row) => {
                 const icon = PAYMENT_METHOD_ICONS[row.method as PaymentMethod] ?? "🔖";
                 const label = PAYMENT_METHOD_LABELS[row.method as PaymentMethod] ?? row.method;
@@ -170,8 +170,8 @@ export async function RevenueHistory({ period: rawPeriod, tenant }: { period?: s
 
       {/* Transacciones de hoy (solo mes actual) */}
       {isCurrent && (
-        <div className="rounded-xl border border-white/[0.06] bg-card">
-          <div className="flex items-center gap-3 border-b border-white/[0.06] px-5 py-3">
+        <div className="rounded-xl border border-black/[0.06] bg-card">
+          <div className="flex items-center gap-3 border-b border-black/[0.06] px-5 py-3">
             <p className="text-sm font-semibold">Cobros de hoy</p>
             <Badge variant="outline">{todayTx.length}</Badge>
           </div>
@@ -184,7 +184,7 @@ export async function RevenueHistory({ period: rawPeriod, tenant }: { period?: s
             </div>
           ) : (
             <>
-              <ul className="divide-y divide-white/[0.04]">
+              <ul className="divide-y divide-black/[0.04]">
                 {todayTx.map((tx) => (
                   <li key={tx.id} className="px-5 py-3 text-sm">
                     <div className="flex items-start justify-between gap-3">
@@ -215,7 +215,7 @@ export async function RevenueHistory({ period: rawPeriod, tenant }: { period?: s
                   </li>
                 ))}
               </ul>
-              <div className="flex justify-between border-t border-white/[0.06] px-5 py-3 text-sm font-semibold">
+              <div className="flex justify-between border-t border-black/[0.06] px-5 py-3 text-sm font-semibold">
                 <span className="text-muted-foreground">Total hoy</span>
                 <span className="tabular-nums">{formatCOP(todayTx.reduce((s, t) => s + t.total, 0))}</span>
               </div>
