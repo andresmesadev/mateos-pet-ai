@@ -235,6 +235,16 @@ const processSingleIncomingMessage = async (parsed) => {
     }
   }
 
+  // Mejora post-Fase 8 (2026-09-08): antes, si Whisper no lograba transcribir
+  // (audio muy corto, ruido, fallo transitorio de OpenAI), la función
+  // retornaba aquí mismo con `processed: false` — el cliente se quedaba sin
+  // ninguna respuesta, ni siquiera un aviso de que algo falló. La rama de
+  // imagen (más abajo) ya maneja su propio fallo así ("No pude analizar la
+  // imagen..."); audio no tenía el mismo respaldo. En vez de cortar aquí (sin
+  // user/conversation resueltos todavía, no hay a quién responderle), se
+  // marca la falla y se sigue el flujo normal — la respuesta de repuesto se
+  // envía más abajo, ya con user/conversation disponibles.
+  let voiceTranscriptionFailed = false;
   if (parsed.type === "audio" && parsed.mediaId) {
     logger.info("[WhatsApp] Voice message detected");
 
@@ -242,17 +252,12 @@ const processSingleIncomingMessage = async (parsed) => {
 
     if (!transcript) {
       logger.info("[WhatsApp] Voice transcription failed");
-
-      return {
-        received: true,
-        processed: false,
-      };
+      voiceTranscriptionFailed = true;
+    } else {
+      parsed.text = transcript;
+      parsed.type = "text";
+      logger.info("[WhatsApp] Voice transcription:", transcript);
     }
-
-    parsed.text = transcript;
-    parsed.type = "text";
-
-    logger.info("[WhatsApp] Voice transcription:", transcript);
   }
 
   logger.info(`New message from: ${parsed.from}`);
@@ -323,6 +328,19 @@ const processSingleIncomingMessage = async (parsed) => {
       user,
       conversation,
       reply: null,
+      ...parsed,
+    };
+  }
+
+  if (voiceTranscriptionFailed) {
+    logger.info("[WhatsApp] Enviando respuesta de respaldo — transcripción de voz falló");
+    return {
+      received: true,
+      processed: true,
+      from: parsed.from,
+      user,
+      conversation,
+      reply: "No logré entender tu nota de voz 😔 ¿Puedes intentar de nuevo o escribirme el mensaje? 🐾",
       ...parsed,
     };
   }
