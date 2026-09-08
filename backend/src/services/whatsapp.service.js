@@ -300,6 +300,33 @@ const processSingleIncomingMessage = async (parsed) => {
     }
   }
 
+  // Mejora post-Fase 8 (2026-09-08): una conversación escalada a humano no
+  // silenciaba al bot — `session.step === HUMAN_TAKEOVER` nunca se leía para
+  // bloquear nada (solo alimentaba auditoría en el caso de uso de
+  // Recepcionista IA), y "Resolver Escalación" del dashboard solo cambia
+  // `Conversation.status`, nunca la sesión en memoria. Resultado real: Lina
+  // seguía respondiendo en paralelo a un cliente que ya estaba hablando con
+  // un humano. Se corta aquí, ANTES de imagen/documento/wizard — el mensaje
+  // ya quedó persistido arriba (visible para el humano en el dashboard), solo
+  // se omite la respuesta automática. Se reactiva solo al resolver la
+  // escalación (Conversation.status vuelve a "activa"), sin tocar
+  // session.step — Conversation.status ya es la fuente de verdad real desde
+  // el Entregable 3.1, per CLAUDE.md.
+  if (conversation?.status === "esperando_humano") {
+    logger.info(
+      `[WhatsApp] Conversación ${conversation.id} escalada a humano — mensaje guardado, sin respuesta automática`
+    );
+    return {
+      received: true,
+      processed: true,
+      from: parsed.from,
+      user,
+      conversation,
+      reply: null,
+      ...parsed,
+    };
+  }
+
   if (parsed.type === "document") {
     logger.info("[WhatsApp] Document message received — not supported");
     return {
@@ -812,15 +839,18 @@ const processSingleIncomingMessage = async (parsed) => {
 // Entregable 8.1 (D-E5): punto de entrada real, mismo nombre/contrato externo
 // que antes (webhook.controller.js → receptionist → engine adapter siguen
 // invocando processIncomingMessage(body) esperando un único resultado con
-// {from, reply, user, conversation}). Internamente ahora procesa TODOS los
+// {from, reply, user, conversation}). Internamente procesa TODOS los
 // mensajes del batch en orden — cada uno se persiste y actualiza sesión con
-// normalidad — pero solo el resultado del último se retorna para responder,
-// preservando el contrato de una única respuesta por webhook. Los mensajes
-// intermedios de un batch ya no se pierden en silencio (antes: descartados
-// sin persistir ni actualizar sesión); solo su respuesta individual no se
-// envía por separado — limitación conocida, documentada en el Gate Review
-// de 8.1, no resuelta en este entregable (exigiría cambiar el contrato de
-// respuesta única de webhook.controller.js).
+// normalidad — y el resultado del ÚLTIMO sigue siendo el que se retorna en
+// las claves de siempre (compatibilidad total con quien ya lee `.reply`).
+//
+// Mejora post-Fase 8 (2026-09-08): las respuestas de los mensajes
+// intermedios del batch ya no se pierden en silencio — antes solo se
+// persistían y actualizaban sesión, pero su respuesta individual nunca se
+// enviaba (limitación conocida documentada en el Gate Review de 8.1). Ahora
+// van en `additionalReplies` (campo aditivo, nunca presente si el batch trae
+// un solo mensaje), en el mismo orden en que Meta las agrupó; el llamador
+// (jobs/inbound-message.job.js) las envía antes que la respuesta principal.
 const processIncomingMessage = async (body) => {
   const messages = parseIncomingMessages(body);
 
@@ -842,11 +872,21 @@ const processIncomingMessage = async (body) => {
   // estado inicial en paralelo. Mensajes de remitentes distintos no se
   // bloquean entre sí.
   let result = null;
+  const additionalReplies = [];
   for (const parsed of messages) {
-    result = await runExclusive(parsed.from, () => processSingleIncomingMessage(parsed));
+    const current = await runExclusive(parsed.from, () => processSingleIncomingMessage(parsed));
+    if (result?.reply) {
+      additionalReplies.push({
+        from: result.from,
+        reply: result.reply,
+        user: result.user,
+        conversation: result.conversation,
+      });
+    }
+    result = current;
   }
 
-  return result;
+  return additionalReplies.length > 0 ? { ...result, additionalReplies } : result;
 };
 
 module.exports = {

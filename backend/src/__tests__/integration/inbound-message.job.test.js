@@ -123,6 +123,58 @@ describe("processOneJob", () => {
     jest.useRealTimers();
   });
 
+  test("mejora post-Fase 8 (2026-09-08): additionalReplies (batch de Meta) se envían antes que la respuesta principal, en orden", async () => {
+    claimNextInboundJob.mockResolvedValue({ id: "job-batch", payload: {} });
+    processIncomingMessage.mockResolvedValue({
+      processed: true,
+      from: "573000000000",
+      reply: "segunda respuesta",
+      user: { id: "user-2", tenantId: "tenant-1" },
+      conversation: { id: "conv-2" },
+      additionalReplies: [
+        {
+          from: "573000000000",
+          reply: "primera respuesta",
+          user: { id: "user-1", tenantId: "tenant-1" },
+          conversation: { id: "conv-1" },
+        },
+      ],
+    });
+    sendMessage.mockResolvedValue({ message: {} });
+
+    await processOneJob();
+
+    expect(sendMessage).toHaveBeenCalledTimes(2);
+    expect(sendMessage.mock.calls[0][0]).toMatchObject({
+      conversationId: "conv-1",
+      content: "primera respuesta",
+    });
+    expect(sendMessage.mock.calls[1][0]).toMatchObject({
+      conversationId: "conv-2",
+      content: "segunda respuesta",
+    });
+  });
+
+  test("additionalReplies sin usuario resuelto se omite sin bloquear el resto", async () => {
+    claimNextInboundJob.mockResolvedValue({ id: "job-batch-2", payload: {} });
+    processIncomingMessage.mockResolvedValue({
+      processed: true,
+      from: "573000000000",
+      reply: "respuesta principal",
+      user: { id: "user-1", tenantId: "tenant-1" },
+      conversation: { id: "conv-1" },
+      additionalReplies: [
+        { from: "573000000000", reply: "sin usuario", user: null, conversation: null },
+      ],
+    });
+    sendMessage.mockResolvedValue({ message: {} });
+
+    await processOneJob();
+
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+    expect(sendMessage.mock.calls[0][0]).toMatchObject({ content: "respuesta principal" });
+  });
+
   test("fallo de processIncomingMessage marca el job como failed (para reintento)", async () => {
     claimNextInboundJob.mockResolvedValue({ id: "job-4", payload: {} });
     processIncomingMessage.mockRejectedValue(new Error("OpenAI caído"));

@@ -44,45 +44,62 @@ const SEND_RETRY_DELAY_MS = 1000;
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const deliverReply = async (result) => {
-  if (!result?.processed || !result?.from || !result?.reply) {
-    return;
-  }
+// Envía una única respuesta con reintento — extraído para reutilizarse tanto
+// con el resultado principal como con cada entrada de `additionalReplies`
+// (mejora post-Fase 8, 2026-09-08: mensajes intermedios de un batch agrupado
+// por Meta, antes descartados en silencio — ver whatsapp.service.js).
+const sendOneReply = async ({ from, reply, user, conversation }) => {
+  if (!from || !reply) return;
 
-  if (result.user?.id) {
-    let lastError = null;
-
-    for (let attempt = 1; attempt <= MAX_SEND_ATTEMPTS; attempt += 1) {
-      try {
-        await sendMessage({
-          tenantId: result.user.tenantId ?? null,
-          userId: result.user.id,
-          conversationId: result.conversation?.id ?? null,
-          phone: result.from,
-          content: result.reply,
-          origin: "agente",
-        });
-        return;
-      } catch (error) {
-        lastError = error;
-        if (attempt < MAX_SEND_ATTEMPTS) {
-          await delay(SEND_RETRY_DELAY_MS * attempt);
-        }
-      }
-    }
-
-    console.error(
-      `[InboundMessageJob] No se pudo enviar respuesta a ${result.from} tras ${MAX_SEND_ATTEMPTS} intentos:`,
-      lastError.message
-    );
-  } else {
+  if (!user?.id) {
     // Caso residual: no se pudo resolver user/conversation. Sin Comunicación
     // no hay a qué conversación adjuntar el mensaje — se registra, no se
     // envía en silencio.
-    console.error(
-      `[InboundMessageJob] No se pudo enviar respuesta a ${result.from}: usuario no resuelto`
-    );
+    console.error(`[InboundMessageJob] No se pudo enviar respuesta a ${from}: usuario no resuelto`);
+    return;
   }
+
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= MAX_SEND_ATTEMPTS; attempt += 1) {
+    try {
+      await sendMessage({
+        tenantId: user.tenantId ?? null,
+        userId: user.id,
+        conversationId: conversation?.id ?? null,
+        phone: from,
+        content: reply,
+        origin: "agente",
+      });
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt < MAX_SEND_ATTEMPTS) {
+        await delay(SEND_RETRY_DELAY_MS * attempt);
+      }
+    }
+  }
+
+  console.error(
+    `[InboundMessageJob] No se pudo enviar respuesta a ${from} tras ${MAX_SEND_ATTEMPTS} intentos:`,
+    lastError.message
+  );
+};
+
+const deliverReply = async (result) => {
+  if (!result?.processed || !result?.from) {
+    return;
+  }
+
+  // Mensajes intermedios de un batch agrupado por Meta primero, en el mismo
+  // orden en que llegaron — luego la respuesta principal (último mensaje).
+  if (Array.isArray(result.additionalReplies)) {
+    for (const intermediate of result.additionalReplies) {
+      await sendOneReply(intermediate);
+    }
+  }
+
+  await sendOneReply(result);
 };
 
 const processOneJob = async () => {
