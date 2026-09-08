@@ -160,7 +160,7 @@ export function ExpenseForm() {
                   onClick={() => setPaymentMethod(m.value)}
                   className={`flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-all duration-150 ${
                     paymentMethod === m.value
-                      ? "border-rose-500/40 bg-rose-500/10 text-rose-300"
+                      ? "border-rose-500/40 bg-rose-500/10 text-rose-700"
                       : "border-black/[0.06] text-muted-foreground hover:border-black/15 hover:bg-accent hover:text-foreground"
                   }`}
                 >
@@ -219,7 +219,7 @@ export function ExpenseForm() {
             <Button
               type="submit"
               disabled={saving || amtNum <= 0}
-              className="mt-4 w-full gap-2 border-rose-500/30 bg-rose-500/15 font-semibold text-rose-300 hover:bg-rose-500/25 hover:text-rose-200"
+              className="mt-4 w-full gap-2 border-rose-500/30 bg-rose-500/15 font-semibold text-rose-700 hover:bg-rose-500/25 hover:text-rose-800"
               variant="outline"
               size="lg"
             >

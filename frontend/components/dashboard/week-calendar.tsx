@@ -96,7 +96,7 @@ function ApptBlock({ appt, topPx, heightPx, onClick }: {
     <button
       onClick={onClick}
       style={{ top: topPx, height: Math.max(heightPx, 32) }}
-      className={`absolute inset-x-0.5 overflow-hidden rounded border-l-4 bg-background px-2 py-1 text-left text-xs ${bg} hover:shadow-md transition-shadow`}
+      className={`absolute inset-x-0.5 overflow-hidden rounded border-l-4 px-2 py-1 text-left text-xs ${bg} hover:shadow-md transition-shadow`}
     >
       <span className="block font-semibold leading-tight truncate">
         {getPetEmoji(appt.petType)} {appt.petName}

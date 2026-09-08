@@ -103,7 +103,7 @@ export async function RevenueHistory({ period: rawPeriod, tenant }: { period?: s
             <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
               Total {periodLabel(period)}
             </p>
-            <p className="mt-1 text-4xl font-bold tabular-nums tracking-tight text-emerald-300">
+            <p className="mt-1 text-4xl font-bold tabular-nums tracking-tight text-emerald-700">
               {formatCOP(metrics.totalCurrent)}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">

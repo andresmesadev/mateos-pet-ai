@@ -139,16 +139,16 @@ export async function CashboxView({ date, tenant }: { date?: string; tenant?: st
         <NetCard
           total={data.totalIncome}
           label={`Ingresos · ${data.transactionCount} cobro${data.transactionCount !== 1 ? "s" : ""}`}
-          color="border-emerald-500/20 bg-emerald-500/5 text-emerald-300"
+          color="border-emerald-500/20 bg-emerald-500/5 text-emerald-700"
           icon={ArrowUpRight}
         />
         <NetCard
           total={data.totalExpenses}
           label={`Egresos · ${data.expenseCount} egreso${data.expenseCount !== 1 ? "s" : ""}`}
-          color="border-rose-500/20 bg-rose-500/5 text-rose-300"
+          color="border-rose-500/20 bg-rose-500/5 text-rose-700"
           icon={ArrowDownRight}
         />
-        <div className={`flex flex-col gap-2 rounded-xl border p-5 ${data.netBalance >= 0 ? "border-primary/20 bg-primary/5 text-primary" : "border-amber-500/20 bg-amber-500/5 text-amber-300"}`}>
+        <div className={`flex flex-col gap-2 rounded-xl border p-5 ${data.netBalance >= 0 ? "border-primary/20 bg-primary/5 text-primary" : "border-amber-500/20 bg-amber-500/5 text-amber-700"}`}>
           <div className="flex items-center gap-2">
             <Minus className="h-4 w-4" />
             <p className="text-sm font-medium">Neto del día</p>
@@ -175,7 +175,7 @@ export async function CashboxView({ date, tenant }: { date?: string; tenant?: st
                     {PAYMENT_METHOD_LABELS[row.method as PaymentMethod] ?? row.method}
                     <span className="ml-1.5 text-xs opacity-60">×{row.count}</span>
                   </span>
-                  <span className="tabular-nums font-semibold text-emerald-300">{formatCOP(row.total)}</span>
+                  <span className="tabular-nums font-semibold text-emerald-700">{formatCOP(row.total)}</span>
                 </li>
               ))}
             </ul>
@@ -198,7 +198,7 @@ export async function CashboxView({ date, tenant }: { date?: string; tenant?: st
                     {EXPENSE_CATEGORY_LABELS[row.category as ExpenseCategory] ?? row.category}
                     <span className="ml-1.5 text-xs opacity-60">×{row.count}</span>
                   </span>
-                  <span className="tabular-nums font-semibold text-rose-300">{formatCOP(row.total)}</span>
+                  <span className="tabular-nums font-semibold text-rose-700">{formatCOP(row.total)}</span>
                 </li>
               ))}
             </ul>
@@ -246,7 +246,7 @@ export async function CashboxView({ date, tenant }: { date?: string; tenant?: st
                         </div>
                       </div>
                       <div className="shrink-0 text-right">
-                        <p className="font-semibold tabular-nums text-emerald-300">{formatCOP(tx.total)}</p>
+                        <p className="font-semibold tabular-nums text-emerald-700">{formatCOP(tx.total)}</p>
                         <p className="text-[11px] text-muted-foreground">{formatTime(tx.paidAt)}</p>
                       </div>
                     </div>
@@ -255,7 +255,7 @@ export async function CashboxView({ date, tenant }: { date?: string; tenant?: st
               </ul>
               <div className="flex justify-between border-t border-black/[0.06] px-5 py-3 text-sm font-semibold">
                 <span className="text-muted-foreground">Total cobros</span>
-                <span className="text-emerald-300 tabular-nums">{formatCOP(data.totalIncome)}</span>
+                <span className="text-emerald-700 tabular-nums">{formatCOP(data.totalIncome)}</span>
               </div>
             </>
           )}
@@ -288,13 +288,13 @@ export async function CashboxView({ date, tenant }: { date?: string; tenant?: st
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">{e.description}</p>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${EXPENSE_CATEGORY_COLORS[e.category as ExpenseCategory] ?? "bg-slate-500/15 text-slate-500"}`}>
+                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${EXPENSE_CATEGORY_COLORS[e.category as ExpenseCategory] ?? "bg-slate-500/15 text-slate-700"}`}>
                             {EXPENSE_CATEGORY_LABELS[e.category as ExpenseCategory] ?? e.category}
                           </span>
                         </div>
                       </div>
                       <div className="shrink-0 text-right">
-                        <p className="font-semibold tabular-nums text-rose-300">{formatCOP(e.amount)}</p>
+                        <p className="font-semibold tabular-nums text-rose-700">{formatCOP(e.amount)}</p>
                         <p className="text-[11px] text-muted-foreground">{formatTime(e.date)}</p>
                       </div>
                     </div>
@@ -303,7 +303,7 @@ export async function CashboxView({ date, tenant }: { date?: string; tenant?: st
               </ul>
               <div className="flex justify-between border-t border-black/[0.06] px-5 py-3 text-sm font-semibold">
                 <span className="text-muted-foreground">Total egresos</span>
-                <span className="text-rose-300 tabular-nums">{formatCOP(data.totalExpenses)}</span>
+                <span className="text-rose-700 tabular-nums">{formatCOP(data.totalExpenses)}</span>
               </div>
             </>
           )}
