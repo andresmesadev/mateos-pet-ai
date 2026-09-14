@@ -6,6 +6,7 @@ module.exports = {
   collectCoverageFrom: [
     "src/services/**/*.js",
     "src/lib/**/*.js",
+    "src/contexts/**/*.js",
     "!src/**/__tests__/**",
   ],
   coverageDirectory: "coverage",
