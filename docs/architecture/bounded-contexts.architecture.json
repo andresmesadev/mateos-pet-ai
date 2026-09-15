@@ -1,0 +1,493 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Bounded Contexts — backend/src/contexts/",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/andresmesadev/mateos-pet-ai",
+      "provider": "github",
+      "link_mode": "local-only",
+      "revision": "a05410981f14b99b73601507e8d2df437144f1fe"
+    }
+  },
+  "components": [
+    {
+      "id": "finance-app",
+      "type": "backend",
+      "label": "Application",
+      "sublabel": "casos de uso, puertos",
+      "pos": [
+        60,
+        90
+      ],
+      "size": [
+        180,
+        56
+      ],
+      "sources": [
+        {
+          "path": "backend/src/contexts/finance/application/use-cases/register-expense.usecase.js"
+        }
+      ]
+    },
+    {
+      "id": "finance-domain",
+      "type": "backend",
+      "label": "Domain",
+      "sublabel": "reglas, errores",
+      "pos": [
+        60,
+        220
+      ],
+      "size": [
+        180,
+        56
+      ],
+      "sources": [
+        {
+          "path": "backend/src/contexts/finance/domain/rules/financial-summary.rules.js"
+        }
+      ]
+    },
+    {
+      "id": "finance-infra",
+      "type": "backend",
+      "label": "Infrastructure",
+      "sublabel": "Prisma, eventos",
+      "pos": [
+        60,
+        350
+      ],
+      "size": [
+        180,
+        56
+      ],
+      "sources": [
+        {
+          "path": "backend/src/contexts/finance/infrastructure/persistence/prisma-daily-close.repository.js"
+        }
+      ]
+    },
+    {
+      "id": "staff-app",
+      "type": "backend",
+      "label": "Application",
+      "sublabel": "casos de uso, puertos",
+      "pos": [
+        380,
+        90
+      ],
+      "size": [
+        180,
+        56
+      ],
+      "sources": [
+        {
+          "path": "backend/src/contexts/staff/application/use-cases/generate-settlement.usecase.js"
+        }
+      ]
+    },
+    {
+      "id": "staff-domain",
+      "type": "backend",
+      "label": "Domain",
+      "sublabel": "reglas, errores",
+      "pos": [
+        380,
+        220
+      ],
+      "size": [
+        180,
+        56
+      ],
+      "sources": [
+        {
+          "path": "backend/src/contexts/staff/domain/rules/commission-calculation.rules.js"
+        }
+      ]
+    },
+    {
+      "id": "staff-infra",
+      "type": "backend",
+      "label": "Infrastructure",
+      "sublabel": "Prisma, eventos",
+      "pos": [
+        380,
+        350
+      ],
+      "size": [
+        180,
+        56
+      ],
+      "sources": [
+        {
+          "path": "backend/src/contexts/staff/infrastructure/persistence/prisma-commission.repository.js"
+        }
+      ]
+    },
+    {
+      "id": "agenda-app",
+      "type": "backend",
+      "label": "Application",
+      "sublabel": "casos de uso, puertos",
+      "pos": [
+        700,
+        90
+      ],
+      "size": [
+        180,
+        56
+      ],
+      "sources": [
+        {
+          "path": "backend/src/contexts/agenda/application/use-cases/complete-appointment.usecase.js"
+        }
+      ]
+    },
+    {
+      "id": "agenda-domain",
+      "type": "backend",
+      "label": "Domain",
+      "sublabel": "reglas, errores",
+      "pos": [
+        700,
+        220
+      ],
+      "size": [
+        180,
+        56
+      ],
+      "sources": [
+        {
+          "path": "backend/src/contexts/agenda/domain/rules/status-transition.rules.js"
+        }
+      ]
+    },
+    {
+      "id": "agenda-infra",
+      "type": "backend",
+      "label": "Infrastructure",
+      "sublabel": "Prisma, precio",
+      "pos": [
+        700,
+        350
+      ],
+      "size": [
+        180,
+        56
+      ],
+      "sources": [
+        {
+          "path": "backend/src/contexts/agenda/infrastructure/persistence/prisma-appointment.repository.js"
+        }
+      ]
+    },
+    {
+      "id": "shared",
+      "type": "backend",
+      "label": "Shared",
+      "sublabel": "business-day · events · persistence",
+      "tag": "sin capas propias",
+      "pos": [
+        380,
+        460
+      ],
+      "size": [
+        180,
+        70
+      ],
+      "sources": [
+        {
+          "path": "backend/src/contexts/shared/business-day.js"
+        }
+      ]
+    },
+    {
+      "id": "receptionist-app",
+      "type": "backend",
+      "label": "Application",
+      "sublabel": "casos de uso, puertos",
+      "pos": [
+        60,
+        580
+      ],
+      "size": [
+        180,
+        56
+      ],
+      "sources": [
+        {
+          "path": "backend/src/contexts/receptionist/application/use-cases/process-incoming-message.usecase.js"
+        }
+      ]
+    },
+    {
+      "id": "receptionist-infra",
+      "type": "backend",
+      "label": "Infrastructure",
+      "sublabel": "adapter del motor legado",
+      "pos": [
+        60,
+        710
+      ],
+      "size": [
+        180,
+        56
+      ],
+      "sources": [
+        {
+          "path": "backend/src/contexts/receptionist/infrastructure/engine/legacy-whatsapp-engine.adapter.js"
+        }
+      ]
+    },
+    {
+      "id": "sc-app",
+      "type": "backend",
+      "label": "Application",
+      "sublabel": "casos de uso, puertos",
+      "pos": [
+        380,
+        580
+      ],
+      "size": [
+        180,
+        56
+      ],
+      "sources": [
+        {
+          "path": "backend/src/contexts/schedule-coordinator/application/use-cases/process-reminder.usecase.js"
+        }
+      ]
+    },
+    {
+      "id": "sc-infra",
+      "type": "backend",
+      "label": "Infrastructure",
+      "sublabel": "adapter del motor legado",
+      "pos": [
+        380,
+        710
+      ],
+      "size": [
+        180,
+        56
+      ],
+      "sources": [
+        {
+          "path": "backend/src/contexts/schedule-coordinator/infrastructure/engine/reminder-engine.adapter.js"
+        }
+      ]
+    },
+    {
+      "id": "legacy-engine",
+      "type": "external",
+      "label": "Motor Legado",
+      "sublabel": "services/*.service.js",
+      "tag": "intocable desde Fase 3.4 / 3.5",
+      "pos": [
+        60,
+        840
+      ],
+      "size": [
+        500,
+        90
+      ],
+      "sources": [
+        {
+          "path": "backend/src/services/whatsapp.service.js"
+        },
+        {
+          "path": "backend/src/services/reminder.service.js"
+        }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Finance",
+      "wraps": [
+        "finance-app",
+        "finance-domain",
+        "finance-infra"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Staff",
+      "wraps": [
+        "staff-app",
+        "staff-domain",
+        "staff-infra"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Agenda",
+      "wraps": [
+        "agenda-app",
+        "agenda-domain",
+        "agenda-infra"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Receptionist — sin domain propio",
+      "wraps": [
+        "receptionist-app",
+        "receptionist-infra"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Schedule-Coordinator — sin domain propio",
+      "wraps": [
+        "sc-app",
+        "sc-infra"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "finance-app-domain",
+      "from": "finance-app",
+      "to": "finance-domain",
+      "label": "invoca reglas",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "finance-domain-infra",
+      "from": "finance-domain",
+      "to": "finance-infra",
+      "label": "persistido vía",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "staff-app-domain",
+      "from": "staff-app",
+      "to": "staff-domain",
+      "label": "invoca reglas",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "staff-domain-infra",
+      "from": "staff-domain",
+      "to": "staff-infra",
+      "label": "persistido vía",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "agenda-app-domain",
+      "from": "agenda-app",
+      "to": "agenda-domain",
+      "label": "invoca reglas",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "agenda-domain-infra",
+      "from": "agenda-domain",
+      "to": "agenda-infra",
+      "label": "persistido vía",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "receptionist-app-infra",
+      "from": "receptionist-app",
+      "to": "receptionist-infra",
+      "label": "delega en adapter (sin domain)",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "sc-app-infra",
+      "from": "sc-app",
+      "to": "sc-infra",
+      "label": "delega en adapter (sin domain)",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "finance-shared",
+      "from": "finance-infra",
+      "to": "shared",
+      "label": "UnitOfWork + eventos certificados",
+      "fromSide": "bottom",
+      "toSide": "left",
+      "via": [
+        [
+          150,
+          495
+        ]
+      ]
+    },
+    {
+      "id": "staff-shared",
+      "from": "staff-infra",
+      "to": "shared",
+      "label": "eventos certificados",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "receptionist-legacy",
+      "from": "receptionist-infra",
+      "to": "legacy-engine",
+      "label": "delega — whatsapp.service.js",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "sc-legacy",
+      "from": "sc-infra",
+      "to": "legacy-engine",
+      "label": "delega — reminder.service.js",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Con domain propio",
+      "items": [
+        "Finance, Staff y Agenda tienen application/domain/infrastructure completos",
+        "domain/ concentra reglas y errores propios del contexto"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Excepción documentada",
+      "items": [
+        "Receptionist y Schedule-Coordinator no tienen domain/ propio",
+        "Son especializaciones de DigitalEmployee (contexto agents) sin entidades nuevas",
+        "infrastructure/engine adapta el motor legado — nunca lo reescribe"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "Shared",
+      "items": [
+        "business-day.js, events/ (certifying publisher) y persistence/ (UnitOfWork)",
+        "Consumido hoy por Finance y Staff"
+      ]
+    }
+  ]
+}
