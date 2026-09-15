@@ -1,0 +1,325 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Frontend — Server vs Client Component data path",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/andresmesadev/mateos-pet-ai",
+      "provider": "github",
+      "link_mode": "local-only",
+      "revision": "a05410981f14b99b73601507e8d2df437144f1fe"
+    }
+  },
+  "components": [
+    {
+      "id": "usuario",
+      "type": "external",
+      "label": "Usuario",
+      "sublabel": "navegador",
+      "pos": [
+        360,
+        40
+      ],
+      "size": [
+        200,
+        60
+      ]
+    },
+    {
+      "id": "proxy-ts",
+      "type": "security",
+      "label": "proxy.ts",
+      "sublabel": "reemplaza middleware.ts (Next 16)",
+      "tag": "matcher: /dashboard, /print, /login",
+      "pos": [
+        360,
+        170
+      ],
+      "size": [
+        200,
+        60
+      ],
+      "sources": [
+        {
+          "path": "frontend/proxy.ts"
+        }
+      ]
+    },
+    {
+      "id": "server-components",
+      "type": "backend",
+      "label": "Server Components",
+      "sublabel": "16 rutas + login, onboarding, print",
+      "pos": [
+        60,
+        310
+      ],
+      "size": [
+        200,
+        60
+      ],
+      "sources": [
+        {
+          "path": "frontend/app/dashboard/page.tsx"
+        }
+      ]
+    },
+    {
+      "id": "client-components",
+      "type": "frontend",
+      "label": "Client Components",
+      "sublabel": "components/{dashboard,auth}",
+      "pos": [
+        660,
+        310
+      ],
+      "size": [
+        200,
+        60
+      ],
+      "sources": [
+        {
+          "path": "frontend/components/dashboard/clients-table.tsx"
+        }
+      ]
+    },
+    {
+      "id": "global-state",
+      "type": "backend",
+      "label": "Estado global (cliente)",
+      "sublabel": "SessionProvider + tenant en la URL",
+      "tag": "sin Redux / Zustand / React Query",
+      "pos": [
+        900,
+        310
+      ],
+      "size": [
+        180,
+        60
+      ],
+      "sources": [
+        {
+          "path": "frontend/components/providers.tsx"
+        },
+        {
+          "path": "frontend/lib/use-tenant.ts"
+        }
+      ]
+    },
+    {
+      "id": "lib",
+      "type": "backend",
+      "label": "lib/",
+      "sublabel": "tipos + formateo",
+      "tag": "sin fetchers",
+      "pos": [
+        360,
+        470
+      ],
+      "size": [
+        200,
+        60
+      ],
+      "sources": [
+        {
+          "path": "frontend/lib/clients.ts"
+        }
+      ]
+    },
+    {
+      "id": "proxy-route",
+      "type": "security",
+      "label": "api/proxy/dashboard/[...path]",
+      "sublabel": "valida sesión + INTERNAL_API_SECRET",
+      "pos": [
+        660,
+        610
+      ],
+      "size": [
+        200,
+        60
+      ],
+      "sources": [
+        {
+          "path": "frontend/app/api/proxy/dashboard/[...path]/route.ts"
+        }
+      ]
+    },
+    {
+      "id": "backend-api",
+      "type": "external",
+      "label": "Backend Express API",
+      "sublabel": "/api/dashboard/*",
+      "pos": [
+        60,
+        760
+      ],
+      "size": [
+        800,
+        100
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Next.js Server (SSR + Route Handlers)",
+      "wraps": [
+        "proxy-ts",
+        "server-components",
+        "lib",
+        "proxy-route"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Navegador (cliente)",
+      "wraps": [
+        "client-components",
+        "global-state"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "usuario-proxy",
+      "from": "usuario",
+      "to": "proxy-ts",
+      "label": "solicita /dashboard, /print, /login",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "proxy-server",
+      "from": "proxy-ts",
+      "to": "server-components",
+      "label": "autoriza (auth())",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": [
+        [
+          460,
+          250
+        ],
+        [
+          160,
+          250
+        ]
+      ]
+    },
+    {
+      "id": "proxy-client",
+      "from": "proxy-ts",
+      "to": "client-components",
+      "label": "autoriza (auth())",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": [
+        [
+          460,
+          250
+        ],
+        [
+          760,
+          250
+        ]
+      ]
+    },
+    {
+      "id": "server-client",
+      "from": "server-components",
+      "to": "client-components",
+      "label": "renderiza (SSR) + hydrata",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "globalstate-client",
+      "from": "global-state",
+      "to": "client-components",
+      "label": "useSession + useSearchParams",
+      "fromSide": "left",
+      "toSide": "right",
+      "labelDy": -24
+    },
+    {
+      "id": "server-lib",
+      "from": "server-components",
+      "to": "lib",
+      "label": "usa tipos/formato",
+      "variant": "dashed"
+    },
+    {
+      "id": "client-lib",
+      "from": "client-components",
+      "to": "lib",
+      "label": "usa tipos/formato",
+      "variant": "dashed"
+    },
+    {
+      "id": "client-proxyroute",
+      "from": "client-components",
+      "to": "proxy-route",
+      "label": "proxyUrl seguido de fetch",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "server-backend",
+      "from": "server-components",
+      "to": "backend-api",
+      "label": "apiUrl directo — server-only, con makeServerHeaders",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "proxyroute-backend",
+      "from": "proxy-route",
+      "to": "backend-api",
+      "label": "valida sesión, inyecta X-Internal-Token / X-Tenant-Id",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Server Components — camino confiable",
+      "items": [
+        "apiUrl llama directo al backend, server-side",
+        "makeServerHeaders inyecta X-Internal-Token sin exponerlo al navegador"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Client Components — camino validado",
+      "items": [
+        "proxyUrl nunca llama al backend directo",
+        "app/api/proxy/dashboard/[...path] exige sesión NextAuth y agrega el secreto server-side antes de reenviar"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "Estado global real",
+      "items": [
+        "SessionProvider (next-auth) para sesión",
+        "Tenant seleccionado vive en la URL (use-tenant.ts) — no hay store"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "proxy.ts",
+      "items": [
+        "Next.js 16 renombró middleware.ts a proxy.ts",
+        "Gatea /dashboard, /print y /login antes de que la request llegue a cualquier página"
+      ]
+    }
+  ]
+}
