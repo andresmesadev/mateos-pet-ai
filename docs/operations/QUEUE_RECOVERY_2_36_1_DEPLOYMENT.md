@@ -50,10 +50,11 @@ La ventana debe incluir una persona que pueda atender conversaciones mientras el
 4. Detener solo el backend: `docker-compose stop backend` (o `docker compose stop backend`, según el resultado del preflight). El frontend puede permanecer arriba; sus llamadas al backend fallarán temporalmente.
 5. Actualizar el checkout de forma limpia y revisar el diff/commit. Ejecutar `npm ci`, `npx prisma migrate status` y `npx prisma migrate deploy` desde la raíz del repositorio. No usar `prisma db push`.
 6. Ejecutar `npx prisma generate` después de la migración.
-7. Construir y arrancar los contenedores: `docker-compose up -d --build`.
-8. Esperar el arranque y repetir el preflight. Confirmar versión `2.36.1`, `status: ok` en `/api/health`, y el log `Scheduled every 5 seconds`.
-9. Enviar un único mensaje controlado de WhatsApp. Confirmar una respuesta, una fila `done/complete` y ausencia de errores o `needs_review` nuevos. No repetir el mismo webhook ni reenviar manualmente el mismo mensaje durante esa prueba.
-10. Observar logs y resumen de cola durante 15 minutos. Verificar tanto el backend como el flujo de dashboard principal.
+7. Ejecutar el seed idempotente del Catálogo de Tipos de Evento: `docker compose run --rm --workdir /app backend node backend/src/scripts/seed-event-types.js`. Esto evita que los Empleados Digitales generen errores de certificación cuando el catálogo aún no tenga sus tipos.
+8. Construir y arrancar los contenedores: `docker-compose up -d --build`.
+9. Esperar el arranque y repetir el preflight. Confirmar versión `2.36.1`, `status: ok` en `/api/health`, y el log `Scheduled every 5 seconds`.
+10. Enviar un único mensaje controlado de WhatsApp. Confirmar una respuesta, una fila `done/complete` y ausencia de errores o `needs_review` nuevos. No repetir el mismo webhook ni reenviar manualmente el mismo mensaje durante esa prueba.
+11. Observar logs y resumen de cola durante 15 minutos. Verificar tanto el backend como el flujo de dashboard principal.
 
 ## Rollback y límites
 
