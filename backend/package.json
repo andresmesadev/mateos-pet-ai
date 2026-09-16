@@ -1,6 +1,6 @@
 {
   "name": "mateos-pet-ai",
-  "version": "2.36.0",
+  "version": "2.36.1",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -8,7 +8,8 @@
     "dev": "nodemon src/app.js",
     "test": "jest",
     "test:coverage": "jest --coverage",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "test:postgres": "node --test tests/postgres/inbound-queue.test.cjs"
   },
   "repository": {
     "type": "git",

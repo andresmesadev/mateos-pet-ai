@@ -5,6 +5,8 @@
 **Estado:** ✅ Completado
 **Reconciliación Arquitectónica:** ninguna requerida — no toca el motor conversacional protegido ni `contexts/`, solo `jobs/inbound-message.job.js` (infraestructura de 8.2).
 
+> **Corrección posterior, 2026-09-15 (ADR 011):** se conservan los tres intentos de envío en vivo. Agotarlos ya no marca falsamente el job `done`: queda en `needs_review`. Un crash durante el envío no provoca replay automático. Los errores de red siguen pudiendo ser ambiguos; no se promete entrega exactamente una vez. Implementación y validación local en `docs/history/CORRECCION_COLA_ENTRANTE_2026_09_15.md`.
+
 ---
 
 ## Objetivo del entregable

@@ -6,6 +6,40 @@
 const prisma = require("../lib/prisma");
 
 const MAX_ATTEMPTS = 5;
+const LEASE_MS = 120_000;
+const HEARTBEAT_MS = 20_000;
+const RETRY_BASE_MS = 5_000;
+
+class InboundLeaseLostError extends Error {
+  constructor(id) {
+    super(`Inbound job lease lost: ${id}`);
+    this.name = "InboundLeaseLostError";
+  }
+}
+
+const ownedWhere = (job, now) => ({
+  id: job.id, status: "claimed", attempts: job.attempts,
+  leaseExpiresAt: { gt: now },
+});
+
+const retryDelay = (attempts) => RETRY_BASE_MS * 2 ** Math.min(3, Math.max(0, attempts - 1));
+
+// A persisted checkpoint determines whether repeating the next step is safe.
+const recoveryData = (job, error, now) => {
+  const base = { leaseExpiresAt: null, lastError: String(error?.message || error || "").slice(0, 2000) };
+  if (job.phase === "complete") {
+    return { ...base, status: "done", finishedAt: now, lastError: null };
+  }
+  if (!["pending", "ready"].includes(job.phase)) {
+    return { ...base, status: "needs_review", finishedAt: now,
+      lastError: `UNCERTAIN_${job.phase}: ${base.lastError}`.slice(0, 2000) };
+  }
+  if (job.attempts >= MAX_ATTEMPTS) {
+    return { ...base, status: "failed", finishedAt: now };
+  }
+  return { ...base, status: "received", claimedAt: null, finishedAt: null,
+    nextAttemptAt: new Date(now.getTime() + retryDelay(job.attempts)) };
+};
 
 /**
  * Encolado idempotente: si ya existe un job para (provider, providerEventId)
@@ -54,12 +88,13 @@ const enqueueInboundJob = async ({ provider, providerEventId, payload }) => {
  * dos workers (o dos disparos de cron solapados) nunca reclaman la misma
  * fila. Retorna null si la cola está vacía.
  */
-const claimNextInboundJob = () =>
+const claimNextInboundJob = (now = new Date()) =>
   prisma.$transaction(async (tx) => {
     const rows = await tx.$queryRaw`
       SELECT id FROM "InboundJob"
       WHERE status = 'received'
-      ORDER BY "createdAt" ASC
+        AND "nextAttemptAt" <= ${now} AND attempts < ${MAX_ATTEMPTS}
+      ORDER BY "createdAt" ASC, id ASC
       LIMIT 1
       FOR UPDATE SKIP LOCKED
     `;
@@ -69,45 +104,63 @@ const claimNextInboundJob = () =>
 
     return tx.inboundJob.update({
       where: { id: row.id },
-      data: { status: "claimed", claimedAt: new Date(), attempts: { increment: 1 } },
+      data: { status: "claimed", claimedAt: now,
+        leaseExpiresAt: new Date(now.getTime() + LEASE_MS), attempts: { increment: 1 } },
     });
   });
 
-const markInboundJobDone = (id) =>
-  prisma.inboundJob.update({
-    where: { id },
-    data: { status: "done", finishedAt: new Date(), lastError: null },
-  });
+const updateOwned = async (job, data, now = new Date()) => {
+  const result = await prisma.inboundJob.updateMany({ where: ownedWhere(job, now), data });
+  if (result.count !== 1) throw new InboundLeaseLostError(job.id);
+  return { ...job, ...data };
+};
+
+const checkpointInboundJob = (job, phase, data = {}) => updateOwned(job, { ...data, phase });
+
+const renewInboundJobLease = (job) => updateOwned(job, { leaseExpiresAt: new Date(Date.now() + LEASE_MS) });
+
+const markInboundJobDone = (job) => {
+  if (job.phase !== "complete") throw new Error("Cannot finish an incomplete inbound job");
+  return updateOwned(job, { status: "done", finishedAt: new Date(), lastError: null, leaseExpiresAt: null });
+};
 
 /**
- * Si ya alcanzó MAX_ATTEMPTS, queda `failed` (terminal, solo replay manual).
- * Si no, vuelve a `received` para que un próximo ciclo del worker lo reclame
- * — sin backoff (igual que el Build 1 de Sancho): el próximo ciclo de cron
- * ya introduce una espera natural.
+ * Never infer safety from an exception: the engine/provider may already have
+ * committed effects. Read the durable phase, not the worker's stale snapshot.
+ * Only safe checkpoints retry, with a persisted delay respected by every tick.
  */
-const markInboundJobFailed = async (id, error) => {
-  const job = await prisma.inboundJob.findUnique({ where: { id } });
-  if (!job) return null;
-
-  const truncated = String(error?.message || error || "").slice(0, 2000);
-
-  if (job.attempts >= MAX_ATTEMPTS) {
-    return prisma.inboundJob.update({
-      where: { id },
-      data: { status: "failed", finishedAt: new Date(), lastError: truncated },
-    });
-  }
-
-  return prisma.inboundJob.update({
-    where: { id },
-    data: { status: "received", claimedAt: null, lastError: truncated },
-  });
+const markInboundJobFailed = async (claim, error) => {
+  const job = await prisma.inboundJob.findUnique({ where: { id: claim.id } });
+  if (!job || job.attempts !== claim.attempts || job.status !== "claimed") return null;
+  const result = await updateOwned(job, recoveryData(job, error, new Date()));
+  if (result.status === "needs_review") console.error(`[InboundJob] needs_review: ${job.id} (${job.phase})`);
+  return result;
 };
+
+const recoverExpiredInboundJobs = (now = new Date()) => prisma.$transaction(async (tx) => {
+  const jobs = await tx.$queryRaw`
+    SELECT * FROM "InboundJob"
+    WHERE status = 'claimed' AND ("leaseExpiresAt" <= ${now} OR "leaseExpiresAt" IS NULL)
+    ORDER BY "createdAt" ASC, id ASC LIMIT 50 FOR UPDATE SKIP LOCKED
+  `;
+  for (const job of jobs) {
+    const data = recoveryData(job, "LEASE_EXPIRED: worker interrupted", now);
+    await tx.inboundJob.update({ where: { id: job.id }, data });
+    if (data.status === "needs_review") console.error(`[InboundJob] needs_review: ${job.id} (${job.phase})`);
+  }
+  return jobs.length;
+});
 
 module.exports = {
   enqueueInboundJob,
   claimNextInboundJob,
   markInboundJobDone,
   markInboundJobFailed,
+  checkpointInboundJob,
+  renewInboundJobLease,
+  recoverExpiredInboundJobs,
+  InboundLeaseLostError,
+  HEARTBEAT_MS,
+  LEASE_MS,
   MAX_ATTEMPTS,
 };

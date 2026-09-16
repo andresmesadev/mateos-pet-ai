@@ -6,6 +6,8 @@
 **Reconciliación Arquitectónica habilitante:** ADR 010 (misma autorización de 8.1)
 **Gate Review:** `docs/history/ENTREGABLE_8_2_GATE_REVIEW.md`
 
+> **Rectificación posterior, 2026-09-15 (ADR 011):** la garantía absoluta ante crash del «Estado final» fue refutada por la revisión del código: un job `claimed` podía quedar abandonado. La corrección local `2.36.1` añade concesiones, checkpoints y backoff persistido. Solo recupera automáticamente pasos demostrablemente seguros; interrupciones dentro del motor o durante un envío quedan en `needs_review`. Ver `docs/history/CORRECCION_COLA_ENTRANTE_2026_09_15.md` para validación y límites. Este añadido no afirma que la corrección esté desplegada.
+
 ---
 
 ## Objetivo del entregable

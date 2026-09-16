@@ -73,18 +73,13 @@ describe("requireInternalToken middleware", () => {
     expect(next).toHaveBeenCalled();
   });
 
-  // Fix post-auditoría de seguridad (2026-09-07, hallazgo F14): sin
-  // INTERNAL_API_SECRET configurado, antes se dejaba pasar sin bloquear
-  // (fail-open) — cualquiera podía cancelar/repriceear cualquier
-  // suscripción. Ahora se rechaza cerrado, tratando la ausencia del
-  // secreto como error de configuración.
-  test("sin INTERNAL_API_SECRET configurado en producción, rechaza cerrado (500)", () => {
+  test("sin INTERNAL_API_SECRET configurado, rechaza cerrado", () => {
     delete process.env.INTERNAL_API_SECRET;
     const req = makeReq();
     const res = makeRes();
     const next = jest.fn();
     requireInternalToken(req, res, next);
-    expect(next).not.toHaveBeenCalled();
     expect(res._status).toBe(500);
+    expect(next).not.toHaveBeenCalled();
   });
 });

@@ -36,7 +36,7 @@ describe("getHealthStatus", () => {
 
     expect(result.status).toBe("ok");
     expect(result.services).toEqual({ database: "ok", openai: "ok" });
-    expect(result.version).toBe("2.36.0");
+    expect(result.version).toBe(require("../../../package.json").version);
     expect(new Date(result.timestamp).toString()).not.toBe("Invalid Date");
   });
 

@@ -1,4 +1,5 @@
 const { getHealthStatus } = require("../services/health.service");
+const { version: APP_VERSION } = require("../../package.json");
 
 const getHealth = async (req, res) => {
   try {
@@ -16,7 +17,7 @@ const getHealth = async (req, res) => {
         database: "error",
         openai: "error",
       },
-      version: "2.36.0",
+      version: APP_VERSION,
     });
   }
 };

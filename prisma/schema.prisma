@@ -940,20 +940,23 @@ model ClientSession {
 // Diseño: docs/history/ENTREGABLE_8_2_GATE_REVIEW.md — patrón inspirado en
 // inbound_jobs.py de Sancho Agent IA (ver ADR 010), reescrito en Prisma. El
 // webhook encola (transacción corta) y responde 200 de inmediato; un worker
-// (jobs/inbound-message.job.js) reclama y procesa. Cierra D-F1 (sin cola
-// durable, un crash a mitad de turno perdía el mensaje para siempre) y, tras
-// D-E4 (8.1), una regresión real: un reintento de Meta cuyo wamid ya quedó
-// persistido en Message se descarta por deduplicación — sin esta cola, ese
-// mensaje no tenía ninguna otra vía de recuperación.
+// (jobs/inbound-message.job.js) reclama y procesa. ADR 011: checkpoints y
+// concesiones recuperan solo pasos seguros; efectos inciertos requieren revisión.
 model InboundJob {
   id              String    @id @default(cuid())
   provider        String    // "whatsapp" — único hoy, deja la puerta abierta a otros canales
   providerEventId String    // wamid (message.id de Meta) del primer mensaje soportado del payload
   payload         Json      // body completo del webhook, tal cual llegó
 
-  status    String    @default("received") // "received" | "claimed" | "done" | "failed"
+  status    String    @default("received") // received | claimed | done | failed | needs_review
   attempts  Int       @default(0)
   lastError String?
+
+  phase          String    @default("pending") // pending | processing | ready | sending | complete
+  replies        Json?     // Contratos mínimos de envío, en orden; nunca el resultado completo del motor
+  replyCursor    Int       @default(0)
+  nextAttemptAt  DateTime  @default(now())
+  leaseExpiresAt DateTime?
 
   claimedAt  DateTime?
   finishedAt DateTime?
@@ -961,4 +964,6 @@ model InboundJob {
 
   @@unique([provider, providerEventId])
   @@index([status, createdAt])
+  @@index([status, nextAttemptAt, createdAt])
+  @@index([status, leaseExpiresAt])
 }
