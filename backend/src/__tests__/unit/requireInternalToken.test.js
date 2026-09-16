@@ -73,12 +73,13 @@ describe("requireInternalToken middleware", () => {
     expect(next).toHaveBeenCalled();
   });
 
-  test("sin INTERNAL_API_SECRET configurado, no bloquea (paridad con resolveTenant.js)", () => {
+  test("sin INTERNAL_API_SECRET configurado, rechaza cerrado", () => {
     delete process.env.INTERNAL_API_SECRET;
     const req = makeReq();
     const res = makeRes();
     const next = jest.fn();
     requireInternalToken(req, res, next);
-    expect(next).toHaveBeenCalled();
+    expect(res._status).toBe(500);
+    expect(next).not.toHaveBeenCalled();
   });
 });

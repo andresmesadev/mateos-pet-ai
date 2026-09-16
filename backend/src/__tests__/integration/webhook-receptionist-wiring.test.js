@@ -7,19 +7,16 @@
  */
 jest.mock("../../services/whatsapp.service", () => ({
   verifyWebhookSignature: jest.fn(() => "challenge-ok"),
+  parseIncomingMessage: jest.fn(),
 }));
 
-jest.mock("../../contexts/receptionist", () => ({
-  processIncomingMessage: jest.fn(),
-}));
-
-jest.mock("../../contexts/communication", () => ({
-  sendMessage: jest.fn(),
+jest.mock("../../services/inbound-job.service", () => ({
+  enqueueInboundJob: jest.fn(),
 }));
 
 const { receiveWebhook } = require("../../controllers/webhook.controller");
-const { processIncomingMessage } = require("../../contexts/receptionist");
-const { sendMessage } = require("../../contexts/communication");
+const { parseIncomingMessage } = require("../../services/whatsapp.service");
+const { enqueueInboundJob } = require("../../services/inbound-job.service");
 
 function buildRes() {
   return { sendStatus: jest.fn() };
@@ -27,56 +24,40 @@ function buildRes() {
 
 beforeEach(() => jest.clearAllMocks());
 
-describe("receiveWebhook (wiring Recepcionista IA → Comunicación)", () => {
-  test("mensaje procesado con reply: invoca communication.sendMessage con conversationId explícito", async () => {
-    processIncomingMessage.mockResolvedValue({
-      processed: true,
-      from: "573000000000",
-      reply: "hola",
-      user: { id: "user-1", tenantId: "tenant-1" },
-      conversation: { id: "conv-1" },
-    });
-    sendMessage.mockResolvedValue({ message: {} });
+describe("receiveWebhook (cola durable)", () => {
+  test("mensaje soportado: encola el payload por wamid y responde 200", async () => {
+    parseIncomingMessage.mockReturnValue({ wamid: "wamid-1", from: "573000000000" });
+    enqueueInboundJob.mockResolvedValue({ created: true });
 
     const req = { body: {} };
     const res = buildRes();
     await receiveWebhook(req, res, jest.fn());
 
-    expect(processIncomingMessage).toHaveBeenCalledWith(req.body);
-    expect(sendMessage).toHaveBeenCalledWith({
-      tenantId: "tenant-1",
-      userId: "user-1",
-      conversationId: "conv-1",
-      phone: "573000000000",
-      content: "hola",
-      origin: "agente",
+    expect(enqueueInboundJob).toHaveBeenCalledWith({
+      provider: "whatsapp", providerEventId: "wamid-1", payload: req.body,
     });
     expect(res.sendStatus).toHaveBeenCalledWith(200);
   });
 
-  test("mensaje no procesado (processed:false): no invoca sendMessage", async () => {
-    processIncomingMessage.mockResolvedValue({ received: true, processed: false });
+  test("payload sin mensaje soportado: no encola y responde 200", async () => {
+    parseIncomingMessage.mockReturnValue(null);
 
     const res = buildRes();
     await receiveWebhook({ body: {} }, res, jest.fn());
 
-    expect(sendMessage).not.toHaveBeenCalled();
+    expect(enqueueInboundJob).not.toHaveBeenCalled();
     expect(res.sendStatus).toHaveBeenCalledWith(200);
   });
 
-  test("fallo de sendMessage no rompe la respuesta 200 al webhook", async () => {
-    processIncomingMessage.mockResolvedValue({
-      processed: true,
-      from: "573000000000",
-      reply: "hola",
-      user: { id: "user-1" },
-      conversation: { id: "conv-1" },
-    });
-    sendMessage.mockRejectedValue(new Error("proveedor caído"));
+  test("fallo al encolar delega el error al middleware", async () => {
+    parseIncomingMessage.mockReturnValue({ wamid: "wamid-2", from: "573000000000" });
+    const error = new Error("base de datos caída");
+    enqueueInboundJob.mockRejectedValue(error);
 
     const res = buildRes();
-    await receiveWebhook({ body: {} }, res, jest.fn());
+    const next = jest.fn();
+    await receiveWebhook({ body: {} }, res, next);
 
-    expect(res.sendStatus).toHaveBeenCalledWith(200);
+    expect(next).toHaveBeenCalledWith(error);
   });
 });

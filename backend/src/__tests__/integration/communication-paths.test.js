@@ -119,6 +119,7 @@ describe("GET/PATCH /escalations — evolución de Conversation.status", () => {
   });
 
   test("resuelve una escalación: status vuelve a activa", async () => {
+    prisma.conversation.findFirst.mockResolvedValue({ id: "conv-2" });
     // Primera llamada (findById dentro del caso de uso): aún escalada.
     // Segunda llamada (la ruta releyendo tras resolver): ya activa.
     prisma.conversation.findUnique
@@ -150,6 +151,7 @@ describe("GET/PATCH /escalations — evolución de Conversation.status", () => {
   });
 
   test("resolver una conversación ya no escalada es idempotente (200, no error)", async () => {
+    prisma.conversation.findFirst.mockResolvedValue({ id: "conv-3" });
     prisma.conversation.findUnique.mockResolvedValue({ id: "conv-3", status: "activa" });
 
     const res = await request(buildApp()).patch("/api/dashboard/escalations/conv-3/resolve");
@@ -159,7 +161,7 @@ describe("GET/PATCH /escalations — evolución de Conversation.status", () => {
   });
 
   test("resolver una conversación inexistente responde 404", async () => {
-    prisma.conversation.findUnique.mockResolvedValue(null);
+    prisma.conversation.findFirst.mockResolvedValue(null);
 
     const res = await request(buildApp()).patch("/api/dashboard/escalations/no-existe/resolve");
 

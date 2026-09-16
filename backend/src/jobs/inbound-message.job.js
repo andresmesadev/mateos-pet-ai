@@ -1,153 +1,118 @@
 const cron = require("node-cron");
-
-/**
- * Entregable 8.2 (Fase 8) — D-F1, cola durable de mensajes entrantes.
- *
- * Antes de este entregable, webhook.controller.js procesaba el mensaje
- * inline dentro del ciclo de vida de la petición HTTP: un crash del proceso
- * a mitad de turno (Whisper/Vision/LLM/Prisma) perdía el mensaje del cliente
- * para siempre — y, desde 8.1 (D-E4), un reintento de Meta para ese mismo
- * wamid ya ni siquiera reprocesaba: la deduplicación lo descartaba en
- * silencio. Este worker reclama jobs de `InboundJob` (encolados por
- * webhook.controller.js, que ahora solo encola y responde 200) y ejecuta el
- * mismo pipeline de siempre — sin duplicar ni un fragmento de su lógica.
- *
- * Mismo mecanismo que jobs/event-delivery-retry.job.js (5.1): node-cron
- * sobre PostgreSQL, sin Redis ni cola externa. Intervalo corto (5s, con
- * campo de segundos — node-cron 4.x lo soporta) porque, a diferencia del
- * reintento de Automatizaciones, esto es la vía primaria de respuesta al
- * cliente — cada tick drena la cola completa, no un job por tick, para no
- * acumular atraso bajo ráfagas de mensajes.
- *
- * D-F6 (informe externo, corregido en este mismo entregable): un fallo de
- * `sendMessage` se registraba y se descartaba en silencio — el job quedaba
- * `done` (el análisis sí ocurrió) pero el cliente nunca recibía su respuesta
- * y nada la reintentaba. Reintentar todo el job reprocesaría el pipeline
- * completo desde cero (arriesgando efectos duplicados — otra cita, otra
- * mascota creada), así que el reintento vive aquí, acotado al envío: hasta
- * `MAX_SEND_ATTEMPTS` intentos con backoff corto, dentro de la misma
- * ejecución del job. Cubre el caso real (falla transitoria de Meta/red); un
- * fallo permanente (token inválido) seguiría fallando igual en un reintento
- * completo del job, así que no se ganaría nada difiriéndolo.
- */
 const { processIncomingMessage } = require("../contexts/receptionist");
 const { sendMessage } = require("../contexts/communication");
 const {
-  claimNextInboundJob,
-  markInboundJobDone,
-  markInboundJobFailed,
+  claimNextInboundJob, markInboundJobDone, markInboundJobFailed,
+  checkpointInboundJob, renewInboundJobLease, recoverExpiredInboundJobs,
+  InboundLeaseLostError, HEARTBEAT_MS,
 } = require("../services/inbound-job.service");
 
 const CRON_EXPRESSION = "*/5 * * * * *";
 const MAX_SEND_ATTEMPTS = 3;
-const SEND_RETRY_DELAY_MS = 1000;
-
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Envía una única respuesta con reintento — extraído para reutilizarse tanto
-// con el resultado principal como con cada entrada de `additionalReplies`
-// (mejora post-Fase 8, 2026-09-08: mensajes intermedios de un batch agrupado
-// por Meta, antes descartados en silencio — ver whatsapp.service.js).
-const sendOneReply = async ({ from, reply, user, conversation }) => {
-  if (!from || !reply) return;
-
-  if (!user?.id) {
-    // Caso residual: no se pudo resolver user/conversation. Sin Comunicación
-    // no hay a qué conversación adjuntar el mensaje — se registra, no se
-    // envía en silencio.
-    console.error(`[InboundMessageJob] No se pudo enviar respuesta a ${from}: usuario no resuelto`);
-    return;
-  }
-
-  let lastError = null;
-
-  for (let attempt = 1; attempt <= MAX_SEND_ATTEMPTS; attempt += 1) {
-    try {
-      await sendMessage({
-        tenantId: user.tenantId ?? null,
-        userId: user.id,
-        conversationId: conversation?.id ?? null,
-        phone: from,
-        content: reply,
-        origin: "agente",
-      });
-      return;
-    } catch (error) {
-      lastError = error;
-      if (attempt < MAX_SEND_ATTEMPTS) {
-        await delay(SEND_RETRY_DELAY_MS * attempt);
-      }
+// Persist only the public Communication command, not sessions, analysis or
+// arbitrary engine objects. Preserve the existing order of replies in a batch.
+const prepareReplies = (result) => {
+  if (!result?.processed || !result?.from) return [];
+  const replies = [...(Array.isArray(result.additionalReplies) ? result.additionalReplies : []), result];
+  return replies.flatMap(({ from, reply, user, conversation }) => {
+    if (!from || !reply) return [];
+    if (!user?.id) {
+      console.error("[InboundMessageJob] Reply omitted: unresolved user");
+      return [];
     }
-  }
-
-  console.error(
-    `[InboundMessageJob] No se pudo enviar respuesta a ${from} tras ${MAX_SEND_ATTEMPTS} intentos:`,
-    lastError.message
-  );
+    return [{ tenantId: user.tenantId ?? null, userId: user.id,
+      conversationId: conversation?.id ?? null, phone: from, content: reply, origin: "agente" }];
+  });
 };
 
-const deliverReply = async (result) => {
-  if (!result?.processed || !result?.from) {
-    return;
-  }
-
-  // Mensajes intermedios de un batch agrupado por Meta primero, en el mismo
-  // orden en que llegaron — luego la respuesta principal (último mensaje).
-  if (Array.isArray(result.additionalReplies)) {
-    for (const intermediate of result.additionalReplies) {
-      await sendOneReply(intermediate);
+// Keep 8.4's bounded live delivery retries. A crash during sending is ambiguous
+// and NEVER automatically replays this call (ADR 011). Exhaustion is not done.
+const sendOneReply = async (reply, assertLease) => {
+  for (let attempt = 1; attempt <= MAX_SEND_ATTEMPTS; attempt += 1) {
+    await assertLease();
+    try {
+      await sendMessage(reply);
+      return;
+    } catch (error) {
+      if (attempt === MAX_SEND_ATTEMPTS) throw error;
+      await delay(1000 * attempt);
     }
   }
-
-  await sendOneReply(result);
 };
 
 const processOneJob = async () => {
-  const job = await claimNextInboundJob();
+  let job = await claimNextInboundJob();
   if (!job) return false;
+  let leaseError = null;
+  let renewing = false;
+  const assertLease = async () => {
+    if (leaseError) throw leaseError;
+    // Check ownership in the database immediately before every new effect.
+    await renewInboundJobLease(job);
+  };
+  const heartbeat = setInterval(async () => {
+    if (renewing || leaseError) return;
+    renewing = true;
+    try { await renewInboundJobLease(job); }
+    catch (error) { leaseError = error; }
+    finally { renewing = false; }
+  }, HEARTBEAT_MS);
+  heartbeat.unref?.();
 
   try {
-    const result = await processIncomingMessage(job.payload);
-    await deliverReply(result);
-    await markInboundJobDone(job.id);
+    if (job.phase === "pending") {
+      job = await checkpointInboundJob(job, "processing");
+      await assertLease();
+      const result = await processIncomingMessage(job.payload);
+      const replies = prepareReplies(result);
+      job = await checkpointInboundJob(job, replies.length ? "ready" : "complete", { replies, replyCursor: 0 });
+    }
+    if (job.phase === "ready") {
+      if (!Array.isArray(job.replies) || !Number.isInteger(job.replyCursor) ||
+          job.replyCursor < 0 || job.replyCursor > job.replies.length) {
+        job = await checkpointInboundJob(job, "processing");
+        throw new Error("Invalid inbound reply checkpoint");
+      }
+      while (job.replyCursor < job.replies.length) {
+        job = await checkpointInboundJob(job, "sending");
+        await sendOneReply(job.replies[job.replyCursor], assertLease);
+        const replyCursor = job.replyCursor + 1;
+        job = await checkpointInboundJob(job, replyCursor === job.replies.length ? "complete" : "ready", { replyCursor });
+      }
+      if (job.phase === "ready") job = await checkpointInboundJob(job, "complete");
+    }
+    await markInboundJobDone(job);
   } catch (error) {
-    console.error("[InboundMessageJob] Error procesando job:", job.id, error.message);
-    await markInboundJobFailed(job.id, error).catch((markError) =>
-      console.error("[InboundMessageJob] Error marcando job como fallido:", markError.message)
-    );
+    console.error("[InboundMessageJob] Job interrupted:", job.id, error.message);
+    if (!(error instanceof InboundLeaseLostError)) {
+      await markInboundJobFailed(job, error).catch((markError) =>
+        console.error("[InboundMessageJob] Could not record failure:", job.id, markError.message));
+    }
+  } finally {
+    clearInterval(heartbeat);
   }
-
   return true;
 };
 
-const drainInboundJobs = async () => {
-  let processed = 0;
-  // Drena la cola completa en cada tick — evita atraso creciente si llegan
-  // varios mensajes entre disparos de cron. Tope defensivo por tick, no por
-  // diseño de negocio: nunca debería alcanzarse en el volumen real de hoy.
-  const MAX_PER_TICK = 50;
-
-  while (processed < MAX_PER_TICK) {
-    const didWork = await processOneJob();
-    if (!didWork) break;
-    processed += 1;
-  }
-
-  return processed;
+let draining = null;
+const drainInboundJobs = () => {
+  if (draining) return draining;
+  draining = (async () => {
+    await recoverExpiredInboundJobs();
+    let processed = 0;
+    while (processed < 50 && await processOneJob()) processed += 1;
+    return processed;
+  })().finally(() => { draining = null; });
+  return draining;
 };
 
 const startInboundMessageJob = () => {
   cron.schedule(CRON_EXPRESSION, () => {
-    drainInboundJobs().catch((error) => {
-      console.error("[InboundMessageJob] Unhandled error:", error.message);
-    });
+    drainInboundJobs().catch((error) => console.error("[InboundMessageJob] Unhandled error:", error.message));
   });
-
   console.log(`[InboundMessageJob] Scheduled every 5 seconds (${CRON_EXPRESSION})`);
 };
 
-module.exports = {
-  startInboundMessageJob,
-  drainInboundJobs,
-  processOneJob,
-};
+module.exports = { startInboundMessageJob, drainInboundJobs, processOneJob };
