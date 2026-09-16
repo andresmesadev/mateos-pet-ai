@@ -44,7 +44,7 @@ const { Client } = require("pg");
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   try {
     await client.connect();
-    const exists = await client.query("SELECT to_regclass('public.\\\"InboundJob\\\"') AS table_name");
+    const exists = await client.query('SELECT to_regclass(\'"InboundJob"\') AS table_name');
     if (!exists.rows[0].table_name) {
       console.log(JSON.stringify({ inboundJob: "absent" }));
       return;
