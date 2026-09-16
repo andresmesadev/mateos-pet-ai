@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+﻿import { Suspense } from "react";
 import { connection } from "next/server";
 import { Wallet } from "lucide-react";
 
@@ -56,7 +56,7 @@ export default async function PosPage({ searchParams }: PageProps) {
         title={title}
         description={description}
         icon={Wallet}
-        tint="bg-teal-500/15 text-teal-400"
+        tint="bg-teal-500/15 text-teal-700"
       />
 
       {/* Tab navigation — client (needs useSearchParams) */}

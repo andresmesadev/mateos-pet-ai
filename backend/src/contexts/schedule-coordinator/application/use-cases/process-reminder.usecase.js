@@ -4,6 +4,10 @@ const REMINDER_TYPE_METHODS = {
   deworming: "sendAndMarkDewormingReminder",
   grooming: "sendAndMarkGroomingReminder",
   follow_up: "sendAndMarkFollowUp",
+  // Mejora post-Fase 8 (2026-09-08): reutiliza exactamente este mecanismo de
+  // Límite de Autonomía — la ausencia de configuración lo deja
+  // auto-aprobado, igual que los cinco tipos anteriores.
+  abandoned_booking: "sendAndMarkAbandonedBookingReminder",
 };
 
 /**

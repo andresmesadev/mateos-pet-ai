@@ -1,4 +1,4 @@
-import { HeartPulse, Pin, UserX, AlertTriangle } from "lucide-react";
+﻿import { HeartPulse, Pin, UserX, AlertTriangle } from "lucide-react";
 
 import { auth } from "@/auth";
 import { apiUrl, makeServerHeaders } from "@/lib/api";
@@ -56,7 +56,7 @@ export default async function RecuperacionPage({ searchParams }: PageProps) {
         title="Recuperación de clientes"
         description="Acciones pendientes, reactivación de inactivos y predicción de churn"
         icon={HeartPulse}
-        tint="bg-rose-500/15 text-rose-400"
+        tint="bg-rose-500/15 text-rose-700"
       />
 
 
@@ -64,9 +64,9 @@ export default async function RecuperacionPage({ searchParams }: PageProps) {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 max-w-2xl">
         <div className="rounded-xl border-t-2 border-t-blue-500/70 border border-blue-500/20 bg-blue-500/5 p-4">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-medium text-blue-400 uppercase tracking-wide">Acciones pendientes</p>
+            <p className="text-xs font-medium text-blue-700 uppercase tracking-wide">Acciones pendientes</p>
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/15">
-              <Pin className="h-4 w-4 text-blue-400" />
+              <Pin className="h-4 w-4 text-blue-700" />
             </div>
           </div>
           <p className="text-4xl font-bold tabular-nums text-blue-300">{oppCount}</p>
@@ -74,9 +74,9 @@ export default async function RecuperacionPage({ searchParams }: PageProps) {
         </div>
         <div className="rounded-xl border-t-2 border-t-orange-500/70 border border-orange-500/20 bg-orange-500/5 p-4">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-medium text-orange-400 uppercase tracking-wide">Clientes inactivos</p>
+            <p className="text-xs font-medium text-orange-700 uppercase tracking-wide">Clientes inactivos</p>
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500/15">
-              <UserX className="h-4 w-4 text-orange-400" />
+              <UserX className="h-4 w-4 text-orange-700" />
             </div>
           </div>
           <p className="text-4xl font-bold tabular-nums text-orange-300">{inactiveCount}</p>
@@ -84,9 +84,9 @@ export default async function RecuperacionPage({ searchParams }: PageProps) {
         </div>
         <div className="rounded-xl border-t-2 border-t-red-500/70 border border-red-500/20 bg-red-500/5 p-4">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-medium text-red-400 uppercase tracking-wide">Churn riesgo alto</p>
+            <p className="text-xs font-medium text-red-700 uppercase tracking-wide">Churn riesgo alto</p>
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/15">
-              <AlertTriangle className="h-4 w-4 text-red-400" />
+              <AlertTriangle className="h-4 w-4 text-red-700" />
             </div>
           </div>
           <p className="text-4xl font-bold tabular-nums text-red-300">{churnHighCount}</p>

@@ -11,6 +11,22 @@ const {
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 
+// Fix post-auditoría de seguridad (2026-09-07, hallazgo F2): el regex YMD
+// solo validaba el formato, no el tamaño del rango — un rango de miles/
+// millones de días desataba un fan-out de queries por día (enumerateDates)
+// que podía tumbar el backend (única instancia en el VPS). MAX_RANGE_DAYS
+// es generoso (más de un año) para no romper ningún uso legítimo del
+// dashboard, que siempre opera sobre rangos de días/semanas/meses.
+const MAX_RANGE_DAYS = 400;
+
+function isRangeTooWide(start, end) {
+  const startMs = Date.parse(`${start}T00:00:00Z`);
+  const endMs = Date.parse(`${end}T00:00:00Z`);
+  if (Number.isNaN(startMs) || Number.isNaN(endMs)) return true;
+  const spanDays = (endMs - startMs) / (24 * 60 * 60 * 1000);
+  return spanDays < 0 || spanDays > MAX_RANGE_DAYS;
+}
+
 function mapPeriod(p) {
   return {
     id: p.id,
@@ -32,6 +48,9 @@ router.post("/financial-periods", async (req, res) => {
     if (!YMD.test(periodStart ?? "") || !YMD.test(periodEnd ?? "")) {
       return res.status(400).json({ error: "periodStart y periodEnd (YYYY-MM-DD) son requeridos" });
     }
+    if (isRangeTooWide(periodStart, periodEnd)) {
+      return res.status(400).json({ error: `El rango no puede superar ${MAX_RANGE_DAYS} días` });
+    }
 
     const { financialPeriod } = await generateFinancialPeriod({ tenantId, periodStart, periodEnd });
     res.status(201).json(mapPeriod(financialPeriod));
@@ -52,6 +71,9 @@ router.get("/financial-periods", async (req, res) => {
     if (!YMD.test(periodStart ?? "") || !YMD.test(periodEnd ?? "")) {
       return res.status(400).json({ error: "periodStart y periodEnd (YYYY-MM-DD) son requeridos" });
     }
+    if (isRangeTooWide(periodStart, periodEnd)) {
+      return res.status(400).json({ error: `El rango no puede superar ${MAX_RANGE_DAYS} días` });
+    }
 
     const { financialPeriod } = await getFinancialPeriod({ tenantId: tenantId ?? null, periodStart, periodEnd });
     res.json(mapPeriod(financialPeriod));
@@ -70,6 +92,9 @@ router.get("/financial-history", async (req, res) => {
     const { from, to } = req.query;
     if (!YMD.test(from ?? "") || !YMD.test(to ?? "")) {
       return res.status(400).json({ error: "from y to (YYYY-MM-DD) son requeridos" });
+    }
+    if (isRangeTooWide(from, to)) {
+      return res.status(400).json({ error: `El rango no puede superar ${MAX_RANGE_DAYS} días` });
     }
 
     const { days } = await getFinancialHistory({ tenantId: tenantId ?? null, rangeStart: from, rangeEnd: to });

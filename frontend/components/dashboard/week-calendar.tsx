@@ -96,7 +96,7 @@ function ApptBlock({ appt, topPx, heightPx, onClick }: {
     <button
       onClick={onClick}
       style={{ top: topPx, height: Math.max(heightPx, 32) }}
-      className={`absolute inset-x-0.5 overflow-hidden rounded border-l-4 bg-background px-2 py-1 text-left text-xs ${bg} hover:shadow-md transition-shadow`}
+      className={`absolute inset-x-0.5 overflow-hidden rounded border-l-4 px-2 py-1 text-left text-xs ${bg} hover:shadow-md transition-shadow`}
     >
       <span className="block font-semibold leading-tight truncate">
         {getPetEmoji(appt.petType)} {appt.petName}
@@ -345,6 +345,26 @@ export function WeekCalendar({
     return { year: d.getUTCFullYear(), month: d.getUTCMonth() };
   });
 
+  // La vista "Mes" no puede depender solo de `appointments` (citas de la
+  // semana del server component) — necesita las citas de todo el mes.
+  const [monthAppointments, setMonthAppointments] = useState<TodayAppointment[]>([]);
+
+  useEffect(() => {
+    if (view !== "month") return;
+    let cancelled = false;
+    fetch(`/api/proxy/dashboard/appointments/month?year=${monthDate.year}&month=${monthDate.month}`, {
+      cache: "no-store",
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (!cancelled && json?.appointments) setMonthAppointments(json.appointments);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [view, monthDate.year, monthDate.month]);
+
   function navigate(ymd: string) {
     const params = new URLSearchParams(searchParams.toString());
     params.set("date", ymd);
@@ -466,7 +486,7 @@ export function WeekCalendar({
       <div className="flex flex-wrap items-center gap-2 mb-4">
         {/* Navigation */}
         <div className="flex items-center gap-1">
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={prevPeriod}>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={prevPeriod} aria-label="Período anterior">
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <button
@@ -475,7 +495,7 @@ export function WeekCalendar({
           >
             Hoy
           </button>
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={nextPeriod}>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={nextPeriod} aria-label="Período siguiente">
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
@@ -515,7 +535,7 @@ export function WeekCalendar({
         <MonthView
           year={monthDate.year}
           month={monthDate.month}
-          appointments={appointments}
+          appointments={monthAppointments}
           today={today}
           onDayClick={(ymd) => {
             setCurrentDay(ymd);

@@ -9,6 +9,8 @@ const {
   markGroomingReminderSent,
   sendFollowUp,
   markFollowUpSent,
+  sendAbandonedBookingReminder,
+  markAbandonedBookingReminderSent,
 } = require("../../../../services/reminder.service");
 const { ReminderEngineAdapterPort } = require("../../application/ports/reminder-engine-adapter.port");
 
@@ -47,6 +49,13 @@ class ReminderEngineAdapter extends ReminderEngineAdapterPort {
   async sendAndMarkFollowUp(appointment) {
     const sent = await sendFollowUp(appointment);
     if (sent) await markFollowUpSent(appointment.id);
+    return sent;
+  }
+
+  // Mejora post-Fase 8 (2026-09-08).
+  async sendAndMarkAbandonedBookingReminder(conversation) {
+    const sent = await sendAbandonedBookingReminder(conversation);
+    if (sent) await markAbandonedBookingReminderSent(conversation.id);
     return sent;
   }
 }

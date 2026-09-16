@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const prisma = require("../../lib/prisma");
 // Entregable 3.0 — Infraestructura de Eventos. Rutas de Administración y
 // Consulta únicamente: "Registrar/Reintentar Entrega de Evento" son
 // operaciones del mecanismo de entrega, sin adaptador HTTP (Etapa 3, sección 5).
@@ -86,6 +87,20 @@ router.get("/domain-events", async (req, res) => {
 // GET /domain-events/:id/deliveries — Consultar Entregas de un Evento.
 router.get("/domain-events/:id/deliveries", async (req, res) => {
   try {
+    const { tenantId } = req.tenant;
+
+    // Fix post-auditoría de seguridad (2026-09-07, hallazgo F15): a
+    // diferencia de GET /domain-events (que sí filtra por tenant), esta
+    // ruta resolvía el DomainEvent solo por id, exponiendo metadata de
+    // entrega de otro establecimiento.
+    if (tenantId) {
+      const domainEvent = await prisma.domainEvent.findFirst({
+        where: { id: req.params.id, tenantId },
+        select: { id: true },
+      });
+      if (!domainEvent) return res.status(404).json({ error: "Domain event not found" });
+    }
+
     const { deliveries } = await listEventDeliveries({ domainEventId: req.params.id });
     res.json(deliveries);
   } catch (error) {

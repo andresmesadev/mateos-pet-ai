@@ -39,6 +39,8 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-warm-foreground: var(--warm-foreground);
+  --color-warm: var(--warm);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -49,90 +51,136 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  /* ── Paleta "Clinical Sky + Fresh Green" — modo claro real (2026-09-08, v3)
+   * El dashboard dejó de forzar modo oscuro (app/dashboard/layout.tsx) —
+   * pedido explícito: se veía "aún negro" con el fondo oscuro retinteado,
+   * el responsable del proyecto quería el look real de clínica veterinaria:
+   * blanco predominante + azul cielo (confianza clínica) + verde fresco
+   * (salud), no una versión oscura con acentos de color. Este bloque :root
+   * es ahora el tema activo del dashboard (antes solo lo usaban /login y
+   * /onboarding, que quedan sin cambios visuales — ya eran claros).
+   */
+  --background: oklch(0.97 0.014 232);
+  --foreground: oklch(0.22 0.03 235);
+
+  /* ── Cards translúcidas — el glass-card compone un velo blanco encima
+   * (ver @layer utilities) para legibilidad; esto solo deja pasar el tinte
+   * de los orbes ambientales de fondo. */
+  --card: oklch(1 0 0 / 72%);
+  --card-foreground: oklch(0.22 0.03 235);
+
+  /* ── Popovers/dropdowns opacos (legibilidad, misma decisión que antes) */
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.22 0.03 235);
+
+  /* ── Azul cielo (confianza clínica) ───────────────────────── */
+  --primary: oklch(0.60 0.16 232);
+  --primary-foreground: oklch(0.99 0.004 235);
+
+  --secondary: oklch(0.95 0.014 230);
+  --secondary-foreground: oklch(0.22 0.03 235);
+  --muted: oklch(0.95 0.012 230);
+  --muted-foreground: oklch(0.48 0.02 233);
+  --accent: oklch(0.94 0.03 152);
+  --accent-foreground: oklch(0.22 0.03 235);
+
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --border: oklch(0.90 0.018 230);
+  --input: oklch(0.90 0.018 230);
+  --ring: oklch(0.60 0.16 232);
+
+  /* ── Verde fresco: acento de marca (salud/naturaleza) ─────── */
+  --warm: oklch(0.55 0.14 152);
+  --warm-foreground: oklch(0.99 0 0);
+
+  --chart-1: oklch(0.60 0.16 232);
+  --chart-2: oklch(0.58 0.14 152);
+  --chart-3: oklch(0.68 0.11 210);
+  --chart-4: oklch(0.55 0.09 190);
+  --chart-5: oklch(0.48 0.15 250);
+
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+
+  /* ── Sidebar clara, ligeramente translúcida ───────────────── */
+  --sidebar: oklch(0.98 0.01 230 / 88%);
+  --sidebar-foreground: oklch(0.22 0.03 235);
+  --sidebar-primary: oklch(0.60 0.16 232);
+  --sidebar-primary-foreground: oklch(0.99 0.004 235);
+  --sidebar-accent: oklch(0.93 0.028 152 / 70%);
+  --sidebar-accent-foreground: oklch(0.22 0.03 235);
+  --sidebar-border: oklch(0.90 0.015 230);
+  --sidebar-ring: oklch(0.60 0.16 232);
+
+  /* ── Custom glow/gradient tokens (usados por .glow-* y .gradient-text) ── */
+  --glow-cyan: 0 0 16px oklch(0.60 0.16 232 / 30%), 0 0 32px oklch(0.60 0.16 232 / 10%);
+  --glow-violet: 0 0 16px oklch(0.55 0.14 152 / 28%), 0 0 32px oklch(0.55 0.14 152 / 10%);
+  --gradient-text-from: oklch(0.55 0.16 232);
+  --gradient-text-to: oklch(0.52 0.14 152);
 }
 
 .dark {
-  /* ── Space navy profundo ─────────────────────────────────── */
-  --background: oklch(0.115 0.025 258);
-  --foreground: oklch(0.96 0.006 250);
+  /* ── Paleta "Clinical Sky + Fresh Green" (2026-09-08, v2) ──
+   * Reemplaza la paleta teal+naranja anterior — pedido explícito del
+   * responsable del proyecto: "clínico de mascotas, azul cielo o verde
+   * con blanco", sin naranja. Azul cielo (confianza clínica) como color
+   * primario + verde fresco (salud/naturaleza) como acento, sobre fondo
+   * frío neutro y blancos limpios/nítidos — nada de calidez cálida ni
+   * tinte teal-orgánico de la iteración anterior.
+   */
+
+  /* ── Fondo clínico frío-neutro ─────────────────────────────── */
+  --background: oklch(0.14 0.018 235);
+  --foreground: oklch(0.97 0.004 235);
 
   /* ── Cards semi-transparentes para glassmorphism ─────────── */
-  --card: oklch(0.22 0.022 256 / 70%);
-  --card-foreground: oklch(0.96 0.006 250);
+  --card: oklch(0.25 0.02 233 / 68%);
+  --card-foreground: oklch(0.97 0.004 235);
 
   /* ── Popovers/dropdowns opacos (legibilidad) ─────────────── */
-  --popover: oklch(0.19 0.022 258);
-  --popover-foreground: oklch(0.96 0.006 250);
+  --popover: oklch(0.21 0.02 234);
+  --popover-foreground: oklch(0.97 0.004 235);
 
-  /* ── Electric cyan primario más vibrante ─────────────────── */
-  --primary: oklch(0.78 0.18 195);
-  --primary-foreground: oklch(0.10 0.03 230);
+  /* ── Azul cielo vibrante (confianza clínica) ──────────────── */
+  --primary: oklch(0.72 0.14 232);
+  --primary-foreground: oklch(0.12 0.03 232);
 
-  --secondary: oklch(0.28 0.022 255 / 80%);
-  --secondary-foreground: oklch(0.96 0.006 250);
-  --muted: oklch(0.28 0.022 255 / 70%);
-  --muted-foreground: oklch(0.66 0.018 250);
-  --accent: oklch(0.30 0.04 210 / 80%);
-  --accent-foreground: oklch(0.96 0.006 250);
+  --secondary: oklch(0.29 0.02 233 / 80%);
+  --secondary-foreground: oklch(0.97 0.004 235);
+  --muted: oklch(0.29 0.02 233 / 70%);
+  --muted-foreground: oklch(0.70 0.014 233);
+  --accent: oklch(0.31 0.035 231 / 80%);
+  --accent-foreground: oklch(0.97 0.004 235);
 
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 8%);
   --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.78 0.18 195);
+  --ring: oklch(0.72 0.14 232);
 
-  --chart-1: oklch(0.78 0.18 195);
-  --chart-2: oklch(0.7 0.15 160);
-  --chart-3: oklch(0.65 0.22 290);
-  --chart-4: oklch(0.75 0.15 90);
-  --chart-5: oklch(0.7 0.16 30);
+  /* ── Verde fresco: acento de marca (salud/naturaleza) ─────── */
+  --warm: oklch(0.72 0.15 152);
+  --warm-foreground: oklch(0.14 0.03 152);
+
+  --chart-1: oklch(0.72 0.14 232);
+  --chart-2: oklch(0.72 0.15 152);
+  --chart-3: oklch(0.78 0.10 210);
+  --chart-4: oklch(0.68 0.10 190);
+  --chart-5: oklch(0.62 0.16 250);
 
   /* ── Sidebar semi-transparente ───────────────────────────── */
-  --sidebar: oklch(0.13 0.018 258 / 85%);
-  --sidebar-foreground: oklch(0.92 0.008 250);
-  --sidebar-primary: oklch(0.78 0.18 195);
-  --sidebar-primary-foreground: oklch(0.10 0.03 230);
-  --sidebar-accent: oklch(0.25 0.025 255 / 70%);
-  --sidebar-accent-foreground: oklch(0.96 0.006 250);
+  --sidebar: oklch(0.15 0.02 233 / 85%);
+  --sidebar-foreground: oklch(0.95 0.006 235);
+  --sidebar-primary: oklch(0.72 0.14 232);
+  --sidebar-primary-foreground: oklch(0.12 0.03 232);
+  --sidebar-accent: oklch(0.27 0.022 233 / 70%);
+  --sidebar-accent-foreground: oklch(0.97 0.004 235);
   --sidebar-border: oklch(1 0 0 / 6%);
-  --sidebar-ring: oklch(0.78 0.18 195);
+  --sidebar-ring: oklch(0.72 0.14 232);
 
   /* ── Custom glow tokens ──────────────────────────────────── */
-  --glow-cyan: 0 0 20px oklch(0.78 0.18 195 / 40%), 0 0 40px oklch(0.78 0.18 195 / 15%);
-  --glow-violet: 0 0 20px oklch(0.65 0.25 290 / 35%), 0 0 40px oklch(0.65 0.25 290 / 12%);
-  --gradient-text-from: oklch(0.78 0.18 195);
-  --gradient-text-to: oklch(0.65 0.25 290);
+  --glow-cyan: 0 0 20px oklch(0.72 0.14 232 / 40%), 0 0 40px oklch(0.72 0.14 232 / 15%);
+  --glow-violet: 0 0 20px oklch(0.72 0.15 152 / 35%), 0 0 40px oklch(0.72 0.15 152 / 12%);
+  --gradient-text-from: oklch(0.72 0.14 232);
+  --gradient-text-to: oklch(0.72 0.15 152);
 }
 
 @layer base {
@@ -156,7 +204,7 @@
     background: oklch(0.40 0.025 255);
   }
   ::selection {
-    background: oklch(0.78 0.18 195 / 22%);
+    background: oklch(0.60 0.16 232 / 25%);
   }
   body {
     @apply bg-background text-foreground;
@@ -171,14 +219,26 @@
 
 /* ── Utilidades premium reutilizables ─────────────────────────── */
 @layer utilities {
-  /* Glassmorphism real: blur + bg mínimo + inset highlight */
+  /* Glassmorphism "liquid glass" (2026-09-08): blur más pronunciado +
+   * saturate() para que el vidrio capte y realce el color de lo que hay
+   * detrás (el efecto "líquido"/refractivo, no solo desenfoque plano) +
+   * highlight especular superior (simula una fuente de luz) + sombra de
+   * profundidad. Mismo nombre de clase que antes — cero cambios en los
+   * componentes que ya la usan (dashboard-topbar, dashboard-sidebar,
+   * metric-card, home/sections).
+   */
   .glass-card {
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    background-image: linear-gradient(
+      160deg,
+      oklch(1 0 0 / 55%) 0%,
+      oklch(1 0 0 / 12%) 45%
+    );
     box-shadow:
-      0 1px 0 oklch(1 0 0 / 7%) inset,
-      0 -1px 0 oklch(0 0 0 / 25%) inset,
-      0 8px 32px -8px oklch(0 0 0 / 55%);
+      0 1px 0 oklch(1 0 0 / 70%) inset,
+      0 1px 3px oklch(0.22 0.03 235 / 8%),
+      0 8px 24px -10px oklch(0.22 0.03 235 / 18%);
   }
 
   /* Glow neon en el color primario (cyan) */
@@ -191,33 +251,49 @@
     box-shadow: var(--glow-violet);
   }
 
-  /* Texto con gradiente cyan → violet */
+  /* Texto con gradiente cyan → violet
+   * NOTA: usar `background-image` (no el shorthand `background`) es
+   * deliberado. Con `var(--gradient-text-from, oklch(...))`, Lightning CSS
+   * (el procesador de Tailwind v4) emite un fallback de color duplicando la
+   * regla completa dentro de un bloque `@supports (color: lab(...))` que
+   * SOLO reafirma `background:` — y `background` es shorthand: resetea
+   * `background-clip` a su valor inicial (`border-box`) en cualquier
+   * navegador moderno que soporte `lab()` (Chrome/Firefox/Safari actuales),
+   * anulando el recorte y dejando el texto invisible sobre un bloque sólido.
+   * `background-image` no forma parte de ese shorthand, así que nunca
+   * resetea `background-clip`, sin importar cómo se divida la regla. */
   .gradient-text {
-    background: linear-gradient(
+    background-image: linear-gradient(
       135deg,
       var(--gradient-text-from, oklch(0.78 0.18 195)) 0%,
       var(--gradient-text-to, oklch(0.65 0.25 290)) 100%
     );
     -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
     background-clip: text;
+    -webkit-text-fill-color: transparent;
   }
 
-  /* Texto con gradiente blanco → cyan sutil (para números) */
+  /* Texto con gradiente slate → azul cielo (para números, sobre fondo claro)
+   * Mismo tratamiento con `background-image` que `.gradient-text` — ver nota
+   * arriba. Esta regla no mostraba el bug porque, al usar valores oklch()
+   * literales en vez de var(), Lightning CSS generaba ambas variantes de
+   * color dentro de la MISMA regla (sin @supports) con el recorte declarado
+   * después de ambas, pero se deja igual por consistencia y para no
+   * depender de un detalle de implementación del compilador. */
   .gradient-text-value {
-    background: linear-gradient(
+    background-image: linear-gradient(
       145deg,
-      oklch(0.98 0.005 250) 0%,
-      oklch(0.85 0.08 200) 100%
+      oklch(0.30 0.03 235) 0%,
+      oklch(0.50 0.15 232) 100%
     );
     -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
     background-clip: text;
+    -webkit-text-fill-color: transparent;
   }
 
-  /* Borde luminoso cyan */
+  /* Borde luminoso azul cielo */
   .neon-border-cyan {
-    border-color: oklch(0.78 0.18 195 / 40%);
-    box-shadow: 0 0 0 1px oklch(0.78 0.18 195 / 20%);
+    border-color: oklch(0.72 0.14 232 / 40%);
+    box-shadow: 0 0 0 1px oklch(0.72 0.14 232 / 20%);
   }
 }

@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import {
   ArrowUpRight,
   ArrowDownRight,
@@ -119,14 +119,14 @@ export async function CashboxView({ date, tenant }: { date?: string; tenant?: st
         <div className="flex gap-2 text-xs">
           <Link
             href={`/dashboard/pos?tab=caja&date=${prevDay(effectiveDate)}`}
-            className="rounded-lg border border-white/[0.06] px-3 py-1.5 transition-colors hover:bg-accent"
+            className="rounded-lg border border-black/[0.06] px-3 py-1.5 transition-colors hover:bg-accent"
           >
             ← Ayer
           </Link>
           {!isToday && (
             <Link
               href={`/dashboard/pos?tab=caja&date=${nextDay(effectiveDate)}`}
-              className="rounded-lg border border-white/[0.06] px-3 py-1.5 transition-colors hover:bg-accent"
+              className="rounded-lg border border-black/[0.06] px-3 py-1.5 transition-colors hover:bg-accent"
             >
               Mañana →
             </Link>
@@ -139,16 +139,16 @@ export async function CashboxView({ date, tenant }: { date?: string; tenant?: st
         <NetCard
           total={data.totalIncome}
           label={`Ingresos · ${data.transactionCount} cobro${data.transactionCount !== 1 ? "s" : ""}`}
-          color="border-emerald-500/20 bg-emerald-500/5 text-emerald-300"
+          color="border-emerald-500/20 bg-emerald-500/5 text-emerald-700"
           icon={ArrowUpRight}
         />
         <NetCard
           total={data.totalExpenses}
           label={`Egresos · ${data.expenseCount} egreso${data.expenseCount !== 1 ? "s" : ""}`}
-          color="border-rose-500/20 bg-rose-500/5 text-rose-300"
+          color="border-rose-500/20 bg-rose-500/5 text-rose-700"
           icon={ArrowDownRight}
         />
-        <div className={`flex flex-col gap-2 rounded-xl border p-5 ${data.netBalance >= 0 ? "border-primary/20 bg-primary/5 text-primary" : "border-amber-500/20 bg-amber-500/5 text-amber-300"}`}>
+        <div className={`flex flex-col gap-2 rounded-xl border p-5 ${data.netBalance >= 0 ? "border-primary/20 bg-primary/5 text-primary" : "border-amber-500/20 bg-amber-500/5 text-amber-700"}`}>
           <div className="flex items-center gap-2">
             <Minus className="h-4 w-4" />
             <p className="text-sm font-medium">Neto del día</p>
@@ -160,9 +160,9 @@ export async function CashboxView({ date, tenant }: { date?: string; tenant?: st
       {/* Desglose por método + categoría */}
       <div className="grid gap-4 md:grid-cols-2">
         {/* Ingresos por método */}
-        <div className="rounded-xl border border-white/[0.08] border-t-2 border-t-emerald-500/50 bg-card p-5">
+        <div className="rounded-xl border border-black/[0.08] border-t-2 border-t-emerald-500/50 bg-card p-5">
           <div className="mb-3 flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-emerald-400" />
+            <TrendingUp className="h-4 w-4 text-emerald-700" />
             <p className="text-sm font-semibold">Ingresos por método</p>
           </div>
           {data.incomeByMethod.length === 0 ? (
@@ -175,7 +175,7 @@ export async function CashboxView({ date, tenant }: { date?: string; tenant?: st
                     {PAYMENT_METHOD_LABELS[row.method as PaymentMethod] ?? row.method}
                     <span className="ml-1.5 text-xs opacity-60">×{row.count}</span>
                   </span>
-                  <span className="tabular-nums font-semibold text-emerald-300">{formatCOP(row.total)}</span>
+                  <span className="tabular-nums font-semibold text-emerald-700">{formatCOP(row.total)}</span>
                 </li>
               ))}
             </ul>
@@ -183,9 +183,9 @@ export async function CashboxView({ date, tenant }: { date?: string; tenant?: st
         </div>
 
         {/* Egresos por categoría */}
-        <div className="rounded-xl border border-white/[0.08] border-t-2 border-t-rose-500/50 bg-card p-5">
+        <div className="rounded-xl border border-black/[0.08] border-t-2 border-t-rose-500/50 bg-card p-5">
           <div className="mb-3 flex items-center gap-2">
-            <TrendingDown className="h-4 w-4 text-rose-400" />
+            <TrendingDown className="h-4 w-4 text-rose-700" />
             <p className="text-sm font-semibold">Egresos por categoría</p>
           </div>
           {data.expensesByCategory.length === 0 ? (
@@ -198,7 +198,7 @@ export async function CashboxView({ date, tenant }: { date?: string; tenant?: st
                     {EXPENSE_CATEGORY_LABELS[row.category as ExpenseCategory] ?? row.category}
                     <span className="ml-1.5 text-xs opacity-60">×{row.count}</span>
                   </span>
-                  <span className="tabular-nums font-semibold text-rose-300">{formatCOP(row.total)}</span>
+                  <span className="tabular-nums font-semibold text-rose-700">{formatCOP(row.total)}</span>
                 </li>
               ))}
             </ul>
@@ -209,8 +209,8 @@ export async function CashboxView({ date, tenant }: { date?: string; tenant?: st
       {/* Transacciones + Egresos del día */}
       <div className="grid gap-4 lg:grid-cols-2">
         {/* Cobros */}
-        <div className="rounded-xl border border-white/[0.08] border-t-2 border-t-teal-500/50 bg-card">
-          <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-3">
+        <div className="rounded-xl border border-black/[0.08] border-t-2 border-t-teal-500/50 bg-card">
+          <div className="flex items-center justify-between border-b border-black/[0.06] px-5 py-3">
             <p className="text-sm font-semibold">Cobros del día</p>
             <Link
               href="/dashboard/pos?tab=venta"
@@ -228,7 +228,7 @@ export async function CashboxView({ date, tenant }: { date?: string; tenant?: st
             </div>
           ) : (
             <>
-              <ul className="divide-y divide-white/[0.04]">
+              <ul className="divide-y divide-black/[0.04]">
                 {data.transactions.map((tx) => (
                   <li key={tx.id} className="px-5 py-3">
                     <div className="flex items-start justify-between gap-3">
@@ -246,28 +246,28 @@ export async function CashboxView({ date, tenant }: { date?: string; tenant?: st
                         </div>
                       </div>
                       <div className="shrink-0 text-right">
-                        <p className="font-semibold tabular-nums text-emerald-300">{formatCOP(tx.total)}</p>
+                        <p className="font-semibold tabular-nums text-emerald-700">{formatCOP(tx.total)}</p>
                         <p className="text-[11px] text-muted-foreground">{formatTime(tx.paidAt)}</p>
                       </div>
                     </div>
                   </li>
                 ))}
               </ul>
-              <div className="flex justify-between border-t border-white/[0.06] px-5 py-3 text-sm font-semibold">
+              <div className="flex justify-between border-t border-black/[0.06] px-5 py-3 text-sm font-semibold">
                 <span className="text-muted-foreground">Total cobros</span>
-                <span className="text-emerald-300 tabular-nums">{formatCOP(data.totalIncome)}</span>
+                <span className="text-emerald-700 tabular-nums">{formatCOP(data.totalIncome)}</span>
               </div>
             </>
           )}
         </div>
 
         {/* Egresos */}
-        <div className="rounded-xl border border-white/[0.08] border-t-2 border-t-rose-500/50 bg-card">
-          <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-3">
+        <div className="rounded-xl border border-black/[0.08] border-t-2 border-t-rose-500/50 bg-card">
+          <div className="flex items-center justify-between border-b border-black/[0.06] px-5 py-3">
             <p className="text-sm font-semibold">Egresos del día</p>
             <Link
               href="/dashboard/pos?tab=egreso"
-              className="text-xs font-medium text-rose-400/70 transition-colors hover:text-rose-400"
+              className="text-xs font-medium text-rose-700/70 transition-colors hover:text-rose-700"
             >
               + Egreso
             </Link>
@@ -275,35 +275,35 @@ export async function CashboxView({ date, tenant }: { date?: string; tenant?: st
           {data.expenses.length === 0 ? (
             <div className="px-5 py-8 text-center text-sm text-muted-foreground">
               Sin egresos registrados.{" "}
-              <Link href="/dashboard/pos?tab=egreso" className="text-rose-400 hover:underline">
+              <Link href="/dashboard/pos?tab=egreso" className="text-rose-700 hover:underline">
                 Registrar →
               </Link>
             </div>
           ) : (
             <>
-              <ul className="divide-y divide-white/[0.04]">
+              <ul className="divide-y divide-black/[0.04]">
                 {data.expenses.map((e) => (
                   <li key={e.id} className="px-5 py-3">
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">{e.description}</p>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${EXPENSE_CATEGORY_COLORS[e.category as ExpenseCategory] ?? "bg-slate-500/15 text-slate-400"}`}>
+                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${EXPENSE_CATEGORY_COLORS[e.category as ExpenseCategory] ?? "bg-slate-500/15 text-slate-700"}`}>
                             {EXPENSE_CATEGORY_LABELS[e.category as ExpenseCategory] ?? e.category}
                           </span>
                         </div>
                       </div>
                       <div className="shrink-0 text-right">
-                        <p className="font-semibold tabular-nums text-rose-300">{formatCOP(e.amount)}</p>
+                        <p className="font-semibold tabular-nums text-rose-700">{formatCOP(e.amount)}</p>
                         <p className="text-[11px] text-muted-foreground">{formatTime(e.date)}</p>
                       </div>
                     </div>
                   </li>
                 ))}
               </ul>
-              <div className="flex justify-between border-t border-white/[0.06] px-5 py-3 text-sm font-semibold">
+              <div className="flex justify-between border-t border-black/[0.06] px-5 py-3 text-sm font-semibold">
                 <span className="text-muted-foreground">Total egresos</span>
-                <span className="text-rose-300 tabular-nums">{formatCOP(data.totalExpenses)}</span>
+                <span className="text-rose-700 tabular-nums">{formatCOP(data.totalExpenses)}</span>
               </div>
             </>
           )}

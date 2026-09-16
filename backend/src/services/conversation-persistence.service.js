@@ -29,13 +29,30 @@ const findOrCreateConversation = async (userId) => {
       if (existing.user?.phone) {
         hydrateSessionFromConversation(existing.user.phone, existing);
       }
+      // Saneamiento: conversaciones creadas antes de que tenantId se poblara
+      // en la creación quedaron con tenantId null. Se repara al vuelo, sin
+      // afectar el flujo de lectura (no bloquea si falla).
+      if (!existing.tenantId && existing.user?.tenantId) {
+        prisma.conversation
+          .update({
+            where: { id: existing.id },
+            data: { tenantId: existing.user.tenantId },
+          })
+          .catch((err) =>
+            console.error(
+              "[ConversationPersistence] tenantId backfill (existing) error:",
+              err.message
+            )
+          );
+        existing.tenantId = existing.user.tenantId;
+      }
       return existing;
     }
 
     const user = await prisma.user.findUnique({ where: { id } });
 
     const created = await prisma.conversation.create({
-      data: { userId: id },
+      data: { userId: id, tenantId: user?.tenantId ?? null },
     });
 
     if (user?.phone) {
@@ -52,11 +69,32 @@ const findOrCreateConversation = async (userId) => {
   }
 };
 
-const saveMessage = async ({ conversationId, userId, role, content }) => {
+// Entregable 8.1 (D-E4): consulta previa a procesar un mensaje entrante, para
+// detectar un reintento de webhook de Meta (mismo wamid) antes de disparar
+// todo el pipeline (transcripción, LLM, persistencia). Un `externalId` no es
+// necesariamente único por diseño de negocio — lo es porque Meta nunca repite
+// un `message.id` salvo que sea, precisamente, un reintento del mismo evento.
+const findMessageByExternalId = async (externalId) => {
+  const id = String(externalId || "").trim();
+  if (!id) return null;
+
+  try {
+    return await prisma.message.findUnique({ where: { externalId: id } });
+  } catch (error) {
+    console.error(
+      "[ConversationPersistence] findMessageByExternalId error:",
+      error.message
+    );
+    return null;
+  }
+};
+
+const saveMessage = async ({ conversationId, userId, role, content, externalId }) => {
   const convId = String(conversationId || "").trim();
   const uid = String(userId || "").trim();
   const messageRole = String(role || "").trim();
   const body = String(content ?? "").trim();
+  const extId = externalId ? String(externalId).trim() : null;
 
   if (!convId || !messageRole || !body) {
     throw new Error("conversationId, role and content are required");
@@ -76,6 +114,7 @@ const saveMessage = async ({ conversationId, userId, role, content }) => {
         conversationId: convId,
         role: messageRole,
         content: body,
+        ...(extId ? { externalId: extId } : {}),
       },
     });
     console.log("[ConversationPersistence] Message saved");
@@ -135,7 +174,14 @@ const syncConversationState = async (conversationId, { intent, step }) => {
 
   const data = {};
   if (intent !== undefined) data.intent = intent;
-  if (step !== undefined) data.step = step;
+  if (step !== undefined) {
+    data.step = step;
+    // Mejora post-Fase 8 (2026-09-08): cualquier turno que escribe step es
+    // actividad real del cliente — invalida un abandono detectado antes,
+    // para que abandoned-conversation.job.js pueda volver a avisar si el
+    // wizard se abandona de nuevo más tarde.
+    data.abandonReminderSent = false;
+  }
 
   if (Object.keys(data).length === 0) {
     return null;
@@ -158,6 +204,7 @@ const syncConversationState = async (conversationId, { intent, step }) => {
 module.exports = {
   findOrCreateConversation,
   saveMessage,
+  findMessageByExternalId,
   getConversationMessages,
   syncConversationState,
 };

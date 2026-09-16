@@ -47,9 +47,30 @@ router.get("/escalations", async (req, res) => {
   }
 });
 
+// Fix post-auditoría de seguridad (2026-09-07, hallazgos F5/F6/F8): las
+// rutas de conversación por :id resolvían el registro solo por su id, sin
+// comparar contra req.tenant.tenantId, permitiendo a un usuario de un
+// tenant leer, responder o resolver escalamientos de otro. tenantId===null
+// se deja pasar sin filtro (vista cross-tenant explícita de super admin,
+// ya gateada en resolveTenant.js vía X-View-All-Tenants) — mismo criterio
+// que el resto de las rutas de este archivo (ver /opportunities).
+async function assertConversationBelongsToTenant(conversationId, tenantId) {
+  if (!tenantId) return true;
+  const conversation = await prisma.conversation.findFirst({
+    where: { id: conversationId, tenantId },
+    select: { id: true },
+  });
+  return Boolean(conversation);
+}
+
 router.patch("/escalations/:id/resolve", async (req, res) => {
   try {
     const { id } = req.params;
+    const { tenantId } = req.tenant;
+
+    if (!(await assertConversationBelongsToTenant(id, tenantId))) {
+      return res.status(404).json({ error: "Conversation not found" });
+    }
 
     try {
       const { conversation } = await resolveConversationEscalation({ conversationId: id });
@@ -98,6 +119,12 @@ router.get("/conversations", async (req, res) => {
 router.get("/conversations/:id/messages", async (req, res) => {
   try {
     const { id } = req.params;
+    const { tenantId } = req.tenant;
+
+    if (!(await assertConversationBelongsToTenant(id, tenantId))) {
+      return res.status(404).json({ error: "Conversation not found" });
+    }
+
     const result = await getConversationMessages(id);
 
     if (!result) {
@@ -131,7 +158,7 @@ router.post("/conversations/:id/send", async (req, res) => {
       include: { user: { select: { phone: true } } },
     });
 
-    if (!conversation) {
+    if (!conversation || (tenantId && conversation.tenantId !== tenantId)) {
       return res.status(404).json({ error: "Conversación no encontrada" });
     }
 

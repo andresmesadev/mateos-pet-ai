@@ -1,4 +1,4 @@
-import { CreditCard } from "lucide-react";
+﻿import { CreditCard } from "lucide-react";
 
 import { auth } from "@/auth";
 import { apiUrl, makeServerHeaders } from "@/lib/api";
@@ -38,7 +38,7 @@ export default async function BillingPage({ searchParams }: PageProps) {
         title="Plan y facturación"
         description="Gestiona tu suscripción a Mateos Pet AI"
         icon={CreditCard}
-        tint="bg-teal-500/15 text-teal-400"
+        tint="bg-teal-500/15 text-teal-700"
       />
 
       {success === "1" && (

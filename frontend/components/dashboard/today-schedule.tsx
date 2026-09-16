@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -180,8 +180,8 @@ export function TodaySchedule({ appointments: initial }: Props) {
 
   return (
     <>
-      <Card className="border-t-2 border-t-teal-500/50 border-white/[0.12]">
-        <CardHeader className="flex flex-row items-center justify-between border-b border-white/[0.06] pb-3">
+      <Card className="border-t-2 border-t-teal-500/50 border-black/[0.12]">
+        <CardHeader className="flex flex-row items-center justify-between border-b border-black/[0.06] pb-3">
           <CardTitle className="text-base font-semibold">Agenda de hoy</CardTitle>
           <div className="flex items-center gap-3">
             <span className="text-sm text-muted-foreground">{capitalized}</span>
@@ -278,7 +278,7 @@ export function TodaySchedule({ appointments: initial }: Props) {
                                 {appt.petId ? (
                                   <Link
                                     href={`/dashboard/pets?pet=${appt.petId}`}
-                                    className="text-amber-500 font-medium hover:text-amber-400 hover:underline underline-offset-2 transition-colors"
+                                    className="text-amber-500 font-medium hover:text-amber-700 hover:underline underline-offset-2 transition-colors"
                                   >
                                     Sin precio →
                                   </Link>

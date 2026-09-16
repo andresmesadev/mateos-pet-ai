@@ -1,4 +1,4 @@
-import { type LucideIcon } from "lucide-react";
+﻿import { type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type MetricCardProps = {
@@ -18,17 +18,17 @@ function accentBorderFromTint(tint: string): string {
   if (tint.includes("rose")) return "border-t-rose-500/60";
   if (tint.includes("emerald")) return "border-t-emerald-500/60";
   if (tint.includes("orange")) return "border-t-orange-500/60";
-  return "border-t-white/20";
+  return "border-t-black/20";
 }
 
 function hoverGlowFromTint(tint: string): string {
-  if (tint.includes("teal")) return "hover:shadow-[0_8px_32px_-4px_rgba(0,0,0,0.6),0_0_24px_rgba(20,184,166,0.25)]";
-  if (tint.includes("violet")) return "hover:shadow-[0_8px_32px_-4px_rgba(0,0,0,0.6),0_0_24px_rgba(168,85,247,0.25)]";
-  if (tint.includes("amber")) return "hover:shadow-[0_8px_32px_-4px_rgba(0,0,0,0.6),0_0_24px_rgba(245,158,11,0.25)]";
-  if (tint.includes("sky")) return "hover:shadow-[0_8px_32px_-4px_rgba(0,0,0,0.6),0_0_24px_rgba(14,165,233,0.25)]";
-  if (tint.includes("rose")) return "hover:shadow-[0_8px_32px_-4px_rgba(0,0,0,0.6),0_0_24px_rgba(244,63,94,0.25)]";
-  if (tint.includes("emerald")) return "hover:shadow-[0_8px_32px_-4px_rgba(0,0,0,0.6),0_0_24px_rgba(16,185,129,0.25)]";
-  return "hover:shadow-[0_8px_32px_-4px_rgba(0,0,0,0.6)]";
+  if (tint.includes("teal")) return "hover:shadow-[0_8px_32px_-4px_rgba(15,23,42,0.16),0_0_24px_rgba(20,184,166,0.25)]";
+  if (tint.includes("violet")) return "hover:shadow-[0_8px_32px_-4px_rgba(15,23,42,0.16),0_0_24px_rgba(168,85,247,0.25)]";
+  if (tint.includes("amber")) return "hover:shadow-[0_8px_32px_-4px_rgba(15,23,42,0.16),0_0_24px_rgba(245,158,11,0.25)]";
+  if (tint.includes("sky")) return "hover:shadow-[0_8px_32px_-4px_rgba(15,23,42,0.16),0_0_24px_rgba(14,165,233,0.25)]";
+  if (tint.includes("rose")) return "hover:shadow-[0_8px_32px_-4px_rgba(15,23,42,0.16),0_0_24px_rgba(244,63,94,0.25)]";
+  if (tint.includes("emerald")) return "hover:shadow-[0_8px_32px_-4px_rgba(15,23,42,0.16),0_0_24px_rgba(16,185,129,0.25)]";
+  return "hover:shadow-[0_8px_32px_-4px_rgba(15,23,42,0.16)]";
 }
 
 export function MetricCard({
@@ -44,12 +44,12 @@ export function MetricCard({
     <div
       className={cn(
         "group relative overflow-hidden rounded-xl border-t-2 glass-card",
-        "border border-white/[0.08]",
+        "border border-black/[0.08]",
         accentBorderFromTint(tint),
-        "bg-white/[0.04] shadow-[0_2px_8px_rgba(0,0,0,0.4)]",
+        "bg-black/[0.04] shadow-[0_2px_8px_rgba(15,23,42,0.12)]",
         "transition-all duration-300",
         "-translate-y-0 hover:-translate-y-1",
-        "hover:border-white/[0.14] hover:bg-white/[0.06]",
+        "hover:border-black/[0.14] hover:bg-black/[0.06]",
         hoverGlowFromTint(tint),
         isLg ? "p-5" : "p-4"
       )}
@@ -69,7 +69,7 @@ export function MetricCard({
         <div
           className={cn(
             "flex shrink-0 items-center justify-center",
-            "ring-1 ring-white/[0.12]",
+            "ring-1 ring-black/[0.12]",
             "transition-all duration-300",
             "group-hover:scale-110 group-hover:shadow-[0_0_14px_-2px_currentColor]",
             tint,

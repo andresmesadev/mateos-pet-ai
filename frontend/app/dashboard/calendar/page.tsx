@@ -1,4 +1,4 @@
-import { Calendar } from "lucide-react";
+﻿import { Calendar } from "lucide-react";
 import { connection } from "next/server";
 
 import { auth } from "@/auth";
@@ -75,7 +75,7 @@ export default async function CalendarPage({ searchParams }: PageProps) {
         title="Agenda"
         description="Vista semanal de citas — hora Bogotá"
         icon={Calendar}
-        tint="bg-teal-500/15 text-teal-400"
+        tint="bg-teal-500/15 text-teal-700"
       />
       <WeekCalendar data={data} hourStart={hourStart} hourEnd={hourEnd} />
     </div>

@@ -1,13 +1,11 @@
-const { verifyWebhookSignature } = require("../services/whatsapp.service");
-// Entregable 3.4 — Recepcionista IA: el procesamiento del mensaje entrante ya
-// no invoca directamente el motor conversacional (whatsapp.service.js) —
-// pasa por el caso de uso Procesar Mensaje Entrante, que da auditoría real
-// (Tarea/Decisión/Escalación) sin cambiar el motor ni su comportamiento.
-const { processIncomingMessage } = require("../contexts/receptionist");
-// Entregable 3.1 — Comunicación: la respuesta del bot pasa exclusivamente
-// por Enviar Mensaje. conversationId explícito porque este productor ya
-// conoce el hilo exacto al que responde (resuelto por processIncomingMessage).
-const { sendMessage } = require("../contexts/communication");
+const { verifyWebhookSignature, parseIncomingMessage } = require("../services/whatsapp.service");
+// Entregable 8.2 (Fase 8) — D-F1: este controlador ya no procesa el mensaje
+// inline dentro del ciclo de vida de la petición HTTP. Encola (transacción
+// corta) y responde 200 de inmediato; jobs/inbound-message.job.js reclama y
+// ejecuta el pipeline real (contexts/receptionist → whatsapp.service.js),
+// exactamente el mismo que corría aquí antes de este entregable — sin
+// duplicar ni un fragmento de su lógica.
+const { enqueueInboundJob } = require("../services/inbound-job.service");
 
 const verifyWebhook = (req, res, next) => {
   try {
@@ -30,37 +28,26 @@ const verifyWebhook = (req, res, next) => {
 
 const receiveWebhook = async (req, res, next) => {
   try {
-    const result = await processIncomingMessage(req.body);
+    // parseIncomingMessage (no processIncomingMessage) solo para obtener un
+    // wamid con el que encolar de forma idempotente — no ejecuta ningún
+    // efecto secundario. Payload sin ningún mensaje soportado: nada que
+    // encolar, mismo resultado observable que antes (200, sin procesar).
+    const parsed = parseIncomingMessage(req.body);
 
-    if (result?.processed && result?.from && result?.reply && result?.user?.id) {
-      console.log(
-        `[WhatsApp] Preparando envío a ${result.from}:`,
-        result.reply
-      );
-
-      try {
-        await sendMessage({
-          tenantId: result.user.tenantId ?? null,
-          userId: result.user.id,
-          conversationId: result.conversation?.id ?? null,
-          phone: result.from,
-          content: result.reply,
-          origin: "agente",
-        });
-      } catch (error) {
-        console.error(
-          `[WhatsApp] No se pudo enviar respuesta a ${result.from}:`,
-          error.message
-        );
-      }
-    } else if (result?.processed && result?.from && result?.reply) {
-      // Caso residual: no se pudo resolver user/conversation (p. ej. fallo en
-      // findOrCreateUser). Sin Comunicación no hay a qué conversación
-      // adjuntar el mensaje — se registra, no se envía en silencio.
-      console.error(
-        `[WhatsApp] No se pudo enviar respuesta a ${result.from}: usuario no resuelto`
-      );
+    if (!parsed) {
+      return res.sendStatus(200);
     }
+
+    // wamid ausente (no debería ocurrir con Meta real, pero un payload de
+    // prueba podría no traerlo): se sintetiza una clave con remitente+hora
+    // para no perder el mensaje, al costo de no poder deduplicar ese caso.
+    const providerEventId = parsed.wamid || `${parsed.from}:${Date.now()}`;
+
+    await enqueueInboundJob({
+      provider: "whatsapp",
+      providerEventId,
+      payload: req.body,
+    });
 
     return res.sendStatus(200);
   } catch (error) {

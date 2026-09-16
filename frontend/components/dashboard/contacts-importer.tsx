@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useRef, useState } from "react";
 import { Upload, FileText, CheckCircle2, AlertCircle, RefreshCcw, Users, PawPrint, Calendar } from "lucide-react";
@@ -192,17 +192,17 @@ export function ContactsImporter() {
       <div className="max-w-xl space-y-4">
         <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-5">
           <div className="mb-4 flex items-center gap-2">
-            <CheckCircle2 className="h-5 w-5 text-emerald-400" />
-            <p className="font-semibold text-emerald-400">Importación completada</p>
+            <CheckCircle2 className="h-5 w-5 text-emerald-700" />
+            <p className="font-semibold text-emerald-700">Importación completada</p>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {([
-              { label: "Propietarios nuevos",       value: summary.ownersCreated,  color: "text-emerald-400", icon: "👤" },
-              { label: "Propietarios actualizados", value: summary.ownersUpdated,  color: "text-sky-400",     icon: "✏️" },
-              { label: "Mascotas creadas",          value: summary.petsCreated,    color: "text-violet-400",  icon: "🐾" },
-              { label: "Visitas registradas",       value: summary.recordsCreated, color: "text-amber-400",   icon: "📅" },
+              { label: "Propietarios nuevos",       value: summary.ownersCreated,  color: "text-emerald-700", icon: "👤" },
+              { label: "Propietarios actualizados", value: summary.ownersUpdated,  color: "text-sky-700",     icon: "✏️" },
+              { label: "Mascotas creadas",          value: summary.petsCreated,    color: "text-violet-700",  icon: "🐾" },
+              { label: "Visitas registradas",       value: summary.recordsCreated, color: "text-amber-700",   icon: "📅" },
             ] as const).map(({ label, value, color, icon }) => (
-              <div key={label} className="rounded-lg border border-white/[0.06] bg-card p-3 text-center">
+              <div key={label} className="rounded-lg border border-black/[0.06] bg-card p-3 text-center">
                 <p className="text-lg">{icon}</p>
                 <p className={cn("text-2xl font-bold tabular-nums", color)}>{value}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground leading-tight">{label}</p>
@@ -210,15 +210,15 @@ export function ContactsImporter() {
             ))}
           </div>
           {summary.invalid > 0 && (
-            <p className="mt-3 text-xs text-rose-400">{summary.invalid} registros no importados</p>
+            <p className="mt-3 text-xs text-rose-700">{summary.invalid} registros no importados</p>
           )}
         </div>
 
         {summary.errors.length > 0 && (
           <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-4">
             <div className="mb-2 flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 text-rose-400" />
-              <p className="text-sm font-semibold text-rose-400">No importados</p>
+              <AlertCircle className="h-4 w-4 text-rose-700" />
+              <p className="text-sm font-semibold text-rose-700">No importados</p>
             </div>
             <ul className="space-y-1">
               {summary.errors.slice(0, 20).map((e, i) => (
@@ -249,7 +249,7 @@ export function ContactsImporter() {
 
     return (
       <div className="max-w-xl space-y-4">
-        <div className="rounded-xl border border-white/[0.06] bg-card p-4">
+        <div className="rounded-xl border border-black/[0.06] bg-card p-4">
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <FileText className="h-4 w-4 text-muted-foreground" />
@@ -260,11 +260,11 @@ export function ContactsImporter() {
 
           <div className="mb-3 flex flex-wrap gap-3">
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <PawPrint className="h-3 w-3 text-violet-400" />
+              <PawPrint className="h-3 w-3 text-violet-700" />
               {totalPets} mascotas
             </div>
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Calendar className="h-3 w-3 text-amber-400" />
+              <Calendar className="h-3 w-3 text-amber-700" />
               {withVisits} con historial de visitas
             </div>
             {withAddress > 0 && (
@@ -274,11 +274,11 @@ export function ContactsImporter() {
             )}
           </div>
 
-          <div className="max-h-64 divide-y divide-white/[0.04] overflow-y-auto rounded-lg border border-white/[0.06]">
+          <div className="max-h-64 divide-y divide-black/[0.04] overflow-y-auto rounded-lg border border-black/[0.06]">
             {contacts.slice(0, 50).map((c, i) => (
               <div key={i} className="px-3 py-2.5 text-sm">
                 <div className="flex items-center gap-2">
-                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-xs font-bold text-violet-400">
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-xs font-bold text-violet-700">
                     {(c.owner_name?.[0] ?? "#").toUpperCase()}
                   </div>
                   <span className="font-medium truncate">{c.owner_name || <span className="italic text-muted-foreground">Sin nombre</span>}</span>
@@ -287,7 +287,7 @@ export function ContactsImporter() {
                 {c.pets.length > 0 && (
                   <div className="mt-1 ml-8 flex flex-wrap gap-1">
                     {c.pets.map((p, pi) => (
-                      <span key={pi} className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-xs text-amber-400">
+                      <span key={pi} className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-xs text-amber-700">
                         🐾 {p.name}{p.breed ? ` · ${p.breed}` : ""}
                       </span>
                     ))}
@@ -331,7 +331,7 @@ export function ContactsImporter() {
           "flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-12 transition-all",
           dragOver
             ? "border-primary/60 bg-primary/5"
-            : "border-white/[0.1] hover:border-primary/40 hover:bg-accent/20"
+            : "border-black/[0.1] hover:border-primary/40 hover:bg-accent/20"
         )}
       >
         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20">
@@ -341,7 +341,7 @@ export function ContactsImporter() {
           <p className="font-medium">Arrastra el CSV de Mateos Pet aquí</p>
           <p className="mt-0.5 text-sm text-muted-foreground">o haz clic para seleccionar</p>
         </div>
-        <span className="rounded border border-white/[0.06] px-2 py-0.5 text-xs text-muted-foreground/60">
+        <span className="rounded border border-black/[0.06] px-2 py-0.5 text-xs text-muted-foreground/60">
           contactos_limpios.csv — formato unificado Outlook + Google
         </span>
       </div>
@@ -354,7 +354,7 @@ export function ContactsImporter() {
         onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
       />
 
-      <div className="rounded-xl border border-white/[0.06] bg-card p-4 space-y-3">
+      <div className="rounded-xl border border-black/[0.06] bg-card p-4 space-y-3">
         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Qué se importa</p>
         <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
           {[

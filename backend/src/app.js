@@ -20,12 +20,14 @@ const {
 const errorHandler = require("./middlewares/error.middleware");
 const { startReminderJob } = require("./jobs/reminder.job");
 const { startEventDeliveryRetryJob } = require("./jobs/event-delivery-retry.job");
+const { startInboundMessageJob } = require("./jobs/inbound-message.job");
+const { startAbandonedConversationJob } = require("./jobs/abandoned-conversation.job");
 const { router: billingRouter, webhookHandler } = require("./routes/billing.routes");
 const onboardingRoutes = require("./routes/onboarding.routes");
 
 const app = express();
 
-// Necesario para que express-rate-limit confíe en la IP real detrás de ngrok/proxy
+// Necesario para que express-rate-limit confíe en la IP real detrás de Nginx/proxy
 app.set("trust proxy", 1);
 
 const webhookRawParser = express.raw({ type: "application/json" });
@@ -85,4 +87,6 @@ app.listen(PORT, () => {
   logger.info("Servidor iniciado", { port: PORT, env: process.env.NODE_ENV || "development" });
   startReminderJob();
   startEventDeliveryRetryJob();
+  startInboundMessageJob();
+  startAbandonedConversationJob();
 });

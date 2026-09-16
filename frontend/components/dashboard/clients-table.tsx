@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
-import { Eye, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { Eye, Pencil, Plus, Search, Trash2, Users, X } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useTenant, tenantQuery } from "@/lib/use-tenant";
 
@@ -190,7 +190,7 @@ export function ClientsTable() {
             </div>
           ) : clients.length === 0 ? (
             <EmptyState
-              icon={["👋"].join("")}
+              icon={<Users className="h-7 w-7" />}
               title="No hay clientes registrados"
               description="Los clientes apareceran aqui cuando alguien escriba por WhatsApp."
               hint="El agente WhatsApp esta activo"
@@ -199,7 +199,7 @@ export function ClientsTable() {
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-muted/30 hover:bg-muted/30 border-b border-white/[0.08]">
+                  <TableRow className="bg-muted/30 hover:bg-muted/30 border-b border-black/[0.08]">
                     <TableHead className="font-semibold text-foreground/70 uppercase text-[11px] tracking-wider">Cliente</TableHead>
                     <TableHead className="font-semibold text-foreground/70 uppercase text-[11px] tracking-wider">Mascotas</TableHead>
                     <TableHead className="font-semibold text-foreground/70 uppercase text-[11px] tracking-wider">Citas</TableHead>
@@ -211,12 +211,12 @@ export function ClientsTable() {
                   {clients.map((client) => (
                     <TableRow
                       key={client.id}
-                      className="cursor-pointer transition-colors hover:bg-primary/[0.06] border-b border-white/[0.05]"
+                      className="cursor-pointer transition-colors hover:bg-primary/[0.06] border-b border-black/[0.05]"
                       onClick={() => handleOpenClient(client)}
                     >
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-sm font-semibold text-violet-400">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-sm font-semibold text-violet-700">
                             {(client.name?.trim()?.[0] ?? "#").toUpperCase()}
                           </div>
                           <div className="min-w-0">
@@ -277,7 +277,7 @@ export function ClientsTable() {
           )}
 
           {!loading && !error && totalPages > 1 && (
-            <div className="mt-4 flex items-center justify-between border-t border-white/[0.06] pt-4">
+            <div className="mt-4 flex items-center justify-between border-t border-black/[0.06] pt-4">
               <p className="text-xs text-muted-foreground">
                 {["Pagina ", page, " de ", totalPages, " · mostrando ", ((page - 1) * PAGE_SIZE) + 1, "–", Math.min(page * PAGE_SIZE, total), " de ", total.toLocaleString()].join("")}
               </p>

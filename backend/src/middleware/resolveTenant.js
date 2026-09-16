@@ -31,27 +31,43 @@
  * necesidad de modificar cada repositorio individualmente — los repos
  * conservan su comportamiento exacto; lo que cambia es si la request
  * llega a ellos con `tenantId: null` de forma deliberada o no.
+ *
+ * Fix post-auditoría de seguridad (2026-09-07, hallazgos F3/F13): el token
+ * X-Internal-Token antes solo se validaba fuera de SINGLE_TENANT_ID, y solo
+ * si INTERNAL_API_SECRET estaba configurado — dos formas de fail-open que
+ * dejaban todo /api/dashboard/* alcanzable sin credenciales (modo
+ * single-tenant, que es el modo real de producción) o confiando ciegamente
+ * en X-Super-Admin/X-Tenant-Id/X-View-All-Tenants si el secreto no estaba
+ * seteado. Ahora el token se exige siempre (salvo NODE_ENV=test), y su
+ * ausencia en el entorno se trata como error de configuración (falla
+ * cerrado, 500) en vez de abrir la puerta.
  */
 const prisma = require("../lib/prisma");
 const logger = require("../lib/logger");
 
 async function resolveTenant(req, res, next) {
-  // Single-tenant mode: always use the configured tenant
-  const singleTenantId = process.env.SINGLE_TENANT_ID;
-  if (singleTenantId) {
-    req.tenant = { isSuperAdmin: false, tenantId: singleTenantId, viewAllTenants: false };
-    return checkActiveAndContinue(req, res, next);
-  }
-
   const isTest = process.env.NODE_ENV === "test";
   const secret = process.env.INTERNAL_API_SECRET;
 
-  // In non-test mode with a secret configured, validate the token
-  if (!isTest && secret) {
+  if (!isTest) {
+    if (!secret) {
+      logger.error("[Auth] INTERNAL_API_SECRET no configurado — rechazando por seguridad (fail closed)");
+      return res.status(500).json({ error: "Server misconfigured" });
+    }
+
     const token = req.headers["x-internal-token"];
     if (!token || token !== secret) {
       return res.status(401).json({ error: "Unauthorized" });
     }
+  }
+
+  // Single-tenant mode: siempre usa el tenant configurado, pero solo tras
+  // pasar el chequeo del token — antes se evaluaba primero y se saltaba
+  // toda autenticación.
+  const singleTenantId = process.env.SINGLE_TENANT_ID;
+  if (singleTenantId) {
+    req.tenant = { isSuperAdmin: false, tenantId: singleTenantId, viewAllTenants: false };
+    return checkActiveAndContinue(req, res, next);
   }
 
   const isSuperAdmin = req.headers["x-super-admin"] === "true";

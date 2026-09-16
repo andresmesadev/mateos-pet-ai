@@ -38,11 +38,21 @@ const createPet = async ({ name, type, ownerId }) => {
   }
 
   try {
+    // Saneamiento: tenantId se deriva del dueño (mismo criterio aplicado a
+    // Conversation en conversation-persistence.service.js) — antes quedaba
+    // null, invisible para /api/dashboard/pets aunque sí contaba en
+    // User._count.pets (sin filtro de tenant) en la tabla de clientes.
+    const ownerUser = await prisma.user.findUnique({
+      where: { id: owner },
+      select: { tenantId: true },
+    });
+
     const pet = await prisma.pet.create({
       data: {
         name: petName,
         type: petType,
         ownerId: owner,
+        tenantId: ownerUser?.tenantId ?? null,
       },
     });
     console.log("[PetService] Pet created");
@@ -102,10 +112,37 @@ const updatePet = async (id, { name, breed, gender, birthDate, weight, sterilize
   });
 };
 
+/**
+ * Resuelve el nombre de mascota a guardar en una cita cuando la sesión de
+ * WhatsApp no capturó un nombre explícito (queda genérico "Mascota"): si el
+ * cliente ya tiene exactamente una mascota registrada, se usa su nombre real
+ * en vez del genérico. No adivina si tiene varias (ambigüedad real), ni
+ * cambia el flujo conversacional — solo mejora el dato guardado en la cita.
+ */
+const resolveAppointmentPetName = async (explicitName, ownerId) => {
+  const trimmed = normalizeName(explicitName);
+
+  if (trimmed) {
+    return trimmed;
+  }
+
+  try {
+    const pets = await getUserPets(ownerId);
+    if (pets.length === 1) {
+      return pets[0].name;
+    }
+  } catch (error) {
+    console.error("[PetService] resolveAppointmentPetName error:", error.message);
+  }
+
+  return "Mascota";
+};
+
 module.exports = {
   findPetByNameAndOwner,
   createPet,
   findOrCreatePet,
   getUserPets,
   updatePet,
+  resolveAppointmentPetName,
 };

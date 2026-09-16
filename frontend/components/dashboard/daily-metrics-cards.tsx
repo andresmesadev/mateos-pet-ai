@@ -1,4 +1,4 @@
-import {
+﻿import {
   CalendarDays,
   UserPlus,
   DollarSign,
@@ -27,7 +27,7 @@ function DeltaPct({ count, prev }: { count: number; prev: number }) {
   }
   const positive = pct > 0;
   return (
-    <span className={`text-xs font-medium ${positive ? "text-emerald-500" : "text-red-400"}`}>
+    <span className={`text-xs font-medium ${positive ? "text-emerald-500" : "text-red-700"}`}>
       {positive ? "↑" : "↓"} {positive ? "+" : ""}
       {pct}% vs ayer
     </span>
@@ -41,7 +41,7 @@ export function DailyMetricsCards({ metrics }: { metrics: DailyMetrics }) {
       <MetricCard
         size="sm"
         icon={CalendarDays}
-        tint="bg-teal-500/15 text-teal-400"
+        tint="bg-teal-500/15 text-teal-700"
         label="Citas de hoy"
         value={String(m.appointmentsToday.count)}
         delta={<DeltaPct count={m.appointmentsToday.count} prev={m.appointmentsToday.prev} />}
@@ -49,7 +49,7 @@ export function DailyMetricsCards({ metrics }: { metrics: DailyMetrics }) {
       <MetricCard
         size="sm"
         icon={UserPlus}
-        tint="bg-violet-500/15 text-violet-400"
+        tint="bg-violet-500/15 text-violet-700"
         label="Clientes nuevos"
         value={String(m.newClientsToday.count)}
         delta={<DeltaPct count={m.newClientsToday.count} prev={m.newClientsToday.prev} />}
@@ -57,7 +57,7 @@ export function DailyMetricsCards({ metrics }: { metrics: DailyMetrics }) {
       <MetricCard
         size="sm"
         icon={DollarSign}
-        tint="bg-amber-500/15 text-amber-400"
+        tint="bg-amber-500/15 text-amber-700"
         label="Ingresos del día"
         value={formatCOP(m.revenueToday.count)}
         delta={<DeltaPct count={m.revenueToday.count} prev={m.revenueToday.prev} />}
@@ -65,7 +65,7 @@ export function DailyMetricsCards({ metrics }: { metrics: DailyMetrics }) {
       <MetricCard
         size="sm"
         icon={PawPrint}
-        tint="bg-sky-500/15 text-sky-400"
+        tint="bg-sky-500/15 text-sky-700"
         label="Mascotas atendidas"
         value={String(m.petsAttendedToday.count)}
         delta={<DeltaPct count={m.petsAttendedToday.count} prev={m.petsAttendedToday.prev} />}
@@ -73,7 +73,7 @@ export function DailyMetricsCards({ metrics }: { metrics: DailyMetrics }) {
       <MetricCard
         size="sm"
         icon={Bell}
-        tint="bg-rose-500/15 text-rose-400"
+        tint="bg-rose-500/15 text-rose-700"
         label="Recordatorios enviados"
         value={String(m.remindersSentToday.count)}
         delta={<DeltaPct count={m.remindersSentToday.count} prev={m.remindersSentToday.prev} />}

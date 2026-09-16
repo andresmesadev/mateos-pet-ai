@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { ArrowLeft, Search } from "lucide-react";
@@ -138,7 +138,7 @@ export function AddPetToOwnerFlow({ open, onOpenChange, onCreated }: Props) {
   return (
     <>
       <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent className="flex max-h-[90vh] w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-md">
+        <DialogContent className="flex max-h-[92vh] w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-xl">
           {step === "search" && (
             <>
               <DialogHeader>
@@ -163,7 +163,7 @@ export function AddPetToOwnerFlow({ open, onOpenChange, onCreated }: Props) {
                       autoFocus
                       disabled={searching}
                     />
-                    <Button type="submit" size="icon" disabled={searching || !phoneQuery.trim()}>
+                    <Button type="submit" size="icon" disabled={searching || !phoneQuery.trim()} aria-label="Buscar">
                       <Search className="h-4 w-4" />
                     </Button>
                   </div>
@@ -202,7 +202,7 @@ export function AddPetToOwnerFlow({ open, onOpenChange, onCreated }: Props) {
               <div className="px-4 pb-6 space-y-5">
                 {/* Tarjeta del propietario */}
                 <div className="flex items-center gap-3 rounded-lg border bg-muted/30 p-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-sm font-semibold text-violet-400">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-sm font-semibold text-violet-700">
                     {(owner.name?.trim()?.[0] ?? "#").toUpperCase()}
                   </div>
                   <div className="min-w-0 flex-1">

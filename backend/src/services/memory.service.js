@@ -5,6 +5,7 @@
  */
 
 const prisma = require("../lib/prisma");
+const { assertValidStep } = require("./session-steps.service");
 
 /** @type {Record<string, object>} */
 const sessions = {};
@@ -154,6 +155,14 @@ const persistSessionToDb = async (phone, session) => {
 
 const updateSession = (phone, data) => {
   const normalizedPhone = String(phone || "").trim();
+
+  // Entregable 8.3 (D-E1): único choke point de escritura de session.step —
+  // registra (no bloquea) si algún llamador intenta escribir un valor fuera
+  // del vocabulario cerrado de STEPS. Ver session-steps.service.js.
+  if (data && typeof data === "object" && "step" in data) {
+    assertValidStep(data.step, { phone: normalizedPhone });
+  }
+
   const current = sessions[normalizedPhone] || {};
   sessions[normalizedPhone] = mergeSession(current, data);
 

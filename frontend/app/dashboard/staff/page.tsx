@@ -1,4 +1,4 @@
-import { UserCog } from "lucide-react";
+﻿import { UserCog } from "lucide-react";
 
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StaffManager } from "@/components/dashboard/staff-manager";
@@ -10,7 +10,7 @@ export default function StaffPage() {
         title="Equipo"
         description="Gestiona veterinarios, peluqueros y administrativos"
         icon={UserCog}
-        tint="bg-sky-500/15 text-sky-400"
+        tint="bg-sky-500/15 text-sky-700"
       />
       <StaffManager />
     </div>
