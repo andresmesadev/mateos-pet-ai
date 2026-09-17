@@ -20,15 +20,16 @@ function resolveTenantId(req) {
 // (comportamiento legado), pero es mejor rechazarla aquí que dejarla
 // silenciosamente inerte.
 const BUSINESS_HOURS_DAY_KEYS = new Set(["mon", "tue", "wed", "thu", "fri", "sat", "sun"]);
+const BUSINESS_HOURS_SERVICE_KEYS = new Set(["vet", "grooming"]);
 const HH_MM_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-function validateBusinessHours(businessHours) {
-  if (typeof businessHours !== "object" || businessHours === null || Array.isArray(businessHours)) {
-    return "businessHours debe ser un objeto";
+function validateHoursByDay(hours, label) {
+  if (typeof hours !== "object" || hours === null || Array.isArray(hours)) {
+    return `${label} debe ser un objeto`;
   }
-  for (const [day, entry] of Object.entries(businessHours)) {
+  for (const [day, entry] of Object.entries(hours)) {
     if (!BUSINESS_HOURS_DAY_KEYS.has(day)) {
-      return `Día no reconocido en businessHours: "${day}"`;
+      return `Día no reconocido en ${label}: "${day}"`;
     }
     if (typeof entry !== "object" || entry === null) {
       return `La configuración de "${day}" debe ser un objeto`;
@@ -47,6 +48,29 @@ function validateBusinessHours(businessHours) {
         return "La hora de apertura debe ser anterior a la hora de cierre";
       }
     }
+  }
+  return null;
+}
+
+function validateBusinessHours(businessHours) {
+  if (typeof businessHours !== "object" || businessHours === null || Array.isArray(businessHours)) {
+    return "businessHours debe ser un objeto";
+  }
+
+  const { services, ...generalHours } = businessHours;
+  const generalError = validateHoursByDay(generalHours, "businessHours");
+  if (generalError) return generalError;
+
+  if (services === undefined) return null;
+  if (typeof services !== "object" || services === null || Array.isArray(services)) {
+    return "businessHours.services debe ser un objeto";
+  }
+  for (const [serviceType, hours] of Object.entries(services)) {
+    if (!BUSINESS_HOURS_SERVICE_KEYS.has(serviceType)) {
+      return `Servicio no reconocido en businessHours.services: "${serviceType}"`;
+    }
+    const serviceError = validateHoursByDay(hours, `businessHours.services.${serviceType}`);
+    if (serviceError) return serviceError;
   }
   return null;
 }

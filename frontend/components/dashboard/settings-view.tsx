@@ -11,11 +11,11 @@ import { Input } from "@/components/ui/input";
 import { proxyUrl } from "@/lib/api";
 import { useToast } from "@/components/ui/toast";
 import { formatCOP } from "@/lib/transactions";
-import { type TenantProfile, type ServiceRow } from "@/app/dashboard/settings/page";
+import { type BusinessHourDay, type BusinessHours, type DayHours, type TenantProfile, type ServiceRow } from "@/app/dashboard/settings/page";
 
 // ── Constants ─────────────────────────────────────────────────
 
-const DAYS = [
+const DAYS: Array<{ key: BusinessHourDay; label: string }> = [
   { key: "mon", label: "Lunes" },
   { key: "tue", label: "Martes" },
   { key: "wed", label: "Miércoles" },
@@ -296,30 +296,75 @@ export function LocationServicesSection({ profile, services: initial }: { profil
 
 // ── 3. Agenda y disponibilidad ─────────────────────────────────
 
-type BusinessHours = Record<string, { open: string; close: string; active: boolean }>;
+type HoursByDay = Record<BusinessHourDay, DayHours>;
+type ServiceHours = Record<"vet" | "grooming", HoursByDay>;
+
+function buildHours(source?: Partial<Record<BusinessHourDay, DayHours>> | null, fallback?: HoursByDay): HoursByDay {
+  const base = {} as HoursByDay;
+  for (const { key } of DAYS) {
+    base[key] = source?.[key] ?? fallback?.[key] ?? { ...DEFAULT_HOURS };
+  }
+  return base;
+}
+
+function HoursEditor({
+  hours,
+  onChange,
+}: {
+  hours: HoursByDay;
+  onChange: (key: BusinessHourDay, field: keyof DayHours, value: string | boolean) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      {DAYS.map(({ key, label }) => {
+        const day = hours[key];
+        return (
+          <div key={key} className="grid grid-cols-[110px_1fr_1fr_60px] gap-2 items-center">
+            <div className="flex items-center gap-2">
+              <input type="checkbox" checked={day.active} onChange={(e) => onChange(key, "active", e.target.checked)} className="h-4 w-4 rounded border-input" />
+              <span className={`text-sm ${day.active ? "font-medium" : "text-muted-foreground"}`}>{label}</span>
+            </div>
+            <Input type="time" value={day.open} disabled={!day.active} onChange={(e) => onChange(key, "open", e.target.value)} className="text-sm disabled:opacity-40" />
+            <Input type="time" value={day.close} disabled={!day.active} onChange={(e) => onChange(key, "close", e.target.value)} className="text-sm disabled:opacity-40" />
+            <span className="text-xs text-muted-foreground">{day.active ? "–" : "Cerrado"}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export function ScheduleSection({ profile }: { profile: TenantProfile | null }) {
   const router = useRouter();
   const { toast } = useToast();
   const tenant = useTenant();
 
-  const [hours, setHours] = useState<BusinessHours>(() => {
-    const base: BusinessHours = {};
-    for (const { key } of DAYS) {
-      base[key] = profile?.businessHours?.[key] ?? { ...DEFAULT_HOURS };
-    }
-    return base;
+  const [hours, setHours] = useState<HoursByDay>(() => buildHours(profile?.businessHours));
+  const [serviceHours, setServiceHours] = useState<ServiceHours>(() => {
+    const general = buildHours(profile?.businessHours);
+    return {
+      vet: buildHours(profile?.businessHours?.services?.vet, general),
+      grooming: buildHours(profile?.businessHours?.services?.grooming, general),
+    };
   });
   const [saving, setSaving] = useState(false);
 
-  function setDay(key: string, field: "open" | "close" | "active", value: string | boolean) {
+  function setDay(key: BusinessHourDay, field: keyof DayHours, value: string | boolean) {
     setHours((prev) => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
+  }
+
+  function setServiceDay(service: keyof ServiceHours, key: BusinessHourDay, field: keyof DayHours, value: string | boolean) {
+    setServiceHours((prev) => ({
+      ...prev,
+      [service]: { ...prev[service], [key]: { ...prev[service][key], [field]: value } },
+    }));
   }
 
   async function handleSave() {
     setSaving(true);
     try {
-      const res = await saveTenantProfile(tenant, { businessHours: hours });
+      const businessHours: BusinessHours = { ...hours, services: serviceHours };
+      const res = await saveTenantProfile(tenant, { businessHours });
       if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? "Error");
       toast("Horarios guardados.", "success");
       router.refresh();
@@ -331,25 +376,27 @@ export function ScheduleSection({ profile }: { profile: TenantProfile | null }) 
   return (
     <div className="space-y-6 max-w-xl">
       <Card className="border border-black/[0.10] border-t-2 border-t-slate-400/50">
-        <CardHeader className="pb-3 border-b border-black/[0.06]"><CardTitle className="text-sm">Horarios de atención</CardTitle></CardHeader>
+        <CardHeader className="pb-3 border-b border-black/[0.06]">
+          <CardTitle className="text-sm">Horario general</CardTitle>
+          <p className="text-xs text-muted-foreground">Es el horario base del establecimiento y del calendario administrativo.</p>
+        </CardHeader>
         <CardContent>
-          <div className="space-y-2">
-            {DAYS.map(({ key, label }) => {
-              const day = hours[key];
-              return (
-                <div key={key} className="grid grid-cols-[110px_1fr_1fr_60px] gap-2 items-center">
-                  <div className="flex items-center gap-2">
-                    <input type="checkbox" checked={day.active} onChange={(e) => setDay(key, "active", e.target.checked)} className="h-4 w-4 rounded border-input" />
-                    <span className={`text-sm ${day.active ? "font-medium" : "text-muted-foreground"}`}>{label}</span>
-                  </div>
-                  <Input type="time" value={day.open} disabled={!day.active} onChange={(e) => setDay(key, "open", e.target.value)} className="text-sm disabled:opacity-40" />
-                  <Input type="time" value={day.close} disabled={!day.active} onChange={(e) => setDay(key, "close", e.target.value)} className="text-sm disabled:opacity-40" />
-                  <span className="text-xs text-muted-foreground">{day.active ? "–" : "Cerrado"}</span>
-                </div>
-              );
-            })}
-          </div>
+          <HoursEditor hours={hours} onChange={setDay} />
         </CardContent>
+      </Card>
+      <Card className="border border-black/[0.10] border-t-2 border-t-teal-400/50">
+        <CardHeader className="pb-3 border-b border-black/[0.06]">
+          <CardTitle className="text-sm">Horario de veterinaria</CardTitle>
+          <p className="text-xs text-muted-foreground">Define los días y horas en los que el agente puede ofrecer consultas veterinarias.</p>
+        </CardHeader>
+        <CardContent><HoursEditor hours={serviceHours.vet} onChange={(key, field, value) => setServiceDay("vet", key, field, value)} /></CardContent>
+      </Card>
+      <Card className="border border-black/[0.10] border-t-2 border-t-pink-400/50">
+        <CardHeader className="pb-3 border-b border-black/[0.06]">
+          <CardTitle className="text-sm">Horario de peluquería</CardTitle>
+          <p className="text-xs text-muted-foreground">Define los días y horas de los turnos de peluquería; se conserva el orden consecutivo de la agenda.</p>
+        </CardHeader>
+        <CardContent><HoursEditor hours={serviceHours.grooming} onChange={(key, field, value) => setServiceDay("grooming", key, field, value)} /></CardContent>
       </Card>
       <Button onClick={handleSave} disabled={saving}>{saving ? "Guardando…" : "Guardar horarios"}</Button>
     </div>

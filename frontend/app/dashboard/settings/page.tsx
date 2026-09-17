@@ -5,6 +5,13 @@ import { apiUrl, makeServerHeaders } from "@/lib/api";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { SettingsTabs } from "@/components/dashboard/settings-tabs";
 
+export type DayHours = { open: string; close: string; active: boolean };
+export type BusinessHourDay = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+
+export type BusinessHours = Partial<Record<BusinessHourDay, DayHours>> & {
+  services?: Partial<Record<"vet" | "grooming", Partial<Record<BusinessHourDay, DayHours>>>>;
+};
+
 export type TenantProfile = {
   id: string;
   name: string;
@@ -14,7 +21,7 @@ export type TenantProfile = {
   description: string | null;
   address: string | null;
   logoUrl: string | null;
-  businessHours: Record<string, { open: string; close: string; active: boolean }> | null;
+  businessHours: BusinessHours | null;
   plan: string;
 };
 

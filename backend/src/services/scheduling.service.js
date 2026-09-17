@@ -394,7 +394,7 @@ const resolveVetScheduling = async ({
     console.error("[scheduling] Fallo leyendo configuración del establecimiento, se usa comportamiento legado:", error.message);
   }
 
-  if (!isBusinessDay(dateKey, businessHours)) {
+  if (!isBusinessDay(dateKey, businessHours, SERVICE_TYPES.VET)) {
     console.log("[scheduling] CASO 3: día no hábil", dateKey);
     return {
       reply: "Ese día no tenemos atención 😔 ¿Qué otro día te queda bien?",
@@ -518,7 +518,7 @@ const resolveGroomingScheduling = async ({
     console.error("[scheduling] Fallo leyendo configuración del establecimiento, se usa comportamiento legado:", error.message);
   }
 
-  if (!isBusinessDay(dateKey, businessHours)) {
+  if (!isBusinessDay(dateKey, businessHours, SERVICE_TYPES.GROOMING)) {
     return {
       reply:
         "Ese día no tenemos atención 😔\n¿Deseas otro horario?",

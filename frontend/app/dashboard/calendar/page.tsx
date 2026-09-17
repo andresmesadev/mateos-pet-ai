@@ -18,7 +18,12 @@ type PageProps = {
   searchParams: Promise<{ date?: string; tenant?: string }>;
 };
 
-type BusinessHours = Record<string, { open: string; close: string; active: boolean }>;
+type DayHours = { open: string; close: string; active: boolean };
+type DayKey = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+type BusinessHours = Partial<Record<DayKey, DayHours>> & {
+  services?: Partial<Record<"vet" | "grooming", Partial<Record<DayKey, DayHours>>>>;
+};
+const DAY_KEYS: DayKey[] = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 
 function parseHour(t: string): number {
   const [h, m] = t.split(":").map(Number);
@@ -27,7 +32,7 @@ function parseHour(t: string): number {
 
 function resolveRange(bh: BusinessHours | null): { hourStart: number; hourEnd: number } {
   if (!bh) return { hourStart: 7, hourEnd: 20 };
-  const active = Object.values(bh).filter((d) => d.active);
+  const active = DAY_KEYS.map((key) => bh[key]).filter((d): d is DayHours => Boolean(d?.active));
   if (!active.length) return { hourStart: 7, hourEnd: 20 };
   const opens = active.map((d) => parseHour(d.open));
   const closes = active.map((d) => parseHour(d.close));

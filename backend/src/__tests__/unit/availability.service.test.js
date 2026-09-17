@@ -113,3 +113,37 @@ describe("isWithinBusinessHours — con configuración real del establecimiento 
     expect(isWithinBusinessHours(SERVICE_TYPES.VET, 15, "2026-01-08", businessHours)).toBe(true); // jueves, sin entrada "thu" -> legado
   });
 });
+
+describe("horarios por servicio (ADR 012)", () => {
+  const businessHours = {
+    thu: { open: "08:00", close: "18:00", active: true },
+    sun: { open: "08:00", close: "18:00", active: false },
+    services: {
+      vet: {
+        thu: { open: "09:00", close: "15:00", active: true },
+        sun: { open: "09:00", close: "13:00", active: true },
+      },
+      grooming: {
+        thu: { open: "12:00", close: "16:00", active: true },
+        sun: { open: "08:00", close: "18:00", active: false },
+      },
+    },
+  };
+
+  test("cada agenda usa su propia ventana y no el horario general", () => {
+    expect(isWithinBusinessHours(SERVICE_TYPES.VET, 10, "2026-01-08", businessHours)).toBe(true);
+    expect(isWithinBusinessHours(SERVICE_TYPES.GROOMING, 10, "2026-01-08", businessHours)).toBe(false);
+    expect(isWithinBusinessHours(SERVICE_TYPES.GROOMING, 15, "2026-01-08", businessHours)).toBe(true);
+  });
+
+  test("un servicio puede abrir un día en que otro servicio permanece cerrado", () => {
+    expect(isBusinessDay("2026-01-11", businessHours, SERVICE_TYPES.VET)).toBe(true);
+    expect(isBusinessDay("2026-01-11", businessHours, SERVICE_TYPES.GROOMING)).toBe(false);
+  });
+
+  test("un servicio sin entrada para un día conserva el horario general", () => {
+    const partial = { thu: { open: "08:00", close: "12:00", active: true }, services: { vet: {} } };
+    expect(isWithinBusinessHours(SERVICE_TYPES.VET, 9, "2026-01-08", partial)).toBe(true);
+    expect(isWithinBusinessHours(SERVICE_TYPES.VET, 13, "2026-01-08", partial)).toBe(false);
+  });
+});

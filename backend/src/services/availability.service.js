@@ -5,11 +5,10 @@
  * Entregable 6.2 (Fase 6) — Agenda Multi-Establecimiento: Reconciliación
  * Arquitectónica puntual. El algoritmo no cambia — únicamente su fuente de
  * configuración. Si el establecimiento (`Tenant.businessHours`) tiene
- * configuración real para el día evaluado, esa configuración es la única
- * fuente de verdad para ese día. Si no la tiene (tenant sin configurar, día
- * sin entrada, o entrada malformada), el comportamiento es exactamente el
- * legado de siempre (constantes fijas por tipo de servicio, definidas más
- * abajo) — invariante verificado por `__tests__/unit/availability.service.test.js`.
+ * configuración real para el día evaluado, esa configuración es la fuente de
+ * verdad. Cada agenda puede sobrescribirla en `businessHours.services`; si no
+ * hay una entrada válida, el comportamiento cae al horario general y después
+ * al legado (constantes fijas por tipo de servicio).
  */
 
 const {
@@ -55,11 +54,13 @@ const parseHourFromTimeString = (value) => {
  * aplicar el comportamiento legado, nunca asumir un valor aquí.
  * @param {string} dateKey
  * @param {object|null|undefined} businessHours `Tenant.businessHours`
+ * @param {string|undefined} serviceType agenda que se está evaluando
  */
-const resolveDayConfig = (dateKey, businessHours) => {
+const resolveDayConfig = (dateKey, businessHours, serviceType) => {
   if (!businessHours || typeof businessHours !== "object") return null;
   const dayKey = DAY_KEYS[getDayOfWeekFromKey(dateKey)];
-  const entry = businessHours[dayKey];
+  const serviceEntry = businessHours.services?.[serviceType]?.[dayKey];
+  const entry = serviceEntry ?? businessHours[dayKey];
   if (!entry || typeof entry !== "object" || typeof entry.active !== "boolean") {
     return null;
   }
@@ -81,7 +82,7 @@ const resolveDayConfig = (dateKey, businessHours) => {
  * @returns {{ active: boolean, startHour: number|null, endHourExclusive: number|null }}
  */
 const resolveHourWindow = (serviceType, dateKey, businessHours) => {
-  const dayConfig = dateKey ? resolveDayConfig(dateKey, businessHours) : null;
+  const dayConfig = dateKey ? resolveDayConfig(dateKey, businessHours, serviceType) : null;
   if (dayConfig) {
     return {
       active: dayConfig.active,
@@ -108,7 +109,7 @@ const resolveHourWindow = (serviceType, dateKey, businessHours) => {
  * @param {object|null|undefined} [businessHours] `Tenant.businessHours`
  * @returns {boolean}
  */
-const isBusinessDay = (date, businessHours) => {
+const isBusinessDay = (date, businessHours, serviceType) => {
   const key = toDateKey(date);
   if (!key) {
     console.log("[availability] isBusinessDay: fecha inválida → false");
@@ -123,7 +124,7 @@ const isBusinessDay = (date, businessHours) => {
     return false;
   }
 
-  const dayConfig = resolveDayConfig(key, businessHours);
+  const dayConfig = resolveDayConfig(key, businessHours, serviceType);
   if (dayConfig) {
     console.log(`[availability] isBusinessDay ${key}: configuración del establecimiento → ${dayConfig.active}`);
     return dayConfig.active;

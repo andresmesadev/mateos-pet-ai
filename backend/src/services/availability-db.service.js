@@ -164,7 +164,7 @@ const isSlotAvailableWithConfig = async ({ dateKey, hour, serviceType, businessH
   }
 
   try {
-    if (!isBusinessDay(key, businessHours)) {
+    if (!isBusinessDay(key, businessHours, type)) {
       console.log("[AvailabilityDB] Slot occupied (non-business day):", key);
       return false;
     }
@@ -244,7 +244,7 @@ const findNextAvailableGroomingSlot = async (options = {}) => {
 
   try {
     for (let day = 0; day < MAX_GROOMING_SEARCH_DAYS; day += 1) {
-      if (!isBusinessDay(cursor, businessHours)) {
+      if (!isBusinessDay(cursor, businessHours, SERVICE_TYPES.GROOMING)) {
         cursor = addOneDay(cursor);
         continue;
       }
@@ -310,10 +310,10 @@ const suggestAvailableVetSlots = async ({
   }
 
   try {
-    if (!key || !isBusinessDay(key, businessHours)) {
+    if (!key || !isBusinessDay(key, businessHours, SERVICE_TYPES.VET)) {
       let cursor = key || toDateKey(new Date());
       for (let i = 0; i < 14; i += 1) {
-        if (isBusinessDay(cursor, businessHours)) {
+        if (isBusinessDay(cursor, businessHours, SERVICE_TYPES.VET)) {
           key = cursor;
           break;
         }
