@@ -14,6 +14,7 @@ const sessions = {};
 const phoneContext = {};
 
 const SESSION_DATA_FIELDS = [
+  "client_name",
   "pet_name",
   "pet_type",
   "requested_service",

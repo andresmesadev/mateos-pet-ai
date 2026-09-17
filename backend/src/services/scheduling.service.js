@@ -331,6 +331,29 @@ const parseTimeToHour = (timeText) => {
   return h;
 };
 
+/**
+ * Extrae únicamente fecha/hora que el cliente escribió en este turno. Evita
+ * que una fecha u hora guardada en sesión prevalezca sobre una instrucción
+ * nueva, como "sábado a las 4 pm".
+ */
+const extractExplicitSchedulingTerms = (text, referenceDate = new Date()) => {
+  const raw = typeof text === "string" ? text.trim() : "";
+  const normalized = normalizeText(raw);
+  if (!raw || !normalized) return { dateText: null, timeText: null };
+
+  const hasDate = /\b(hoy|manana|lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b/.test(normalized) ||
+    /\b\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?\b/.test(normalized) ||
+    /\b\d{1,2}\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\b/.test(normalized) ||
+    /\b\d{4}-\d{2}-\d{2}\b/.test(normalized);
+  const hasTime = /\b\d{1,2}(?::\d{2})?\s*(a\.?m\.?|p\.?m\.?)\b/.test(normalized) ||
+    /\ba\s+las\s+\d{1,2}(?::\d{2})?\b/.test(normalized);
+
+  return {
+    dateText: hasDate && parseDateToKey(raw, referenceDate) ? raw : null,
+    timeText: hasTime && parseTimeToHour(raw) !== null ? raw : null,
+  };
+};
+
 const isVetLikeService = (service) =>
   service === "veterinary_consultation" ||
   service === "medication" ||
@@ -545,6 +568,7 @@ module.exports = {
   resolveGroomingNextSlotMessage,
   parseDateToKey,
   parseTimeToHour,
+  extractExplicitSchedulingTerms,
   formatHourAmPm,
   formatRelativeDayLabel,
 };

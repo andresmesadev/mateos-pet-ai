@@ -287,6 +287,7 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
   const userMessage = options.userMessage || "";
   const userId = options.userId;
   const tenantId = options.tenantId;
+  const needsClientName = Boolean(options.needsClientName);
   const currentStep = session.step ?? analysis?.step;
 
   if (!analysis || typeof analysis !== "object") {
@@ -311,6 +312,35 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
   if (detectQueryAppointmentsIntent(userMessage, intent)) return handleQueryAppointments(userId);
   if (detectQueryMedicalHistoryIntent(userMessage, intent)) {
     return handleQueryMedicalHistory(userId, session, analysis, userMessage);
+  }
+
+  // ── 1b. Identificación inicial del cliente ────────────────────────────────────
+  // El teléfono identifica la conversación, pero no reemplaza el nombre de la
+  // persona. Este paso se ejecuta antes de pedir datos de la mascota.
+  if (currentStep === STEPS.AWAITING_CLIENT_NAME) {
+    if (isMissing(analysis.client_name)) {
+      return {
+        reply: "Antes de continuar, ¿con quién tengo el gusto? 😊",
+        step: STEPS.AWAITING_CLIENT_NAME,
+        sessionPatch: {},
+        forceRuleReply: true,
+      };
+    }
+    return {
+      reply: `¡Mucho gusto, ${analysis.client_name}! 🐾 ¿En qué te podemos colaborar?`,
+      step: null,
+      sessionPatch: { client_name: analysis.client_name },
+      forceRuleReply: true,
+    };
+  }
+
+  if (needsClientName) {
+    return {
+      reply: "¡Hola! Soy Lina de Mateos Pet 🐾 ¿Con quién tengo el gusto?",
+      step: STEPS.AWAITING_CLIENT_NAME,
+      sessionPatch: {},
+      forceRuleReply: true,
+    };
   }
 
   // ── 2. Saludo (siempre reinicia, sin importar el estado anterior) ────────────
@@ -502,7 +532,38 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
     // ── Grooming ─────────────────────────────────────────────────────────────────
     if (service === "bath_grooming") {
       const groomSvc = parseGroomingService(userMessage) || session.grooming_service;
-      const slotResult = await offerNextGroomingSlot(petName, now, tenantId);
+      const requestedTerms = scheduling.extractExplicitSchedulingTerms(userMessage, now);
+      let slotResult;
+
+      // Peluquería se asigna por orden de agenda. Una fecha y hora propuestas
+      // solo se aceptan si coinciden con el siguiente turno consecutivo; si
+      // no, se explica la regla y se conserva la propuesta real del sistema.
+      if (requestedTerms.dateText && requestedTerms.timeText) {
+        const requested = await scheduling.resolveGroomingScheduling({
+          dateText: requestedTerms.dateText,
+          timeText: requestedTerms.timeText,
+          referenceDate: now,
+          awaitingStepConstant: STEPS.AWAITING_GROOMING_SLOT_CONFIRM,
+          confirmationStepConstant: STEPS.AWAITING_GROOMING_SLOT_CONFIRM,
+          tenantId,
+        });
+
+        if (requested?.sessionPatch) {
+          slotResult = {
+            ...requested,
+            reply: `${requested.reply.replace(/¿Confirmamos la cita\?$/i, "").trim()} ¿Te queda bien ese turno?`,
+          };
+        } else {
+          const nextSlot = await offerNextGroomingSlot(petName, now, tenantId);
+          slotResult = {
+            ...nextSlot,
+            reply: `Para peluquería asignamos los turnos en el orden disponible 🐾 ${requested?.reply || "No podemos reservar esa hora."}\n\n${nextSlot.reply}`,
+          };
+        }
+      } else {
+        slotResult = await offerNextGroomingSlot(petName, now, tenantId);
+      }
+
       if (groomSvc && slotResult.sessionPatch) {
         slotResult.sessionPatch.grooming_service = groomSvc;
       }

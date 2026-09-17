@@ -15,6 +15,30 @@ jest.mock("../../services/domain/medical-auto-capture.service", () => ({
 const { generateReply, STEPS } = require("../../services/conversation.service");
 
 describe("generateReply — flujo completado", () => {
+  test("cliente nuevo: solicita el nombre antes de pedir datos de mascota", async () => {
+    const result = await generateReply({
+      analysis: { intent: "greeting" },
+      session: {},
+      semanticContext: "",
+      userMessage: "Hola",
+    }, { needsClientName: true });
+
+    expect(result.step).toBe(STEPS.AWAITING_CLIENT_NAME);
+    expect(result.reply).toMatch(/quién tengo el gusto/i);
+  });
+
+  test("guarda el nombre capturado y continúa", async () => {
+    const result = await generateReply({
+      analysis: { intent: "other", client_name: "Andrés" },
+      session: { step: STEPS.AWAITING_CLIENT_NAME },
+      semanticContext: "",
+      userMessage: "Andrés",
+    });
+
+    expect(result.step).toBeNull();
+    expect(result.sessionPatch.client_name).toBe("Andrés");
+  });
+
   test("tras COMPLETED, un mensaje de agradecimiento saluda de nuevo sin reofrecer un slot", async () => {
     const session = {
       step: STEPS.COMPLETED,

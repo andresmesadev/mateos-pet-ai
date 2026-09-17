@@ -15,6 +15,7 @@
 // reminder.service.js importan de aquí, ninguno del otro. Rompe el ciclo
 // de raíz en vez de solo evitarlo por orden de carga.
 const STEPS = {
+  AWAITING_CLIENT_NAME: "awaiting_client_name",
   AWAITING_PET_NAME: "awaiting_pet_name",
   AWAITING_PET_TYPE: "awaiting_pet_type",
   AWAITING_GROOMING_SLOT_CONFIRM: "awaiting_grooming_slot_confirm",
@@ -30,6 +31,7 @@ const STEPS = {
 };
 
 const BOOKING_STEPS = new Set([
+  STEPS.AWAITING_CLIENT_NAME,
   STEPS.AWAITING_PET_NAME,
   STEPS.AWAITING_PET_TYPE,
   STEPS.AWAITING_GROOMING_SLOT_CONFIRM,

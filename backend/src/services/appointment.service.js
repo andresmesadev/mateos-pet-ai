@@ -1,6 +1,6 @@
 const prisma = require("../lib/prisma");
 const logger = require("../lib/logger");
-const { findPetByNameAndOwner } = require("./pet.service");
+const { findPetByNameAndOwner, findOrCreatePet } = require("./pet.service");
 const {
   createCalendarEvent,
   cancelCalendarEvent,
@@ -289,6 +289,18 @@ const createAppointment = async (data) => {
         "[AppointmentService] Pet lookup skipped:",
         lookupError.message
       );
+    }
+
+    // La mascota se materializa solo al confirmar una cita válida. Antes se
+    // creaba durante la extracción del LLM y podía quedar un registro falso
+    // si el cliente abandonaba o corregía la conversación.
+    if (!petId && typeof findOrCreatePet === "function") {
+      const pet = await findOrCreatePet({
+        name: trimmedPetName,
+        type: trimmedPetType,
+        ownerId: String(userId),
+      });
+      petId = pet.id;
     }
 
     const appointmentData = {

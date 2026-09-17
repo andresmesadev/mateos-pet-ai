@@ -9,7 +9,7 @@ const {
 const { getSession, updateSession } = require("./memory.service");
 const scheduling = require("./scheduling.service");
 const { findOrCreateUser, updateUserNameIfMissing } = require("./user.service");
-const { findOrCreatePet, findPetByNameAndOwner, resolveAppointmentPetName } = require("./pet.service");
+const { findPetByNameAndOwner, resolveAppointmentPetName } = require("./pet.service");
 const {
   buildAppointmentDateTime,
   mapSessionServiceType,
@@ -73,6 +73,11 @@ const isEmptyValue = (value) => {
   }
 
   return false;
+};
+
+const isPlausibleClientName = (value) => {
+  const name = typeof value === "string" ? value.trim() : "";
+  return /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ][A-Za-zÁÉÍÓÚÜÑáéíóúüñ' -]{1,59}$/.test(name);
 };
 
 const mergeSessionData = (previous, current) => {
@@ -745,39 +750,50 @@ const processSingleIncomingMessage = async (parsed) => {
     logger.error("[WhatsApp] Error al analizar mensaje:", error.message);
   }
 
+  // Cuando el wizard pidió expresamente el nombre de la persona, una respuesta
+  // breve y válida se interpreta de forma determinista. No dependemos de que
+  // el LLM adivine que "Andrés" no es el nombre de una mascota.
+  if (
+    previous.step === STEPS.AWAITING_CLIENT_NAME &&
+    isEmptyValue(analysis?.client_name) &&
+    isPlausibleClientName(parsed.text)
+  ) {
+    analysis = { ...(analysis || {}), client_name: parsed.text.trim() };
+  }
+
+  const explicitTerms = typeof scheduling.extractExplicitSchedulingTerms === "function"
+    ? scheduling.extractExplicitSchedulingTerms(parsed.text, new Date())
+    : { dateText: null, timeText: null };
+  if (explicitTerms.dateText || explicitTerms.timeText) {
+    analysis = {
+      ...(analysis || {}),
+      // El parser de dominio volverá a interpretar el texto completo. Esto da
+      // prioridad al dato recién escrito frente a la sesión o una extracción
+      // parcial del modelo.
+      ...(explicitTerms.dateText ? { date: explicitTerms.dateText } : {}),
+      ...(explicitTerms.timeText ? { time: explicitTerms.timeText } : {}),
+    };
+  }
+
   logger.info("AI Analysis:", analysis);
 
   const mergedAnalysis = mergeSessionData(previous, analysis);
+  // Se conserva en la respuesta interna por compatibilidad; la mascota se
+  // persiste durante la confirmación de la cita, no durante la extracción.
+  const pet = null;
 
   // Captura pasiva del nombre del cliente (nunca sobrescribe uno existente)
   // — mismo criterio aditivo que la captura de mascota, sin alterar el flujo.
   if (user && !isEmptyValue(mergedAnalysis?.client_name)) {
-    updateUserNameIfMissing(user.id, mergedAnalysis.client_name).catch((error) =>
-      logger.error("[WhatsApp] Error al capturar nombre del cliente:", error.message)
-    );
-  }
-
-  let pet = null;
-  if (
-    user &&
-    !isEmptyValue(mergedAnalysis?.pet_name) &&
-    !isEmptyValue(mergedAnalysis?.pet_type)
-  ) {
     try {
-      pet = await findOrCreatePet({
-        name: mergedAnalysis.pet_name,
-        type: mergedAnalysis.pet_type,
-        ownerId: user.id,
-      });
-      logger.info(
-        `[WhatsApp] Pet loaded: ${pet.id} (${pet.name}, ${pet.type})`
-      );
+      const captured = await updateUserNameIfMissing(user.id, mergedAnalysis.client_name);
+      if (captured) user = captured;
     } catch (error) {
-      logger.error("[WhatsApp] Error loading pet:", error.message);
+      logger.error("[WhatsApp] Error al capturar nombre del cliente:", error.message);
     }
   }
 
-  const result = await generateReply(
+  let result = await generateReply(
     {
       analysis: mergedAnalysis,
       session: previous,
@@ -792,18 +808,38 @@ const processSingleIncomingMessage = async (parsed) => {
       // Entregable 6.2 (Fase 6) — transporta el tenantId ya disponible en
       // `user` hasta el motor de disponibilidad (Tenant.businessHours real).
       tenantId: user?.tenantId ?? null,
+      needsClientName: Boolean(user && !user.name),
     }
   );
 
   // Grooming: la cita se crea al confirmar domicilio (no por awaiting_confirmation)
   if (result.createGroomingAppointment && user) {
     const sessionForAppt = { ...previous, ...(result.sessionPatch || {}) };
-    const dateKey = previous.scheduling_date_key;
-    const hour = previous.scheduling_hour;
+    const dateKey = sessionForAppt.scheduling_date_key;
+    const hour = sessionForAppt.scheduling_hour;
     if (dateKey != null && hour != null) {
       try {
-        const serviceType = previous.grooming_service || "grooming";
+        const serviceType = sessionForAppt.grooming_service || "grooming";
         const appointmentDate = buildAppointmentDateTime(dateKey, Number(hour));
+        const hasConflict = await checkAppointmentConflict({
+          date: appointmentDate,
+          serviceType,
+          dateKey,
+          hour,
+          tenantId: user.tenantId || null,
+        });
+        if (hasConflict) {
+          result = {
+            ...result,
+            reply: "Ese turno acaba de ser ocupado 😔 Te propongo el siguiente disponible.",
+            step: STEPS.AWAITING_GROOMING_SLOT_CONFIRM,
+            sessionPatch: {
+              scheduling_date_key: undefined,
+              scheduling_hour: undefined,
+            },
+          };
+          throw new Error("Grooming slot no longer available");
+        }
         await createAppointment({
           userId: user.id,
           tenantId: user.tenantId || null,
@@ -813,15 +849,35 @@ const processSingleIncomingMessage = async (parsed) => {
           date: appointmentDate,
           status: "confirmed",
           address: sessionForAppt.domicilio_address || null,
-          groomingBreed: previous.grooming_breed || null,
-          groomingSize: previous.grooming_size || null,
+          groomingBreed: sessionForAppt.grooming_breed || null,
+          groomingSize: sessionForAppt.grooming_size || null,
         });
         logger.info(`[WhatsApp] Grooming appointment created: ${dateKey} ${hour}h ${serviceType}`);
+        result = {
+          ...result,
+          reply: `¡Listo! Tu cita de peluquería quedó agendada ${formatSlotForUser(dateKey, Number(hour))} 🐾 ¡Te esperamos en Mateos Pet!`,
+          step: STEPS.COMPLETED,
+          sessionPatch: { ...(result.sessionPatch || {}) },
+        };
       } catch (error) {
         logger.error("[WhatsApp] Error creating grooming appointment:", error.message);
+        if (error.message !== "Grooming slot no longer available") {
+          result = {
+            ...result,
+            reply: "No pudimos confirmar la cita todavía 😔 No se guardó ninguna reserva. ¿Intentamos de nuevo?",
+            step: STEPS.AWAITING_GROOMING_SLOT_CONFIRM,
+            sessionPatch: {},
+          };
+        }
       }
     } else {
       logger.warn("[WhatsApp] Grooming appointment skipped — missing scheduling_date_key or hour");
+      result = {
+        ...result,
+        reply: "No pude confirmar el horario de peluquería 😔 ¿Te propongo el siguiente turno disponible?",
+        step: STEPS.AWAITING_GROOMING_SLOT_CONFIRM,
+        sessionPatch: {},
+      };
     }
   }
 

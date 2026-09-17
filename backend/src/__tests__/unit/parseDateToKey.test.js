@@ -1,4 +1,4 @@
-const { parseDateToKey } = require("../../services/scheduling.service");
+const { parseDateToKey, extractExplicitSchedulingTerms } = require("../../services/scheduling.service");
 const {
   isBusinessDay,
   addOneDay,
@@ -62,5 +62,21 @@ describe("parseDateToKey", () => {
 describe("parseDateToKey reference alignment", () => {
   test("usa timezone America/Bogota como referencia", () => {
     expect(toDateKey(REF_JUNE)).toBe("2026-06-10");
+  });
+});
+
+describe("extractExplicitSchedulingTerms", () => {
+  test("prioriza la fecha y hora escritas en el turno actual", () => {
+    expect(extractExplicitSchedulingTerms("el sábado a las 4 pm", REF_JUNE)).toEqual({
+      dateText: "el sábado a las 4 pm",
+      timeText: "el sábado a las 4 pm",
+    });
+  });
+
+  test("no trata un nombre de mascota como una fecha u hora", () => {
+    expect(extractExplicitSchedulingTerms("Benji", REF_JUNE)).toEqual({
+      dateText: null,
+      timeText: null,
+    });
   });
 });
