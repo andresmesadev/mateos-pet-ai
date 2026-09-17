@@ -58,6 +58,7 @@ model Tenant {
   clientVerificationCodes ClientVerificationCode[]
   clientSessions          ClientSession[]
   knowledgeChunks         KnowledgeChunk[]
+  agendaExceptions       AgendaException[]
 }
 
 model Staff {
@@ -512,6 +513,29 @@ model Appointment {
   @@index([tenantId, status])
   @@index([userId, date])
   @@index([petId])
+}
+
+// Excepciones fechadas de disponibilidad del establecimiento (ADR 013).
+// `startDate`/`endDate` se guardan como claves civiles YYYY-MM-DD de Bogotá,
+// no como DateTime, para que nunca se desplacen por conversión UTC.
+model AgendaException {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  scope     String   // "all" | "vet" | "grooming"
+  mode      String   // "closed" | "open"
+  startDate String   @db.VarChar(10)
+  endDate   String?  @db.VarChar(10)
+  open      String?  @db.VarChar(5)
+  close     String?  @db.VarChar(5)
+  reason    String?  @db.VarChar(240)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, startDate, endDate])
+  @@index([tenantId, scope, startDate, endDate])
 }
 
 // ── POS / Facturación (TAREA 17) ──────────────────────────────

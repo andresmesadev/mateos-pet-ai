@@ -147,3 +147,18 @@ describe("horarios por servicio (ADR 012)", () => {
     expect(isWithinBusinessHours(SERVICE_TYPES.VET, 13, "2026-01-08", partial)).toBe(false);
   });
 });
+
+describe("excepciones de agenda", () => {
+  test("una apertura excepcional permite veterinaria en un festivo dentro de su ventana", () => {
+    const exception = { mode: "open", open: "09:00", close: "13:00" };
+    expect(isBusinessDay("2026-01-01", null, SERVICE_TYPES.VET, exception)).toBe(true);
+    expect(isWithinBusinessHours(SERVICE_TYPES.VET, 10, "2026-01-01", null, exception)).toBe(true);
+    expect(isWithinBusinessHours(SERVICE_TYPES.VET, 13, "2026-01-01", null, exception)).toBe(false);
+  });
+
+  test("un cierre excepcional bloquea un día ordinario aunque el horario semanal esté activo", () => {
+    const exception = { mode: "closed" };
+    expect(isBusinessDay("2026-01-08", { thu: { open: "08:00", close: "18:00", active: true } }, SERVICE_TYPES.GROOMING, exception)).toBe(false);
+    expect(isWithinBusinessHours(SERVICE_TYPES.GROOMING, 12, "2026-01-08", null, exception)).toBe(false);
+  });
+});

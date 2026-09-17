@@ -185,7 +185,7 @@ Gestionar el tiempo del establecimiento. La Agenda es el corazón de la operaci�
 **Entidades principales**
 
 - **Cita** — El evento central. Tiene una fecha y hora, una mascota, un cliente, un servicio, un miembro del staff asignado, un estado (agendada, confirmada, en curso, completada, cancelada, no asistió), un precio, y el tipo de atención (en clínica o domicilio).
-- **Disponibilidad** — La representación del tiempo disponible del establecimiento y del staff. Considera horarios de atención, excepciones (festivos, vacaciones), y la duración de los servicios.
+- **Disponibilidad** — La representación del tiempo disponible del establecimiento y del staff. Considera horarios de atención, excepciones fechadas de establecimiento (`AgendaException`: festivos, vacaciones, aperturas y cierres especiales), y la duración de los servicios.
 - **Bloqueo** — Un período de tiempo no disponible: descanso, cierre especial, ausencia de personal.
 - **Lista de Espera** — Clientes que quieren un servicio en un horario no disponible. Se activan automáticamente cuando surge disponibilidad.
 

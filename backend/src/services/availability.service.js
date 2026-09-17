@@ -47,6 +47,21 @@ const parseHourFromTimeString = (value) => {
   return Number.isFinite(h) ? h : null;
 };
 
+const resolveExceptionWindow = (exception) => {
+  if (!exception || typeof exception !== "object") return null;
+  if (exception.mode === "closed") {
+    return { active: false, startHour: null, endHourExclusive: null };
+  }
+  if (exception.mode === "open") {
+    const startHour = parseHourFromTimeString(exception.open);
+    const endHourExclusive = parseHourFromTimeString(exception.close);
+    if (startHour !== null && endHourExclusive !== null && startHour < endHourExclusive) {
+      return { active: true, startHour, endHourExclusive };
+    }
+  }
+  return null;
+};
+
 /**
  * Configuración real del establecimiento para el día de `dateKey`, o `null`
  * si no hay configuración utilizable (tenant sin `businessHours`, día sin
@@ -81,7 +96,9 @@ const resolveDayConfig = (dateKey, businessHours, serviceType) => {
  * @param {object|null|undefined} businessHours
  * @returns {{ active: boolean, startHour: number|null, endHourExclusive: number|null }}
  */
-const resolveHourWindow = (serviceType, dateKey, businessHours) => {
+const resolveHourWindow = (serviceType, dateKey, businessHours, exception) => {
+  const exceptionWindow = resolveExceptionWindow(exception);
+  if (exceptionWindow) return exceptionWindow;
   const dayConfig = dateKey ? resolveDayConfig(dateKey, businessHours, serviceType) : null;
   if (dayConfig) {
     return {
@@ -109,11 +126,16 @@ const resolveHourWindow = (serviceType, dateKey, businessHours) => {
  * @param {object|null|undefined} [businessHours] `Tenant.businessHours`
  * @returns {boolean}
  */
-const isBusinessDay = (date, businessHours, serviceType) => {
+const isBusinessDay = (date, businessHours, serviceType, exception) => {
   const key = toDateKey(date);
   if (!key) {
     console.log("[availability] isBusinessDay: fecha inválida → false");
     return false;
+  }
+
+  const exceptionWindow = resolveExceptionWindow(exception);
+  if (exceptionWindow) {
+    return exceptionWindow.active;
   }
 
   if (isColombianHoliday(key)) {
@@ -150,7 +172,7 @@ const isBusinessDay = (date, businessHours, serviceType) => {
  * @param {object|null|undefined} [businessHours] `Tenant.businessHours`
  * @returns {boolean}
  */
-const isWithinBusinessHours = (serviceType, hour, dateKey, businessHours) => {
+const isWithinBusinessHours = (serviceType, hour, dateKey, businessHours, exception) => {
   const h = Number(hour);
   if (!Number.isFinite(h) || h < 0 || h > 23) {
     console.log(
@@ -159,7 +181,7 @@ const isWithinBusinessHours = (serviceType, hour, dateKey, businessHours) => {
     return false;
   }
 
-  const window = resolveHourWindow(serviceType, dateKey, businessHours);
+  const window = resolveHourWindow(serviceType, dateKey, businessHours, exception);
   if (!window.active || window.startHour === null) {
     console.log(
       `[availability] isWithinBusinessHours: tipo desconocido o establecimiento cerrado ese día ("${serviceType}") → false`

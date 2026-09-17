@@ -12,6 +12,7 @@ import { proxyUrl } from "@/lib/api";
 import { useToast } from "@/components/ui/toast";
 import { formatCOP } from "@/lib/transactions";
 import { type BusinessHourDay, type BusinessHours, type DayHours, type TenantProfile, type ServiceRow } from "@/app/dashboard/settings/page";
+import { AgendaExceptionsManager } from "@/components/dashboard/agenda-exceptions-manager";
 
 // ── Constants ─────────────────────────────────────────────────
 
@@ -398,6 +399,7 @@ export function ScheduleSection({ profile }: { profile: TenantProfile | null }) 
         </CardHeader>
         <CardContent><HoursEditor hours={serviceHours.grooming} onChange={(key, field, value) => setServiceDay("grooming", key, field, value)} /></CardContent>
       </Card>
+      <AgendaExceptionsManager />
       <Button onClick={handleSave} disabled={saving}>{saving ? "Guardando…" : "Guardar horarios"}</Button>
     </div>
   );

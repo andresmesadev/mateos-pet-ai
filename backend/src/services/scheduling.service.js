@@ -25,6 +25,7 @@ const {
 
 const availabilityDb = require("./availability-db.service");
 const { getBusinessHours } = require("./business-config.service");
+const { getAgendaExceptionForDate } = require("./agenda-exception.service");
 
 const normalizeText = (text) => {
   if (typeof text !== "string") {
@@ -388,13 +389,21 @@ const resolveVetScheduling = async ({
   }
 
   let businessHours = null;
+  let exception = null;
   try {
     businessHours = await getBusinessHours(tenantId);
   } catch (error) {
     console.error("[scheduling] Fallo leyendo configuración del establecimiento, se usa comportamiento legado:", error.message);
   }
 
-  if (!isBusinessDay(dateKey, businessHours, SERVICE_TYPES.VET)) {
+  try {
+    exception = await getAgendaExceptionForDate(tenantId, dateKey, SERVICE_TYPES.VET);
+  } catch (error) {
+    console.error("[scheduling] Fallo leyendo excepciones de agenda, se bloquea la reserva:", error.message);
+    return { reply: "En este momento no pude confirmar la disponibilidad 😔 ¿Podrías intentar de nuevo en unos minutos?", scheduling: null };
+  }
+
+  if (!isBusinessDay(dateKey, businessHours, SERVICE_TYPES.VET, exception)) {
     console.log("[scheduling] CASO 3: día no hábil", dateKey);
     return {
       reply: "Ese día no tenemos atención 😔 ¿Qué otro día te queda bien?",
@@ -402,7 +411,7 @@ const resolveVetScheduling = async ({
     };
   }
 
-  if (!isWithinBusinessHours(SERVICE_TYPES.VET, hour, dateKey, businessHours)) {
+  if (!isWithinBusinessHours(SERVICE_TYPES.VET, hour, dateKey, businessHours, exception)) {
     console.log("[scheduling] Hora fuera de horario vet:", hour);
     return {
       reply: "Ese horario está fuera de nuestra atención (11am a 5pm) 😊 ¿Qué otra hora te viene bien?",
@@ -512,13 +521,21 @@ const resolveGroomingScheduling = async ({
   }
 
   let businessHours = null;
+  let exception = null;
   try {
     businessHours = await getBusinessHours(tenantId);
   } catch (error) {
     console.error("[scheduling] Fallo leyendo configuración del establecimiento, se usa comportamiento legado:", error.message);
   }
 
-  if (!isBusinessDay(dateKey, businessHours, SERVICE_TYPES.GROOMING)) {
+  try {
+    exception = await getAgendaExceptionForDate(tenantId, dateKey, SERVICE_TYPES.GROOMING);
+  } catch (error) {
+    console.error("[scheduling] Fallo leyendo excepciones de agenda, se bloquea la reserva:", error.message);
+    return { reply: "En este momento no pude confirmar la disponibilidad 😔 ¿Podrías intentar de nuevo en unos minutos?", scheduling: null };
+  }
+
+  if (!isBusinessDay(dateKey, businessHours, SERVICE_TYPES.GROOMING, exception)) {
     return {
       reply:
         "Ese día no tenemos atención 😔\n¿Deseas otro horario?",
@@ -526,7 +543,7 @@ const resolveGroomingScheduling = async ({
     };
   }
 
-  if (!isWithinBusinessHours(SERVICE_TYPES.GROOMING, hour, dateKey, businessHours)) {
+  if (!isWithinBusinessHours(SERVICE_TYPES.GROOMING, hour, dateKey, businessHours, exception)) {
     return {
       reply:
         "Ese horario está fuera de nuestro horario de grooming (11am a 4pm) 😊\n¿Qué otra hora te viene bien?",

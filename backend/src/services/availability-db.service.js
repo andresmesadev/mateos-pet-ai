@@ -27,6 +27,7 @@ const {
   SERVICE_TYPES,
 } = require("./availability.service");
 const { getBusinessHours } = require("./business-config.service");
+const { getAgendaExceptionForDate } = require("./agenda-exception.service");
 
 const MAX_GROOMING_SEARCH_DAYS = 30;
 const MAX_VET_SUGGESTIONS = 3;
@@ -154,7 +155,7 @@ const getBookedHoursForDate = async (dateKey, serviceType, tenantId) => {
  * ya resuelta — evita volver a consultarla en llamadas repetidas dentro de un
  * mismo bucle de búsqueda (`findNextAvailableGroomingSlot`, `suggestAvailableVetSlots`).
  */
-const isSlotAvailableWithConfig = async ({ dateKey, hour, serviceType, businessHours, referenceDate, tenantId }) => {
+const isSlotAvailableWithConfig = async ({ dateKey, hour, serviceType, businessHours, exception, referenceDate, tenantId }) => {
   const key = toDateKey(dateKey);
   const h = Number(hour);
   const type = normalizeServiceType(serviceType);
@@ -164,12 +165,12 @@ const isSlotAvailableWithConfig = async ({ dateKey, hour, serviceType, businessH
   }
 
   try {
-    if (!isBusinessDay(key, businessHours, type)) {
+    if (!isBusinessDay(key, businessHours, type, exception)) {
       console.log("[AvailabilityDB] Slot occupied (non-business day):", key);
       return false;
     }
 
-    if (!isWithinBusinessHours(type, h, key, businessHours)) {
+    if (!isWithinBusinessHours(type, h, key, businessHours, exception)) {
       console.log("[AvailabilityDB] Slot occupied (outside hours):", h, type);
       return false;
     }
@@ -188,7 +189,7 @@ const isSlotAvailableWithConfig = async ({ dateKey, hour, serviceType, businessH
 
     // Grooming: regla de orden consecutivo — no se puede saltar un slot
     if (type === SERVICE_TYPES.GROOMING) {
-      const { startHour } = resolveHourWindow(type, key, businessHours);
+      const { startHour } = resolveHourWindow(type, key, businessHours, exception);
       if (startHour !== null && h > startHour) {
         for (let prev = startHour; prev < h; prev++) {
           if (!booked.has(prev)) {
@@ -213,12 +214,19 @@ const isSlotAvailableWithConfig = async ({ dateKey, hour, serviceType, businessH
  */
 const isSlotAvailable = async ({ dateKey, hour, serviceType, tenantId, referenceDate }) => {
   let businessHours = null;
+  let exception = null;
   try {
     businessHours = await getBusinessHours(tenantId);
   } catch (error) {
     console.error("[AvailabilityDB] isSlotAvailable: fallo leyendo configuración del establecimiento, se usa comportamiento legado:", error.message);
   }
-  return isSlotAvailableWithConfig({ dateKey, hour, serviceType, businessHours, referenceDate, tenantId });
+  try {
+    exception = await getAgendaExceptionForDate(tenantId, toDateKey(dateKey), normalizeServiceType(serviceType));
+  } catch (error) {
+    console.error("[AvailabilityDB] isSlotAvailable: fallo leyendo excepciones de agenda:", error.message);
+    return false;
+  }
+  return isSlotAvailableWithConfig({ dateKey, hour, serviceType, businessHours, exception, referenceDate, tenantId });
 };
 
 /**
@@ -244,12 +252,13 @@ const findNextAvailableGroomingSlot = async (options = {}) => {
 
   try {
     for (let day = 0; day < MAX_GROOMING_SEARCH_DAYS; day += 1) {
-      if (!isBusinessDay(cursor, businessHours, SERVICE_TYPES.GROOMING)) {
+      const exception = await getAgendaExceptionForDate(options.tenantId, cursor, SERVICE_TYPES.GROOMING);
+      if (!isBusinessDay(cursor, businessHours, SERVICE_TYPES.GROOMING, exception)) {
         cursor = addOneDay(cursor);
         continue;
       }
 
-      const { startHour, endHourExclusive } = resolveHourWindow(SERVICE_TYPES.GROOMING, cursor, businessHours);
+      const { startHour, endHourExclusive } = resolveHourWindow(SERVICE_TYPES.GROOMING, cursor, businessHours, exception);
 
       for (let h = startHour; h < endHourExclusive; h += 1) {
         const available = await isSlotAvailableWithConfig({
@@ -257,6 +266,7 @@ const findNextAvailableGroomingSlot = async (options = {}) => {
           hour: h,
           serviceType: SERVICE_TYPES.GROOMING,
           businessHours,
+          exception,
           referenceDate,
           tenantId: options.tenantId,
         });
@@ -310,10 +320,12 @@ const suggestAvailableVetSlots = async ({
   }
 
   try {
-    if (!key || !isBusinessDay(key, businessHours, SERVICE_TYPES.VET)) {
+    let exception = await getAgendaExceptionForDate(tenantId, key, SERVICE_TYPES.VET);
+    if (!key || !isBusinessDay(key, businessHours, SERVICE_TYPES.VET, exception)) {
       let cursor = key || toDateKey(new Date());
       for (let i = 0; i < 14; i += 1) {
-        if (isBusinessDay(cursor, businessHours, SERVICE_TYPES.VET)) {
+        exception = await getAgendaExceptionForDate(tenantId, cursor, SERVICE_TYPES.VET);
+        if (isBusinessDay(cursor, businessHours, SERVICE_TYPES.VET, exception)) {
           key = cursor;
           break;
         }
@@ -323,7 +335,7 @@ const suggestAvailableVetSlots = async ({
 
     const booked = await getBookedHoursForDate(key, SERVICE_TYPES.VET, tenantId);
     const suggestions = [];
-    const { startHour, endHourExclusive } = resolveHourWindow(SERVICE_TYPES.VET, key, businessHours);
+    const { startHour, endHourExclusive } = resolveHourWindow(SERVICE_TYPES.VET, key, businessHours, exception);
 
     for (let h = startHour; h < endHourExclusive; h += 1) {
       if (Number.isFinite(requested) && h === requested) {
@@ -332,7 +344,7 @@ const suggestAvailableVetSlots = async ({
       if (booked.has(h)) {
         continue;
       }
-      if (!isWithinBusinessHours(SERVICE_TYPES.VET, h, key, businessHours)) {
+      if (!isWithinBusinessHours(SERVICE_TYPES.VET, h, key, businessHours, exception)) {
         continue;
       }
       if (isPastSlot(key, h, referenceDate)) {
