@@ -22,11 +22,12 @@ flowchart LR
   UI[Panel Administración] --> API[Agenda exception routes]
   API --> EX[agenda-exception.service]
   EX --> DB[(AgendaException)]
-  WA[WhatsApp / scheduling] --> AV[agenda-availability.service]
-  SUG[availability-db] --> AV
-  AV --> EX
-  AV --> BH[business-config.service]
-  AV --> PURE[availability.service]
+  WA[WhatsApp / scheduling] --> EX
+  WA --> BH[business-config.service]
+  WA --> PURE[availability.service]
+  SUG[availability-db] --> EX
+  SUG --> BH
+  SUG --> PURE
   BH --> TENANT[(Tenant.businessHours)]
   PURE --> HOL[colombianHolidays]
 ```
@@ -44,23 +45,11 @@ Responsable de acceso y reglas de las excepciones:
 Es el único módulo que consulta `prisma.agendaException`. Las rutas no hacen
 consultas directas y el motor de disponibilidad no conoce Prisma ni SQL.
 
-### `agenda-availability.service.js`
-
-Adaptador de lectura para el motor existente. Expone:
-
-- `getAvailabilityContext({ tenantId, dateKey, serviceType })`;
-- `resolveEffectiveHourWindow({ dateKey, serviceType, businessHours, exception })`;
-- `isEffectiveBusinessDay(...)`.
-
-El primer método obtiene en paralelo `Tenant.businessHours` y la excepción
-aplicable. Los otros dos son funciones deterministas para que los loops de
-sugerencias no hagan consultas repetidas y puedan probarse sin base de datos.
-
 ### `availability.service.js`
 
 Se conserva como capa pura de calendario colombiano y horario semanal. Recibe
-la excepción ya resuelta desde `agenda-availability.service.js`; no consulta la
-base de datos. Su responsabilidad pasa a ser aplicar la precedencia definida:
+la excepción ya resuelta por cada consumidor; no consulta la base de datos. Su
+responsabilidad es aplicar la precedencia definida:
 
 1. excepción específica o global ya resuelta;
 2. festivo colombiano;
@@ -70,10 +59,10 @@ base de datos. Su responsabilidad pasa a ser aplicar la precedencia definida:
 
 ### Consumidores existentes
 
-- `scheduling.service.js`: solicitará el contexto efectivo para validar el
-  horario propuesto por el cliente.
-- `availability-db.service.js`: solicitará un contexto por día explorado y lo
-  reutilizará para disponibilidad, sugerencias y regla consecutiva de
+- `scheduling.service.js`: obtiene el horario y la excepción aplicable, y usa
+  las funciones puras para validar el horario propuesto por el cliente.
+- `availability-db.service.js`: obtiene el horario una vez y la excepción de
+  cada día explorado para disponibilidad, sugerencias y regla consecutiva de
   peluquería.
 - `appointment.service.js` y la confirmación final continúan usando el mismo
   chequeo de conflicto ya vigente; no reciben una segunda regla paralela.

@@ -10,7 +10,6 @@ import { proxyUrl } from "@/lib/api";
 import { getPetEmoji } from "@/lib/pets";
 import {
   type PaymentMethod,
-  PAYMENT_METHOD_LABELS,
   formatCOP,
 } from "@/lib/transactions";
 
