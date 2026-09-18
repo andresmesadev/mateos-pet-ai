@@ -4,10 +4,13 @@ const { sendMessage } = require("../contexts/communication");
 const {
   claimNextInboundJob, markInboundJobDone, markInboundJobFailed,
   checkpointInboundJob, renewInboundJobLease, recoverExpiredInboundJobs,
-  InboundLeaseLostError, HEARTBEAT_MS,
+  getNextInboundAttemptAt, InboundLeaseLostError, HEARTBEAT_MS,
 } = require("../services/inbound-job.service");
 
-const CRON_EXPRESSION = "*/5 * * * * *";
+// El webhook dispara el drenado inmediatamente. El cron queda como red de
+// recuperación para reinicios, señales perdidas y concesiones vencidas, sin
+// mantener un compute serverless despierto con consultas vacías cada 5 s.
+const RECOVERY_CRON_EXPRESSION = "*/15 * * * *";
 const MAX_SEND_ATTEMPTS = 3;
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -97,6 +100,10 @@ const processOneJob = async () => {
 };
 
 let draining = null;
+let rerunRequested = false;
+let followUpTimer = null;
+let followUpAt = null;
+
 const drainInboundJobs = () => {
   if (draining) return draining;
   draining = (async () => {
@@ -108,11 +115,51 @@ const drainInboundJobs = () => {
   return draining;
 };
 
-const startInboundMessageJob = () => {
-  cron.schedule(CRON_EXPRESSION, () => {
-    drainInboundJobs().catch((error) => console.error("[InboundMessageJob] Unhandled error:", error.message));
-  });
-  console.log(`[InboundMessageJob] Scheduled every 5 seconds (${CRON_EXPRESSION})`);
+const scheduleFollowUp = (nextAttemptAt) => {
+  if (!nextAttemptAt) {
+    if (followUpTimer) clearTimeout(followUpTimer);
+    followUpTimer = null;
+    followUpAt = null;
+    return;
+  }
+
+  const target = new Date(nextAttemptAt).getTime();
+  if (!Number.isFinite(target)) return;
+  if (followUpTimer && followUpAt <= target) return;
+  if (followUpTimer) clearTimeout(followUpTimer);
+  followUpAt = target;
+  followUpTimer = setTimeout(() => {
+    followUpTimer = null;
+    followUpAt = null;
+    requestInboundDrain();
+  }, Math.max(0, target - Date.now()));
+  followUpTimer.unref?.();
 };
 
-module.exports = { startInboundMessageJob, drainInboundJobs, processOneJob };
+const requestInboundDrain = () => {
+  if (draining) {
+    rerunRequested = true;
+    return draining;
+  }
+
+  const run = drainInboundJobs();
+  run.then(async () => {
+    if (rerunRequested) {
+      rerunRequested = false;
+      requestInboundDrain();
+      return;
+    }
+    scheduleFollowUp(await getNextInboundAttemptAt());
+  }).catch((error) => {
+    console.error("[InboundMessageJob] Unhandled error:", error.message);
+  });
+  return run;
+};
+
+const startInboundMessageJob = () => {
+  cron.schedule(RECOVERY_CRON_EXPRESSION, requestInboundDrain);
+  requestInboundDrain();
+  console.log(`[InboundMessageJob] Event-driven with recovery sweep (${RECOVERY_CRON_EXPRESSION})`);
+};
+
+module.exports = { startInboundMessageJob, requestInboundDrain, drainInboundJobs, processOneJob };

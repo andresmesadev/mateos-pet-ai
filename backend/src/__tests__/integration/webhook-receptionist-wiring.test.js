@@ -14,9 +14,14 @@ jest.mock("../../services/inbound-job.service", () => ({
   enqueueInboundJob: jest.fn(),
 }));
 
+jest.mock("../../jobs/inbound-message.job", () => ({
+  requestInboundDrain: jest.fn(),
+}));
+
 const { receiveWebhook } = require("../../controllers/webhook.controller");
 const { parseIncomingMessage } = require("../../services/whatsapp.service");
 const { enqueueInboundJob } = require("../../services/inbound-job.service");
+const { requestInboundDrain } = require("../../jobs/inbound-message.job");
 
 function buildRes() {
   return { sendStatus: jest.fn() };
@@ -36,6 +41,18 @@ describe("receiveWebhook (cola durable)", () => {
     expect(enqueueInboundJob).toHaveBeenCalledWith({
       provider: "whatsapp", providerEventId: "wamid-1", payload: req.body,
     });
+    expect(requestInboundDrain).toHaveBeenCalledTimes(1);
+    expect(res.sendStatus).toHaveBeenCalledWith(200);
+  });
+
+  test("reintento duplicado responde 200 sin despertar otro drenado", async () => {
+    parseIncomingMessage.mockReturnValue({ wamid: "wamid-1", from: "573000000000" });
+    enqueueInboundJob.mockResolvedValue({ created: false });
+
+    const res = buildRes();
+    await receiveWebhook({ body: {} }, res, jest.fn());
+
+    expect(requestInboundDrain).not.toHaveBeenCalled();
     expect(res.sendStatus).toHaveBeenCalledWith(200);
   });
 

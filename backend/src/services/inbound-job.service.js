@@ -151,6 +151,15 @@ const recoverExpiredInboundJobs = (now = new Date()) => prisma.$transaction(asyn
   return jobs.length;
 });
 
+const getNextInboundAttemptAt = async () => {
+  const job = await prisma.inboundJob.findFirst({
+    where: { status: "received", attempts: { lt: MAX_ATTEMPTS } },
+    orderBy: [{ nextAttemptAt: "asc" }, { createdAt: "asc" }],
+    select: { nextAttemptAt: true },
+  });
+  return job?.nextAttemptAt ?? null;
+};
+
 module.exports = {
   enqueueInboundJob,
   claimNextInboundJob,
@@ -159,6 +168,7 @@ module.exports = {
   checkpointInboundJob,
   renewInboundJobLease,
   recoverExpiredInboundJobs,
+  getNextInboundAttemptAt,
   InboundLeaseLostError,
   HEARTBEAT_MS,
   LEASE_MS,

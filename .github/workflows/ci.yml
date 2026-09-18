@@ -25,13 +25,23 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: backend/package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+
+      - name: Install Prisma tooling
+        run: npm ci
 
       - name: Install backend
-        run: cd backend && npm ci
+        run: npm --prefix backend ci
+
+      - name: Generate Prisma clients
+        run: |
+          npx prisma generate
+          cd backend && npx prisma generate --schema ../prisma/schema.prisma
 
       - name: Run tests
-        run: cd backend && npm test
+        run: npm --prefix backend test
 
   inbound-postgres:
     runs-on: ubuntu-latest

@@ -21,6 +21,8 @@ La cola permanece en infraestructura (`inbound-job.service.js`, `inbound-message
 
 Se agregan checkpoints antes y después de cada efecto; `attempts` actúa como generación de propietario y todas las escrituras del worker exigen esa generación, estado `claimed` y concesión vigente. La recuperación usa bloqueos de fila y compara la concesión. Se renueva cada 20 segundos con duración de 120 segundos; si falla la renovación, el worker no inicia el siguiente efecto. Un drenado por proceso evita solapar ticks.
 
+**Corrección operativa v2.39.1 (2026-09-18).** El sondeo vacío cada cinco segundos mantenía activo permanentemente el compute serverless de PostgreSQL. El webhook ahora solicita el drenado inmediatamente después de crear un trabajo, el arranque del backend recupera pendientes y un barrido cada 15 minutos conserva la red de seguridad para reinicios, señales perdidas y concesiones vencidas. Los checkpoints, leases y criterios de recuperación de este ADR no cambian. El worker consulta el próximo `nextAttemptAt` después de cada drenado y programa exactamente ese despertar, respetando el backoff persistido sin volver al sondeo permanente.
+
 Los tres reintentos de envío en vivo de 8.4 se conservan, con su límite conocido: un error de red puede ser ambiguo. Esta corrección no promete entrega exactamente una vez frente a Meta; no agrega reenvíos automáticos después de un crash incierto. Agotarlos deja `needs_review`, no un falso `done`.
 
 ### Decisiones arquitectónicas diferidas

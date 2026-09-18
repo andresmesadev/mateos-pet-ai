@@ -1,5 +1,5 @@
 jest.mock("../../lib/prisma", () => ({
-  inboundJob: { findUnique: jest.fn(), create: jest.fn(), updateMany: jest.fn() },
+  inboundJob: { findUnique: jest.fn(), findFirst: jest.fn(), create: jest.fn(), updateMany: jest.fn() },
   $transaction: jest.fn(),
 }));
 
@@ -12,6 +12,7 @@ const {
   checkpointInboundJob,
   renewInboundJobLease,
   recoverExpiredInboundJobs,
+  getNextInboundAttemptAt,
   InboundLeaseLostError,
   LEASE_MS,
   MAX_ATTEMPTS,
@@ -180,6 +181,18 @@ describe("markInboundJobFailed", () => {
 });
 
 describe("lease and safe recovery", () => {
+  test("expone el próximo intento persistido sin hacer polling", async () => {
+    const nextAttemptAt = new Date("2026-09-18T22:30:00.000Z");
+    prisma.inboundJob.findFirst.mockResolvedValue({ nextAttemptAt });
+
+    await expect(getNextInboundAttemptAt()).resolves.toEqual(nextAttemptAt);
+    expect(prisma.inboundJob.findFirst).toHaveBeenCalledWith({
+      where: { status: "received", attempts: { lt: MAX_ATTEMPTS } },
+      orderBy: [{ nextAttemptAt: "asc" }, { createdAt: "asc" }],
+      select: { nextAttemptAt: true },
+    });
+  });
+
   test.each(["processing", "sending"])("%s incierto nunca se reencola", async (phase) => {
     prisma.inboundJob.findUnique.mockResolvedValue({ id: "uncertain", status: "claimed", phase, attempts: 1 });
     const result = await markInboundJobFailed({ id: "uncertain", attempts: 1 }, new Error("interrupted"));

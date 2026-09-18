@@ -6,6 +6,7 @@ const { verifyWebhookSignature, parseIncomingMessage } = require("../services/wh
 // exactamente el mismo que corría aquí antes de este entregable — sin
 // duplicar ni un fragmento de su lógica.
 const { enqueueInboundJob } = require("../services/inbound-job.service");
+const { requestInboundDrain } = require("../jobs/inbound-message.job");
 
 const verifyWebhook = (req, res, next) => {
   try {
@@ -43,11 +44,13 @@ const receiveWebhook = async (req, res, next) => {
     // para no perder el mensaje, al costo de no poder deduplicar ese caso.
     const providerEventId = parsed.wamid || `${parsed.from}:${Date.now()}`;
 
-    await enqueueInboundJob({
+    const { created } = await enqueueInboundJob({
       provider: "whatsapp",
       providerEventId,
       payload: req.body,
     });
+
+    if (created) requestInboundDrain();
 
     return res.sendStatus(200);
   } catch (error) {

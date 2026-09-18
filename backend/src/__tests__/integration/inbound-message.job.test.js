@@ -14,6 +14,10 @@ jest.mock("../../contexts/communication", () => ({
   sendMessage: jest.fn(),
 }));
 
+jest.mock("node-cron", () => ({
+  schedule: jest.fn(),
+}));
+
 jest.mock("../../services/inbound-job.service", () => ({
   claimNextInboundJob: jest.fn(),
   markInboundJobDone: jest.fn(),
@@ -21,12 +25,14 @@ jest.mock("../../services/inbound-job.service", () => ({
   checkpointInboundJob: jest.fn(),
   renewInboundJobLease: jest.fn(),
   recoverExpiredInboundJobs: jest.fn(),
+  getNextInboundAttemptAt: jest.fn(),
   InboundLeaseLostError: class InboundLeaseLostError extends Error {},
   HEARTBEAT_MS: 20_000,
 }));
 
 const { processIncomingMessage } = require("../../contexts/receptionist");
 const { sendMessage } = require("../../contexts/communication");
+const cron = require("node-cron");
 const {
   claimNextInboundJob,
   markInboundJobDone,
@@ -34,18 +40,33 @@ const {
   checkpointInboundJob,
   renewInboundJobLease,
   recoverExpiredInboundJobs,
+  getNextInboundAttemptAt,
   InboundLeaseLostError,
 } = require("../../services/inbound-job.service");
-const { processOneJob, drainInboundJobs } = require("../../jobs/inbound-message.job");
+const { startInboundMessageJob, processOneJob, drainInboundJobs } = require("../../jobs/inbound-message.job");
 
 beforeEach(() => {
   jest.resetAllMocks();
   checkpointInboundJob.mockImplementation(async (job, phase, data) => ({ ...job, phase, ...data }));
   renewInboundJobLease.mockResolvedValue({});
   recoverExpiredInboundJobs.mockResolvedValue(0);
+  getNextInboundAttemptAt.mockResolvedValue(null);
   markInboundJobFailed.mockResolvedValue({ status: "needs_review" });
 });
 afterEach(() => jest.useRealTimers());
+
+describe("startInboundMessageJob", () => {
+  test("drena al iniciar y deja el cron solo como recuperación cada 15 minutos", async () => {
+    claimNextInboundJob.mockResolvedValue(null);
+
+    startInboundMessageJob();
+    await new Promise(setImmediate);
+
+    expect(cron.schedule).toHaveBeenCalledWith("*/15 * * * *", expect.any(Function));
+    expect(recoverExpiredInboundJobs).toHaveBeenCalledTimes(1);
+    expect(claimNextInboundJob).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe("processOneJob", () => {
   test("recuperar respuestas preparadas no vuelve a ejecutar el motor", async () => {
