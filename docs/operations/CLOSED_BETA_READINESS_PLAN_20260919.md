@@ -25,7 +25,7 @@
 | Paso | Trabajo | Criterio de cierre | Estado |
 | --- | --- | --- | --- |
 | 1 | Corregir los timeouts del worker entrante | El barrido tolera el arranque en frío de la base, tiene prueba de regresión y opera sin timeouts repetidos en producción. | ✅ Completado (`2.39.3`) |
-| 2 | Garantizar capacidad de Neon | Consumo y plan verificados; la base no queda expuesta a suspensión durante el piloto. | Pendiente |
+| 2 | Garantizar capacidad de Neon | Consumo y plan verificados; la base no queda expuesta a suspensión durante el piloto. | 🚧 Diagnóstico completo; activación de Launch pendiente |
 | 3 | Actualizar dependencias vulnerables y runtime Node | Cero vulnerabilidades altas conocidas en dependencias de producción, runtime soportado y CI verde. | Pendiente |
 | 4 | Activar observabilidad | Sentry o equivalente recibe una excepción controlada y existe alerta de salud/worker. | Pendiente |
 | 5 | Implementar backup y restauración | Backup cifrado y periódico, retención definida y restauración ensayada. | Pendiente |
@@ -52,6 +52,22 @@ barrido escalonado de las 17:02 UTC: ambos finalizaron con cero errores `P2028`
 desde el despliegue. El preflight posterior confirmó backend `2.39.3`, salud
 general `ok`, base de datos y OpenAI `ok`, 35 migraciones al día y cero claims
 vencidos. Paso cerrado el 2026-09-19.
+
+## Registro del paso 2
+
+La consola de Neon confirmó que `Mateos Pet AI` continúa en el plan Free y que
+alcanzó el límite: 103,74 CU-horas consumidas desde el 1 de septiembre frente a
+100 CU-horas incluidas. El proyecto muestra explícitamente `Limit reached`. La
+base ocupa 40,27 MB, ha transferido 0,08 GB y su único compute de producción usa
+autoscaling de 0,25 a 2 CU con suspensión tras 5 minutos de inactividad.
+
+Para la beta se recomienda el plan Launch de uso medido: USD 0,106 por CU-hora
+y USD 0,35 por GB-mes, sin mínimo mensual. Al ritmo observado hasta el 19 de
+septiembre, la proyección lineal es de aproximadamente 164 CU-horas o USD 17,40
+de compute por mes; el valor real variará con el tráfico y el autoscaling. El
+checkout quedó preparado sin introducir ni guardar datos de pago. El paso solo
+se cerrará después de activar Launch, configurar una alerta de gasto y verificar
+nuevamente la salud y la ausencia del aviso de límite.
 
 ## Criterios de rollback de la beta
 
