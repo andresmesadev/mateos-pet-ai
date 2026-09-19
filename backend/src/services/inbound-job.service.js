@@ -9,6 +9,10 @@ const MAX_ATTEMPTS = 5;
 const LEASE_MS = 120_000;
 const HEARTBEAT_MS = 20_000;
 const RETRY_BASE_MS = 5_000;
+// Prisma espera solo 2 s por defecto para abrir una transacción interactiva.
+// Neon puede tardar más al despertar y los jobs programados comparten el pool,
+// por lo que ese valor producía P2028 antes de ejecutar una sola consulta.
+const TRANSACTION_OPTIONS = { maxWait: 15_000, timeout: 10_000 };
 
 class InboundLeaseLostError extends Error {
   constructor(id) {
@@ -107,7 +111,7 @@ const claimNextInboundJob = (now = new Date()) =>
       data: { status: "claimed", claimedAt: now,
         leaseExpiresAt: new Date(now.getTime() + LEASE_MS), attempts: { increment: 1 } },
     });
-  });
+  }, TRANSACTION_OPTIONS);
 
 const updateOwned = async (job, data, now = new Date()) => {
   const result = await prisma.inboundJob.updateMany({ where: ownedWhere(job, now), data });
@@ -149,7 +153,7 @@ const recoverExpiredInboundJobs = (now = new Date()) => prisma.$transaction(asyn
     if (data.status === "needs_review") console.error(`[InboundJob] needs_review: ${job.id} (${job.phase})`);
   }
   return jobs.length;
-});
+}, TRANSACTION_OPTIONS);
 
 const getNextInboundAttemptAt = async () => {
   const job = await prisma.inboundJob.findFirst({
@@ -173,4 +177,5 @@ module.exports = {
   HEARTBEAT_MS,
   LEASE_MS,
   MAX_ATTEMPTS,
+  TRANSACTION_OPTIONS,
 };

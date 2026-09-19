@@ -10,7 +10,9 @@ const {
 // El webhook dispara el drenado inmediatamente. El cron queda como red de
 // recuperación para reinicios, señales perdidas y concesiones vencidas, sin
 // mantener un compute serverless despierto con consultas vacías cada 5 s.
-const RECOVERY_CRON_EXPRESSION = "*/15 * * * *";
+// Los otros barridos operativos corren en el minuto 0/15/30/45. Dos minutos
+// después reutilizamos el compute ya despierto y evitamos competir por el pool.
+const RECOVERY_CRON_EXPRESSION = "2,17,32,47 * * * *";
 const MAX_SEND_ATTEMPTS = 3;
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 

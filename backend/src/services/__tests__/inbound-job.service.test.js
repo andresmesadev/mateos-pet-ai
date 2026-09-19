@@ -16,6 +16,7 @@ const {
   InboundLeaseLostError,
   LEASE_MS,
   MAX_ATTEMPTS,
+  TRANSACTION_OPTIONS,
 } = require("../inbound-job.service");
 
 const mockTx = {
@@ -82,6 +83,18 @@ describe("enqueueInboundJob", () => {
 });
 
 describe("claimNextInboundJob", () => {
+  test("tolera el arranque en frío al adquirir la transacción", async () => {
+    mockTx.$queryRaw.mockResolvedValue([]);
+
+    await claimNextInboundJob();
+
+    expect(prisma.$transaction).toHaveBeenCalledWith(
+      expect.any(Function),
+      { maxWait: 15_000, timeout: 10_000 }
+    );
+    expect(TRANSACTION_OPTIONS).toEqual({ maxWait: 15_000, timeout: 10_000 });
+  });
+
   test("retorna null si no hay filas disponibles", async () => {
     mockTx.$queryRaw.mockResolvedValue([]);
     await expect(claimNextInboundJob()).resolves.toBeNull();
