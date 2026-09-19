@@ -56,13 +56,13 @@ beforeEach(() => {
 afterEach(() => jest.useRealTimers());
 
 describe("startInboundMessageJob", () => {
-  test("drena al iniciar y escalona el barrido de recuperación cada 15 minutos", async () => {
+  test("drena al iniciar y agrupa el barrido en la ventana activa de cada cuarto de hora", async () => {
     claimNextInboundJob.mockResolvedValue(null);
 
     startInboundMessageJob();
     await new Promise(setImmediate);
 
-    expect(cron.schedule).toHaveBeenCalledWith("2,17,32,47 * * * *", expect.any(Function));
+    expect(cron.schedule).toHaveBeenCalledWith("30 */15 * * * *", expect.any(Function));
     expect(recoverExpiredInboundJobs).toHaveBeenCalledTimes(1);
     expect(claimNextInboundJob).toHaveBeenCalledTimes(1);
   });
