@@ -26,7 +26,7 @@
 | --- | --- | --- | --- |
 | 1 | Corregir los timeouts del worker entrante | El barrido tolera el arranque en frío de la base, tiene prueba de regresión y opera sin timeouts repetidos en producción. | ✅ Completado (`2.39.3`) |
 | 2 | Garantizar capacidad de Neon | Consumo y plan verificados; la base no queda expuesta a suspensión durante el piloto. | 🧪 Free durante desarrollo; mitigación aplicada y validación pendiente tras el reinicio mensual |
-| 3 | Actualizar dependencias vulnerables y runtime Node | Cero vulnerabilidades altas conocidas en dependencias de producción, runtime soportado y CI verde. | Pendiente |
+| 3 | Actualizar dependencias vulnerables y runtime Node | Cero vulnerabilidades altas conocidas en dependencias de producción, runtime soportado y CI verde. | ✅ Completado (`2.39.6`) |
 | 4 | Activar observabilidad | Sentry o equivalente recibe una excepción controlada y existe alerta de salud/worker. | Pendiente |
 | 5 | Implementar backup y restauración | Backup cifrado y periódico, retención definida y restauración ensayada. | Pendiente |
 | 6 | Configurar WhatsApp de producción | Número empresarial real registrado, app publicada y flujo entrante/saliente verificado. | Pendiente |
@@ -79,6 +79,29 @@ La API permanecerá sin acceso a PostgreSQL hasta que Neon renueve la cuota el
 1 de octubre de 2026. Ese día se debe confirmar la recuperación del endpoint de
 salud y comenzar la medición del nuevo ciclo. El paso seguirá abierto hasta
 observar consumo real suficiente y resolver la capacidad requerida para beta.
+
+## Registro del paso 3
+
+La auditoría inicial encontró 6 vulnerabilidades altas en las herramientas de
+Prisma de la raíz, 4 altas en el backend y 9 altas más 3 críticas en el
+frontend. La versión `2.39.6` actualizó las correcciones compatibles de Prisma,
+Axios, Next.js y NextAuth, y alineó los contenedores, CI y el flujo manual de
+despliegue con Node 24. Los tres manifiestos declaran explícitamente ese runtime.
+
+El CLI de Prisma permanece como herramienta de construcción, pero se elimina
+de la imagen final después de generar y copiar el cliente requerido por el
+backend. CI ejecuta desde este cierre `npm audit --omit=dev --audit-level=high`
+para raíz, backend y frontend, impidiendo que una vulnerabilidad alta de
+producción vuelva a entrar silenciosamente.
+
+Validación de cierre: las tres auditorías de producción reportaron cero
+vulnerabilidades; 134 suites y 1.020 pruebas del backend, 13 pruebas contra
+PostgreSQL real, lint y build del frontend finalizaron correctamente. GitHub CI
+en Node 24 quedó verde en la ejecución `35783848165`. En la VPS, backend y
+frontend ejecutan Node `24.21.0`, el backend sirve `2.39.6`, la auditoría del
+contenedor reporta cero vulnerabilidades y el portal responde HTTP 200. El 503
+del endpoint de salud corresponde exclusivamente al corte de cuota de Neon ya
+registrado en el paso 2. Paso cerrado el 2026-09-22.
 
 ## Criterios de rollback de la beta
 
