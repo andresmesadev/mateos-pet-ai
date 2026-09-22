@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily Mateos Pet AI encrypted PostgreSQL backup
+
+[Timer]
+OnCalendar=*-*-* 08:10:00 UTC
+RandomizedDelaySec=10m
+Persistent=true
+Unit=mateos-pet-ai-backup.service
+
+[Install]
+WantedBy=timers.target
