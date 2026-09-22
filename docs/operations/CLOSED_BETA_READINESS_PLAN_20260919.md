@@ -27,7 +27,7 @@
 | 1 | Corregir los timeouts del worker entrante | El barrido tolera el arranque en frío de la base, tiene prueba de regresión y opera sin timeouts repetidos en producción. | ✅ Completado (`2.39.3`) |
 | 2 | Garantizar capacidad de Neon | Consumo y plan verificados; la base no queda expuesta a suspensión durante el piloto. | 🧪 Free durante desarrollo; mitigación aplicada y validación pendiente tras el reinicio mensual |
 | 3 | Actualizar dependencias vulnerables y runtime Node | Cero vulnerabilidades altas conocidas en dependencias de producción, runtime soportado y CI verde. | ✅ Completado (`2.39.6`) |
-| 4 | Activar observabilidad | Sentry o equivalente recibe una excepción controlada y existe alerta de salud/worker. | Pendiente |
+| 4 | Activar observabilidad | Sentry o equivalente recibe una excepción controlada y existe alerta de salud/worker. | ✅ Completado (`2.39.7`) |
 | 5 | Implementar backup y restauración | Backup cifrado y periódico, retención definida y restauración ensayada. | Pendiente |
 | 6 | Configurar WhatsApp de producción | Número empresarial real registrado, app publicada y flujo entrante/saliente verificado. | Pendiente |
 | 7 | Completar documentación legal del piloto | Política, términos y acuerdo de piloto completados y revisados. | Pendiente |
@@ -102,6 +102,30 @@ frontend ejecutan Node `24.21.0`, el backend sirve `2.39.6`, la auditoría del
 contenedor reporta cero vulnerabilidades y el portal responde HTTP 200. El 503
 del endpoint de salud corresponde exclusivamente al corte de cuota de Neon ya
 registrado en el paso 2. Paso cerrado el 2026-09-22.
+
+## Registro del paso 4
+
+Se eligió GitHub Actions como equivalente gratuito de alerta externa mientras
+el proyecto continúa en desarrollo, conservando Sentry como integración
+opcional para cuando exista un `SENTRY_DSN`. La versión `2.39.7` incorporó un
+estado operacional explícito del worker entrante: inicio, ejecución activa,
+último éxito, último fallo, fallos consecutivos, cantidad procesada y detección
+de ejecución bloqueada o atrasada. `/api/health` incluye este estado y degrada
+la respuesta cuando el worker falla, se bloquea o deja de ejecutar su barrido.
+
+El workflow `Production health alert` comprueba cada hora la base, OpenAI y el
+worker. Comparte la ventana de actividad de Neon para no introducir despertares
+adicionales. Los chequeos programados se activan el 1 de octubre de 2026; antes
+de esa fecha permanecen silenciosos por el corte de cuota conocido. Una prueba
+controlada produjo la ejecución fallida esperada `35785507188`, verificando el
+canal de alerta sin provocar un error real de aplicación.
+
+Validación de cierre: 135 suites y 1.024 pruebas del backend, 13 pruebas contra
+PostgreSQL real, lint y build del frontend correctos; CI verde en la ejecución
+`35785482249`. En la VPS, `2.39.7` expone correctamente `database: error` e
+`inboundWorker: error` durante el bloqueo actual de Neon, incluyendo marca de
+tiempo y contador de fallos, sin revelar credenciales ni mensajes entrantes.
+Paso cerrado el 2026-09-22.
 
 ## Criterios de rollback de la beta
 
