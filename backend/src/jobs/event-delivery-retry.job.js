@@ -22,8 +22,8 @@ const cron = require("node-cron");
  */
 const events = require("../contexts/events");
 const automation = require("../contexts/automation");
+const { getOperationalSchedules } = require("../config/operational-schedule");
 
-const CRON_EXPRESSION = "*/15 * * * *";
 const CONSUMER = "Automatizaciones";
 
 const retryFailedDeliveries = async () => {
@@ -60,8 +60,9 @@ const retryFailedDeliveries = async () => {
 };
 
 const startEventDeliveryRetryJob = () => {
+  const schedules = getOperationalSchedules();
   cron.schedule(
-    CRON_EXPRESSION,
+    schedules.eventDeliveryRetry,
     () => {
       retryFailedDeliveries().catch((error) => {
         console.error("[EventDeliveryRetryJob] Unhandled error:", error.message);
@@ -69,7 +70,7 @@ const startEventDeliveryRetryJob = () => {
     }
   );
 
-  console.log(`[EventDeliveryRetryJob] Scheduled every 15 minutes (${CRON_EXPRESSION})`);
+  console.log(`[EventDeliveryRetryJob] Scheduled (${schedules.mode}: ${schedules.eventDeliveryRetry})`);
 };
 
 module.exports = {

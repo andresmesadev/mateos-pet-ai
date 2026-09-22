@@ -16,9 +16,9 @@ const cron = require("node-cron");
  * Límite de Autonomía, Entregable 5.3) — un sexto `reminderType`
  * ("abandoned_booking"), no un mecanismo nuevo.
  *
- * Cadencia propia (cada 15 min, no una vez al día como reminder.job.js):
- * el abandono se detecta en minutos, no en días — mismo cron que
- * jobs/event-delivery-retry.job.js. Ventana de 30-90 min desde el último
+ * Cadencia propia configurable (cada 15 min normalmente; cada hora en modo
+ * de desarrollo de bajo consumo): el abandono se detecta en minutos, no en
+ * días. Ventana de 30-90 min desde el último
  * turno (Conversation.updatedAt) — siempre dentro de las 24h de WhatsApp,
  * así que no requiere plantilla pre-aprobada.
  */
@@ -26,8 +26,8 @@ const { getAbandonedBookingConversations } = require("../services/reminder.servi
 const scheduleCoordinator = require("../contexts/schedule-coordinator");
 const { listActiveTenants } = require("../services/tenant.service");
 const logger = require("../lib/logger");
+const { getOperationalSchedules } = require("../config/operational-schedule");
 
-const CRON_EXPRESSION = "*/15 * * * *";
 const REMINDER_TYPE = "abandoned_booking";
 
 /**
@@ -98,13 +98,14 @@ const runAbandonedConversationSweep = async () => {
 };
 
 const startAbandonedConversationJob = () => {
-  cron.schedule(CRON_EXPRESSION, () => {
+  const schedules = getOperationalSchedules();
+  cron.schedule(schedules.abandonedConversation, () => {
     runAbandonedConversationSweep().catch((error) => {
       logger.error("[AbandonedConversationJob] Unhandled error:", error.message);
     });
   });
 
-  logger.info(`[AbandonedConversationJob] Scheduled every 15 minutes (${CRON_EXPRESSION})`);
+  logger.info(`[AbandonedConversationJob] Scheduled (${schedules.mode}: ${schedules.abandonedConversation})`);
 };
 
 module.exports = {

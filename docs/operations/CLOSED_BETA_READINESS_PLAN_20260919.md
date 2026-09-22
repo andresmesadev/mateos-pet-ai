@@ -68,11 +68,17 @@ beta con usuarios reales, porque Free conserva un corte duro por capacidad.
 
 La causa principal del consumo ya estaba corregida desde el 18 de septiembre:
 el worker entrante dejó de consultar la base cada 5 segundos y pasó a activarse
-por eventos. Como protección adicional, `2.39.4` agrupa su recuperación 30
-segundos después de los otros barridos trimestrales, dentro de una sola ventana
-de actividad de Neon. A 0,25 CU, la carga periódica teórica baja de unas 84 a 66
-CU-horas mensuales, antes del tráfico real. El paso seguirá abierto hasta medir
-el nuevo ciclo y resolver la capacidad requerida para la beta.
+por eventos. `2.39.4` agrupó su recuperación con los otros barridos trimestrales.
+Después de que Neon aplicara el corte duro de la cuota el 22 de septiembre,
+`2.39.5` añadió `NEON_LOW_USAGE_MODE`: en desarrollo, los tres barridos se
+ejecutan una vez por hora y quedan agrupados entre el segundo 0 y el 30 de esa
+misma ventana. A 0,25 CU y suspensión tras cinco minutos, la carga periódica
+teórica se reduce a unas 16,5 CU-horas mensuales, antes del tráfico real.
+
+La API permanecerá sin acceso a PostgreSQL hasta que Neon renueve la cuota el
+1 de octubre de 2026. Ese día se debe confirmar la recuperación del endpoint de
+salud y comenzar la medición del nuevo ciclo. El paso seguirá abierto hasta
+observar consumo real suficiente y resolver la capacidad requerida para beta.
 
 ## Criterios de rollback de la beta
 

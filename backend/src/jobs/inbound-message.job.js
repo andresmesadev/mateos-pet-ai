@@ -6,14 +6,14 @@ const {
   checkpointInboundJob, renewInboundJobLease, recoverExpiredInboundJobs,
   getNextInboundAttemptAt, InboundLeaseLostError, HEARTBEAT_MS,
 } = require("../services/inbound-job.service");
+const { getOperationalSchedules } = require("../config/operational-schedule");
 
 // El webhook dispara el drenado inmediatamente. El cron queda como red de
 // recuperación para reinicios, señales perdidas y concesiones vencidas, sin
 // mantener un compute serverless despierto con consultas vacías cada 5 s.
-// Los otros barridos operativos corren en el minuto 0/15/30/45. Treinta
-// segundos después reutilizamos el compute ya despierto, evitamos competir por
-// el pool y no extendemos dos minutos cada ventana facturable de Neon.
-const RECOVERY_CRON_EXPRESSION = "30 */15 * * * *";
+// Los otros barridos operativos comparten la misma ventana configurable.
+// Este corre 30 segundos después para reutilizar el compute ya despierto,
+// evitar competir por el pool y no extender otra ventana facturable de Neon.
 const MAX_SEND_ATTEMPTS = 3;
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -160,9 +160,10 @@ const requestInboundDrain = () => {
 };
 
 const startInboundMessageJob = () => {
-  cron.schedule(RECOVERY_CRON_EXPRESSION, requestInboundDrain);
+  const schedules = getOperationalSchedules();
+  cron.schedule(schedules.inboundRecovery, requestInboundDrain);
   requestInboundDrain();
-  console.log(`[InboundMessageJob] Event-driven with recovery sweep (${RECOVERY_CRON_EXPRESSION})`);
+  console.log(`[InboundMessageJob] Event-driven with recovery sweep (${schedules.mode}: ${schedules.inboundRecovery})`);
 };
 
 module.exports = { startInboundMessageJob, requestInboundDrain, drainInboundJobs, processOneJob };
