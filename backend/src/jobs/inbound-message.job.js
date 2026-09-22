@@ -7,6 +7,10 @@ const {
   getNextInboundAttemptAt, InboundLeaseLostError, HEARTBEAT_MS,
 } = require("../services/inbound-job.service");
 const { getOperationalSchedules } = require("../config/operational-schedule");
+const {
+  startInboundWorkerHealth, markInboundRunStarted,
+  markInboundRunSucceeded, markInboundRunFailed,
+} = require("../services/operational-health.service");
 
 // El webhook dispara el drenado inmediatamente. El cron queda como red de
 // recuperación para reinicios, señales perdidas y concesiones vencidas, sin
@@ -110,10 +114,17 @@ let followUpAt = null;
 const drainInboundJobs = () => {
   if (draining) return draining;
   draining = (async () => {
-    await recoverExpiredInboundJobs();
-    let processed = 0;
-    while (processed < 50 && await processOneJob()) processed += 1;
-    return processed;
+    markInboundRunStarted();
+    try {
+      await recoverExpiredInboundJobs();
+      let processed = 0;
+      while (processed < 50 && await processOneJob()) processed += 1;
+      markInboundRunSucceeded(processed);
+      return processed;
+    } catch (error) {
+      markInboundRunFailed();
+      throw error;
+    }
   })().finally(() => { draining = null; });
   return draining;
 };
@@ -161,6 +172,9 @@ const requestInboundDrain = () => {
 
 const startInboundMessageJob = () => {
   const schedules = getOperationalSchedules();
+  startInboundWorkerHealth({
+    expectedIntervalMs: schedules.mode === "low-usage" ? 60 * 60 * 1000 : 15 * 60 * 1000,
+  });
   cron.schedule(schedules.inboundRecovery, requestInboundDrain);
   requestInboundDrain();
   console.log(`[InboundMessageJob] Event-driven with recovery sweep (${schedules.mode}: ${schedules.inboundRecovery})`);

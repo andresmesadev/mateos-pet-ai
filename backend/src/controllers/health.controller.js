@@ -16,7 +16,9 @@ const getHealth = async (req, res) => {
       services: {
         database: "error",
         openai: "error",
+        inboundWorker: "error",
       },
+      workers: { inbound: { status: "error", healthy: false } },
       version: APP_VERSION,
     });
   }

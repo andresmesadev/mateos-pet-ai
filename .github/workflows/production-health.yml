@@ -1,0 +1,67 @@
+name: Production health alert
+
+on:
+  schedule:
+    # Comparte la ventana horaria de bajo consumo de Neon (jobs en :00–:30).
+    - cron: "5 * * * *"
+  workflow_dispatch:
+    inputs:
+      controlled_failure:
+        description: "Ejecutar una prueba controlada de la alerta"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-health
+  cancel-in-progress: true
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check API and inbound worker
+        env:
+          CONTROLLED_FAILURE: ${{ inputs.controlled_failure || 'false' }}
+          HEALTH_URL: https://bot.nexoweb.co/api/health
+        run: |
+          if [[ "$CONTROLLED_FAILURE" == "true" ]]; then
+            echo "Controlled observability alert test"
+            exit 1
+          fi
+
+          # Neon tiene un corte de cuota conocido hasta el reinicio mensual.
+          # Evita alertas repetidas antes de la fecha ya registrada en el plan.
+          if [[ "$GITHUB_EVENT_NAME" == "schedule" && "$(date -u +%F)" < "2026-10-01" ]]; then
+            echo "Scheduled monitoring activates on 2026-10-01"
+            exit 0
+          fi
+
+          http_code=$(curl --silent --show-error --max-time 25 \
+            --output "$RUNNER_TEMP/health.json" --write-out "%{http_code}" \
+            "$HEALTH_URL")
+
+          node - "$http_code" "$RUNNER_TEMP/health.json" <<'NODE'
+          const fs = require("fs");
+          const [httpCode, path] = process.argv.slice(2);
+          const health = JSON.parse(fs.readFileSync(path, "utf8"));
+          const workerOk = ["ok", "starting"].includes(health?.services?.inboundWorker);
+          const healthy = httpCode === "200" && health?.status === "ok" &&
+            health?.services?.database === "ok" && health?.services?.openai === "ok" && workerOk;
+          if (!healthy) {
+            console.error("Production health or inbound worker is degraded", {
+              httpCode,
+              status: health?.status,
+              services: health?.services,
+              version: health?.version,
+            });
+            process.exit(1);
+          }
+          console.log("Production health and inbound worker are healthy", {
+            version: health.version,
+            services: health.services,
+          });
+          NODE

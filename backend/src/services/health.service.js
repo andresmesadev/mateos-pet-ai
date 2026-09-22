@@ -1,5 +1,6 @@
 const OpenAI = require("openai");
 const prisma = require("../lib/prisma");
+const { getInboundWorkerHealth } = require("./operational-health.service");
 
 const { version: APP_VERSION } = require("../../package.json");
 
@@ -38,14 +39,18 @@ const getHealthStatus = async () => {
     checkOpenAI(),
   ]);
 
-  const services = { database, openai };
+  const inboundWorker = getInboundWorkerHealth();
+  const services = { database, openai, inboundWorker: inboundWorker.status };
   const status =
-    database === "ok" && openai === "ok" ? "ok" : "degraded";
+    database === "ok" && openai === "ok" && inboundWorker.healthy
+      ? "ok"
+      : "degraded";
 
   return {
     status,
     timestamp: new Date().toISOString(),
     services,
+    workers: { inbound: inboundWorker },
     version: APP_VERSION,
   };
 };
