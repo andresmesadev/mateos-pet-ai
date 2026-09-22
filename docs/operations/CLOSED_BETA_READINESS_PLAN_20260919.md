@@ -28,7 +28,7 @@
 | 2 | Garantizar capacidad de Neon | Consumo y plan verificados; la base no queda expuesta a suspensión durante el piloto. | 🧪 Free durante desarrollo; mitigación aplicada y validación pendiente tras el reinicio mensual |
 | 3 | Actualizar dependencias vulnerables y runtime Node | Cero vulnerabilidades altas conocidas en dependencias de producción, runtime soportado y CI verde. | ✅ Completado (`2.39.6`) |
 | 4 | Activar observabilidad | Sentry o equivalente recibe una excepción controlada y existe alerta de salud/worker. | ✅ Completado (`2.39.7`) |
-| 5 | Implementar backup y restauración | Backup cifrado y periódico, retención definida y restauración ensayada. | Pendiente |
+| 5 | Implementar backup y restauración | Backup cifrado y periódico, retención definida y restauración ensayada. | 🧪 Infraestructura `2.39.8` instalada; primer respaldo real pendiente del reinicio de Neon |
 | 6 | Configurar WhatsApp de producción | Número empresarial real registrado, app publicada y flujo entrante/saliente verificado. | Pendiente |
 | 7 | Completar documentación legal del piloto | Política, términos y acuerdo de piloto completados y revisados. | Pendiente |
 | 8 | Ejecutar matriz integral de agenda | Casos de veterinaria, peluquería, domingos, festivos, conflictos, cancelación y fallos aprobados. | Pendiente |
@@ -126,6 +126,37 @@ PostgreSQL real, lint y build del frontend correctos; CI verde en la ejecución
 `inboundWorker: error` durante el bloqueo actual de Neon, incluyendo marca de
 tiempo y contador de fallos, sin revelar credenciales ni mensajes entrantes.
 Paso cerrado el 2026-09-22.
+
+## Registro del paso 5
+
+La versión `2.39.8` incorporó una copia completa diaria de PostgreSQL a las
+08:10 UTC, con demora aleatoria de hasta diez minutos y retención de 14 días.
+Cada copia se genera en formato personalizado de PostgreSQL, se valida antes de
+publicarse, se cifra con `age` y conserva su suma SHA-256. La VPS solo almacena
+la clave SSH pública del operador; la clave privada permanece en el equipo
+local y no se copió ni se imprimió durante la instalación.
+
+El mecanismo de restauración descifra por flujo de datos dentro de un
+PostgreSQL temporal sin escribir el contenido abierto en disco ni conocer la
+URL de producción. El ensayo aislado completó copia, validación, cifrado,
+descifrado y restauración de dos tablas y una migración. Una segunda prueba
+confirmó que un archivo cifrado en la VPS para la clave pública real puede
+abrirse con la clave privada local existente.
+
+En producción, `mateos-pet-ai-backup.timer` quedó habilitado y activo. El
+directorio `/var/backups/mateos-pet-ai` tiene permisos `700`; la configuración y
+el destinatario público pertenecen a `root`. La ejecución manual del servicio
+finalizó correctamente con `backup skipped until 2026-10-01T00:00:00Z`, por lo
+que no intentará despertar una base bloqueada durante el corte conocido de
+cuota. El primer respaldo real se ejecutará en la ventana del 1 de octubre de
+2026 entre 08:10 y 08:20 UTC.
+
+Validación técnica previa al despliegue: 135 suites y 1.024 pruebas del backend,
+13 pruebas contra PostgreSQL 18 real, lint y build del frontend, tres auditorías
+de dependencias sin vulnerabilidades y prueba integral de respaldo/restauración
+correctas. La VPS ejecuta el commit `f465193`, backend `2.39.8` y conserva el
+timer activo. El paso permanece abierto hasta verificar y restaurar el primer
+respaldo real de Neon después del reinicio de cuota.
 
 ## Criterios de rollback de la beta
 
