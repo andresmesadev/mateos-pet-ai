@@ -20,7 +20,8 @@ contenedores. El backend espera a que la base responda antes de arrancar.
 3. Cambiar `DATABASE_URL` en `backend/.env` al hostname interno `db` y poner
    `NEON_LOW_USAGE_MODE=false`.
 4. Ejecutar `prisma migrate deploy` desde un contenedor temporal Node 24 en
-   la red privada. Exigir 35 migraciones aplicadas.
+   la red privada. Exigir todas las migraciones versionadas aplicadas (36 tras
+   la corrección del esquema).
 5. Reconstruir backend, ejecutar `bootstrap-local-tenant.js` y establecer
    `SINGLE_TENANT_ID` con el identificador recién creado.
 6. Sembrar Catálogo de Eventos, Canal WhatsApp, Servicios y Staff; reiniciar
@@ -57,3 +58,17 @@ prueba y confirmar respuesta, trabajo entrante completado y una cita visible
 en el panel. Es una prueba manual con un remitente autorizado; no se simula
 una conversación real con clientes. Revisar también los horarios y precios de
 servicios reiniciados antes de usar la agenda.
+
+**Corrección posterior de la prueba de WhatsApp:** el primer mensaje reveló
+que `schema.prisma` incluía columnas y tablas sin migración versionada. Los
+trabajos quedaron en `needs_review/sending` porque faltaba
+`Conversation.abandonReminderSent`; el envío a Meta todavía no había ocurrido.
+La migración `20260923180000_reconcile_schema_after_fresh_install` añadió los
+objetos faltantes. La diferencia entre esquema y base pasó a cero, los dos
+trabajos de prueba se reanudaron de forma controlada y quedaron en
+`done/complete`, con dos mensajes salientes registrados. El backend `2.39.10`
+respondió `status: ok`; hay 36 migraciones aplicadas. Se creó otra copia
+cifrada después de la corrección (`mateos-pet-ai-20260923T172733Z`). CI ahora
+aplica todas las migraciones en una base vacía y comprueba que no haya deriva.
+
+Sigue pendiente comprobar una reserva completa y su aparición en el panel.
