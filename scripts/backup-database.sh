@@ -71,7 +71,7 @@ const values = {
   dbname: database,
   user: decodeURIComponent(url.username),
   password: decodeURIComponent(url.password),
-  sslmode: url.searchParams.get("sslmode") || "require",
+  sslmode: url.searchParams.get("sslmode") || "prefer",
 };
 for (const [key, item] of Object.entries(values)) {
   if (!item || /[\r\n]/.test(item)) throw new Error(`invalid ${key} in DATABASE_URL`);

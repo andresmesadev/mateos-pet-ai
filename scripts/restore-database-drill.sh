@@ -10,7 +10,7 @@ fi
 
 backup_set=$1
 identity_file=$2
-pg_image=${MATEOS_BACKUP_PG_IMAGE:-postgres:18-alpine}
+pg_image=${MATEOS_BACKUP_PG_IMAGE:-pgvector/pgvector:0.8.6-pg18-bookworm}
 keep_container=${MATEOS_RESTORE_KEEP_CONTAINER:-false}
 
 fail() {

@@ -2,7 +2,7 @@ name: Production health alert
 
 on:
   schedule:
-    # Comparte la ventana horaria de bajo consumo de Neon (jobs en :00–:30).
+    # Comprobación independiente de la base de datos alojada en la VPS.
     - cron: "5 * * * *"
   workflow_dispatch:
     inputs:
@@ -31,13 +31,6 @@ jobs:
           if [[ "$CONTROLLED_FAILURE" == "true" ]]; then
             echo "Controlled observability alert test"
             exit 1
-          fi
-
-          # Neon tiene un corte de cuota conocido hasta el reinicio mensual.
-          # Evita alertas repetidas antes de la fecha ya registrada en el plan.
-          if [[ "$GITHUB_EVENT_NAME" == "schedule" && "$(date -u +%F)" < "2026-10-01" ]]; then
-            echo "Scheduled monitoring activates on 2026-10-01"
-            exit 0
           fi
 
           http_code=$(curl --silent --show-error --max-time 25 \

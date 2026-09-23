@@ -1,5 +1,6 @@
 # Respaldos de datos reales generados por scripts de migración (contienen PII)
 backend/scripts/migrations/backups/
+secrets/
 
 # Configuración local de Claude Code (herramienta, no producto)
 .claude/

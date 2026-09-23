@@ -42,7 +42,7 @@ MATEOS_BACKUP_DIR=/var/backups/mateos-pet-ai
 MATEOS_BACKUP_RECIPIENT_FILE=/etc/mateos-pet-ai/backup-recipient.pub
 MATEOS_BACKUP_RETENTION_DAYS=14
 MATEOS_BACKUP_PG_IMAGE=postgres:18-alpine
-MATEOS_BACKUP_NOT_BEFORE=2026-10-01T00:00:00Z
+MATEOS_BACKUP_DOCKER_NETWORK=mateos-pet-ai_default
 EOF
 sudo install -m 644 -o root -g root "$config_tmp" "$config_dir/backup.conf"
 

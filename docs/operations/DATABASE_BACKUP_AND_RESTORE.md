@@ -23,8 +23,10 @@
 - `scripts/install-backup-service.sh`: instala configuración y timer.
 - `deploy/systemd/mateos-pet-ai-backup.{service,timer}`: ejecución diaria.
 
-La imagen `postgres:18-alpine` fija las herramientas de copia y restauración. `age`
-se instala desde su publicación oficial y se verifica contra el SHA-256 publicado.
+La imagen `postgres:18-alpine` fija la herramienta de copia. La restauración usa
+`pgvector/pgvector:0.8.6-pg18-bookworm`, porque el esquema contiene columnas
+vectoriales. `age` se instala desde su publicación oficial y se verifica contra
+el SHA-256 publicado.
 
 ## Instalación en la VPS
 
@@ -34,10 +36,9 @@ La clave que se entrega al instalador es pública:
 ./scripts/install-backup-service.sh /tmp/mateos-backup-recipient.pub
 ```
 
-La configuración inicial contiene
-`MATEOS_BACKUP_NOT_BEFORE=2026-10-01T00:00:00Z`. Hasta esa fecha el timer queda
-activo pero omite la conexión, para no generar intentos inútiles durante el corte
-de cuota de Neon. Desde esa fecha ejecutará el respaldo diario automáticamente.
+La configuración usa la red privada `mateos-pet-ai_default` para conectar el
+contenedor temporal de `pg_dump` con PostgreSQL. El timer ejecuta diariamente
+sin depender de la cuota de Neon.
 
 ## Comprobación diaria
 
@@ -78,9 +79,9 @@ primero de esta manera y luego aprobar explícitamente el destino definitivo.
 - el ensayo no restaura tablas o migraciones;
 - el espacio libre de la VPS baja de 20 GB.
 
-## Estado durante el corte de Neon
+## Estado tras la migración a VPS
 
-La infraestructura queda instalada y se valida con una base PostgreSQL aislada.
-El primer respaldo de los datos reales solo puede generarse cuando Neon reactive
-la base el 1 de octubre de 2026. El paso 5 de preparación para beta no debe
-declararse cerrado hasta conservar ese respaldo real y restaurarlo con éxito.
+El primer respaldo de la nueva base debe ejecutarse manualmente al concluir el
+cambio de proveedor y restaurarse en aislamiento antes de declarar cerrado el
+paso 5. La copia permanece en la misma VPS; antes de una beta con usuarios
+externos se requiere otra copia cifrada en un lugar independiente.
