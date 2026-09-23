@@ -29,7 +29,7 @@
 | 3 | Actualizar dependencias vulnerables y runtime Node | Cero vulnerabilidades altas conocidas en dependencias de producción, runtime soportado y CI verde. | ✅ Completado (`2.39.6`) |
 | 4 | Activar observabilidad | Sentry o equivalente recibe una excepción controlada y existe alerta de salud/worker. | ✅ Completado (`2.39.7`) |
 | 5 | Implementar backup y restauración | Backup cifrado y periódico, retención definida y restauración ensayada. | ✅ Primer respaldo real de la base en VPS restaurado (`2.39.9`); copia fuera de la VPS pendiente antes de beta externa |
-| 6 | Configurar WhatsApp de producción | Número empresarial real registrado, app publicada y flujo entrante/saliente verificado. | Pendiente |
+| 6 | Configurar WhatsApp de producción | Número empresarial real registrado, app publicada y flujo entrante/saliente verificado. | Aplazado por decisión del operador; se conserva el número de prueba de Meta |
 | 7 | Completar documentación legal del piloto | Política, términos y acuerdo de piloto completados y revisados. | Pendiente |
 | 8 | Ejecutar matriz integral de agenda | Casos de veterinaria, peluquería, domingos, festivos, conflictos, cancelación y fallos aprobados. | Pendiente |
 | 9 | Ejecutar período de estabilización | 48 horas sin errores del worker ni pérdida de mensajes; métricas y cola nominales. | Pendiente |
@@ -38,6 +38,25 @@
 ## Condiciones de salida a beta
 
 La beta cerrada solo cambia a **GO** cuando los pasos 1–9 estén cerrados y exista un responsable operativo durante la primera cohorte. Los tres trabajos `needs_review` eran datos de prueba de la base anterior y no se importaron, por decisión expresa del operador.
+
+## Alcance de las próximas pruebas (decisión del operador, 2026-09-23)
+
+No se contratará Neon: la base activa permanece en la VPS. Tampoco se
+registrará por ahora un número empresarial real; WhatsApp seguirá usando el
+número de prueba proporcionado por Meta. Por tanto, el paso 6 de producción
+queda aplazado deliberadamente y **no es el próximo trabajo**. No se debe
+interpretar una prueba satisfactoria con ese número como cierre del paso 6.
+
+El [número de prueba](https://www.postman.com/postman/brewing-postman-flows/folder/euh50yh/step-1-set-up-developer-assets-and-platform-access)
+permite una validación interna controlada con un máximo de cinco números
+destinatarios verificados en Meta. La cohorte de 5–10 usuarios por WhatsApp
+del paso 10 queda limitada a cinco números en total; una beta externa con
+acceso abierto no es viable con esta configuración. Antes de invitar participantes, verificar
+cuántos de esos cinco cupos ya están ocupados; no se deben prometer cupos sin
+esa comprobación. El siguiente trabajo es el paso 8: ejecutar la matriz de
+agenda de principio a fin con los números de prueba disponibles. Luego se
+revisarán la estabilidad/capacidad (pasos 2 y 9) y los documentos del paso 7
+antes de cualquier piloto con personas externas.
 
 ## Revisión tras migrar a la VPS (2026-09-23)
 
