@@ -25,7 +25,7 @@
 | Paso | Trabajo | Criterio de cierre | Estado |
 | --- | --- | --- | --- |
 | 1 | Corregir los timeouts del worker entrante | El barrido tolera el arranque en frío de la base, tiene prueba de regresión y opera sin timeouts repetidos en producción. | ✅ Completado (`2.39.3`) |
-| 2 | Garantizar capacidad de la base de datos | PostgreSQL operativo en la VPS, sin límite mensual de Neon; salud y capacidad observadas durante el piloto. | 🧪 Migración a la VPS completada (`2.39.9`); observación sostenida pendiente |
+| 2 | Garantizar capacidad de la base de datos | PostgreSQL operativo en la VPS, sin límite mensual de Neon; salud y capacidad observadas durante el piloto. | 🧪 Migración completada (`2.39.10`) y capacidad inicial verificada; faltan observación sostenida y carga del piloto |
 | 3 | Actualizar dependencias vulnerables y runtime Node | Cero vulnerabilidades altas conocidas en dependencias de producción, runtime soportado y CI verde. | ✅ Completado (`2.39.6`) |
 | 4 | Activar observabilidad | Sentry o equivalente recibe una excepción controlada y existe alerta de salud/worker. | ✅ Completado (`2.39.7`) |
 | 5 | Implementar backup y restauración | Backup cifrado y periódico, retención definida y restauración ensayada. | ✅ Primer respaldo real de la base en VPS restaurado (`2.39.9`); copia fuera de la VPS pendiente antes de beta externa |
@@ -38,6 +38,34 @@
 ## Condiciones de salida a beta
 
 La beta cerrada solo cambia a **GO** cuando los pasos 1–9 estén cerrados y exista un responsable operativo durante la primera cohorte. Los tres trabajos `needs_review` eran datos de prueba de la base anterior y no se importaron, por decisión expresa del operador.
+
+## Revisión tras migrar a la VPS (2026-09-23)
+
+El frontend, backend y PostgreSQL/pgvector ejecutan en la VPS; el backend
+resuelve `DATABASE_URL` al servicio privado `db` y PostgreSQL no publica el
+puerto 5432. En la observación de las 19:46 UTC, la VPS tenía 2 CPU, 11 GiB
+de RAM (unos 10 GiB disponibles) y 161 GiB libres en disco; la base ocupaba
+10 MB y había 2 conexiones de 100 configuradas. El volumen de PostgreSQL es
+persistente. El endpoint público devolvió `status: ok`, con base, OpenAI y
+worker en `ok`; los cuatro trabajos entrantes de la base nueva estaban en
+`done/complete`. Desde el reinicio de las 17:27 UTC no se observaron señales
+de errores del backend, columnas faltantes, leases vencidos ni trabajos en
+revisión. La copia cifrada diaria está habilitada y hay dos copias locales.
+
+**El paso 2 sigue abierto.** Estas cifras prueban capacidad disponible en
+reposo y que la cuota de Neon ya no afecta a la aplicación; no prueban todavía
+48 horas de estabilidad ni comportamiento con el tráfico del piloto. Registrar
+uso de CPU, RAM, disco, conexiones, salud y cola durante ese período y ejecutar
+las pruebas de agenda antes de decidir su cierre. El período formal de 48 horas
+sin incidentes corresponde además al paso 9.
+
+La infraestructura de ejecución y los datos nuevos están en la VPS. GitHub
+sigue alojando el código y ejecutando CI y la alerta externa; esta última debe
+seguir fuera de la VPS para poder detectar una caída completa del servidor.
+WhatsApp Cloud API, OpenAI y las integraciones de Google/Stripe siguen siendo
+servicios de terceros: trasladar la base de datos no los convierte en servicios
+locales. La copia cifrada actual está en la misma VPS, por lo que una copia
+externa continúa recomendada antes de una beta con usuarios reales.
 
 ## Registro del paso 1
 
