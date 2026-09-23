@@ -72,3 +72,12 @@ cifrada después de la corrección (`mateos-pet-ai-20260923T172733Z`). CI ahora
 aplica todas las migraciones en una base vacía y comprueba que no haya deriva.
 
 Sigue pendiente comprobar una reserva completa y su aparición en el panel.
+
+El workflow manual de GitHub llamado `Deploy` se retiró porque seguía
+ejecutando migraciones contra la URL antigua de Neon y nunca desplegaba en la
+VPS. CI usa ahora una URL local ficticia para las pruebas unitarias; el trabajo
+de PostgreSQL usa exclusivamente su contenedor de prueba. Los despliegues
+actuales se hacen desde la VPS mediante `git pull --ff-only`, migraciones
+contra la red privada y reconstrucción de los servicios. Se recomienda borrar
+el secreto `DATABASE_URL` antiguo del repositorio de GitHub si ya no tiene
+consumidores externos conocidos; no se necesita para el CI actual.

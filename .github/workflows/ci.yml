@@ -10,7 +10,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DATABASE_URL: postgresql://test:test@127.0.0.1:5432/test
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       WHATSAPP_VERIFY_TOKEN: test
       WHATSAPP_PHONE_NUMBER_ID: test
