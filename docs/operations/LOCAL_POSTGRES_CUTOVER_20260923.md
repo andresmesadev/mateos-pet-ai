@@ -40,3 +40,20 @@ contenedores. El backend espera a que la base responda antes de arrancar.
 - Las copias automáticas en la misma VPS protegen contra errores de datos, pero
   no contra pérdida de la máquina completa. Para beta externa se necesita copia
   cifrada en un segundo lugar.
+
+## Resultado del cambio
+
+El 2026-09-23 se aplicaron las 35 migraciones en PostgreSQL 18/pgvector 0.8.6.
+Se inicializó el establecimiento con dos empleados digitales, un canal de
+WhatsApp, 15 servicios y tres miembros de staff. El backend `2.39.9` quedó
+conectado a la base privada de Docker y `/api/health` respondió `status: ok`,
+con base, OpenAI y worker entrante en `ok`. El timer diario quedó activo y
+produjo la copia cifrada `mateos-pet-ai-20260923T171826Z`. Se descifró en el
+equipo del operador y se restauró en una base temporal aislada: 37 tablas y
+35 migraciones verificadas. La clave privada no salió del equipo local.
+
+**Pendiente de validación funcional:** enviar un WhatsApp nuevo al número de
+prueba y confirmar respuesta, trabajo entrante completado y una cita visible
+en el panel. Es una prueba manual con un remitente autorizado; no se simula
+una conversación real con clientes. Revisar también los horarios y precios de
+servicios reiniciados antes de usar la agenda.

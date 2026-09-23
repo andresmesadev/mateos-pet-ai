@@ -25,10 +25,10 @@
 | Paso | Trabajo | Criterio de cierre | Estado |
 | --- | --- | --- | --- |
 | 1 | Corregir los timeouts del worker entrante | El barrido tolera el arranque en frío de la base, tiene prueba de regresión y opera sin timeouts repetidos en producción. | ✅ Completado (`2.39.3`) |
-| 2 | Garantizar capacidad de Neon | Consumo y plan verificados; la base no queda expuesta a suspensión durante el piloto. | 🧪 Free durante desarrollo; mitigación aplicada y validación pendiente tras el reinicio mensual |
+| 2 | Garantizar capacidad de la base de datos | PostgreSQL operativo en la VPS, sin límite mensual de Neon; salud y capacidad observadas durante el piloto. | 🧪 Migración a la VPS completada (`2.39.9`); observación sostenida pendiente |
 | 3 | Actualizar dependencias vulnerables y runtime Node | Cero vulnerabilidades altas conocidas en dependencias de producción, runtime soportado y CI verde. | ✅ Completado (`2.39.6`) |
 | 4 | Activar observabilidad | Sentry o equivalente recibe una excepción controlada y existe alerta de salud/worker. | ✅ Completado (`2.39.7`) |
-| 5 | Implementar backup y restauración | Backup cifrado y periódico, retención definida y restauración ensayada. | 🧪 Infraestructura `2.39.8` instalada; primer respaldo real pendiente del reinicio de Neon |
+| 5 | Implementar backup y restauración | Backup cifrado y periódico, retención definida y restauración ensayada. | ✅ Primer respaldo real de la base en VPS restaurado (`2.39.9`); copia fuera de la VPS pendiente antes de beta externa |
 | 6 | Configurar WhatsApp de producción | Número empresarial real registrado, app publicada y flujo entrante/saliente verificado. | Pendiente |
 | 7 | Completar documentación legal del piloto | Política, términos y acuerdo de piloto completados y revisados. | Pendiente |
 | 8 | Ejecutar matriz integral de agenda | Casos de veterinaria, peluquería, domingos, festivos, conflictos, cancelación y fallos aprobados. | Pendiente |
@@ -37,7 +37,7 @@
 
 ## Condiciones de salida a beta
 
-La beta cerrada solo cambia a **GO** cuando los pasos 1–9 estén cerrados, los tres trabajos `needs_review` estén conciliados individualmente y exista un responsable operativo durante la primera cohorte.
+La beta cerrada solo cambia a **GO** cuando los pasos 1–9 estén cerrados y exista un responsable operativo durante la primera cohorte. Los tres trabajos `needs_review` eran datos de prueba de la base anterior y no se importaron, por decisión expresa del operador.
 
 ## Registro del paso 1
 
@@ -54,6 +54,20 @@ general `ok`, base de datos y OpenAI `ok`, 35 migraciones al día y cero claims
 vencidos. Paso cerrado el 2026-09-19.
 
 ## Registro del paso 2
+
+**Actualización 2026-09-23:** el operador autorizó descartar todos los datos de
+prueba y migrar a una base PostgreSQL nueva en la VPS, sin contratar un plan de
+Neon. El commit `4eb5b70` (`2.39.9`) añadió PostgreSQL 18 con pgvector en una
+red privada de Docker, volumen persistente, contraseña fuera de Git y espera de
+salud antes de iniciar el backend. En la VPS se aplicaron las 35 migraciones;
+`/api/health` confirmó `database`, `openai` e `inboundWorker` en `ok`. Se creó
+un establecimiento de prueba, dos empleados digitales, un canal WhatsApp,
+15 servicios y tres miembros de staff. La base anterior de Neon no se borró.
+Los mensajes y citas anteriores no están en la nueva base. El paso sigue en
+observación hasta demostrar estabilidad y capacidad bajo tráfico real.
+
+El texto siguiente conserva la decisión histórica de 2026-09-22; la espera al
+1 de octubre ya no aplica a la base activa.
 
 La consola de Neon confirmó que `Mateos Pet AI` continúa en el plan Free y que
 alcanzó el límite: 103,74 CU-horas consumidas desde el 1 de septiembre frente a
@@ -105,6 +119,9 @@ registrado en el paso 2. Paso cerrado el 2026-09-22.
 
 ## Registro del paso 4
 
+**Actualización 2026-09-23:** el workflow horario volvió a activarse al usar
+la base de la VPS. Ya no espera al reinicio mensual de Neon.
+
 Se eligió GitHub Actions como equivalente gratuito de alerta externa mientras
 el proyecto continúa en desarrollo, conservando Sentry como integración
 opcional para cuando exista un `SENTRY_DSN`. La versión `2.39.7` incorporó un
@@ -128,6 +145,15 @@ tiempo y contador de fallos, sin revelar credenciales ni mensajes entrantes.
 Paso cerrado el 2026-09-22.
 
 ## Registro del paso 5
+
+**Actualización 2026-09-23:** se quitó la suspensión del timer y se creó una
+copia real cifrada de la base local en
+`/var/backups/mateos-pet-ai/mateos-pet-ai-20260923T171826Z`. Se descifró con
+la clave privada que permaneció en el equipo del operador y se restauró en
+un contenedor PostgreSQL/pgvector aislado. La restauración mostró 37 tablas
+públicas y 35 migraciones. El contenedor temporal se eliminó. La copia sigue
+en la misma VPS, por lo que todavía falta establecer una copia cifrada en un
+segundo lugar antes de admitir usuarios externos.
 
 La versión `2.39.8` incorporó una copia completa diaria de PostgreSQL a las
 08:10 UTC, con demora aleatoria de hasta diez minutos y retención de 14 días.
