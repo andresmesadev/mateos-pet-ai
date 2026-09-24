@@ -13,7 +13,6 @@ import {
   MessageCircle,
   HeartPulse,
   Settings,
-  Bot,
   LogOut,
   Menu,
   X,
@@ -25,25 +24,32 @@ import { cn } from "@/lib/utils";
 
 // ── Estructura de navegación ──────────────────────────────────
 
-type NavItem = { href: string; label: string; icon: LucideIcon; exact?: boolean };
+type NavItem = { href: string; label: string; icon: LucideIcon; exact?: boolean; alsoActiveOn?: string[] };
 type NavSection = { heading?: string; items: NavItem[] };
 
 const SECTIONS: NavSection[] = [
   {
+    heading: "Trabajo diario",
     items: [
       { href: "/dashboard", label: "Inicio", icon: Home, exact: true },
       { href: "/dashboard/calendar", label: "Agenda", icon: Calendar },
-      { href: "/dashboard/contacto", label: "Clientes", icon: Users },
+      { href: "/dashboard/contacto", label: "Clientes y mascotas", icon: Users, alsoActiveOn: ["/dashboard/clients", "/dashboard/pets"] },
       { href: "/dashboard/conversations", label: "WhatsApp", icon: MessageCircle },
-      { href: "/dashboard/pos", label: "Caja / Ventas", icon: Wallet },
-      { href: "/dashboard/recuperacion", label: "Recuperación", icon: HeartPulse },
-      { href: "/dashboard/settings", label: "Administración", icon: Settings },
+    ],
+  },
+  {
+    heading: "Gestión",
+    items: [
+      { href: "/dashboard/pos", label: "Caja y ventas", icon: Wallet, alsoActiveOn: ["/dashboard/revenue"] },
+      { href: "/dashboard/recuperacion", label: "Recuperación", icon: HeartPulse, alsoActiveOn: ["/dashboard/churn", "/dashboard/opportunities", "/dashboard/reactivation"] },
+      { href: "/dashboard/settings", label: "Administración", icon: Settings, alsoActiveOn: ["/dashboard/services", "/dashboard/staff", "/dashboard/billing", "/dashboard/admin"] },
     ],
   },
 ];
 
 function isActive(item: NavItem, pathname: string) {
-  return item.exact ? pathname === item.href : pathname.startsWith(item.href);
+  if (item.exact) return pathname === item.href;
+  return pathname.startsWith(item.href) || item.alsoActiveOn?.some((path) => pathname.startsWith(path)) || false;
 }
 
 // ── Item de navegación ────────────────────────────────────────
@@ -64,20 +70,20 @@ function NavLink({
       href={item.href}
       onClick={onNavigate}
       className={cn(
-        "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
+        "group relative flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700",
         active
-          ? "bg-gradient-to-r from-sidebar-primary/20 to-sidebar-primary/0 text-sidebar-primary"
-          : "text-sidebar-foreground/55 hover:bg-black/[0.05] hover:text-sidebar-foreground"
+          ? "bg-teal-50 font-semibold text-teal-800"
+          : "text-sidebar-foreground/75 hover:bg-slate-100 hover:text-sidebar-foreground"
       )}
     >
       {active && (
-        <span className="absolute inset-y-2 left-0 w-[3px] rounded-r-full bg-sidebar-primary shadow-[0_0_10px_2px_oklch(0.72_0.14_232_/_50%)]" />
+        <span className="absolute inset-y-2 left-0 w-[3px] rounded-r-full bg-teal-700" />
       )}
       <Icon
         className={cn(
           "h-[18px] w-[18px] shrink-0 transition-colors",
           active
-            ? "text-sidebar-primary drop-shadow-[0_0_6px_oklch(0.72_0.14_232_/_60%)]"
+            ? "text-teal-700"
             : "text-sidebar-foreground/40 group-hover:text-sidebar-foreground"
         )}
       />
@@ -99,28 +105,27 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <div
-      className="flex h-full flex-col backdrop-blur-xl text-sidebar-foreground"
-      style={{ background: "var(--sidebar)" }}
+      className="flex h-full flex-col bg-white text-sidebar-foreground"
     >
       {/* Marca */}
-      <div className="flex items-center gap-3 border-b border-sidebar-border px-4 py-4">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sidebar-primary/30 to-sidebar-primary/10 ring-1 ring-sidebar-primary/40 shadow-[0_0_16px_-2px_oklch(0.72_0.14_232_/_40%)]">
-          <PawPrint className="h-5 w-5 text-sidebar-primary drop-shadow-[0_0_6px_oklch(0.72_0.14_232_/_80%)]" />
+      <Link href="/dashboard" onClick={onNavigate} className="flex items-center gap-3 border-b border-sidebar-border px-5 py-5 focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-teal-700">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-700 text-white">
+          <PawPrint className="h-5 w-5" />
         </div>
         <div className="min-w-0">
-          <p className="truncate text-sm font-bold leading-tight tracking-tight gradient-text">
+          <p className="truncate text-sm font-bold leading-tight tracking-tight text-teal-950">
             Mateos Pet AI
           </p>
-          <p className="truncate text-[11px] text-sidebar-foreground/40 font-medium">Panel operativo</p>
+          <p className="truncate text-xs font-medium text-sidebar-foreground/60">Tu espacio de trabajo</p>
         </div>
-      </div>
+      </Link>
 
       {/* Navegación */}
-      <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-3">
+      <nav aria-label="Navegación del dashboard" className="flex-1 space-y-6 overflow-y-auto px-3 py-6">
         {sections.map((section, i) => (
-          <div key={section.heading ?? i} className="space-y-0.5">
+          <div key={section.heading ?? i} className="space-y-1">
             {section.heading && (
-              <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/30">
+              <p className="px-3 pb-2 text-xs font-semibold text-sidebar-foreground/55">
                 {section.heading}
               </p>
             )}
@@ -131,26 +136,10 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         ))}
       </nav>
 
-      {/* Card Agente IA activo */}
-      <div className="px-3 pb-3">
-        <div className="rounded-xl border border-sidebar-primary/15 bg-gradient-to-br from-sidebar-primary/10 to-transparent p-3 shadow-[0_0_20px_-6px_oklch(0.72_0.14_232_/_25%)] backdrop-blur-sm">
-          <div className="flex items-center gap-2">
-            <div className="relative shrink-0">
-              <Bot className="h-4 w-4 text-sidebar-primary drop-shadow-[0_0_4px_oklch(0.72_0.14_232_/_80%)]" />
-              <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400 shadow-[0_0_4px_oklch(0.7_0.2_145_/_80%)]" />
-            </div>
-            <p className="text-xs font-semibold text-emerald-700">Agente IA activo</p>
-          </div>
-          <p className="mt-1 text-[11px] leading-relaxed text-sidebar-foreground/50">
-            Respondiendo en WhatsApp y agendando citas automáticamente.
-          </p>
-        </div>
-      </div>
-
       {/* Perfil + logout */}
       <div
         className="flex items-center gap-3 border-t border-sidebar-border px-4 py-3"
-        style={{ background: "oklch(0 0 0 / 3%)" }}
+        style={{ background: "#f7faf9" }}
       >
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sidebar-primary/30 to-sidebar-primary/10 text-[11px] font-bold text-sidebar-primary ring-1 ring-sidebar-primary/30">
           {initials}
@@ -183,7 +172,7 @@ export function DashboardSidebar() {
       <button
         type="button"
         onClick={() => setMobileOpen(true)}
-        className="fixed left-4 top-4 z-40 rounded-lg border border-black/[0.08] bg-black/[0.06] p-2 text-foreground shadow-sm backdrop-blur-md lg:hidden"
+        className="fixed left-4 top-4 z-40 rounded-lg border border-border bg-white p-2 text-foreground shadow-sm lg:hidden"
         aria-label="Abrir menú"
       >
         <Menu className="h-5 w-5" />

@@ -7,9 +7,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
+  --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-geist-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -51,43 +51,33 @@
 }
 
 :root {
-  /* ── Paleta "Clinical Sky + Fresh Green" — modo claro real (2026-09-08, v3)
-   * El dashboard dejó de forzar modo oscuro (app/dashboard/layout.tsx) —
-   * pedido explícito: se veía "aún negro" con el fondo oscuro retinteado,
-   * el responsable del proyecto quería el look real de clínica veterinaria:
-   * blanco predominante + azul cielo (confianza clínica) + verde fresco
-   * (salud), no una versión oscura con acentos de color. Este bloque :root
-   * es ahora el tema activo del dashboard (antes solo lo usaban /login y
-   * /onboarding, que quedan sin cambios visuales — ya eran claros).
-   */
-  --background: oklch(0.97 0.014 232);
-  --foreground: oklch(0.22 0.03 235);
+  /* Tema claro del panel: superficies blancas, fondo neutro y acento verde. */
+  --background: #f5f8f8;
+  --foreground: #1b353b;
 
-  /* ── Cards translúcidas — el glass-card compone un velo blanco encima
-   * (ver @layer utilities) para legibilidad; esto solo deja pasar el tinte
-   * de los orbes ambientales de fondo. */
-  --card: oklch(1 0 0 / 72%);
-  --card-foreground: oklch(0.22 0.03 235);
+  /* Superficies de contenido. */
+  --card: #ffffff;
+  --card-foreground: #1b353b;
 
   /* ── Popovers/dropdowns opacos (legibilidad, misma decisión que antes) */
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.22 0.03 235);
 
-  /* ── Azul cielo (confianza clínica) ───────────────────────── */
-  --primary: oklch(0.60 0.16 232);
-  --primary-foreground: oklch(0.99 0.004 235);
+  /* Acciones principales. */
+  --primary: #137568;
+  --primary-foreground: #ffffff;
 
-  --secondary: oklch(0.95 0.014 230);
-  --secondary-foreground: oklch(0.22 0.03 235);
-  --muted: oklch(0.95 0.012 230);
-  --muted-foreground: oklch(0.48 0.02 233);
-  --accent: oklch(0.94 0.03 152);
-  --accent-foreground: oklch(0.22 0.03 235);
+  --secondary: #e9f2f0;
+  --secondary-foreground: #1b353b;
+  --muted: #eef3f2;
+  --muted-foreground: #587170;
+  --accent: #e4f3ed;
+  --accent-foreground: #1b353b;
 
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.90 0.018 230);
-  --input: oklch(0.90 0.018 230);
-  --ring: oklch(0.60 0.16 232);
+  --border: #dce8e5;
+  --input: #dce8e5;
+  --ring: #137568;
 
   /* ── Verde fresco: acento de marca (salud/naturaleza) ─────── */
   --warm: oklch(0.55 0.14 152);
@@ -101,15 +91,15 @@
 
   --radius: 0.625rem;
 
-  /* ── Sidebar clara, ligeramente translúcida ───────────────── */
-  --sidebar: oklch(0.98 0.01 230 / 88%);
-  --sidebar-foreground: oklch(0.22 0.03 235);
-  --sidebar-primary: oklch(0.60 0.16 232);
-  --sidebar-primary-foreground: oklch(0.99 0.004 235);
-  --sidebar-accent: oklch(0.93 0.028 152 / 70%);
-  --sidebar-accent-foreground: oklch(0.22 0.03 235);
-  --sidebar-border: oklch(0.90 0.015 230);
-  --sidebar-ring: oklch(0.60 0.16 232);
+  /* Navegación lateral. */
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1b353b;
+  --sidebar-primary: #137568;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e4f3ed;
+  --sidebar-accent-foreground: #1b353b;
+  --sidebar-border: #dce8e5;
+  --sidebar-ring: #137568;
 
   /* ── Custom glow/gradient tokens (usados por .glow-* y .gradient-text) ── */
   --glow-cyan: 0 0 16px oklch(0.60 0.16 232 / 30%), 0 0 32px oklch(0.60 0.16 232 / 10%);
@@ -214,31 +204,16 @@
   }
   html {
     @apply font-sans;
+    font-family: var(--font-geist-sans), Arial, sans-serif;
   }
 }
 
 /* ── Utilidades premium reutilizables ─────────────────────────── */
 @layer utilities {
-  /* Glassmorphism "liquid glass" (2026-09-08): blur más pronunciado +
-   * saturate() para que el vidrio capte y realce el color de lo que hay
-   * detrás (el efecto "líquido"/refractivo, no solo desenfoque plano) +
-   * highlight especular superior (simula una fuente de luz) + sombra de
-   * profundidad. Mismo nombre de clase que antes — cero cambios en los
-   * componentes que ya la usan (dashboard-topbar, dashboard-sidebar,
-   * metric-card, home/sections).
-   */
+  /* Nombre conservado para los componentes existentes; acabado plano legible. */
   .glass-card {
-    backdrop-filter: blur(20px) saturate(140%);
-    -webkit-backdrop-filter: blur(20px) saturate(140%);
-    background-image: linear-gradient(
-      160deg,
-      oklch(1 0 0 / 55%) 0%,
-      oklch(1 0 0 / 12%) 45%
-    );
-    box-shadow:
-      0 1px 0 oklch(1 0 0 / 70%) inset,
-      0 1px 3px oklch(0.22 0.03 235 / 8%),
-      0 8px 24px -10px oklch(0.22 0.03 235 / 18%);
+    background-image: none;
+    box-shadow: 0 2px 8px rgb(27 53 59 / 6%);
   }
 
   /* Glow neon en el color primario (cyan) */

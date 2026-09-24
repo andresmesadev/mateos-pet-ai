@@ -75,11 +75,19 @@ async function handler(
       ? await req.text()
       : undefined;
 
-  const response = await fetch(backendUrl.toString(), {
-    method: req.method,
-    headers,
-    body,
-  });
+  let response: Response;
+  try {
+    response = await fetch(backendUrl.toString(), {
+      method: req.method,
+      headers,
+      body,
+    });
+  } catch {
+    return NextResponse.json(
+      { error: "El servidor de datos no está disponible. Intenta de nuevo." },
+      { status: 503 }
+    );
+  }
 
   const text = await response.text();
   return new NextResponse(text, {

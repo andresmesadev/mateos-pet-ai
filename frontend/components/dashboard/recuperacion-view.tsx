@@ -26,7 +26,7 @@ export function RecuperacionView({ data, initialTab, oppCount, inactiveCount, ch
   const TABS: { id: Tab; label: string; count: number; dot?: "blue" | "orange" | "red" }[] = [
     { id: "oportunidades", label: "Oportunidades", count: oppCount, dot: "blue" },
     { id: "reactivar",     label: "Reactivar",     count: inactiveCount, dot: "orange" },
-    { id: "churn",         label: "Churn",         count: churnCount, dot: "red" },
+    { id: "churn",         label: "Riesgo de abandono", count: churnCount, dot: "red" },
   ];
 
   const DOT_COLOR: Record<string, string> = {
@@ -38,14 +38,17 @@ export function RecuperacionView({ data, initialTab, oppCount, inactiveCount, ch
   return (
     <div className="space-y-4">
       {/* Tab bar */}
-      <div className="flex gap-1 rounded-xl border bg-muted/30 p-1 w-fit">
+      <div role="tablist" aria-label="Vistas de recuperación" className="flex w-fit max-w-full flex-wrap gap-1 rounded-xl border border-border bg-white p-1">
         {TABS.map(({ id, label, count, dot }) => (
           <button
             key={id}
+            type="button"
+            role="tab"
+            aria-selected={tab === id}
             onClick={() => setTab(id)}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors
+            className={`flex min-h-10 items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors
               ${tab === id
-                ? "bg-background shadow-sm text-foreground"
+                ? "bg-teal-700 text-white"
                 : "text-muted-foreground hover:text-foreground"}`}
           >
             {dot && (
@@ -54,7 +57,7 @@ export function RecuperacionView({ data, initialTab, oppCount, inactiveCount, ch
             {label}
             {count > 0 && (
               <span className={`ml-0.5 rounded-full px-1.5 py-0.5 text-xs font-semibold
-                ${tab === id ? "bg-muted text-foreground" : "bg-muted/60 text-muted-foreground"}`}>
+                ${tab === id ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"}`}>
                 {count}
               </span>
             )}
@@ -80,7 +83,7 @@ export function RecuperacionView({ data, initialTab, oppCount, inactiveCount, ch
                 <span className="text-xs font-bold text-red-700">!</span>
               </div>
               <div>
-                <p className="text-2xl font-bold tabular-nums text-red-300 leading-none">{churnHigh}</p>
+                <p className="text-2xl font-bold tabular-nums text-red-800 leading-none">{churnHigh}</p>
                 <p className="text-xs text-red-500 mt-0.5">Riesgo alto</p>
               </div>
             </div>
@@ -89,7 +92,7 @@ export function RecuperacionView({ data, initialTab, oppCount, inactiveCount, ch
                 <span className="text-xs font-bold text-amber-700">~</span>
               </div>
               <div>
-                <p className="text-2xl font-bold tabular-nums text-amber-300 leading-none">{churnMed}</p>
+                <p className="text-2xl font-bold tabular-nums text-amber-800 leading-none">{churnMed}</p>
                 <p className="text-xs text-amber-500 mt-0.5">Riesgo medio</p>
               </div>
             </div>
@@ -98,7 +101,7 @@ export function RecuperacionView({ data, initialTab, oppCount, inactiveCount, ch
                 <span className="text-xs font-bold text-yellow-700">↓</span>
               </div>
               <div>
-                <p className="text-2xl font-bold tabular-nums text-yellow-300 leading-none">{churnLow}</p>
+                <p className="text-2xl font-bold tabular-nums text-yellow-800 leading-none">{churnLow}</p>
                 <p className="text-xs text-yellow-500 mt-0.5">Riesgo bajo</p>
               </div>
             </div>
@@ -106,7 +109,7 @@ export function RecuperacionView({ data, initialTab, oppCount, inactiveCount, ch
 
           {data.churn.length === 0 ? (
             <div className="rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground">
-              No hay clientes en riesgo de churn todavía.
+              No hay clientes con riesgo de abandono todavía.
               <br />
               Se necesitan al menos 2 citas completadas por cliente para calcular el riesgo.
             </div>

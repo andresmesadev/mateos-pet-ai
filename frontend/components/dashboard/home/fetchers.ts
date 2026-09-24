@@ -67,13 +67,13 @@ export const RECOVERY_FALLBACK: RecoveryMetrics = {
 
 type Headers = Record<string, string>;
 
-export async function fetchToday(headers: Headers): Promise<TodayAppointment[]> {
+export async function fetchToday(headers: Headers): Promise<TodayAppointment[] | null> {
   try {
     const res = await fetch(apiUrl("/api/dashboard/appointments/today"), { cache: "no-store", headers });
-    if (!res.ok) return [];
+    if (!res.ok) return null;
     const data = await res.json();
     return Array.isArray(data) ? data : [];
-  } catch { return []; }
+  } catch { return null; }
 }
 
 export async function fetchUpcoming(headers: Headers): Promise<UpcomingAppointment[]> {
@@ -85,13 +85,13 @@ export async function fetchUpcoming(headers: Headers): Promise<UpcomingAppointme
   } catch { return []; }
 }
 
-export async function fetchInactiveCount(headers: Headers): Promise<number> {
+export async function fetchInactiveCount(headers: Headers): Promise<number | null> {
   try {
     const res = await fetch(apiUrl("/api/dashboard/clients/inactive-count"), { cache: "no-store", headers });
-    if (!res.ok) return 0;
+    if (!res.ok) return null;
     const data = await res.json();
     return data.count ?? 0;
-  } catch { return 0; }
+  } catch { return null; }
 }
 
 export async function fetchMetrics(headers: Headers): Promise<MetricsData> {
@@ -102,12 +102,12 @@ export async function fetchMetrics(headers: Headers): Promise<MetricsData> {
   } catch { return METRICS_FALLBACK; }
 }
 
-export async function fetchActionsSummary(headers: Headers): Promise<ActionsSummary> {
+export async function fetchActionsSummary(headers: Headers): Promise<ActionsSummary | null> {
   try {
     const res = await fetch(apiUrl("/api/dashboard/next-actions/summary"), { cache: "no-store", headers });
-    if (!res.ok) return ACTIONS_FALLBACK;
+    if (!res.ok) return null;
     return (await res.json()) as ActionsSummary;
-  } catch { return ACTIONS_FALLBACK; }
+  } catch { return null; }
 }
 
 export async function fetchRecoveryMetrics(headers: Headers): Promise<RecoveryMetrics> {
@@ -118,37 +118,37 @@ export async function fetchRecoveryMetrics(headers: Headers): Promise<RecoveryMe
   } catch { return RECOVERY_FALLBACK; }
 }
 
-export async function fetchDailyMetrics(headers: Headers): Promise<DailyMetrics> {
+export async function fetchDailyMetrics(headers: Headers): Promise<DailyMetrics | null> {
   try {
     const res = await fetch(apiUrl("/api/dashboard/metrics/daily"), { cache: "no-store", headers });
-    if (!res.ok) return DAILY_METRICS_FALLBACK;
+    if (!res.ok) return null;
     return (await res.json()) as DailyMetrics;
-  } catch { return DAILY_METRICS_FALLBACK; }
+  } catch { return null; }
 }
 
-export async function fetchUpcomingReminders(headers: Headers): Promise<UpcomingReminder[]> {
+export async function fetchUpcomingReminders(headers: Headers): Promise<UpcomingReminder[] | null> {
   try {
     const res = await fetch(apiUrl("/api/dashboard/next-actions/upcoming?limit=6"), { cache: "no-store", headers });
-    if (!res.ok) return [];
+    if (!res.ok) return null;
     const data = await res.json();
     return Array.isArray(data) ? data : [];
-  } catch { return []; }
+  } catch { return null; }
 }
 
-export async function fetchActiveConversations(headers: Headers): Promise<DashboardConversation[]> {
+export async function fetchActiveConversations(headers: Headers): Promise<DashboardConversation[] | null> {
   try {
     const res = await fetch(apiUrl("/api/dashboard/conversations?page=1&limit=6"), { cache: "no-store", headers });
-    if (!res.ok) return [];
+    if (!res.ok) return null;
     const payload: ConversationsResponse = await res.json();
     return Array.isArray(payload.data) ? payload.data : [];
-  } catch { return []; }
+  } catch { return null; }
 }
 
-export async function fetchChurnPreview(headers: Headers): Promise<ChurnPreview[]> {
+export async function fetchChurnPreview(headers: Headers): Promise<ChurnPreview[] | null> {
   try {
     const res = await fetch(apiUrl("/api/dashboard/metrics/churn?limit=5"), { cache: "no-store", headers });
-    if (!res.ok) return [];
+    if (!res.ok) return null;
     const data = await res.json();
     return Array.isArray(data) ? data : [];
-  } catch { return []; }
+  } catch { return null; }
 }

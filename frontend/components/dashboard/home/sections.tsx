@@ -23,6 +23,19 @@ import {
 
 type Headers = Record<string, string>;
 
+function DataUnavailable({ title, className = "" }: { title: string; className?: string }) {
+  return (
+    <Card className={`h-full border-border bg-white ${className}`}>
+      <CardHeader className="pb-1">
+        <CardTitle className="text-sm font-semibold">{title}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className="text-sm text-muted-foreground">No se pudieron cargar los datos. Actualiza la página para intentarlo de nuevo.</p>
+      </CardContent>
+    </Card>
+  );
+}
+
 const TYPE_LABELS: Record<string, string> = {
   control: "controles",
   vaccine: "vacunas",
@@ -35,12 +48,14 @@ const TYPE_LABELS: Record<string, string> = {
 // ── Métricas diarias (5 cards) ────────────────────────────────
 export async function MetricsSection({ headers }: { headers: Headers }) {
   const metrics = await fetchDailyMetrics(headers);
+  if (!metrics) return <DataUnavailable title="Indicadores no disponibles" />;
   return <DailyMetricsCards metrics={metrics} />;
 }
 
 // ── Agenda de hoy ─────────────────────────────────────────────
 export async function TodaySection({ headers }: { headers: Headers }) {
   const today = await fetchToday(headers);
+  if (!today) return <DataUnavailable title="Agenda de hoy" />;
   return <TodaySchedule appointments={today} />;
 }
 
@@ -53,17 +68,18 @@ export async function RecoverySection({ headers }: { headers: Headers }) {
 // ── Bandeja de oportunidades (widget) ─────────────────────────
 export async function OpportunitiesWidget({ headers }: { headers: Headers }) {
   const actionsSummary = await fetchActionsSummary(headers);
+  if (!actionsSummary) return <DataUnavailable title="Recordatorios pendientes" />;
   const hasOverdue = actionsSummary.overduePets > 0;
   const isEmpty = actionsSummary.total === 0;
 
   return (
     <Link href="/dashboard/recuperacion?tab=oportunidades" className="block h-full">
-      <Card className={`group h-full glass-card transition-all duration-200 hover:-translate-y-0.5 ${
+      <Card className={`group h-full glass-card transition-colors ${
         isEmpty
-          ? "border border-black/[0.08] hover:border-black/[0.12]"
+          ? "border-border hover:border-teal-300"
           : hasOverdue
-            ? "border border-black/[0.08] border-t-2 border-t-amber-500/50 bg-amber-500/[0.04] hover:border-amber-500/30 hover:shadow-[0_0_24px_rgba(245,158,11,0.12)]"
-            : "border border-black/[0.08] border-t-2 border-t-sky-500/50 bg-sky-500/[0.04] hover:border-sky-500/30 hover:shadow-[0_0_24px_rgba(14,165,233,0.12)]"
+            ? "border-amber-200 bg-amber-50/40 hover:border-amber-400"
+            : "border-sky-200 bg-sky-50/40 hover:border-sky-400"
       }`}>
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-sm font-semibold">
@@ -71,8 +87,8 @@ export async function OpportunitiesWidget({ headers }: { headers: Headers }) {
             Recordatorios pendientes
             {!isEmpty && (
               <Badge className={hasOverdue
-                ? "border-amber-500/30 bg-amber-500/15 text-amber-300"
-                : "border-sky-500/30 bg-sky-500/15 text-sky-300"
+                ? "border-amber-200 bg-amber-100 text-amber-800"
+                : "border-sky-200 bg-sky-100 text-sky-800"
               }>
                 {actionsSummary.total}
               </Badge>
@@ -105,7 +121,7 @@ export async function OpportunitiesWidget({ headers }: { headers: Headers }) {
 // ── Encabezado de panel con enlace "Ver todas" ────────────────
 function PanelHeader({ title, href, linkLabel }: { title: string; href: string; linkLabel: string }) {
   return (
-    <CardHeader className="flex flex-row items-center justify-between border-b border-black/[0.12] pb-3">
+    <CardHeader className="flex flex-row items-center justify-between border-b border-border pb-3">
       <CardTitle className="text-sm font-semibold tracking-tight">{title}</CardTitle>
       <Link
         href={href}
@@ -162,6 +178,7 @@ function PetAiIllustration() {
 // ── Conversaciones activas ────────────────────────────────────
 export async function ConversationsActiveSection({ headers }: { headers: Headers }) {
   const conversations = await fetchActiveConversations(headers);
+  if (!conversations) return <DataUnavailable title="Conversaciones activas" />;
   return (
     <Card className="h-full border-t-2 border-t-emerald-500/50 border-black/[0.10] glass-card bg-emerald-500/[0.03]">
       <PanelHeader title="Conversaciones activas" href="/dashboard/conversations" linkLabel="Ver todas" />
@@ -237,7 +254,8 @@ function reminderDate(dueAt: string): string {
 }
 
 export async function RemindersSection({ headers }: { headers: Headers }) {
-  const reminders: UpcomingReminder[] = await fetchUpcomingReminders(headers);
+  const reminders: UpcomingReminder[] | null = await fetchUpcomingReminders(headers);
+  if (!reminders) return <DataUnavailable title="Recordatorios próximos" />;
   return (
     <Card className="h-full border-t-2 border-t-amber-500/50 border-black/[0.10] glass-card bg-amber-500/[0.03]">
       <PanelHeader title="Recordatorios próximos" href="/dashboard/recuperacion" linkLabel="Ver todos" />
@@ -279,22 +297,23 @@ export async function RemindersSection({ headers }: { headers: Headers }) {
 // ── Widget de churn ───────────────────────────────────────────
 export async function ChurnWidget({ headers }: { headers: Headers }) {
   const churnAtRisk = await fetchChurnPreview(headers);
+  if (!churnAtRisk) return <DataUnavailable title="Riesgo de abandono" />;
   const churnHigh = churnAtRisk.filter((c) => c.riskLevel === "high").length;
   const isEmpty = churnAtRisk.length === 0;
 
   return (
     <Link href="/dashboard/recuperacion?tab=churn" className="block h-full">
-      <Card className={`group h-full glass-card transition-all duration-200 hover:-translate-y-0.5 ${
+      <Card className={`group h-full glass-card transition-colors ${
         isEmpty
-          ? "border border-black/[0.08] hover:border-black/[0.12]"
-          : "border border-black/[0.08] border-t-2 border-t-rose-500/50 bg-rose-500/[0.04] hover:border-rose-500/30 hover:shadow-[0_0_24px_rgba(244,63,94,0.12)]"
+          ? "border-border hover:border-teal-300"
+          : "border-rose-200 bg-rose-50/40 hover:border-rose-400"
       }`}>
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-sm font-semibold">
             <AlertTriangle className={`h-4 w-4 shrink-0 ${isEmpty ? "text-muted-foreground" : "text-red-700"}`} />
             Riesgo de abandono
             {!isEmpty && (
-              <Badge className="border-red-500/30 bg-red-500/15 text-red-300">
+              <Badge className="border-rose-200 bg-rose-100 text-rose-800">
                 {churnAtRisk.length}
               </Badge>
             )}
@@ -322,21 +341,22 @@ export async function ChurnWidget({ headers }: { headers: Headers }) {
 // ── Widget de reactivación ────────────────────────────────────
 export async function ReactivarWidget({ headers }: { headers: Headers }) {
   const inactiveCount = await fetchInactiveCount(headers);
+  if (inactiveCount === null) return <DataUnavailable title="Clientes a reactivar" />;
   const isEmpty = inactiveCount === 0;
 
   return (
     <Link href="/dashboard/recuperacion?tab=reactivar" className="block h-full">
-      <Card className={`group h-full glass-card transition-all duration-200 hover:-translate-y-0.5 ${
+      <Card className={`group h-full glass-card transition-colors ${
         isEmpty
-          ? "border border-black/[0.08] hover:border-black/[0.12]"
-          : "border border-black/[0.08] border-t-2 border-t-orange-500/50 bg-orange-500/[0.04] hover:border-orange-500/30 hover:shadow-[0_0_24px_rgba(249,115,22,0.12)]"
+          ? "border-border hover:border-teal-300"
+          : "border-orange-200 bg-orange-50/40 hover:border-orange-400"
       }`}>
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-sm font-semibold">
             <RotateCcw className={`h-4 w-4 shrink-0 ${isEmpty ? "text-muted-foreground" : "text-orange-700"}`} />
             Clientes a reactivar
             {!isEmpty && (
-              <Badge className="border-orange-500/30 bg-orange-500/15 text-orange-300">
+              <Badge className="border-orange-200 bg-orange-100 text-orange-800">
                 {inactiveCount}
               </Badge>
             )}

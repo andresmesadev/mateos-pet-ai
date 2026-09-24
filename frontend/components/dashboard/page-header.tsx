@@ -18,17 +18,17 @@ export function PageHeader({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pb-5 border-b border-black/[0.08]">
+    <div className="mb-7 flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-4">
         {Icon && (
-          <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ring-1 ring-black/[0.12] shadow-[0_0_16px_-4px_rgba(15,23,42,0.14)] ${tint}`}>
-            <Icon className="h-6 w-6" />
+          <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${tint}`}>
+            <Icon className="h-5 w-5" aria-hidden="true" />
           </div>
         )}
         <div>
-          <h1 className="text-2xl font-bold tracking-tight leading-tight">{title}</h1>
+          <h1 className="text-2xl font-bold leading-tight tracking-tight md:text-[1.8rem]">{title}</h1>
           {description && (
-            <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{description}</p>
           )}
         </div>
       </div>

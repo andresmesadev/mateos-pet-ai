@@ -5,6 +5,7 @@ import {
   PawPrint,
   MessageSquare,
   History,
+  ArrowUpRight,
   type LucideIcon,
 } from "lucide-react";
 
@@ -14,32 +15,37 @@ type Action = {
   subtitle: string;
   icon: LucideIcon;
   tint: string;
-  border: string;
 };
 
 const ACTIONS: Action[] = [
-  { href: "/dashboard/pos?tab=venta",    title: "Nueva venta",     subtitle: "Registrar cobro",    icon: ShoppingCart, tint: "bg-teal-500/15 text-teal-700",    border: "border-t-teal-500/50" },
-  { href: "/dashboard/clients",          title: "Nuevo cliente",   subtitle: "Registrar cliente",  icon: UserPlus,     tint: "bg-violet-500/15 text-violet-700",  border: "border-t-violet-500/50" },
-  { href: "/dashboard/pets",             title: "Nueva mascota",   subtitle: "Registrar mascota",  icon: PawPrint,     tint: "bg-amber-500/15 text-amber-700",    border: "border-t-amber-500/50" },
-  { href: "/dashboard/conversations",    title: "Conversaciones",  subtitle: "Atención humana",    icon: MessageSquare,tint: "bg-emerald-500/15 text-emerald-700", border: "border-t-emerald-500/50" },
-  { href: "/dashboard/pos?tab=historial",title: "Historial",       subtitle: "Ver ingresos",       icon: History,      tint: "bg-sky-500/15 text-sky-700",        border: "border-t-sky-500/50" },
+  { href: "/dashboard/pos?tab=venta", title: "Nueva venta", subtitle: "Registrar cobro", icon: ShoppingCart, tint: "bg-teal-50 text-teal-700" },
+  { href: "/dashboard/contacto?new=cliente", title: "Nuevo cliente", subtitle: "Registrar cliente", icon: UserPlus, tint: "bg-sky-50 text-sky-700" },
+  { href: "/dashboard/contacto?new=mascota", title: "Nueva mascota", subtitle: "Registrar mascota", icon: PawPrint, tint: "bg-amber-50 text-amber-700" },
+  { href: "/dashboard/conversations", title: "Conversaciones", subtitle: "Atención humana", icon: MessageSquare, tint: "bg-emerald-50 text-emerald-700" },
+  { href: "/dashboard/pos?tab=historial", title: "Historial", subtitle: "Ver ingresos", icon: History, tint: "bg-slate-100 text-slate-700" },
 ];
 
 export function QuickActions() {
   return (
-    <div className="rounded-xl border border-black/[0.1] bg-card p-5 shadow-[0_2px_8px_rgba(15,23,42,0.10)]">
-      <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Acciones rápidas</h2>
-      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+    <section aria-labelledby="quick-actions-heading" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-4 flex flex-wrap items-baseline gap-x-3">
+        <h2 id="quick-actions-heading" className="text-lg font-bold tracking-tight">Acciones rápidas</h2>
+        <p className="text-sm text-muted-foreground">Las tareas más comunes, a un clic.</p>
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
         {ACTIONS.map((a) => {
           const Icon = a.icon;
           return (
             <Link
               key={a.href}
               href={a.href}
-              className={`group flex flex-col gap-3 rounded-xl border-t-2 border border-black/[0.08] bg-background/50 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-black/[0.15] hover:shadow-[0_6px_20px_-4px_rgba(15,23,42,0.14)] ${a.border}`}
+              className="group flex min-h-28 flex-col justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 transition-colors hover:border-teal-300 hover:bg-teal-50/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
             >
-              <div className={`flex h-10 w-10 items-center justify-center rounded-lg ring-1 ring-black/[0.1] transition-transform duration-200 group-hover:scale-110 ${a.tint}`}>
-                <Icon className="h-5 w-5" />
+              <div className="flex items-start justify-between gap-2">
+                <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${a.tint}`}>
+                  <Icon className="h-5 w-5" />
+                </div>
+                <ArrowUpRight className="h-4 w-4 text-slate-400 transition-colors group-hover:text-teal-700" />
               </div>
               <div>
                 <p className="text-sm font-semibold leading-tight">{a.title}</p>
@@ -49,6 +55,6 @@ export function QuickActions() {
           );
         })}
       </div>
-    </div>
+    </section>
   );
 }

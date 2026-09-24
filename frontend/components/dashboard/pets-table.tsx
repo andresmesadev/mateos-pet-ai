@@ -45,8 +45,10 @@ function TableSkeleton() {
 
 export function PetsTable({
   initialPetId = null,
+  initialNew = false,
 }: {
   initialPetId?: string | null;
+  initialNew?: boolean;
 }) {
   const [pets, setPets] = useState<DashboardPet[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,7 +56,7 @@ export function PetsTable({
   const [selectedPet, setSelectedPet] = useState<DashboardPet | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [openedFromQuery, setOpenedFromQuery] = useState(false);
-  const [newOpen, setNewOpen] = useState(false);
+  const [newOpen, setNewOpen] = useState(initialNew);
   const [query, setQuery] = useState("");
 
   const [page, setPage] = useState(1);
@@ -86,7 +88,9 @@ export function PetsTable({
       const response = await fetch(url, { cache: "no-store" });
 
       if (!response.ok) {
-        throw new Error("No se pudieron cargar las mascotas");
+        throw new Error(response.status === 503
+          ? "El servidor de datos no está disponible. Intenta de nuevo."
+          : "No se pudieron cargar las mascotas");
       }
 
       const payload = await response.json() as { data: DashboardPet[]; total: number; totalPages: number };
@@ -95,7 +99,6 @@ export function PetsTable({
       setTotal(payload.total ?? nextPets.length);
       return nextPets;
     } catch (err) {
-      console.error(err);
       setError(
         err instanceof Error ? err.message : "Error al cargar mascotas"
       );
@@ -210,8 +213,11 @@ export function PetsTable({
           {loading ? (
             <TableSkeleton />
           ) : error ? (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-6 text-center text-sm text-destructive">
-              {error}
+            <div role="alert" className="flex flex-col items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-6 text-center text-sm text-destructive">
+              <p>{error}</p>
+              <Button type="button" variant="outline" size="sm" onClick={() => { void loadPets(); }}>
+                Reintentar
+              </Button>
             </div>
           ) : pets.length === 0 ? (
             <EmptyState

@@ -30,19 +30,44 @@ export default async function RecuperacionPage({ searchParams }: PageProps) {
   const session = await auth();
   const headers = makeServerHeaders(session, tenant);
 
-  const [opportunitiesRes, inactiveRes, churnRes] = await Promise.all([
-    fetch(apiUrl("/api/dashboard/opportunities"), { cache: "no-store", headers }),
-    fetch(apiUrl("/api/dashboard/clients/inactive"), { cache: "no-store", headers }),
-    fetch(apiUrl("/api/dashboard/metrics/churn"), { cache: "no-store", headers }),
-  ]);
+  const pageHeader = (
+    <PageHeader
+      title="Recuperación de clientes"
+      description="Acciones pendientes, reactivación de inactivos y riesgo de abandono"
+      icon={HeartPulse}
+      tint="bg-rose-100 text-rose-700"
+    />
+  );
 
-  const data: RecuperacionData = {
-    opportunities: opportunitiesRes.ok
-      ? await opportunitiesRes.json()
-      : { byType: {}, total: 0 },
-    inactive: inactiveRes.ok ? await inactiveRes.json() : [],
-    churn: churnRes.ok ? await churnRes.json() : [],
-  };
+  let data: RecuperacionData | null = null;
+  try {
+    const [opportunitiesRes, inactiveRes, churnRes] = await Promise.all([
+      fetch(apiUrl("/api/dashboard/opportunities"), { cache: "no-store", headers }),
+      fetch(apiUrl("/api/dashboard/clients/inactive"), { cache: "no-store", headers }),
+      fetch(apiUrl("/api/dashboard/metrics/churn"), { cache: "no-store", headers }),
+    ]);
+    if (opportunitiesRes.ok && inactiveRes.ok && churnRes.ok) {
+      data = {
+        opportunities: await opportunitiesRes.json(),
+        inactive: await inactiveRes.json(),
+        churn: await churnRes.json(),
+      };
+    }
+  } catch {
+    // La interfaz muestra un estado de error sin confundir la falta de conexión con cero resultados.
+  }
+
+  if (!data) {
+    return (
+      <div className="space-y-6">
+        {pageHeader}
+        <div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-950">
+          <h2 className="font-semibold">No se pudo cargar la recuperación</h2>
+          <p className="mt-1">El servidor de datos no está disponible. Actualiza la página para intentarlo de nuevo.</p>
+        </div>
+      </div>
+    );
+  }
 
   // Contadores para los tabs
   const oppCount = data.opportunities.total ?? Object.values(data.opportunities.byType).flat().length;
@@ -52,12 +77,7 @@ export default async function RecuperacionPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Recuperación de clientes"
-        description="Acciones pendientes, reactivación de inactivos y predicción de churn"
-        icon={HeartPulse}
-        tint="bg-rose-500/15 text-rose-700"
-      />
+      {pageHeader}
 
 
       {/* Resumen rápido */}
@@ -69,7 +89,7 @@ export default async function RecuperacionPage({ searchParams }: PageProps) {
               <Pin className="h-4 w-4 text-blue-700" />
             </div>
           </div>
-          <p className="text-4xl font-bold tabular-nums text-blue-300">{oppCount}</p>
+          <p className="text-4xl font-bold tabular-nums text-blue-800">{oppCount}</p>
           <p className="mt-1 text-xs text-blue-500">Recordatorios de mascotas</p>
         </div>
         <div className="rounded-xl border-t-2 border-t-orange-500/70 border border-orange-500/20 bg-orange-500/5 p-4">
@@ -79,7 +99,7 @@ export default async function RecuperacionPage({ searchParams }: PageProps) {
               <UserX className="h-4 w-4 text-orange-700" />
             </div>
           </div>
-          <p className="text-4xl font-bold tabular-nums text-orange-300">{inactiveCount}</p>
+          <p className="text-4xl font-bold tabular-nums text-orange-800">{inactiveCount}</p>
           <p className="mt-1 text-xs text-orange-500">Sin grooming en +60 días</p>
         </div>
         <div className="rounded-xl border-t-2 border-t-red-500/70 border border-red-500/20 bg-red-500/5 p-4">
@@ -89,7 +109,7 @@ export default async function RecuperacionPage({ searchParams }: PageProps) {
               <AlertTriangle className="h-4 w-4 text-red-700" />
             </div>
           </div>
-          <p className="text-4xl font-bold tabular-nums text-red-300">{churnHighCount}</p>
+          <p className="text-4xl font-bold tabular-nums text-red-800">{churnHighCount}</p>
           <p className="mt-1 text-xs text-red-500">De {churnCount} en riesgo total</p>
         </div>
       </div>

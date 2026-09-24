@@ -51,7 +51,7 @@ export function ClientsTable() {
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [newOpen, setNewOpen] = useState(false);
+  const [newOpen, setNewOpen] = useState(() => searchParams.get("new") === "cliente");
   const [version, setVersion] = useState(0);
   const [query, setQuery] = useState(() => searchParams.get("search") ?? "");
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -83,7 +83,11 @@ export function ClientsTable() {
           `/api/dashboard/clients${sep}page=${page}&limit=${PAGE_SIZE}${searchParam}`
         );
         const response = await fetch(url, { cache: "no-store" });
-        if (!response.ok) throw new Error("No se pudieron cargar los clientes");
+        if (!response.ok) {
+          throw new Error(response.status === 503
+            ? "El servidor de datos no está disponible. Intenta de nuevo."
+            : "No se pudieron cargar los clientes");
+        }
         const payload = await response.json() as {
           data: DashboardClient[];
           total: number;
@@ -96,7 +100,6 @@ export function ClientsTable() {
           setError(null);
         }
       } catch (err) {
-        console.error(err);
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Error al cargar clientes");
           setClients([]);
@@ -181,8 +184,11 @@ export function ClientsTable() {
           {loading ? (
             <TableSkeleton />
           ) : error ? (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-6 text-center text-sm text-destructive">
-              {error}
+            <div role="alert" className="flex flex-col items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-6 text-center text-sm text-destructive">
+              <p>{error}</p>
+              <Button type="button" variant="outline" size="sm" onClick={() => setVersion((v) => v + 1)}>
+                Reintentar
+              </Button>
             </div>
           ) : clients.length === 0 && debouncedQuery.trim() ? (
             <div className="px-4 py-8 text-center text-sm text-muted-foreground">
