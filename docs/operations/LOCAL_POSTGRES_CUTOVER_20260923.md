@@ -17,8 +17,8 @@ contenedores. El backend espera a que la base responda antes de arrancar.
 1. Generar una contraseña aleatoria en `secrets/postgres_password` con permisos
    `600` y guardar una copia privada del `backend/.env` anterior.
 2. Arrancar solo `db`; comprobar `pg_isready` y `pgvector`.
-3. Cambiar `DATABASE_URL` en `backend/.env` al hostname interno `db` y poner
-   `NEON_LOW_USAGE_MODE=false`.
+3. Cambiar `DATABASE_URL` en `backend/.env` al hostname interno `db` y retirar
+   cualquier variable de configuración que perteneciera a Neon.
 4. Ejecutar `prisma migrate deploy` desde un contenedor temporal Node 24 en
    la red privada. Exigir todas las migraciones versionadas aplicadas (36 tras
    la corrección del esquema).

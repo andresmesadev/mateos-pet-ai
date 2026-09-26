@@ -3,7 +3,7 @@
 -- Implementa: docs/architecture/technical-design/servicios-esquema-fisico.md
 --
 -- Orden de ejecución: este script es secuencial y debe correr completo, en una
--- sola transacción, contra la base de datos real (psql, o el cliente SQL de Neon).
+-- sola transacción, contra la base de datos real con psql.
 -- `prisma db push` NO puede usarse para este cambio: db push no sabe cómo
 -- migrar los datos existentes de Service.category (String) a Service.categoryId
 -- (relación). Por eso este script se ejecuta a mano, y recién después se corre
