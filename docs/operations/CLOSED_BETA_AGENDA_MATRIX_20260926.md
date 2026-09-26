@@ -1,7 +1,7 @@
 # Matriz de agenda para beta cerrada — ejecución interna
 
 **Fecha:** 2026-09-26
-**Estado:** en curso. La validación automatizada pasó; falta ejecutar y registrar el recorrido real WhatsApp → cola → cita → dashboard.
+**Estado:** en curso. Se validaron recorridos reales de veterinaria, peluquería, domingo, festivo y cancelación; faltan límites horarios, conflicto y fallo controlado en el canal real.
 
 ## Configuración temporal aprobada
 
@@ -9,17 +9,18 @@ El operador definió 11:00–17:00 de lunes a sábado para el horario general, v
 
 ## Evidencia y casos
 
-| Caso | Resultado automatizado | Pendiente en canal real |
+| Caso | Resultado automatizado | Canal real |
 | --- | --- | --- |
-| Veterinaria 10:00, 11:00, 16:00 y 17:00 | 10:00/17:00 rechazadas; 11:00/16:00 aceptadas si libres | Solicitud y confirmación por WhatsApp; verificar cita en dashboard |
-| Peluquería en el mismo rango | Fuera de horario rechazado; 11:00 es primer turno | Ver propuesta y confirmación por WhatsApp |
-| Domingo y festivo | Rechazados para ambos servicios | Solicitar esas fechas por WhatsApp y verificar que no se crea cita |
-| Conflicto veterinario | Hora ocupada rechazada; otra hora libre permitida | Dos solicitudes al mismo turno |
-| Orden de peluquería | 12:00 rechazada si 11:00 libre; aceptada si 11:00 ocupada; 13:00 sigue bloqueada si 12:00 libre | Solicitar saltar turno y verificar explicación del asistente |
-| Cancelación | La búsqueda de ocupación excluye citas `cancelled` | Reservar, cancelar y comprobar liberación/reagendamiento en dashboard |
-| Fallo de lectura del horario | Verificación y sugerencias devuelven indisponible; no usan horarios predeterminados | Simulación controlada fuera de producción o prueba de integración |
+| Veterinaria 10:00, 11:00, 16:00 y 17:00 | 10:00/17:00 rechazadas; 11:00/16:00 aceptadas si libres | 12:00 reservada y visible en dashboard; faltan límites 10:00 y 17:00 |
+| Peluquería en el mismo rango | Fuera de horario rechazado; 11:00 es primer turno | 11:00 reservada y visible en dashboard; faltan límites 10:00 y 17:00 |
+| Domingo y festivo | Rechazados para ambos servicios | Veterinaria rechazó domingo 27/09 y festivo 12/10 sin crear citas; falta comprobar peluquería en día cerrado |
+| Conflicto veterinario | Hora ocupada rechazada; otra hora libre permitida | Falta prueba de dos solicitudes al mismo turno |
+| Orden de peluquería | 12:00 rechazada si 11:00 libre; aceptada si 11:00 ocupada; 13:00 sigue bloqueada si 12:00 libre | Rechazó 14:00 y propuso 11:00; se confirmó ese primer turno |
+| Cancelación | La búsqueda de ocupación excluye citas `cancelled` | Ambas citas de prueba canceladas; turnos liberados en BD y estado “Cancelada” en dashboard |
+| Fallo de lectura del horario | Verificación y sugerencias devuelven indisponible; no usan horarios predeterminados | Falta simulación controlada fuera de producción o prueba de integración |
+| Consulta de horarios | Usa la configuración efectiva del establecimiento | Informó veterinaria y peluquería de lunes a sábado 11:00–17:00; worker completo |
 
-La prueba unitaria de cancelación valida la consulta y el filtrado mediante mocks; no demuestra todavía que el comando de cancelación y el dashboard reflejen el cambio. La prueba real de WhatsApp tampoco se deduce de estas pruebas unitarias.
+Las pruebas automatizadas cubren reglas aisladas; las pruebas del canal real registradas más abajo confirman los resultados observables de reserva, cancelación y consulta de horarios.
 
 **Verificación local:** 9 suites y 104 pruebas relevantes pasaron con `npm test -- --runInBand --silent` (agenda, conflictos, excepciones, conversación y API). `node --check` pasó para los servicios modificados y `git diff --check` no reportó errores. El backend no define un script `lint` (`npm run lint` termina con `Missing script: "lint"`). La suite completa de Jest terminó prematuramente en este equipo Windows sin resumen de pruebas; no se considera aprobada.
 
@@ -60,3 +61,7 @@ Usar un remitente verificado del número de prueba de Meta y registrar fecha/hor
 **Cancelación de peluquería (21:39 UTC):** el mensaje “Cancela mi cita de peluquería del lunes 28 para Akiles” terminó `done/complete` en un intento, sin `lastError`. El asistente confirmó la cancelación; `Appointment.status=cancelled` y `isSlotAvailable` devolvió `true` para peluquería el 28/09/2026 a las 11:00. Las dos citas creadas durante esta prueba están canceladas y no ocupan horarios.
 
 **Festivo: fallo detectado (21:40–21:41 UTC):** el cliente pidió “Quiero cita veterinaria para Akiles el lunes 12 de octubre a las 12:00”. `InboundJob` terminó `done/complete` en un intento, sin `lastError`, pero el asistente respondió “2026-09-28 a las 12pm está disponible ¿Confirmamos la cita?”. No hubo ninguna cita el 12/10; el turno propuesto es incorrecto y no debe confirmarse. Causa: `parseDateToKey` resolvía el nombre “lunes” antes de la fecha explícita “12 de octubre”, por lo que elegía el lunes próximo. Se cambió el orden del parser para priorizar la fecha concreta y se añadió regresión con la frase exacta. **Pendiente:** desplegar la corrección y repetir la prueba real del festivo; el paso 8 sigue abierto.
+
+**Festivo: repetición correcta (21:47 UTC):** tras desplegar `3a3c690` (CI verde y salud de VPS `ok`), el cliente repitió exactamente el mensaje del 12 de octubre. El asistente respondió “Ese día no tenemos atención 😔 ¿Qué otro día te queda bien?”. `InboundJob` quedó `done/complete`, un intento, `lastError=null`; no existe cita para el 12/10. Queda corregido y validado el caso del festivo, aunque la matriz general sigue abierta.
+
+**Consulta real del horario (21:48 UTC):** a “¿Cuál es el horario que manejan para veterinaria y peluquería?”, el asistente respondió que ambos servicios atienden de lunes a sábado de 11:00 a 17:00 y que los festivos cierran salvo apertura especial. `InboundJob` terminó `done/complete`, un intento y `lastError=null`. La respuesta usa la configuración efectiva y cierra la repetición pendiente de la antigua respuesta genérica.
