@@ -11,9 +11,9 @@ El operador definió 11:00–17:00 de lunes a sábado para el horario general, v
 
 | Caso | Resultado automatizado | Canal real |
 | --- | --- | --- |
-| Veterinaria 10:00, 11:00, 16:00 y 17:00 | 10:00/17:00 rechazadas; 11:00/16:00 aceptadas si libres | 12:00 reservada y visible en dashboard; faltan límites 10:00 y 17:00 |
+| Veterinaria 10:00, 11:00, 16:00 y 17:00 | 10:00/17:00 rechazadas; 11:00/16:00 aceptadas si libres | 10:00 y 17:00 rechazadas por separado; 12:00 reservada y visible en dashboard; faltan pruebas reales de 11:00 y 16:00 |
 | Peluquería en el mismo rango | Fuera de horario rechazado; 11:00 es primer turno | 11:00 reservada y visible en dashboard; faltan límites 10:00 y 17:00 |
-| Domingo y festivo | Rechazados para ambos servicios | Veterinaria rechazó domingo 27/09 y festivo 12/10 sin crear citas; falta comprobar peluquería en día cerrado |
+| Domingo y festivo | Rechazados para ambos servicios | Veterinaria rechazó domingo 27/09 y festivo 12/10; peluquería rechazó domingo 27/09; sin citas en esos días |
 | Conflicto veterinario | Hora ocupada rechazada; otra hora libre permitida | Falta prueba de dos solicitudes al mismo turno |
 | Orden de peluquería | 12:00 rechazada si 11:00 libre; aceptada si 11:00 ocupada; 13:00 sigue bloqueada si 12:00 libre | Rechazó 14:00 y propuso 11:00; se confirmó ese primer turno |
 | Cancelación | La búsqueda de ocupación excluye citas `cancelled` | Ambas citas de prueba canceladas; turnos liberados en BD y estado “Cancelada” en dashboard |
@@ -65,3 +65,7 @@ Usar un remitente verificado del número de prueba de Meta y registrar fecha/hor
 **Festivo: repetición correcta (21:47 UTC):** tras desplegar `3a3c690` (CI verde y salud de VPS `ok`), el cliente repitió exactamente el mensaje del 12 de octubre. El asistente respondió “Ese día no tenemos atención 😔 ¿Qué otro día te queda bien?”. `InboundJob` quedó `done/complete`, un intento, `lastError=null`; no existe cita para el 12/10. Queda corregido y validado el caso del festivo, aunque la matriz general sigue abierta.
 
 **Consulta real del horario (21:48 UTC):** a “¿Cuál es el horario que manejan para veterinaria y peluquería?”, el asistente respondió que ambos servicios atienden de lunes a sábado de 11:00 a 17:00 y que los festivos cierran salvo apertura especial. `InboundJob` terminó `done/complete`, un intento y `lastError=null`. La respuesta usa la configuración efectiva y cierra la repetición pendiente de la antigua respuesta genérica.
+
+**Límites fuera de horario (21:51–21:53 UTC):** primero llegó en un solo mensaje la solicitud de 10:00 y 17:00, y el asistente rechazó el horario; ese mensaje combinado no permite atribuir el rechazo a cada hora. Se repitieron por separado: a las 17:00 respondió “Ese horario está fuera de nuestra atención para ese día”, y luego dio la misma respuesta para las 10:00. Ambos `InboundJob` terminaron `done/complete` en un intento, sin `lastError`. No se creó ninguna cita nueva: las únicas citas del 28/09 siguen `cancelled`.
+
+**Peluquería en domingo (21:54 UTC):** a “Quiero peluquería para Akiles el domingo 27 de septiembre a las 11:00”, el asistente respondió que el domingo 27 no hay atención y ofreció buscar otro día. `InboundJob` terminó `done/complete`, un intento y `lastError=null`; no existe cita el 27/09. No se confirmó ninguna alternativa.
