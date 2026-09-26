@@ -19,6 +19,26 @@ const {
 } = require("../../services/availability-db.service");
 
 const THURSDAY = "2026-01-08"; // jueves ordinario, sin festivos
+const PILOT_HOURS = {
+  thu: { open: "11:00", close: "17:00", active: true },
+  sun: { open: "11:00", close: "17:00", active: false },
+  services: {
+    vet: {
+      thu: { open: "11:00", close: "17:00", active: true },
+      sun: { open: "11:00", close: "17:00", active: false },
+    },
+    grooming: {
+      thu: { open: "11:00", close: "17:00", active: true },
+      sun: { open: "11:00", close: "17:00", active: false },
+    },
+  },
+};
+const appointmentAt = (hour, serviceType) => ({
+  id: `a-${hour}`,
+  date: new Date(`2026-01-08T${String(hour + 5).padStart(2, "0")}:00:00.000Z`),
+  serviceType,
+  status: "confirmed",
+});
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -60,10 +80,54 @@ describe("isSlotAvailable — con tenantId y configuración real del establecimi
     expect(outsideConfig).toBe(false); // 12h estaría dentro del horario legado, pero fuera del configurado
   });
 
-  test("un fallo leyendo la configuración del establecimiento no rompe la verificación — cae a comportamiento legado", async () => {
+  test("un fallo leyendo la configuración del establecimiento bloquea la reserva", async () => {
     prisma.tenant.findUnique.mockRejectedValue(new Error("db down"));
     const available = await isSlotAvailable({ dateKey: THURSDAY, hour: 12, serviceType: "vet", tenantId: "t-1" });
-    expect(available).toBe(true);
+    expect(available).toBe(false);
+  });
+});
+
+describe("matriz de agenda de la beta — horario temporal 11:00–17:00", () => {
+  beforeEach(() => prisma.tenant.findUnique.mockResolvedValue({ businessHours: PILOT_HOURS }));
+
+  test.each(["vet", "bath_grooming"])("%s: abre a las 11, cierra a las 17 y rechaza domingos y festivos", async (serviceType) => {
+    for (const [dateKey, hour, expected] of [
+      [THURSDAY, 10, false],
+      [THURSDAY, 11, true],
+      [THURSDAY, 16, serviceType === "vet"],
+      [THURSDAY, 17, false],
+      ["2026-01-11", 12, false],
+      ["2026-01-01", 12, false],
+    ]) {
+      await expect(isSlotAvailable({ dateKey, hour, serviceType, tenantId: "t-1" })).resolves.toBe(expected);
+    }
+  });
+
+  test("veterinaria permite otra hora libre, pero bloquea la hora ocupada", async () => {
+    prisma.appointment.findMany.mockResolvedValue([appointmentAt(11, "vet")]);
+    await expect(isSlotAvailable({ dateKey: THURSDAY, hour: 11, serviceType: "vet", tenantId: "t-1" })).resolves.toBe(false);
+    await expect(isSlotAvailable({ dateKey: THURSDAY, hour: 13, serviceType: "vet", tenantId: "t-1" })).resolves.toBe(true);
+  });
+
+  test("peluquería no permite saltar el primer turno libre", async () => {
+    await expect(isSlotAvailable({ dateKey: THURSDAY, hour: 12, serviceType: "bath_grooming", tenantId: "t-1" })).resolves.toBe(false);
+    prisma.appointment.findMany.mockResolvedValue([appointmentAt(11, "bath_grooming")]);
+    await expect(isSlotAvailable({ dateKey: THURSDAY, hour: 12, serviceType: "bath_grooming", tenantId: "t-1" })).resolves.toBe(true);
+    await expect(isSlotAvailable({ dateKey: THURSDAY, hour: 13, serviceType: "bath_grooming", tenantId: "t-1" })).resolves.toBe(false);
+  });
+
+  test("una cita cancelada libera el turno de peluquería", async () => {
+    prisma.appointment.findMany.mockResolvedValue([]); // La consulta excluye status=cancelled.
+    await expect(isSlotAvailable({ dateKey: THURSDAY, hour: 11, serviceType: "bath_grooming", tenantId: "t-1" })).resolves.toBe(true);
+    expect(prisma.appointment.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ status: { not: "cancelled" } }),
+    }));
+  });
+
+  test("si falla la lectura del horario no se ofrecen turnos", async () => {
+    prisma.tenant.findUnique.mockRejectedValue(new Error("db down"));
+    await expect(findNextAvailableGroomingSlot({ referenceDate: new Date("2026-01-08T06:00:00Z"), tenantId: "t-1" })).resolves.toBeNull();
+    await expect(suggestAvailableVetSlots({ dateKey: THURSDAY, tenantId: "t-1" })).resolves.toEqual({ dateKey: THURSDAY, hours: [] });
   });
 });
 

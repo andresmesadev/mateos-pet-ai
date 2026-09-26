@@ -11,6 +11,8 @@ const { STEPS, BOOKING_STEPS } = require("./domain/booking-steps");
 
 const scheduling = require("./scheduling.service");
 const { findNextAvailableGroomingSlot } = require("./availability-db.service");
+const { getBusinessHours } = require("./business-config.service");
+const { isBusinessDay, resolveHourWindow, SERVICE_TYPES } = require("./availability.service");
 const { generateReply: generateReplyWithAI } = require("./openai.service");
 const { getUserPets } = require("./pet.service");
 const {
@@ -72,6 +74,37 @@ const getPetEmoji = (petType) => {
   if (petType === "dog") return "🐶";
   if (petType === "cat") return "🐱";
   return "🐾";
+};
+
+const WEEKDAYS = [
+  ["2026-01-05", "lunes"], ["2026-01-06", "martes"],
+  ["2026-01-07", "miércoles"], ["2026-01-08", "jueves"],
+  ["2026-01-09", "viernes"], ["2026-01-10", "sábado"],
+  ["2026-01-11", "domingo"],
+];
+
+const formatServiceHours = (serviceType, businessHours) => {
+  const groups = new Map();
+  for (const [dateKey, dayName] of WEEKDAYS) {
+    if (!isBusinessDay(dateKey, businessHours, serviceType)) continue;
+    const window = resolveHourWindow(serviceType, dateKey, businessHours);
+    if (!window.active) continue;
+    const label = `${String(window.startHour).padStart(2, "0")}:00–${String(window.endHourExclusive).padStart(2, "0")}:00`;
+    if (!groups.has(label)) groups.set(label, []);
+    groups.get(label).push(dayName);
+  }
+  if (groups.size === 0) return "sin horario disponible";
+  return [...groups].map(([hours, days]) => `${days.join(", ")} de ${hours}`).join("; ");
+};
+
+const buildBusinessHoursReply = async (tenantId) => {
+  try {
+    const businessHours = await getBusinessHours(tenantId);
+    return `Veterinaria: ${formatServiceHours(SERVICE_TYPES.VET, businessHours)}. Peluquería: ${formatServiceHours(SERVICE_TYPES.GROOMING, businessHours)}. Los festivos permanecen cerrados salvo apertura especial. ¿Para qué servicio buscas cita?`;
+  } catch (error) {
+    console.error("[Conversation] No se pudo consultar el horario:", error.message);
+    return "No puedo verificar el horario de atención en este momento. Si me dices el servicio y el día, lo revisamos antes de agendar. 🐾";
+  }
 };
 
 // ─── Session patch helpers ────────────────────────────────────────────────────
@@ -364,7 +397,7 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
   // ── 2b. Sin cita: vacunación / desparasitación ────────────────────────────────
   if (detectNoAppointmentNeeded(userMessage)) {
     return {
-      reply: "Para vacunación y desparasitación no necesitas cita 🐾 Puedes venir directamente cualquier día de 11am a 5pm. ¡Te esperamos!",
+      reply: "Para vacunación y desparasitación no necesitas cita 🐾 Puedes venir durante el horario de atención del establecimiento, excepto los días cerrados y festivos. ¡Te esperamos!",
       step: null,
       sessionPatch: {},
       forceRuleReply: true,
@@ -450,9 +483,12 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
 
   // ── 5. Info / otros ──────────────────────────────────────────────────────────
   if (intent === "ask_info") {
+    if (/\b(horarios?|hora de atenci[oó]n|a qu[eé] hora|abren|cierran)\b/i.test(userMessage)) {
+      return { reply: await buildBusinessHoursReply(tenantId), step: null, sessionPatch: {}, forceRuleReply: true };
+    }
     return {
       reply:
-        "Con gusto te cuento 😊 Tenemos servicios veterinarios (consulta, laboratorio, rayos X, ecografía, cirugías) y grooming. Para vacunación y desparasitación puedes venir sin cita de 11am a 5pm 🐾 ¿Qué necesitas?",
+        "Con gusto te cuento 😊 Tenemos servicios veterinarios (consulta, laboratorio, rayos X, ecografía, cirugías) y grooming. Para vacunación y desparasitación puedes venir sin cita durante el horario de atención, excepto los días cerrados y festivos 🐾 ¿Qué necesitas?",
       step: null,
       sessionPatch: {},
     };
@@ -518,6 +554,9 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
           : `¡Con gusto! ¿Cómo se llama tu ${label}? 🐾`,
         step: STEPS.AWAITING_PET_NAME,
         sessionPatch: {},
+        // La fecha/hora solicitada aún no se ha validado: la IA no debe
+        // convertir esta pregunta de datos en una promesa de reserva.
+        forceRuleReply: !isMissing(date) || !isMissing(time),
       };
     }
 
@@ -526,6 +565,7 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
         reply: `¿${petName} es perro o gato? 🐶🐱`,
         step: STEPS.AWAITING_PET_TYPE,
         sessionPatch: {},
+        forceRuleReply: !isMissing(date) || !isMissing(time),
       };
     }
 
@@ -574,7 +614,7 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
     if (isVetLikeService(service)) {
       if (isMissing(date) || isMissing(time)) {
         return {
-          reply: "¡Con gusto te agendo! ¿Para qué día y hora te queda mejor? 📅 _(Atendemos de 11am a 5pm)_",
+          reply: "¡Con gusto te agendo! ¿Para qué día y hora te queda mejor? 📅 Revisaré el horario disponible para ese día.",
           step: STEPS.AWAITING_DATE_TIME,
           sessionPatch: {},
         };
@@ -590,7 +630,7 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
       });
 
       if (vet) {
-        return { reply: vet.reply, step: vet.step, sessionPatch: vet.sessionPatch || {} };
+        return { reply: vet.reply, step: vet.step, sessionPatch: vet.sessionPatch || {}, forceRuleReply: true };
       }
 
       return {

@@ -31,7 +31,7 @@
 | 5 | Implementar backup y restauración | Backup cifrado y periódico, retención definida y restauración ensayada. | 🟡 Respaldo diario y restauración de ensayo completados; falta copia cifrada fuera de la VPS antes de beta externa |
 | 6 | Configurar WhatsApp de producción | Número empresarial real registrado, app publicada y flujo entrante/saliente verificado. | Aplazado por decisión del operador; se conserva el número de prueba de Meta |
 | 7 | Completar documentación legal del piloto | Política, términos y acuerdo de piloto completados y revisados. | Pendiente |
-| 8 | Ejecutar matriz integral de agenda | Casos de veterinaria, peluquería, domingos, festivos, conflictos, cancelación y fallos aprobados. | Pendiente |
+| 8 | Ejecutar matriz integral de agenda | Casos de veterinaria, peluquería, domingos, festivos, conflictos, cancelación y fallos aprobados. | 🧪 En curso: horario temporal configurado y matriz automatizada; falta recorrido WhatsApp → cola → dashboard ([registro](CLOSED_BETA_AGENDA_MATRIX_20260926.md)) |
 | 9 | Ejecutar período de estabilización | 48 horas sin errores del worker ni pérdida de mensajes; métricas y cola nominales. | Pendiente |
 | 10 | Abrir cohorte inicial | Un establecimiento, alcance funcional explícito, 5–10 usuarios, soporte y criterio de rollback definidos. | Pendiente |
 

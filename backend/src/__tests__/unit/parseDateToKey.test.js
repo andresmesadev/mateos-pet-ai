@@ -1,4 +1,4 @@
-const { parseDateToKey, extractExplicitSchedulingTerms } = require("../../services/scheduling.service");
+const { parseDateToKey, parseTimeToHour, extractExplicitSchedulingTerms } = require("../../services/scheduling.service");
 const {
   isBusinessDay,
   addOneDay,
@@ -69,8 +69,15 @@ describe("extractExplicitSchedulingTerms", () => {
   test("prioriza la fecha y hora escritas en el turno actual", () => {
     expect(extractExplicitSchedulingTerms("el sábado a las 4 pm", REF_JUNE)).toEqual({
       dateText: "el sábado a las 4 pm",
-      timeText: "el sábado a las 4 pm",
+      timeText: "4 pm",
     });
+  });
+
+  test("no confunde el día del mes con la hora en una solicitud completa", () => {
+    const terms = extractExplicitSchedulingTerms("Quiero cita veterinaria para Akiles el lunes 28 de septiembre a las 12:00", new Date("2026-09-26T19:26:44Z"));
+    expect(terms.dateText).toContain("lunes 28 de septiembre");
+    expect(terms.timeText).toBe("a las 12:00");
+    expect(parseTimeToHour(terms.timeText)).toBe(12);
   });
 
   test("no trata un nombre de mascota como una fecha u hora", () => {

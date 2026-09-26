@@ -218,7 +218,8 @@ const isSlotAvailable = async ({ dateKey, hour, serviceType, tenantId, reference
   try {
     businessHours = await getBusinessHours(tenantId);
   } catch (error) {
-    console.error("[AvailabilityDB] isSlotAvailable: fallo leyendo configuración del establecimiento, se usa comportamiento legado:", error.message);
+    console.error("[AvailabilityDB] isSlotAvailable: fallo leyendo configuración del establecimiento:", error.message);
+    return false;
   }
   try {
     exception = await getAgendaExceptionForDate(tenantId, toDateKey(dateKey), normalizeServiceType(serviceType));
@@ -247,7 +248,8 @@ const findNextAvailableGroomingSlot = async (options = {}) => {
   try {
     businessHours = await getBusinessHours(options.tenantId);
   } catch (error) {
-    console.error("[AvailabilityDB] findNextAvailableGroomingSlot: fallo leyendo configuración del establecimiento, se usa comportamiento legado:", error.message);
+    console.error("[AvailabilityDB] findNextAvailableGroomingSlot: fallo leyendo configuración del establecimiento:", error.message);
+    return null;
   }
 
   try {
@@ -316,7 +318,8 @@ const suggestAvailableVetSlots = async ({
   try {
     businessHours = await getBusinessHours(tenantId);
   } catch (error) {
-    console.error("[AvailabilityDB] suggestAvailableVetSlots: fallo leyendo configuración del establecimiento, se usa comportamiento legado:", error.message);
+    console.error("[AvailabilityDB] suggestAvailableVetSlots: fallo leyendo configuración del establecimiento:", error.message);
+    return { dateKey: key, hours: [] };
   }
 
   try {

@@ -346,12 +346,15 @@ const extractExplicitSchedulingTerms = (text, referenceDate = new Date()) => {
     /\b\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?\b/.test(normalized) ||
     /\b\d{1,2}\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\b/.test(normalized) ||
     /\b\d{4}-\d{2}-\d{2}\b/.test(normalized);
-  const hasTime = /\b\d{1,2}(?::\d{2})?\s*(a\.?m\.?|p\.?m\.?)\b/.test(normalized) ||
-    /\ba\s+las\s+\d{1,2}(?::\d{2})?\b/.test(normalized);
+  // Entregar solo la expresión horaria: parseTimeToHour sobre la frase
+  // completa tomaba antes el día 28 como si fuera la hora 28.
+  const timeMatch = normalized.match(/\b\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)\b/) ||
+    normalized.match(/\ba\s+las\s+\d{1,2}(?::\d{2})?\b/) ||
+    normalized.match(/\b\d{1,2}:\d{2}\b/);
 
   return {
     dateText: hasDate && parseDateToKey(raw, referenceDate) ? raw : null,
-    timeText: hasTime && parseTimeToHour(raw) !== null ? raw : null,
+    timeText: timeMatch && parseTimeToHour(timeMatch[0]) !== null ? timeMatch[0] : null,
   };
 };
 
@@ -393,14 +396,15 @@ const resolveVetScheduling = async ({
   try {
     businessHours = await getBusinessHours(tenantId);
   } catch (error) {
-    console.error("[scheduling] Fallo leyendo configuración del establecimiento, se usa comportamiento legado:", error.message);
+    console.error("[scheduling] Fallo leyendo configuración del establecimiento:", error.message);
+    return { reply: "En este momento no pude confirmar el horario 😔 ¿Podrías intentar de nuevo en unos minutos?", step: awaitingStepConstant };
   }
 
   try {
     exception = await getAgendaExceptionForDate(tenantId, dateKey, SERVICE_TYPES.VET);
   } catch (error) {
     console.error("[scheduling] Fallo leyendo excepciones de agenda, se bloquea la reserva:", error.message);
-    return { reply: "En este momento no pude confirmar la disponibilidad 😔 ¿Podrías intentar de nuevo en unos minutos?", scheduling: null };
+    return { reply: "En este momento no pude confirmar la disponibilidad 😔 ¿Podrías intentar de nuevo en unos minutos?", step: awaitingStepConstant };
   }
 
   if (!isBusinessDay(dateKey, businessHours, SERVICE_TYPES.VET, exception)) {
@@ -414,7 +418,7 @@ const resolveVetScheduling = async ({
   if (!isWithinBusinessHours(SERVICE_TYPES.VET, hour, dateKey, businessHours, exception)) {
     console.log("[scheduling] Hora fuera de horario vet:", hour);
     return {
-      reply: "Ese horario está fuera de nuestra atención (11am a 5pm) 😊 ¿Qué otra hora te viene bien?",
+      reply: "Ese horario está fuera de nuestra atención para ese día 😊 ¿Qué otra hora te viene bien?",
       step: awaitingStepConstant,
     };
   }
@@ -525,14 +529,15 @@ const resolveGroomingScheduling = async ({
   try {
     businessHours = await getBusinessHours(tenantId);
   } catch (error) {
-    console.error("[scheduling] Fallo leyendo configuración del establecimiento, se usa comportamiento legado:", error.message);
+    console.error("[scheduling] Fallo leyendo configuración del establecimiento:", error.message);
+    return { reply: "En este momento no pude confirmar el horario de peluquería 😔 ¿Podrías intentar de nuevo en unos minutos?", step: awaitingStepConstant };
   }
 
   try {
     exception = await getAgendaExceptionForDate(tenantId, dateKey, SERVICE_TYPES.GROOMING);
   } catch (error) {
     console.error("[scheduling] Fallo leyendo excepciones de agenda, se bloquea la reserva:", error.message);
-    return { reply: "En este momento no pude confirmar la disponibilidad 😔 ¿Podrías intentar de nuevo en unos minutos?", scheduling: null };
+    return { reply: "En este momento no pude confirmar la disponibilidad 😔 ¿Podrías intentar de nuevo en unos minutos?", step: awaitingStepConstant };
   }
 
   if (!isBusinessDay(dateKey, businessHours, SERVICE_TYPES.GROOMING, exception)) {
@@ -546,7 +551,7 @@ const resolveGroomingScheduling = async ({
   if (!isWithinBusinessHours(SERVICE_TYPES.GROOMING, hour, dateKey, businessHours, exception)) {
     return {
       reply:
-        "Ese horario está fuera de nuestro horario de grooming (11am a 4pm) 😊\n¿Qué otra hora te viene bien?",
+        "Ese horario está fuera del horario de peluquería para ese día 😊\n¿Qué otra hora te viene bien?",
       step: awaitingStepConstant,
     };
   }
