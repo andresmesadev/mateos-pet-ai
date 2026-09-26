@@ -10,8 +10,8 @@ const LEASE_MS = 120_000;
 const HEARTBEAT_MS = 20_000;
 const RETRY_BASE_MS = 5_000;
 // Prisma espera solo 2 s por defecto para abrir una transacción interactiva.
-// Neon puede tardar más al despertar y los jobs programados comparten el pool,
-// por lo que ese valor producía P2028 antes de ejecutar una sola consulta.
+// Los jobs programados comparten el pool, por lo que ese valor podía producir
+// P2028 antes de ejecutar una sola consulta.
 const TRANSACTION_OPTIONS = { maxWait: 15_000, timeout: 10_000 };
 
 class InboundLeaseLostError extends Error {

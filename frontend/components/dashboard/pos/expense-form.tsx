@@ -93,15 +93,16 @@ export function ExpenseForm() {
         {/* ── Columna izquierda ─────────────────────────── */}
         <div className="space-y-5">
           {/* Categoría */}
-          <section className="rounded-xl border border-black/[0.06] bg-card p-5">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Categoría</p>
+          <section className="rounded-2xl border border-border bg-white p-5 shadow-sm">
+            <h3 className="mb-3 text-base font-semibold">Categoría del gasto</h3>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
               {CATEGORIES.map((cat) => (
                 <button
                   key={cat}
                   type="button"
                   onClick={() => setCategory(cat)}
-                  className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-all duration-150 ${
+                  aria-pressed={category === cat}
+                  className={`flex min-h-10 items-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
                     category === cat
                       ? `border-black/15 ${EXPENSE_CATEGORY_COLORS[cat]}`
                       : "border-black/[0.06] text-muted-foreground hover:border-black/12 hover:bg-accent hover:text-foreground"
@@ -115,28 +116,31 @@ export function ExpenseForm() {
           </section>
 
           {/* Descripción y monto */}
-          <section className="rounded-xl border border-black/[0.06] bg-card p-5">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Detalle</p>
+          <section className="rounded-2xl border border-border bg-white p-5 shadow-sm">
+            <h3 className="mb-3 text-base font-semibold">Detalle del gasto</h3>
             <div className="space-y-3">
               <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Descripción</label>
+                <label htmlFor="expense-description" className="mb-1 block text-sm font-medium">Descripción</label>
                 <Input
+                  id="expense-description"
                   placeholder="ej. Shampoo para mascotas, arriendo local…"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Responsable</label>
+                <label htmlFor="expense-responsible" className="mb-1 block text-sm font-medium">Responsable</label>
                 <Input
+                  id="expense-responsible"
                   placeholder="¿Quién registra este gasto?"
                   value={responsible}
                   onChange={(e) => setResponsible(e.target.value)}
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Monto (COP)</label>
+                <label htmlFor="expense-amount" className="mb-1 block text-sm font-medium">Monto (COP)</label>
                 <Input
+                  id="expense-amount"
                   type="number"
                   min="0"
                   step="100"
@@ -150,15 +154,16 @@ export function ExpenseForm() {
           </section>
 
           {/* Método de pago */}
-          <section className="rounded-xl border border-black/[0.06] bg-card p-5">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">¿Cómo se pagó?</p>
+          <section className="rounded-2xl border border-border bg-white p-5 shadow-sm">
+            <h3 className="mb-3 text-base font-semibold">Método de pago</h3>
             <div className="flex flex-wrap gap-2">
               {PAYMENT_METHODS.map((m) => (
                 <button
                   key={m.value}
                   type="button"
                   onClick={() => setPaymentMethod(m.value)}
-                  className={`flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-all duration-150 ${
+                  aria-pressed={paymentMethod === m.value}
+                  className={`flex min-h-10 items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-colors ${
                     paymentMethod === m.value
                       ? "border-rose-500/40 bg-rose-500/10 text-rose-700"
                       : "border-black/[0.06] text-muted-foreground hover:border-black/15 hover:bg-accent hover:text-foreground"
@@ -172,9 +177,10 @@ export function ExpenseForm() {
           </section>
 
           {/* Notas */}
-          <section className="rounded-xl border border-black/[0.06] bg-card p-5">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Notas (opcional)</p>
+          <section className="rounded-2xl border border-border bg-white p-5 shadow-sm">
+            <label htmlFor="expense-notes" className="mb-3 block text-base font-semibold">Notas (opcional)</label>
             <Input
+              id="expense-notes"
               placeholder="Proveedor, factura, observaciones…"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -184,8 +190,8 @@ export function ExpenseForm() {
 
         {/* ── Columna derecha: resumen ──────────────────── */}
         <div>
-          <div className="sticky top-24 rounded-xl border border-black/[0.06] bg-card p-5">
-            <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Resumen del egreso</p>
+          <div className="sticky top-24 rounded-2xl border border-rose-200 bg-rose-50/50 p-5 shadow-sm">
+            <h3 className="mb-4 text-base font-semibold">Resumen del egreso</h3>
 
             <div className="space-y-3">
               <div className="flex justify-between text-sm">

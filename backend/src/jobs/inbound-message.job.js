@@ -14,10 +14,9 @@ const {
 
 // El webhook dispara el drenado inmediatamente. El cron queda como red de
 // recuperación para reinicios, señales perdidas y concesiones vencidas, sin
-// mantener un compute serverless despierto con consultas vacías cada 5 s.
-// Los otros barridos operativos comparten la misma ventana configurable.
-// Este corre 30 segundos después para reutilizar el compute ya despierto,
-// evitar competir por el pool y no extender otra ventana facturable de Neon.
+// hacer consultas vacías cada 5 s. Los otros barridos operativos comparten
+// la ventana de 15 minutos; este corre 30 segundos después para no competir
+// por el pool.
 const MAX_SEND_ATTEMPTS = 3;
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -173,7 +172,7 @@ const requestInboundDrain = () => {
 const startInboundMessageJob = () => {
   const schedules = getOperationalSchedules();
   startInboundWorkerHealth({
-    expectedIntervalMs: schedules.mode === "low-usage" ? 60 * 60 * 1000 : 15 * 60 * 1000,
+    expectedIntervalMs: 15 * 60 * 1000,
   });
   cron.schedule(schedules.inboundRecovery, requestInboundDrain);
   requestInboundDrain();

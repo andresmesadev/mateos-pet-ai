@@ -1,0 +1,21 @@
+name: mateos-pet-ai-dev
+
+services:
+  db:
+    image: pgvector/pgvector:0.8.6-pg18-bookworm
+    environment:
+      POSTGRES_USER: mateos_dev
+      POSTGRES_DB: mateos_dev
+      POSTGRES_PASSWORD: ${MATEOS_DEV_DB_PASSWORD:?Set MATEOS_DEV_DB_PASSWORD in .env.local-db}
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - mateos_dev_postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mateos_dev -d mateos_dev"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  mateos_dev_postgres:

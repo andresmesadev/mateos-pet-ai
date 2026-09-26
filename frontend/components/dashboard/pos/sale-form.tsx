@@ -71,6 +71,7 @@ function ClientSearch({ onSelect }: { onSelect: (c: ClientResult | null) => void
         <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           placeholder="Buscar cliente por nombre o teléfono…"
+          aria-label="Buscar cliente por nombre o teléfono"
           value={query}
           onChange={(e) => { setQuery(e.target.value); onSelect(null); }}
           className="pl-9"
@@ -194,9 +195,10 @@ export function SaleForm() {
         {/* ── Columna izquierda ─────────────────────────── */}
         <div className="space-y-5">
           {/* Cliente */}
-          <section className="rounded-xl border border-black/[0.08] border-t-2 border-t-violet-500/50 bg-card p-5">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-violet-700/80">Cliente</p>
+          <section className="rounded-2xl border border-border bg-white p-5 shadow-sm">
+            <h3 className="mb-3 text-base font-semibold">Cliente</h3>
             <ClientSearch onSelect={(c) => { setClient(c); setPetId(""); }} />
+            {!client && <p className="mt-2 text-xs text-muted-foreground">Opcional: también puedes registrar una venta sin asociarla a un cliente.</p>}
             {client && (
               <div className="mt-3 rounded-lg border border-black/[0.06] bg-accent/40 px-4 py-3">
                 <div className="flex items-center gap-3">
@@ -217,9 +219,10 @@ export function SaleForm() {
                           key={p.id}
                           type="button"
                           onClick={() => setPetId((prev) => prev === p.id ? "" : p.id)}
-                          className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all duration-150 ${
+                          aria-pressed={petId === p.id}
+                          className={`flex min-h-9 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
                             petId === p.id
-                              ? "border-primary/50 bg-primary/15 text-primary"
+                              ? "border-teal-700 bg-teal-700 text-white"
                               : "border-black/[0.08] bg-background/50 hover:border-black/20 hover:bg-accent"
                           }`}
                         >
@@ -234,11 +237,11 @@ export function SaleForm() {
           </section>
 
           {/* Ítems */}
-          <section className="rounded-xl border border-black/[0.08] border-t-2 border-t-teal-500/50 bg-card p-5">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-teal-700/80">Ítems del cobro</p>
+          <section className="rounded-2xl border border-border bg-white p-5 shadow-sm">
+            <h3 className="mb-3 text-base font-semibold">Productos o servicios</h3>
             <div className="space-y-2">
               {/* Header */}
-              <div className="grid grid-cols-[1fr_56px_120px_32px] gap-2 px-1">
+              <div className="hidden grid-cols-[minmax(0,1fr)_64px_112px_32px] gap-2 px-1 sm:grid">
                 <p className="text-[11px] font-medium text-muted-foreground">Descripción</p>
                 <p className="text-[11px] font-medium text-muted-foreground text-center">Cant.</p>
                 <p className="text-[11px] font-medium text-muted-foreground">Precio unit.</p>
@@ -246,11 +249,12 @@ export function SaleForm() {
               </div>
 
               {lines.map((line, idx) => (
-                <div key={line.id} className="grid grid-cols-[1fr_56px_120px_32px] gap-2 items-center">
-                  <div className="relative">
+                <div key={line.id} className="grid grid-cols-[64px_minmax(0,1fr)_32px] items-center gap-2 rounded-xl border border-border p-3 sm:grid-cols-[minmax(0,1fr)_64px_112px_32px] sm:rounded-none sm:border-0 sm:p-0">
+                  <div className="relative col-span-3 sm:col-span-1">
                     <Tag className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/50" />
                     <Input
                       placeholder={idx === 0 ? "ej. Baño + corte" : "Descripción"}
+                      aria-label={`Descripción del ítem ${idx + 1}`}
                       value={line.description}
                       onChange={(e) => setLine(line.id, "description", e.target.value)}
                       className="pl-8 text-sm"
@@ -259,6 +263,7 @@ export function SaleForm() {
                   <Input
                     type="number"
                     min="1"
+                    aria-label={`Cantidad del ítem ${idx + 1}`}
                     value={line.quantity}
                     onChange={(e) => setLine(line.id, "quantity", parseInt(e.target.value) || 1)}
                     className="text-center text-sm"
@@ -268,6 +273,7 @@ export function SaleForm() {
                     min="0"
                     step="100"
                     placeholder="0"
+                    aria-label={`Precio unitario del ítem ${idx + 1}`}
                     value={line.unitPrice}
                     onChange={(e) => setLine(line.id, "unitPrice", e.target.value)}
                     className="text-sm"
@@ -276,7 +282,7 @@ export function SaleForm() {
                     type="button"
                     onClick={() => removeLine(line.id)}
                     disabled={lines.length === 1}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-20"
+                    className="flex h-10 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-30"
                     aria-label="Eliminar ítem"
                   >
                     <X className="h-4 w-4" />
@@ -287,24 +293,25 @@ export function SaleForm() {
             <button
               type="button"
               onClick={() => setLines((p) => [...p, newLine()])}
-              className="mt-3 flex items-center gap-1.5 rounded-lg border border-dashed border-black/[0.1] px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+              className="mt-3 flex min-h-10 items-center gap-1.5 rounded-lg border border-dashed border-border px-3 text-sm font-semibold text-teal-700 transition-colors hover:border-teal-500 hover:bg-teal-50"
             >
               <Plus className="h-3.5 w-3.5" /> Agregar ítem
             </button>
           </section>
 
           {/* Método de pago */}
-          <section className="rounded-xl border border-black/[0.08] border-t-2 border-t-amber-500/50 bg-card p-5">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-amber-700/80">Método de pago</p>
+          <section className="rounded-2xl border border-border bg-white p-5 shadow-sm">
+            <h3 className="mb-3 text-base font-semibold">Método de pago</h3>
             <div className="flex flex-wrap gap-2">
               {PAYMENT_METHODS.map((m) => (
                 <button
                   key={m.value}
                   type="button"
                   onClick={() => setPaymentMethod(m.value)}
-                  className={`flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-all duration-150 ${
+                  aria-pressed={paymentMethod === m.value}
+                  className={`flex min-h-10 items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-colors ${
                     paymentMethod === m.value
-                      ? "border-primary/40 bg-primary/15 text-primary shadow-[0_0_0_1px_oklch(0.72_0.14_232/0.3)]"
+                      ? "border-teal-700 bg-teal-700 text-white"
                       : "border-black/[0.06] bg-background/50 text-muted-foreground hover:border-black/15 hover:bg-accent hover:text-foreground"
                   }`}
                 >
@@ -316,9 +323,10 @@ export function SaleForm() {
           </section>
 
           {/* Notas */}
-          <section className="rounded-xl border border-black/[0.08] bg-card p-5">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Notas (opcional)</p>
+          <section className="rounded-2xl border border-border bg-white p-5 shadow-sm">
+            <label htmlFor="sale-notes" className="mb-3 block text-base font-semibold">Notas (opcional)</label>
             <Input
+              id="sale-notes"
               placeholder="Observaciones del cobro…"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -328,8 +336,8 @@ export function SaleForm() {
 
         {/* ── Columna derecha: resumen ──────────────────── */}
         <div className="space-y-4">
-          <div className="sticky top-24 rounded-xl border border-black/[0.08] border-t-2 border-t-emerald-500/50 bg-card p-5">
-            <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-emerald-700/80">Resumen del cobro</p>
+          <div className="sticky top-24 rounded-2xl border border-teal-200 bg-teal-50/50 p-5 shadow-sm">
+            <h3 className="mb-4 text-base font-semibold">Resumen del cobro</h3>
 
             {/* Líneas */}
             <div className="space-y-2">
@@ -347,7 +355,7 @@ export function SaleForm() {
                 );
               })}
               {lines.every((l) => !l.description && !l.unitPrice) && (
-                <p className="text-sm text-muted-foreground/50">Sin ítems aún…</p>
+                <p className="text-sm text-muted-foreground">Agrega un producto o servicio para calcular el total.</p>
               )}
             </div>
 

@@ -4,6 +4,8 @@ secrets/
 
 # Configuración local de Claude Code (herramienta, no producto)
 .claude/
+.agents/
+.codex/
 
 # Logs
 logs

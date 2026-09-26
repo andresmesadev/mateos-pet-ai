@@ -56,17 +56,32 @@ export async function RevenueHistory({ period: rawPeriod, tenant }: { period?: s
   const headers = makeServerHeaders(session, tenant);
 
   const todayYmd = new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" }).slice(0, 10);
-  const [metricsRes, todayRes] = await Promise.all([
-    fetch(apiUrl(`/api/dashboard/metrics/revenue?period=${period}`), { cache: "no-store", headers }),
-    isCurrent
-      ? fetch(apiUrl(`/api/dashboard/transactions?from=${todayYmd}&to=${todayYmd}`), { cache: "no-store", headers })
-      : Promise.resolve(null),
-  ]);
+  let metrics: RevenueMetrics | null = null;
+  let todayTx: Transaction[] = [];
+  try {
+    const [metricsRes, todayRes] = await Promise.all([
+      fetch(apiUrl(`/api/dashboard/metrics/revenue?period=${period}`), { cache: "no-store", headers }),
+      isCurrent
+        ? fetch(apiUrl(`/api/dashboard/transactions?from=${todayYmd}&to=${todayYmd}`), { cache: "no-store", headers })
+        : Promise.resolve(null),
+    ]);
+    if (metricsRes.ok && (!isCurrent || todayRes?.ok)) {
+      metrics = await metricsRes.json() as RevenueMetrics;
+      if (isCurrent && todayRes) todayTx = await todayRes.json() as Transaction[];
+    }
+  } catch { /* Se muestra un estado de error. */ }
 
-  const metrics: RevenueMetrics = metricsRes.ok
-    ? await metricsRes.json()
-    : { period, totalCurrent: 0, totalPrev: 0, delta: 0, transactionCount: 0, byItem: [], byMethod: [] };
-  const todayTx: Transaction[] = isCurrent && todayRes?.ok ? await todayRes.json() : [];
+  if (!metrics) {
+    const params = new URLSearchParams({ tab: "historial", period });
+    if (tenant) params.set("tenant", tenant);
+    return (
+      <div role="alert" className="max-w-2xl rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-950">
+        <h3 className="font-semibold">No se pudo cargar el historial</h3>
+        <p className="mt-1">No podemos mostrar los cobros de este mes. Comprueba la conexión e inténtalo de nuevo.</p>
+        <Link href={`/dashboard/pos?${params.toString()}`} className="mt-4 inline-flex min-h-10 items-center rounded-lg border border-amber-300 bg-white px-4 font-semibold hover:bg-amber-100">Reintentar</Link>
+      </div>
+    );
+  }
 
   const prev = prevPeriod(period);
   const next = nextPeriod(period);

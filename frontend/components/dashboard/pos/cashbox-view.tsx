@@ -80,25 +80,26 @@ export async function CashboxView({ date, tenant }: { date?: string; tenant?: st
   const session = await auth();
   const headers = makeServerHeaders(session, tenant);
 
-  const res = await fetch(apiUrl(`/api/dashboard/metrics/cashbox?date=${effectiveDate}`), {
-    cache: "no-store",
-    headers,
-  });
+  let data: CashboxData | null = null;
+  try {
+    const res = await fetch(apiUrl(`/api/dashboard/metrics/cashbox?date=${effectiveDate}`), {
+      cache: "no-store",
+      headers,
+    });
+    if (res.ok) data = await res.json() as CashboxData;
+  } catch { /* Se muestra un estado de error. */ }
 
-  const data: CashboxData = res.ok
-    ? await res.json()
-    : {
-        date: effectiveDate,
-        totalIncome: 0,
-        totalExpenses: 0,
-        netBalance: 0,
-        transactionCount: 0,
-        expenseCount: 0,
-        incomeByMethod: [],
-        expensesByCategory: [],
-        transactions: [],
-        expenses: [],
-      };
+  if (!data) {
+    const params = new URLSearchParams({ tab: "caja", date: effectiveDate });
+    if (tenant) params.set("tenant", tenant);
+    return (
+      <div role="alert" className="max-w-2xl rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-950">
+        <h3 className="font-semibold">No se pudo cargar la caja</h3>
+        <p className="mt-1">No podemos mostrar los movimientos del día. Comprueba la conexión e inténtalo de nuevo.</p>
+        <Link href={`/dashboard/pos?${params.toString()}`} className="mt-4 inline-flex min-h-10 items-center rounded-lg border border-amber-300 bg-white px-4 font-semibold hover:bg-amber-100">Reintentar</Link>
+      </div>
+    );
+  }
 
   const isToday = effectiveDate === bogotaToday;
   const dateLabel = new Intl.DateTimeFormat("es-CO", {

@@ -1,6 +1,6 @@
 # Contexto del Proyecto para IAs
 
-Este archivo se carga automáticamente en cada sesión de Claude Code.
+Este archivo se carga automáticamente en cada sesión de Codex.
 
 ## Antes de contribuir
 
@@ -27,8 +27,8 @@ Cualquier propuesta que contradiga esos documentos debe justificarse explícitam
 - **El criterio del Portal del Cliente.** Si un servicio de dominio no podría ser invocado por el Portal del Cliente sin modificaciones, pertenece al adaptador, no al dominio.
 - **Las comisiones son inmutables.** Los registros en `Commission` nunca se modifican. Las correcciones se hacen con anulación + nuevo registro — implementado por el ADR 009 (`VoidCommissionUseCase`, comando único atómico; como máximo una comisión activa por cita, índice único parcial en BD).
 - **El precio se resuelve en un único lugar.** Siempre a través de `price-resolver.service.js`.
-- **`prisma generate` después de cambios de schema.** `prisma db push` sincroniza la BD pero no regenera el cliente TypeScript. (Automatizado vía hook — ver `.claude/hooks/prisma-generate.sh`.)
-- **`apiUrl` nunca desde componentes cliente hacia endpoints autenticados.** Desde el navegador, siempre `proxyUrl` (el proxy añade la autenticación server-side). En Server Components, `apiUrl` + `makeServerHeaders` es el camino sancionado. Única excepción cliente: el onboarding público (`/api/onboarding`), que no requiere autenticación por diseño. (Alcance real documentado en la remediación M5 de la auditoría v2.1.0; hook: `.claude/hooks/block-apiurl.sh`.)
+- **`prisma generate` después de cambios de schema.** `prisma db push` sincroniza la BD pero no regenera el cliente TypeScript. (Automatizado vía hook — ver `.Codex/hooks/prisma-generate.sh`.)
+- **`apiUrl` nunca desde componentes cliente hacia endpoints autenticados.** Desde el navegador, siempre `proxyUrl` (el proxy añade la autenticación server-side). En Server Components, `apiUrl` + `makeServerHeaders` es el camino sancionado. Única excepción cliente: el onboarding público (`/api/onboarding`), que no requiere autenticación por diseño. (Alcance real documentado en la remediación M5 de la auditoría v2.1.0; hook: `.Codex/hooks/block-apiurl.sh`.)
 - **Todo cierre oficial de un entregable implementado debe evaluar el versionado del proyecto antes del commit final.** Si el cierre introduce capacidades nuevas o cambios funcionales relevantes, se realizará el bump de versión correspondiente antes de crear el tag. Ningún tag oficial puede diferir de la versión declarada por el código, la documentación y el endpoint de salud. (Institucionalizada tras la discrepancia detectada antes del cierre del Entregable 3.0 — v2.3.0.)
 - **Todo criterio de cierre verificable por grep (p. ej. "cero llamadas directas a X fuera del contexto Y") debe ejecutarse contra el repositorio completo antes de declarar el entregable terminado, nunca solo contra el inventario identificado en la etapa de diseño.** El inventario de diseño es un punto de partida, no un techo. (Institucionalizada tras el Entregable 3.1: la auditoría de la Etapa 1 identificó 6 puntos de envío directo a `sendWhatsAppMessage`; la Validación Técnica encontró 2 más mediante un grep exhaustivo del criterio de cierre.)
 

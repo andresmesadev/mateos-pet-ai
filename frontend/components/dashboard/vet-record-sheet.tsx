@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +44,7 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved?: () => void;
+  preview?: boolean;
 };
 
 function Textarea({
@@ -59,10 +60,12 @@ function Textarea({
   placeholder?: string;
   rows?: number;
 }) {
+  const id = useId();
   return (
     <div className="space-y-1">
-      <label className="text-xs font-medium text-muted-foreground">{label}</label>
+      <label htmlFor={id} className="text-xs font-medium text-muted-foreground">{label}</label>
       <textarea
+        id={id}
         rows={rows}
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -76,13 +79,17 @@ function Textarea({
 type NewAction = { type: string; dueAt: string; notes: string };
 const EMPTY_ACTION: NewAction = { type: "control", dueAt: "", notes: "" };
 
-export function VetRecordSheet({ appointment, open, onOpenChange, onSaved }: Props) {
+export function VetRecordSheet({ appointment, open, onOpenChange, onSaved, preview = false }: Props) {
+  const staffInputId = useId();
+  const weightInputId = useId();
+  const controlInputId = useId();
   const [form, setForm] = useState<VetRecord>(EMPTY);
   const [staff, setStaff] = useState<StaffOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [recordLoadFailed, setRecordLoadFailed] = useState(false);
   const dirtyRef = useRef(false);
 
   // next actions
@@ -99,11 +106,12 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved }: Pro
 
   // Load staff list and existing record when sheet opens
   useEffect(() => {
-    if (!open) return;
+    if (!open || preview) return;
     let cancelled = false;
 
     void (async () => {
       if (!cancelled) setLoading(true);
+      if (!cancelled) setRecordLoadFailed(false);
       try {
         const [staffRes, recordRes, actionsRes] = await Promise.all([
           fetch(proxyUrl("/api/dashboard/staff"), { cache: "no-store" }),
@@ -137,6 +145,8 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved }: Pro
             staffId: rec.staffId ?? "",
           });
           dirtyRef.current = false;
+        } else if (!cancelled && recordRes.status !== 404) {
+          setRecordLoadFailed(true);
         }
 
         if (!cancelled && actionsRes.ok) {
@@ -144,23 +154,24 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved }: Pro
           setExistingActions(Array.isArray(actions) ? actions : []);
         }
       } catch {
-        // ignore — form stays empty
+        if (!cancelled) setRecordLoadFailed(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
 
     return () => { cancelled = true; };
-  }, [open, appointment.id, appointment.petId]);
+  }, [open, appointment.id, appointment.petId, preview]);
 
   function handleOpenChange(next: boolean) {
-    if (!next && dirtyRef.current && !saved) {
+    if (!next && !preview && dirtyRef.current && !saved) {
       if (!window.confirm("Hay cambios sin guardar. ¿Salir de todas formas?")) return;
     }
     onOpenChange(next);
   }
 
   async function handleSave() {
+    if (preview || recordLoadFailed) return;
     setSaving(true);
     setError(null);
     try {
@@ -210,6 +221,12 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved }: Pro
           </SheetDescription>
         </SheetHeader>
 
+        {preview && (
+          <p role="status" className="mt-4 rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-900">
+            Vista de ejemplo. Puedes explorar el formulario, pero no se guardarán cambios.
+          </p>
+        )}
+
         {loading ? (
           <div className="py-12 text-center text-sm text-muted-foreground">Cargando…</div>
         ) : (
@@ -217,10 +234,11 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved }: Pro
             {/* Profesional */}
             {staff.length > 0 && (
               <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">
+                <label htmlFor={staffInputId} className="text-xs font-medium text-muted-foreground">
                   Profesional responsable
                 </label>
                 <select
+                  id={staffInputId}
                   value={form.staffId}
                   onChange={(e) => set("staffId")(e.target.value)}
                   className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
@@ -241,8 +259,9 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved }: Pro
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Peso actual (kg)</label>
+                <label htmlFor={weightInputId} className="text-xs font-medium text-muted-foreground">Peso actual (kg)</label>
                 <Input
+                  id={weightInputId}
                   type="number"
                   step="0.1"
                   min="0"
@@ -252,8 +271,9 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved }: Pro
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Próximo control recomendado</label>
+                <label htmlFor={controlInputId} className="text-xs font-medium text-muted-foreground">Próximo control recomendado</label>
                 <Input
+                  id={controlInputId}
                   type="date"
                   value={form.nextControlAt}
                   onChange={(e) => set("nextControlAt")(e.target.value)}
@@ -267,6 +287,12 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved }: Pro
               </div>
             )}
 
+            {recordLoadFailed && (
+              <div role="alert" className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                No se pudo comprobar si esta consulta ya tiene un registro. Cierra y vuelve a abrir la atención antes de guardar.
+              </div>
+            )}
+
             {saved && (
               <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-300">
                 Atención guardada correctamente.
@@ -274,8 +300,8 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved }: Pro
             )}
 
             <div className="flex gap-2 pt-2">
-              <Button onClick={handleSave} disabled={saving} className="flex-1">
-                {saving ? "Guardando…" : "Guardar atención"}
+              <Button onClick={handleSave} disabled={saving || preview || recordLoadFailed} className="flex-1">
+                {preview ? "Guardado desactivado en el ejemplo" : saving ? "Guardando…" : "Guardar atención"}
               </Button>
               <Button variant="outline" onClick={() => handleOpenChange(false)}>
                 Cerrar
@@ -362,7 +388,7 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved }: Pro
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={addingAction || !newAction.dueAt}
+                  disabled={preview || addingAction || !newAction.dueAt}
                   onClick={async () => {
                     setAddingAction(true);
                     setActionError(null);

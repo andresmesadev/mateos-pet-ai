@@ -3,7 +3,7 @@
 **Plataforma Operativa Inteligente** para negocios especializados en salud y bienestar animal.  
 Administra la operación diaria completa — agenda, servicios, finanzas, staff, historiales y comunicaciones — con Empleados Digitales Especializados que colaboran con el equipo humano.
 
-**Stack:** Node.js · Express 5 · Prisma 7 · PostgreSQL (Neon) · pgvector · OpenAI · Next.js 16
+**Stack:** Node.js 24 · Express 5 · Prisma 7 · PostgreSQL 18 con pgvector · OpenAI · Next.js 16
 
 ---
 
@@ -22,8 +22,8 @@ Estos documentos definen el rumbo del producto. Cualquier propuesta que los cont
 
 ## Requisitos
 
-- **Node.js** 20+
-- Cuenta **Neon** (PostgreSQL con extensión `vector`)
+- **Node.js** 24
+- **Docker Desktop y WSL 2** para la base PostgreSQL local; producción usa PostgreSQL privado en la VPS
 - Cuenta **Meta for Developers** (WhatsApp Cloud API)
 - Cuenta **OpenAI** con API key
 - Un túnel HTTPS (ej. Cloudflare Tunnel) para desarrollo local con webhook de Meta, o usar directamente el dominio de la VPS de producción para pruebas
@@ -53,7 +53,7 @@ Edita `backend/.env` con tus credenciales reales.
 
 | Variable | Descripción |
 |----------|-------------|
-| `DATABASE_URL` | Connection string PostgreSQL (Neon) |
+| `DATABASE_URL` | URL de PostgreSQL local en desarrollo; URL interna `db` en la VPS |
 | `OPENAI_API_KEY` | API key de OpenAI |
 | `WHATSAPP_VERIFY_TOKEN` | Token que defines tú para verificar el webhook |
 | `WHATSAPP_PHONE_NUMBER_ID` | ID del número en Meta Developer Console |
@@ -63,18 +63,19 @@ Edita `backend/.env` con tus credenciales reales.
 
 **`WHATSAPP_APP_SECRET`:** en [Meta for Developers](https://developers.facebook.com) → tu app → **App Dashboard** → **Configuración** → **Básica** → **App Secret** (clic en *Mostrar*). Es distinto del Access Token; se usa para validar `X-Hub-Signature-256` en cada POST al webhook.
 
-**Prisma CLI:** las migraciones leen `DATABASE_URL` desde la **raíz** del repo. Puedes copiar la misma URL a un `.env` en la raíz o exportarla antes de migrar:
+**Prisma CLI:** las migraciones leen `DATABASE_URL` desde el `.env` de la **raíz**. El setup local sincroniza esa URL con `backend/.env`; verifica el destino antes de migrar:
 
 ```bash
-# Desde la raíz del repo
-echo "DATABASE_URL=postgresql://..." > .env
+pwsh -File scripts/setup-local-db.ps1
 ```
 
 ---
 
 ## 2. Base de datos (Prisma)
 
-Desde la **raíz** del repositorio:
+En Windows, sigue [la guía de base local](docs/operations/LOCAL_DEVELOPMENT_DATABASE.md).
+Levanta PostgreSQL con `pgvector` y carga datos ficticios persistentes sin tocar la VPS.
+Desde la **raíz** del repositorio, después del setup:
 
 ```bash
 npm install
@@ -216,7 +217,7 @@ Si PostgreSQL u OpenAI fallan, el JSON incluye `"status": "degraded"` y el servi
 |----------|-------------|
 | Webhook 403 | `WHATSAPP_VERIFY_TOKEN` coincide con Meta |
 | No llegan mensajes | túnel/dominio activo, callback `/webhook`, suscripción a `messages` |
-| Error Prisma / DB | `DATABASE_URL` correcta, migraciones aplicadas, extensión `vector` en Neon |
+| Error Prisma / DB | Docker Desktop activo; `DATABASE_URL` local en ambos `.env`; migraciones y extensión `vector` aplicadas |
 | Webhook POST sin firma válida | Revisa `WHATSAPP_APP_SECRET` (App Dashboard → Configuración → Básica) |
 | OpenAI falla | `OPENAI_API_KEY` válida y con crédito |
 | Dashboard en 0 | Backend en `:3000`, PostgreSQL accesible |
@@ -231,10 +232,10 @@ Si PostgreSQL u OpenAI fallan, el JSON incluye `"status": "degraded"` y el servi
 Cada **push** o **pull request** a `main` ejecuta el workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml):
 
 - Tests del backend (`npm test`)
-- Verificación de migraciones Prisma (`npx prisma migrate status`)
+- Verificación de migraciones contra PostgreSQL desechable del job de CI
 - Lint del frontend (`npm run lint`, job paralelo)
 
-El despliegue manual del build del frontend está en [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) (`workflow_dispatch`).
+El despliegue a la VPS se realiza mediante `scripts/deploy.sh` en el servidor.
 
 ### Secrets de GitHub Actions
 
@@ -242,10 +243,9 @@ Configura en **GitHub → Settings → Secrets and variables → Actions → New
 
 | Secret | Uso |
 |--------|-----|
-| `DATABASE_URL` | Conexión PostgreSQL para `prisma migrate status` en CI |
 | `OPENAI_API_KEY` | Variable requerida por el entorno de test del backend |
 
-Las demás variables del workflow CI usan valores de prueba fijos (`WHATSAPP_*`, `NODE_ENV=test`).
+CI usa una URL PostgreSQL de prueba y valores de prueba fijos para `WHATSAPP_*` y `NODE_ENV=test`.
 
 ---
 
@@ -259,7 +259,7 @@ Las demás variables del workflow CI usan valores de prueba fijos (`WHATSAPP_*`,
    cp frontend/.env.local.example frontend/.env.local
    ```
 2. Completa `DATABASE_URL`, credenciales WhatsApp/OpenAI y auth del dashboard.
-3. Aplica migraciones (Neon u otro PostgreSQL con extensión `vector`):
+3. Aplica migraciones en PostgreSQL con extensión `vector`:
    ```bash
    npm ci
    npx prisma migrate deploy

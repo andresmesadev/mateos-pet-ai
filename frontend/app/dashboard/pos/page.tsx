@@ -41,28 +41,33 @@ export default async function PosPage({ searchParams }: PageProps) {
   const tab: PosTab = isValidTab(rawTab) ? rawTab : "venta";
 
   const tabTitles: Record<PosTab, { title: string; description: string }> = {
-    venta:     { title: "Punto de Venta",  description: "Registra cobros de servicios y productos" },
-    caja:      { title: "Caja del día",    description: "Arqueo de ingresos y egresos de la jornada" },
-    egreso:    { title: "Registrar egreso", description: "Anota gastos operativos: insumos, servicios, nómina" },
-    historial: { title: "Historial",       description: "Resumen mensual de cobros y análisis financiero" },
-    reportes:  { title: "Informes",        description: "Ingresos, citas, servicios y próximas fechas críticas" },
+    venta:     { title: "Nueva venta",     description: "Registra el cobro de un servicio o producto." },
+    caja:      { title: "Caja del día",    description: "Revisa los ingresos, egresos y el saldo de la jornada." },
+    egreso:    { title: "Registrar egreso", description: "Anota un gasto operativo." },
+    historial: { title: "Historial de ventas", description: "Consulta los cobros de meses anteriores." },
+    reportes:  { title: "Reportes",       description: "Revisa ingresos, citas y servicios." },
   };
 
   const { title, description } = tabTitles[tab];
 
   return (
-    <div>
+    <div className="mx-auto max-w-[1500px]">
       <PageHeader
-        title={title}
-        description={description}
+        title="Caja y ventas"
+        description="Registra movimientos y consulta el estado de tu negocio."
         icon={Wallet}
-        tint="bg-teal-500/15 text-teal-700"
+        tint="bg-teal-100 text-teal-700"
       />
 
       {/* Tab navigation — client (needs useSearchParams) */}
       <Suspense fallback={null}>
         <PosTabs active={tab} />
       </Suspense>
+
+      <div className="mb-5">
+        <h2 className="text-xl font-bold tracking-tight text-foreground">{title}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+      </div>
 
       {/* Tab content */}
       {tab === "venta" && (

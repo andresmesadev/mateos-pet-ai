@@ -28,25 +28,26 @@ export function PosTabs({ active }: { active: PosTab }) {
   }
 
   return (
-    <div className="mb-6 flex gap-1 overflow-x-auto rounded-xl border border-black/[0.06] bg-card p-1">
+    <nav aria-label="Secciones de caja y ventas" className="mb-6 flex max-w-full gap-1 overflow-x-auto rounded-xl border border-border bg-white p-1 shadow-sm">
       {TABS.map(({ id, label, icon: Icon }) => {
         const isActive = active === id;
         return (
           <Link
             key={id}
             href={href(id)}
+            aria-current={isActive ? "page" : undefined}
             className={cn(
-              "flex shrink-0 items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-150",
+              "flex min-h-10 shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-teal-700 sm:px-4",
               isActive
-                ? "bg-primary/15 text-primary shadow-[0_1px_3px_rgba(15,23,42,0.10)]"
+                ? "bg-teal-700 text-white"
                 : "text-muted-foreground hover:bg-accent hover:text-foreground"
             )}
           >
             <Icon className="h-4 w-4 shrink-0" />
-            <span className="hidden sm:inline">{label}</span>
+            <span>{label}</span>
           </Link>
         );
       })}
-    </div>
+    </nav>
   );
 }

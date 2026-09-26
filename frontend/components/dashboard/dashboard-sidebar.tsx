@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -17,10 +17,12 @@ import {
   Menu,
   X,
   PawPrint,
+  Stethoscope,
   type LucideIcon,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { proxyUrl } from "@/lib/api";
 
 // ── Estructura de navegación ──────────────────────────────────
 
@@ -33,6 +35,7 @@ const SECTIONS: NavSection[] = [
     items: [
       { href: "/dashboard", label: "Inicio", icon: Home, exact: true },
       { href: "/dashboard/calendar", label: "Agenda", icon: Calendar },
+      { href: "/dashboard/consultas", label: "Consultas veterinarias", icon: Stethoscope },
       { href: "/dashboard/contacto", label: "Clientes y mascotas", icon: Users, alsoActiveOn: ["/dashboard/clients", "/dashboard/pets"] },
       { href: "/dashboard/conversations", label: "WhatsApp", icon: MessageCircle },
     ],
@@ -97,8 +100,25 @@ function NavLink({
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const [veterinaryEnabled, setVeterinaryEnabled] = useState<boolean | null>(null);
 
-  const sections = SECTIONS;
+  useEffect(() => {
+    let cancelled = false;
+    fetch(proxyUrl("/api/dashboard/tenant/profile"), { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((profile: { activeModules?: string[] } | null) => {
+        if (!cancelled && Array.isArray(profile?.activeModules)) {
+          setVeterinaryEnabled(profile.activeModules.includes("veterinary"));
+        }
+      })
+      .catch(() => { /* Si el perfil no carga, se conserva el acceso a la sección. */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  const sections = SECTIONS.map((section) => ({
+    ...section,
+    items: section.items.filter((item) => item.href !== "/dashboard/consultas" || veterinaryEnabled !== false),
+  }));
   const userName = session?.user?.name ?? session?.user?.email ?? "Usuario";
   const role = session?.user?.isSuperAdmin ? "Super administrador" : "Administrador";
   const initials = userName.slice(0, 2).toUpperCase();

@@ -12,6 +12,7 @@ import {
   formatStatus,
 } from "@/lib/appointments";
 import { getPetEmoji } from "@/lib/pets";
+import { previewMonthAppointments } from "@/lib/calendar-preview";
 
 // ── Constants ─────────────────────────────────────────────────
 
@@ -314,10 +315,12 @@ export function WeekCalendar({
   data,
   hourStart = 8,
   hourEnd = 18,
+  preview = false,
 }: {
   data: WeekData;
   hourStart?: number;
   hourEnd?: number;
+  preview?: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -326,9 +329,10 @@ export function WeekCalendar({
   const [selected, setSelected] = useState<TodayAppointment | null>(null);
 
   useEffect(() => {
+    if (preview) return;
     const interval = setInterval(() => router.refresh(), 60_000);
     return () => clearInterval(interval);
-  }, [router]);
+  }, [router, preview]);
 
   const { mondayYmd, appointments } = data;
   const today = todayYmd();
@@ -347,23 +351,40 @@ export function WeekCalendar({
 
   // La vista "Mes" no puede depender solo de `appointments` (citas de la
   // semana del server component) — necesita las citas de todo el mes.
-  const [monthAppointments, setMonthAppointments] = useState<TodayAppointment[]>([]);
+  const [monthResult, setMonthResult] = useState<{
+    key: string;
+    appointments: TodayAppointment[];
+    error: boolean;
+  } | null>(null);
+  const monthKey = `${monthDate.year}-${monthDate.month}`;
+  const visibleMonthResult = preview
+    ? { key: monthKey, appointments: previewMonthAppointments(monthDate.year, monthDate.month), error: false }
+    : monthResult;
 
   useEffect(() => {
-    if (view !== "month") return;
+    if (view !== "month" || preview) return;
     let cancelled = false;
+    const key = `${monthDate.year}-${monthDate.month}`;
     fetch(`/api/proxy/dashboard/appointments/month?year=${monthDate.year}&month=${monthDate.month}`, {
       cache: "no-store",
     })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((json) => {
-        if (!cancelled && json?.appointments) setMonthAppointments(json.appointments);
+      .then((res) => {
+        if (!res.ok) throw new Error("No se pudo cargar el mes");
+        return res.json();
       })
-      .catch(() => {});
+      .then((json) => {
+        if (!cancelled) {
+          if (!Array.isArray(json?.appointments)) throw new Error("Respuesta inválida");
+          setMonthResult({ key, appointments: json.appointments, error: false });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setMonthResult({ key, appointments: [], error: true });
+      });
     return () => {
       cancelled = true;
     };
-  }, [view, monthDate.year, monthDate.month]);
+  }, [view, monthDate.year, monthDate.month, preview]);
 
   function navigate(ymd: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -443,10 +464,8 @@ export function WeekCalendar({
 
   function goToday() {
     setCurrentDay(today);
-    setMonthDate(() => {
-      const d = new Date();
-      return { year: d.getFullYear(), month: d.getMonth() };
-    });
+    const [year, month] = today.split("-").map(Number);
+    setMonthDate({ year, month: month - 1 });
     navigate(mondayOf(today));
   }
 
@@ -483,59 +502,72 @@ export function WeekCalendar({
       {selected && <ApptDetail appt={selected} onClose={() => setSelected(null)} />}
 
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        {/* Navigation */}
-        <div className="flex items-center gap-1">
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={prevPeriod} aria-label="Período anterior">
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <button
-            onClick={goToday}
-            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
-          >
-            Hoy
-          </button>
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={nextPeriod} aria-label="Período siguiente">
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+      <div className="mb-4 space-y-3 rounded-2xl border border-border bg-white p-3 shadow-sm sm:p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={prevPeriod} aria-label="Período anterior">
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <button
+              type="button"
+              onClick={goToday}
+              className="min-h-10 rounded-lg border border-border px-4 text-sm font-semibold transition-colors hover:bg-muted"
+            >
+              Hoy
+            </button>
+            <Button variant="outline" size="icon" onClick={nextPeriod} aria-label="Período siguiente">
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+          <span className="text-base font-bold capitalize text-foreground sm:text-lg">{periodLabel}</span>
         </div>
 
-        {/* Period label */}
-        <span className="flex-1 text-center text-sm font-semibold capitalize min-w-[160px]">{periodLabel}</span>
-
-        {/* Clock toggle */}
-        <div className="flex rounded-lg border border-border overflow-hidden shrink-0">
-          {(["12h", "24h"] as const).map((c) => (
-            <button
-              key={c}
-              onClick={() => setClock(c)}
-              className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${clock === c ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
-
-        {/* View selector */}
-        <div className="flex rounded-lg border border-border overflow-hidden shrink-0">
-          {(["month", "week", "day", "scheduler"] as const).map((v) => (
-            <button
-              key={v}
-              onClick={() => setView(v)}
-              className={`px-3 py-1.5 text-xs font-medium transition-colors ${view === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
-            >
-              {v === "month" ? "Mes" : v === "week" ? "Semana" : v === "day" ? "Día" : "Programador"}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
+          <div aria-label="Vista de agenda" className="flex max-w-full overflow-x-auto rounded-lg border border-border p-1">
+            {(["month", "week", "day", "scheduler"] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setView(v)}
+                aria-pressed={view === v}
+                className={`min-h-9 shrink-0 rounded-md px-3 text-sm font-semibold transition-colors ${view === v ? "bg-teal-700 text-white" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+              >
+                {v === "month" ? "Mes" : v === "week" ? "Semana" : v === "day" ? "Día" : "Por profesional"}
+              </button>
+            ))}
+          </div>
+          <div aria-label="Formato de hora" className="flex shrink-0 overflow-hidden rounded-lg border border-border p-1">
+            {(["12h", "24h"] as const).map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setClock(c)}
+                aria-pressed={clock === c}
+                className={`min-h-9 rounded-md px-3 text-sm font-semibold transition-colors ${clock === c ? "bg-teal-700 text-white" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
       {/* View content */}
-      {view === "month" && (
+      {view === "month" && visibleMonthResult?.key !== monthKey && (
+        <div role="status" className="rounded-2xl border border-border bg-white p-8 text-center text-sm text-muted-foreground">Cargando citas del mes…</div>
+      )}
+
+      {view === "month" && visibleMonthResult?.key === monthKey && visibleMonthResult.error && (
+        <div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-950">
+          No se pudieron cargar las citas de este mes. Selecciona otro período o vuelve a abrir Mes para intentarlo de nuevo.
+        </div>
+      )}
+
+      {view === "month" && visibleMonthResult?.key === monthKey && !visibleMonthResult.error && (
         <MonthView
           year={monthDate.year}
           month={monthDate.month}
-          appointments={monthAppointments}
+          appointments={visibleMonthResult.appointments}
           today={today}
           onDayClick={(ymd) => {
             setCurrentDay(ymd);
