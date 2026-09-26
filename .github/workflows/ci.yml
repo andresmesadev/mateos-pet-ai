@@ -41,7 +41,7 @@ jobs:
           npm --prefix backend audit --omit=dev --audit-level=high
 
       - name: Validate operational scripts
-        run: bash -n scripts/backup-database.sh scripts/restore-database-drill.sh scripts/install-backup-service.sh
+        run: bash -n scripts/backup-database.sh scripts/restore-database-drill.sh scripts/install-backup-service.sh scripts/deploy.sh scripts/prisma-vps.sh scripts/vps-preflight.sh
 
       - name: Generate Prisma clients
         run: |

@@ -34,7 +34,7 @@ curl --fail --silent --show-error --connect-timeout 5 http://127.0.0.1:3000/api/
 echo
 
 echo "== Prisma migration status =="
-compose exec -T backend sh -lc 'cd /app && npx prisma migrate status' </dev/null
+bash "$(dirname "$0")/prisma-vps.sh" status </dev/null
 
 echo "== Inbound queue (read-only) =="
 compose exec -T backend node - <<'NODE'

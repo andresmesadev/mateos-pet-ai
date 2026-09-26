@@ -81,3 +81,10 @@ actuales se hacen desde la VPS mediante `git pull --ff-only`, migraciones
 contra la red privada y reconstrucción de los servicios. Se recomienda borrar
 el secreto `DATABASE_URL` antiguo del repositorio de GitHub si ya no tiene
 consumidores externos conocidos; no se necesita para el CI actual.
+
+**Actualización 2026-09-26:** el proyecto antiguo de Neon `Mateos Pet AI`
+(`summer-bar-45935047`) fue eliminado posteriormente con autorización expresa
+del operador. La frase de apertura describe el alcance original del cambio del
+23 de septiembre, no el estado actual. La aplicación sigue en PostgreSQL de la
+VPS y la consola de Neon ya no muestra proyectos en esa organización. GitHub
+Actions no tenía un secreto `DATABASE_URL` al verificarlo el 26 de septiembre.

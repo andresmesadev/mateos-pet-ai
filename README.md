@@ -259,48 +259,51 @@ CI usa una URL PostgreSQL de prueba y valores de prueba fijos para `WHATSAPP_*` 
    cp frontend/.env.local.example frontend/.env.local
    ```
 2. Completa `DATABASE_URL`, credenciales WhatsApp/OpenAI y auth del dashboard.
-3. Aplica migraciones en PostgreSQL con extensión `vector`:
-   ```bash
-   npm ci
-   npx prisma migrate deploy
-   ```
+3. Para producción, usa `scripts/deploy.sh`; aplica las migraciones desde un
+   contenedor temporal conectado a la red privada de Docker. El host de la VPS
+   no necesita Node ni npm instalados.
 
 ### Con Docker (recomendado)
 
 Un solo comando levanta backend (`:3000`) y frontend (`:3001`):
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 Rebuild tras cambios de código:
 
 ```bash
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
 Ver logs:
 
 ```bash
-docker-compose logs -f backend frontend
+docker compose logs -f backend frontend
 ```
 
-> **Nota:** el `backend/Dockerfile` usa contexto de la raíz del repo para incluir `prisma/` y `prisma.config.ts`. El frontend en Docker usa `API_URL=http://backend:3000` para SSR y `NEXT_PUBLIC_API_URL=http://localhost:3000` para el navegador.
+> **Nota:** el `backend/Dockerfile` usa contexto de la raíz del repo para incluir `prisma/` y `prisma.config.ts`. El frontend en Docker usa `API_URL=http://backend:3000` para SSR; la URL pública del backend la establece el `docker-compose.yml` de producción.
 
-### Sin Docker (servidor / VPS)
+### Despliegue en la VPS
 
-Script de despliegue en el host (git pull + migraciones + Docker):
+Desde el checkout limpio de la VPS, el script hace `git pull --ff-only`,
+construye las imágenes, aplica migraciones mediante un contenedor temporal y
+recrea backend/frontend. Comprueba `/api/health` al terminar:
 
 ```bash
 chmod +x scripts/deploy.sh
 ./scripts/deploy.sh
 ```
 
-Para desarrollo local sin contenedores, sigue las secciones 2–4 de este README.
+Para desarrollo local, sigue las secciones 2–4 de este README.
 
 ### VPS (producción actual)
 
-El backend y el frontend corren vía `docker-compose` en una VPS propia (Oracle Cloud), detrás de Nginx con certificado SSL (Let's Encrypt) sobre un dominio propio — requerido porque Meta exige HTTPS para el webhook de WhatsApp.
+El backend, el frontend y PostgreSQL/pgvector corren vía Docker Compose en una
+VPS propia (Oracle Cloud), detrás de Nginx con certificado SSL (Let's Encrypt)
+sobre un dominio propio. PostgreSQL solo es accesible en la red privada de
+Compose; `DATABASE_URL` apunta al servicio `db`.
 
 | Variable | Backend | Frontend |
 |----------|---------|----------|
@@ -322,7 +325,9 @@ El backend y el frontend corren vía `docker-compose` en una VPS propia (Oracle 
 | `NEXTAUTH_URL` | — | ✅ URL pública del dashboard |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | — | ✅ |
 
-Despliegue: `scripts/deploy.sh` en el host (git pull + migraciones + `docker-compose up -d --build`). Ver sección "Sin Docker (servidor / VPS)" arriba.
+Despliegue: `scripts/deploy.sh` en el host, sin instalar Node ni npm en la VPS.
+Para inspeccionar migraciones sin modificar la base, usa
+`bash scripts/prisma-vps.sh status`.
 
 Webhook de Meta: la **Callback URL** debe apuntar al dominio HTTPS de la VPS (`https://tu-dominio.com/webhook`).
 

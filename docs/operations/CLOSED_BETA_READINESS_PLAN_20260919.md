@@ -28,7 +28,7 @@
 | 2 | Garantizar capacidad de la base de datos | PostgreSQL operativo en la VPS, sin límite mensual de Neon; salud y capacidad observadas durante el piloto. | 🧪 Migración completada (`2.39.10`) y capacidad inicial verificada; faltan observación sostenida y carga del piloto |
 | 3 | Actualizar dependencias vulnerables y runtime Node | Cero vulnerabilidades altas conocidas en dependencias de producción, runtime soportado y CI verde. | ✅ Completado (`2.39.6`) |
 | 4 | Activar observabilidad | Sentry o equivalente recibe una excepción controlada y existe alerta de salud/worker. | ✅ Completado (`2.39.7`) |
-| 5 | Implementar backup y restauración | Backup cifrado y periódico, retención definida y restauración ensayada. | ✅ Primer respaldo real de la base en VPS restaurado (`2.39.9`); copia fuera de la VPS pendiente antes de beta externa |
+| 5 | Implementar backup y restauración | Backup cifrado y periódico, retención definida y restauración ensayada. | 🟡 Respaldo diario y restauración de ensayo completados; falta copia cifrada fuera de la VPS antes de beta externa |
 | 6 | Configurar WhatsApp de producción | Número empresarial real registrado, app publicada y flujo entrante/saliente verificado. | Aplazado por decisión del operador; se conserva el número de prueba de Meta |
 | 7 | Completar documentación legal del piloto | Política, términos y acuerdo de piloto completados y revisados. | Pendiente |
 | 8 | Ejecutar matriz integral de agenda | Casos de veterinaria, peluquería, domingos, festivos, conflictos, cancelación y fallos aprobados. | Pendiente |
@@ -37,7 +37,12 @@
 
 ## Condiciones de salida a beta
 
-La beta cerrada solo cambia a **GO** cuando los pasos 1–9 estén cerrados y exista un responsable operativo durante la primera cohorte. Los tres trabajos `needs_review` eran datos de prueba de la base anterior y no se importaron, por decisión expresa del operador.
+La beta cerrada externa solo cambia a **GO** cuando los pasos 1–9 estén cerrados
+y exista un responsable operativo durante la primera cohorte. El paso 6 sigue
+aplazado por decisión del operador; con el número de prueba únicamente se
+autoriza validación interna con destinatarios verificados, no una beta externa.
+Los tres trabajos `needs_review` eran datos de prueba de la base anterior y no
+se importaron, por decisión expresa del operador.
 
 ## Alcance de las próximas pruebas (decisión del operador, 2026-09-23)
 
@@ -85,6 +90,41 @@ WhatsApp Cloud API, OpenAI y las integraciones de Google/Stripe siguen siendo
 servicios de terceros: trasladar la base de datos no los convierte en servicios
 locales. La copia cifrada actual está en la misma VPS, por lo que una copia
 externa continúa recomendada antes de una beta con usuarios reales.
+
+## Auditoría de limpieza y beta (2026-09-26)
+
+- Neon dejó de ser una dependencia operativa: el proyecto `Mateos Pet AI`
+  (`summer-bar-45935047`) fue eliminado en su consola con autorización expresa
+  del operador. La consola mostró que no quedaban proyectos en esa organización.
+  `NEON_LOW_USAGE_MODE` se retiró del entorno y del contenedor activo. GitHub
+  Actions no contiene un secreto `DATABASE_URL`; CI utiliza PostgreSQL de prueba.
+- La VPS sigue en PostgreSQL privado (`db:5432`) con backend `2.39.10`. La
+  verificación de esta fecha mostró `/api/health` en `ok`, cola `InboundJob` con
+  cuatro trabajos `done/complete`, 36 migraciones aplicadas, unos 10 GiB de RAM
+  disponible y 159 GiB libres en disco. Esto es una muestra puntual: **no cierra
+  el paso 2 ni sustituye las 48 horas del paso 9**.
+- El timer de respaldo está activo y existen cinco directorios de respaldo
+  desde el 23 de septiembre. No se ha verificado una copia externa; el paso 5
+  permanece abierto para beta externa.
+- Se corrigió el procedimiento de despliegue heredado: `scripts/deploy.sh` y
+  `scripts/vps-preflight.sh` invocaban Node/Prisma en el host o en un backend
+  donde ya no existe la CLI. El host no tiene Node/npm; Prisma se ejecuta en
+  un contenedor temporal mediante `scripts/prisma-vps.sh`.
+- Stripe y Google Calendar permanecen en el código como capacidades del
+  producto, pero sus variables no están configuradas en la VPS. Sentry tampoco
+  tiene DSN; la alerta externa de GitHub sigue siendo el mecanismo activo.
+  No se eliminan modelos, migraciones o integraciones por su ausencia en este
+  único despliegue: hacerlo rompería capacidades ya documentadas.
+- Las menciones a Neon en informes de cierre y en el registro histórico de
+  este plan describen decisiones pasadas. No son instrucciones de despliegue
+  actuales ni dependencias del runtime.
+
+**Pendientes reales para beta externa:** paso 2 (observación de capacidad con
+carga), paso 5 (respaldo fuera de la VPS), paso 6 (número real y app publicada,
+aplazado), paso 7 (documentos legales), paso 8 (matriz integral de agenda), paso
+9 (48 horas de estabilidad) y paso 10 (cohorte y operación). El próximo trabajo
+funcional sigue siendo la matriz de agenda del paso 8; con el número de prueba
+solo se puede ejecutar una validación interna de hasta cinco destinatarios.
 
 ## Registro del paso 1
 
