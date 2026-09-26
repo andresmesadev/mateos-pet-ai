@@ -15,7 +15,17 @@ docker compose build backend frontend
 docker compose up -d db
 bash "$repo_dir/scripts/prisma-vps.sh" deploy
 docker compose up -d --no-deps backend frontend
-curl --fail --silent --show-error --retry 5 --retry-delay 2 \
-  --retry-connrefused --max-time 15 http://127.0.0.1:3000/api/health
+health_ok=false
+for attempt in {1..10}; do
+  if curl --fail --silent --show-error --max-time 15 http://127.0.0.1:3000/api/health; then
+    health_ok=true
+    break
+  fi
+  sleep 2
+done
+[[ "$health_ok" == true ]] || {
+  echo "Deploy stopped: backend health check did not recover." >&2
+  exit 1
+}
 echo
 echo "Deploy complete: $(git rev-parse --short HEAD)"
