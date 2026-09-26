@@ -18,6 +18,6 @@ docker compose run --rm --no-deps \
     cp /repo/package.json /repo/package-lock.json /repo/prisma.config.ts /tmp/prisma-work/
     cp -R /repo/prisma /tmp/prisma-work/prisma
     cd /tmp/prisma-work
-    npm ci --no-audit --no-fund
-    npx prisma migrate "$1"
+    npm ci --include=dev --no-audit --no-fund
+    ./node_modules/.bin/prisma migrate "$1"
   ' sh "$operation"
