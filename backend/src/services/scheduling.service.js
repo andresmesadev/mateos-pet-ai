@@ -208,17 +208,6 @@ const parseDateToKey = (dateText, referenceDate = new Date()) => {
     );
   }
 
-  const weekdayMatch = n.match(
-    /\b(lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b/
-  );
-  if (weekdayMatch) {
-    const key = nextWeekdayKey(weekdayMatch[1], ref);
-    if (key) {
-      return logParsedDate(trimmed, key);
-    }
-    return logFailedDate(trimmed);
-  }
-
   const dayMonthWord = n.match(
     /\b(\d{1,2})\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)(?:\s+de\s+(\d{2,4}))?\b/
   );
@@ -247,6 +236,20 @@ const parseDateToKey = (dateText, referenceDate = new Date()) => {
       year = bumpYearIfPast(year, monthIndex, day, ref);
     }
     const key = keyFromLocalParts(year, monthIndex, day);
+    if (key) {
+      return logParsedDate(trimmed, key);
+    }
+    return logFailedDate(trimmed);
+  }
+
+  // Una fecha concreta tiene prioridad sobre el día de la semana. En
+  // "lunes 12 de octubre", interpretar primero "lunes" ofrecía el lunes
+  // próximo en vez del 12 de octubre solicitado por el cliente.
+  const weekdayMatch = n.match(
+    /\b(lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b/
+  );
+  if (weekdayMatch) {
+    const key = nextWeekdayKey(weekdayMatch[1], ref);
     if (key) {
       return logParsedDate(trimmed, key);
     }

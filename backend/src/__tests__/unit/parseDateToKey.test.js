@@ -50,6 +50,14 @@ describe("parseDateToKey", () => {
     expect(parseDateToKey("19 de mayo", REF_MARCH)).toBe("2026-05-19");
   });
 
+  test("fecha explícita prevalece sobre el próximo día de la semana", () => {
+    const ref = new Date("2026-09-26T21:40:56Z");
+    const holiday = parseDateToKey("Quiero cita veterinaria para Akiles el lunes 12 de octubre a las 12:00", ref);
+    expect(holiday).toBe("2026-10-12");
+    expect(isBusinessDay(holiday)).toBe(false);
+    expect(parseDateToKey("lunes 28 de septiembre", ref)).toBe("2026-09-28");
+  });
+
   test("festivo Colombia → siguiente día hábil", () => {
     const parsed = parseDateToKey("1 de enero", REF_DECEMBER);
 
