@@ -63,12 +63,19 @@ try {
   $ok = $false
 }
 
-try {
-  $response = Invoke-WebRequest 'http://localhost:3010/login' -SkipHttpErrorCheck -UseBasicParsing -TimeoutSec 10
-  if ($response.StatusCode -eq 200) { Write-Output 'OK frontend :3010' }
-  else { Write-Output 'ERROR frontend :3010 no responde correctamente.'; $ok = $false }
-} catch {
-  Write-Output 'ERROR frontend :3010 no responde. Inícialo con npm run dev -- --port 3010.'
+$frontendReady = $false
+foreach ($port in @(3001, 3010)) {
+  try {
+    $response = Invoke-WebRequest "http://localhost:$port/login" -SkipHttpErrorCheck -UseBasicParsing -TimeoutSec 5
+    if ($response.StatusCode -eq 200) {
+      Write-Output "OK frontend :$port"
+      $frontendReady = $true
+      break
+    }
+  } catch { }
+}
+if (-not $frontendReady) {
+  Write-Output 'ERROR frontend no responde en :3001 ni :3010. Inícialo con npm run dev -- -p 3001.'
   $ok = $false
 }
 

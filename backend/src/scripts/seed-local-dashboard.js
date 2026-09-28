@@ -23,7 +23,8 @@ async function main() {
 
   const vet = await prisma.staff.findFirst({ where: { tenantId, role: "vet" } });
   const service = await prisma.service.findFirst({
-    where: { tenantId, name: "Consulta general" },
+    // Las instalaciones locales existentes pueden usar el nombre anterior.
+    where: { tenantId, name: { in: ["Consulta veterinaria", "Consulta general"] } },
   });
   if (!vet || !service) throw new Error("Primero ejecuta seed-staff y seed-services");
 

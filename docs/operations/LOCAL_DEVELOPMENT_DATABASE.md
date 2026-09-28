@@ -5,6 +5,11 @@ El equipo local usa una base independiente para desarrollar. `backend/.env` y
 el `.env` raíz deben apuntar a la base local después de ejecutar el instalador.
 Nunca se copian esos archivos a producción.
 
+Si el frontend abre pero no muestra datos y `/api/health` devuelve 503 con
+`database=error`, inicia Docker Desktop y repite `scripts/setup-local-db.ps1`.
+Abrir solo backend y frontend no inicia el contenedor de PostgreSQL. Los datos
+locales son ficticios e independientes de los de la VPS.
+
 ## Windows
 
 1. Instalar Docker Desktop. La instalación por usuario no requiere elevación,
@@ -18,9 +23,9 @@ Nunca se copian esos archivos a producción.
    ```
 
 3. Reiniciar el backend (`cd backend; npm run dev`) y mantener el frontend en
-   `http://localhost:3010`.
+   `http://localhost:3001` (también se admite `3010` si ya lo usas).
 4. Comprobar `http://localhost:3000/api/health`: `services.database` debe ser
-   `ok`. Abrir `http://localhost:3010/dashboard/consultas` sin `?preview=1`.
+   `ok`. Abrir `http://localhost:3001/dashboard/consultas` sin `?preview=1`.
 
 El script inicia `pgvector/pgvector:0.8.6-pg18-bookworm` con volumen persistente
 y publica PostgreSQL **solo en 127.0.0.1:5433**. Crea una contraseña aleatoria
