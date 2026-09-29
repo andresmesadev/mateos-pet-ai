@@ -112,8 +112,9 @@ export function GeneralInfoSection({ profile }: { profile: TenantProfile | null 
 
 // ── 2. Localización y servicios ────────────────────────────────
 
-function ServiceCard({ service, onUpdated }: { service: ServiceRow; onUpdated: (s: ServiceRow) => void }) {
+function ServiceCard({ service, onUpdated, onRemoved }: { service: ServiceRow; onUpdated: (s: ServiceRow) => void; onRemoved: (id: string) => void }) {
   const { toast } = useToast();
+  const tenant = useTenant();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(service.name);
   const [duration, setDuration] = useState(String(service.duration));
@@ -121,34 +122,64 @@ function ServiceCard({ service, onUpdated }: { service: ServiceRow; onUpdated: (
   const [saving, setSaving] = useState(false);
 
   async function save() {
+    if (!name.trim()) { toast("Escribe un nombre para el servicio.", "error"); return; }
+    if (name.trim().length > 100) { toast("El nombre no puede superar 100 caracteres.", "error"); return; }
+    if (!Number.isInteger(Number(duration)) || Number(duration) <= 0) { toast("La duración debe ser mayor a cero.", "error"); return; }
+    if (basePrice && (!Number.isFinite(Number(basePrice)) || Number(basePrice) < 0)) { toast("El precio no puede ser negativo.", "error"); return; }
+    const nextPrice = basePrice ? Number(basePrice) : null;
+    const currentPrice = service.basePrice == null ? null : Number(service.basePrice);
+    const changes: Record<string, string | number | null> = {};
+    if (name.trim() !== service.name) changes.name = name.trim();
+    if (Number(duration) !== service.duration) changes.duration = Number(duration);
+    if (nextPrice !== currentPrice) changes.basePrice = nextPrice;
+    if (Object.keys(changes).length === 0) { setEditing(false); return; }
     setSaving(true);
     try {
-      const res = await fetch(proxyUrl(`/api/dashboard/services/${service.id}`), {
+      const res = await fetch(proxyUrl(`/api/dashboard/services/${service.id}${tenantQuery(tenant)}`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), duration: parseInt(duration) || service.duration, basePrice: basePrice ? Number(basePrice) : null }),
+        body: JSON.stringify(changes),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(payload.error ?? "No se pudo guardar el servicio.");
+      }
       const updated = await res.json();
       onUpdated({ ...service, ...updated, basePrice: updated.basePrice != null ? Number(updated.basePrice) : null });
       setEditing(false);
-    } catch {
-      toast("No se pudo guardar el servicio.", "error");
+      toast("Servicio actualizado.", "success");
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "No se pudo guardar el servicio.", "error");
     } finally { setSaving(false); }
   }
 
-  async function toggleActive() {
-    if (service.active && !window.confirm(`¿Desactivar "${service.name}"?`)) return;
+  async function reactivate() {
     try {
-      const res = await fetch(proxyUrl(`/api/dashboard/services/${service.id}`), {
+      const res = await fetch(proxyUrl(`/api/dashboard/services/${service.id}${tenantQuery(tenant)}`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ active: !service.active }),
+        body: JSON.stringify({ active: true }),
       });
       if (!res.ok) throw new Error();
-      onUpdated({ ...service, active: !service.active });
+      onUpdated({ ...service, active: true });
+      toast("Servicio reactivado.", "success");
     } catch {
-      toast("No se pudo actualizar el servicio.", "error");
+      toast("No se pudo reactivar el servicio.", "error");
+    }
+  }
+
+  async function remove() {
+    if (!window.confirm(`¿Eliminar "${service.name}" del catálogo activo? Se conservará el historial y podrás reactivarlo desde Servicios retirados.`)) return;
+    try {
+      const res = await fetch(proxyUrl(`/api/dashboard/services/${service.id}${tenantQuery(tenant)}`), { method: "DELETE" });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(payload.error ?? "No se pudo retirar el servicio.");
+      }
+      onRemoved(service.id);
+      toast("Servicio retirado del catálogo activo.", "success");
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "No se pudo retirar el servicio.", "error");
     }
   }
 
@@ -156,10 +187,19 @@ function ServiceCard({ service, onUpdated }: { service: ServiceRow; onUpdated: (
     <li className={`rounded-lg border px-3 py-2.5 ${service.active ? "bg-background" : "bg-muted/30 opacity-60"}`}>
       {editing ? (
         <div className="space-y-2">
-          <div className="grid grid-cols-[1fr_80px_110px] gap-2">
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre" />
-            <Input type="number" value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="Min" />
-            <Input type="number" value={basePrice} onChange={(e) => setBasePrice(e.target.value)} placeholder="Precio base" />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="space-y-1 text-xs font-medium">
+              <span>Nombre del servicio</span>
+              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre" />
+            </label>
+            <label className="space-y-1 text-xs font-medium">
+              <span>Duración (minutos)</span>
+              <Input type="number" min="1" step="1" value={duration} onChange={(e) => setDuration(e.target.value)} />
+            </label>
+            <label className="space-y-1 text-xs font-medium sm:col-span-2">
+              <span>Precio base (COP)</span>
+              <Input type="number" min="0" step="1" value={basePrice} onChange={(e) => setBasePrice(e.target.value)} placeholder="Ej. 66000" />
+            </label>
           </div>
           <div className="flex gap-2">
             <Button size="sm" onClick={save} disabled={saving}>{saving ? "…" : "Guardar"}</Button>
@@ -180,9 +220,11 @@ function ServiceCard({ service, onUpdated }: { service: ServiceRow; onUpdated: (
           </div>
           <div className="flex gap-1.5 shrink-0">
             <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setEditing(true)}>Editar</Button>
-            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-muted-foreground" onClick={toggleActive}>
-              {service.active ? "Desactivar" : "Activar"}
-            </Button>
+            {service.active ? (
+              <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-red-700 hover:bg-red-50 hover:text-red-800" onClick={remove}>Eliminar</Button>
+            ) : (
+              <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-muted-foreground" onClick={reactivate}>Reactivar</Button>
+            )}
           </div>
         </div>
       )}
@@ -191,9 +233,10 @@ function ServiceCard({ service, onUpdated }: { service: ServiceRow; onUpdated: (
 }
 
 function AddServiceForm({ onAdded }: { onAdded: (s: ServiceRow) => void }) {
+  const tenant = useTenant();
   const [name, setName] = useState("");
   const [category, setCategory] = useState("veterinary");
-  const [duration, setDuration] = useState("30");
+  const [duration, setDuration] = useState("");
   const [basePrice, setBasePrice] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -201,17 +244,19 @@ function AddServiceForm({ onAdded }: { onAdded: (s: ServiceRow) => void }) {
 
   async function handleAdd() {
     if (!name.trim()) { setError("El nombre es requerido"); return; }
+    if (!Number.isInteger(Number(duration)) || Number(duration) <= 0) { setError("Indica la duración en minutos."); return; }
+    if (basePrice && (!Number.isFinite(Number(basePrice)) || Number(basePrice) < 0)) { setError("El precio base debe ser un valor válido en pesos."); return; }
     setSaving(true); setError(null);
     try {
-      const res = await fetch(proxyUrl("/api/dashboard/services"), {
+      const res = await fetch(proxyUrl(`/api/dashboard/services${tenantQuery(tenant)}`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), category, duration: parseInt(duration) || 30, basePrice: basePrice ? Number(basePrice) : null }),
+        body: JSON.stringify({ name: name.trim(), category, duration: Number(duration), basePrice: basePrice ? Number(basePrice) : null }),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? "Error");
       const created = await res.json();
       onAdded({ ...created, basePrice: created.basePrice != null ? Number(created.basePrice) : null });
-      setName(""); setBasePrice(""); setDuration("30");
+      setName(""); setBasePrice(""); setDuration("");
       toast("Servicio creado.", "success");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error");
@@ -221,16 +266,28 @@ function AddServiceForm({ onAdded }: { onAdded: (s: ServiceRow) => void }) {
   return (
     <div className="space-y-2 rounded-lg border border-dashed p-3">
       <p className="text-xs font-medium text-muted-foreground">Nuevo servicio</p>
-      <div className="grid grid-cols-[1fr_120px_80px_110px] gap-2">
-        <Input placeholder="Nombre del servicio" value={name} onChange={(e) => setName(e.target.value)} />
-        <select value={category} onChange={(e) => setCategory(e.target.value)}
-          className="h-9 rounded-lg border border-input bg-transparent px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-          <option value="veterinary">Veterinaria</option>
-          <option value="grooming">Peluquería</option>
-          <option value="other">Otro</option>
-        </select>
-        <Input type="number" placeholder="Min" value={duration} onChange={(e) => setDuration(e.target.value)} />
-        <Input type="number" placeholder="Precio base" value={basePrice} onChange={(e) => setBasePrice(e.target.value)} />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="space-y-1 text-xs font-medium">
+          <span>Nombre del servicio</span>
+          <Input placeholder="Ej. Consulta veterinaria" value={name} onChange={(e) => setName(e.target.value)} />
+        </label>
+        <label className="space-y-1 text-xs font-medium">
+          <span>Categoría</span>
+          <select value={category} onChange={(e) => setCategory(e.target.value)}
+            className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+            <option value="veterinary">Veterinaria</option>
+            <option value="grooming">Peluquería</option>
+            <option value="other">Otro</option>
+          </select>
+        </label>
+        <label className="space-y-1 text-xs font-medium">
+          <span>Duración (minutos)</span>
+          <Input type="number" min="1" step="1" placeholder="Ej. 30" value={duration} onChange={(e) => setDuration(e.target.value)} />
+        </label>
+        <label className="space-y-1 text-xs font-medium">
+          <span>Precio base (COP)</span>
+          <Input type="number" min="0" step="1" placeholder="Ej. 66000" value={basePrice} onChange={(e) => setBasePrice(e.target.value)} />
+        </label>
       </div>
       {error && <p className="text-xs text-destructive">{error}</p>}
       <Button size="sm" onClick={handleAdd} disabled={saving}>{saving ? "Creando…" : "+ Crear servicio"}</Button>
@@ -245,8 +302,10 @@ export function LocationServicesSection({ profile, services: initial }: { profil
   const [address, setAddress] = useState(profile?.address ?? "");
   const [saving, setSaving] = useState(false);
   const [services, setServices] = useState(initial);
+  const [showInactive, setShowInactive] = useState(false);
 
   const update = (u: ServiceRow) => setServices((prev) => prev.map((x) => x.id === u.id ? u : x));
+  const remove = (id: string) => setServices((prev) => prev.map((service) => service.id === id ? { ...service, active: false } : service));
   const active = services.filter((s) => s.active);
   const inactive = services.filter((s) => !s.active);
 
@@ -280,13 +339,16 @@ export function LocationServicesSection({ profile, services: initial }: { profil
           {active.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Activos ({active.length})</p>
-              <ul className="space-y-2">{active.map((s) => <ServiceCard key={s.id} service={s} onUpdated={update} />)}</ul>
+              <ul className="space-y-2">{active.map((s) => <ServiceCard key={s.id} service={s} onUpdated={update} onRemoved={remove} />)}</ul>
             </div>
           )}
-          {inactive.length > 0 && (
+          {inactive.length > 0 && <button type="button" aria-expanded={showInactive} onClick={() => setShowInactive((value) => !value)} className="text-sm font-semibold text-muted-foreground underline underline-offset-4 hover:text-foreground">
+            {showInactive ? "Ocultar" : "Mostrar"} servicios retirados ({inactive.length})
+          </button>}
+          {showInactive && inactive.length > 0 && (
             <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Inactivos ({inactive.length})</p>
-              <ul className="space-y-2">{inactive.map((s) => <ServiceCard key={s.id} service={s} onUpdated={update} />)}</ul>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Servicios retirados</p>
+              <ul className="space-y-2">{inactive.map((s) => <ServiceCard key={s.id} service={s} onUpdated={update} onRemoved={remove} />)}</ul>
             </div>
           )}
         </CardContent>

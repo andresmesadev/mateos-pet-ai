@@ -3,6 +3,8 @@ const router = express.Router();
 const prisma = require("../../lib/prisma");
 const { updatePet } = require("../../services/pet.service");
 const { buildPetTimeline } = require("../../services/pet-timeline.service");
+const { changeServicePrice } = require("../../contexts/services");
+const { ServiceNotFoundError, PriceRuleTargetNotFoundError, DuplicatePriceRuleError } = require("../../contexts/services/domain/errors");
 const {
   createRecord,
   getRecordsByPet,
@@ -29,6 +31,69 @@ const GROOMING_KEYWORDS = [
   "colorimetria",
   "antipulgas",
 ];
+
+function validMoney(value) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 99999999.99 &&
+    Math.abs(value * 100 - Math.round(value * 100)) <= 0.000001;
+}
+
+router.get("/pets/:id/prices", async (req, res) => {
+  try {
+    const pet = await prisma.pet.findFirst({
+      where: req.tenant.tenantId ? { id: req.params.id, tenantId: req.tenant.tenantId } : { id: req.params.id },
+      select: { id: true, tenantId: true },
+    });
+    if (!pet) return res.status(404).json({ error: "Mascota no encontrada" });
+
+    const rules = await prisma.priceRule.findMany({
+      where: { targetType: "pet", targetId: pet.id, active: true, service: { tenantId: pet.tenantId } },
+      include: { service: { select: { id: true, name: true, active: true } } },
+      orderBy: { createdAt: "asc" },
+    });
+    res.json(rules.filter((rule) => rule.service.active).map((rule) => ({
+      serviceId: rule.service.id,
+      serviceName: rule.service.name,
+      price: Number(rule.price),
+    })));
+  } catch (error) {
+    console.error("[Dashboard] Pet agreed prices error:", error);
+    res.status(500).json({ error: "No se pudieron cargar las tarifas de la mascota." });
+  }
+});
+
+router.patch("/pets/:id/prices/:serviceId", async (req, res) => {
+  try {
+    const price = req.body?.price;
+    if (!validMoney(price)) return res.status(400).json({ error: "Ingresa un precio válido en pesos." });
+
+    const pet = await prisma.pet.findFirst({
+      where: req.tenant.tenantId ? { id: req.params.id, tenantId: req.tenant.tenantId } : { id: req.params.id },
+      select: { id: true, tenantId: true },
+    });
+    if (!pet) return res.status(404).json({ error: "Mascota no encontrada" });
+
+    const service = await prisma.service.findFirst({
+      where: { id: req.params.serviceId, tenantId: pet.tenantId, active: true },
+      select: { id: true },
+    });
+    if (!service) return res.status(404).json({ error: "Servicio no encontrado en este establecimiento" });
+
+    await changeServicePrice({
+      serviceId: req.params.serviceId,
+      tenantId: pet.tenantId ?? null,
+      target: { type: "pet", petId: pet.id },
+      newPrice: price,
+    });
+    res.json({ serviceId: req.params.serviceId, price });
+  } catch (error) {
+    if (error instanceof ServiceNotFoundError || error instanceof PriceRuleTargetNotFoundError) {
+      return res.status(404).json({ error: "Servicio o mascota no encontrado en este establecimiento." });
+    }
+    if (error instanceof DuplicatePriceRuleError) return res.status(409).json({ error: "La tarifa cambió. Actualiza la ficha e inténtalo de nuevo." });
+    console.error("[Dashboard] Update pet agreed price error:", error);
+    res.status(500).json({ error: "No se pudo actualizar la tarifa de la mascota." });
+  }
+});
 
 router.get("/pets", async (req, res) => {
   try {
@@ -85,6 +150,30 @@ router.get("/pets", async (req, res) => {
     res.json({ data, total, page, totalPages: Math.ceil(total / limit) });
   } catch (error) {
     console.error("[Dashboard] Pets error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Perfil individual para enlaces directos desde recordatorios y otras vistas.
+router.get("/pets/:id", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    const pet = await prisma.pet.findFirst({
+      where: tenantId ? { id: req.params.id, tenantId } : { id: req.params.id },
+      include: {
+        owner: { select: { id: true, phone: true, name: true } },
+        _count: { select: { medicalRecords: true, appointments: true } },
+      },
+    });
+    if (!pet) return res.status(404).json({ error: "Pet not found" });
+    res.json({
+      id: pet.id, name: pet.name, type: pet.type, breed: pet.breed ?? null,
+      gender: pet.gender ?? null, birthDate: pet.birthDate ?? null,
+      weight: pet.weight ?? null, sterilized: pet.sterilized ?? null,
+      notes: pet.notes ?? null, owner: pet.owner, _count: pet._count,
+    });
+  } catch (error) {
+    console.error("[Dashboard] Pet detail error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -508,6 +597,7 @@ router.get("/next-actions/upcoming", async (req, res) => {
     res.json(
       actions.map((a) => ({
         id: a.id,
+        petId: a.petId,
         type: a.type,
         notes: a.notes ?? null,
         dueAt: a.dueAt.toISOString(),

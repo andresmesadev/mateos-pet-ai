@@ -15,7 +15,9 @@ function bogotaDayStart(ymd) {
 const APPOINTMENT_INCLUDE = {
   user:    { select: { phone: true, name: true } },
   pet:     { select: { name: true, type: true, defaultGroomingPrice: true } },
-  service: { select: { name: true, category: { select: { name: true } }, basePrice: true } },
+  service: { select: { name: true, category: { select: { name: true } }, basePrice: true,
+    priceRules: { where: { active: true, targetType: "pet" }, select: { targetId: true, price: true } },
+  } },
   staff:   { select: { name: true } },
 };
 
@@ -31,6 +33,7 @@ function mapAppointmentRow(a) {
     clientPhone: a.user?.phone ?? "",
     clientName: a.user?.name ?? null,
     petId: a.petId ?? null,
+    serviceId: a.serviceId ?? null,
     serviceName: a.service?.name ?? null,
     staffName: a.staff?.name ?? null,
     finalPrice: priceResolution.finalPrice,

@@ -2,6 +2,7 @@ export const BOGOTA_TIMEZONE = "America/Bogota";
 
 export type PriceSource =
   | "manual_override"
+  | "pet_agreed_price"
   | "pet_default_price"
   | "service_base_price"
   | "unresolved";
@@ -10,6 +11,7 @@ export type PriceResolution = {
   finalPrice: number | null;
   source: PriceSource;
   manualOverride: number | null;
+  petAgreedPrice?: number | null;
   petDefaultPrice: number | null;
   serviceBasePrice: number | null;
 };
@@ -34,6 +36,7 @@ export type TodayAppointment = {
   clientPhone: string;
   clientName: string | null;
   petId: string | null;
+  serviceId?: string | null;
   // Operational fields
   serviceName: string | null;
   staffName: string | null;
@@ -42,6 +45,12 @@ export type TodayAppointment = {
   startedAt: string | null;
   endedAt: string | null;
 };
+
+export function appointmentNeedsReview(appointment: TodayAppointment): boolean {
+  if (!["pending", "confirmed", "arrived", "in_progress"].includes(appointment.status)) return false;
+  return appointment.status === "arrived" || appointment.status === "in_progress" ||
+    appointment.finalPrice === null || !appointment.staffName;
+}
 
 export type AppointmentPet = {
   id: string;

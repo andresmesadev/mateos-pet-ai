@@ -235,6 +235,7 @@ describe("POST /api/dashboard/appointments/:id/complete", () => {
 
     expect(res.status).toBe(200);
     expect(capturedData.status).toBe("completed");
+    expect(capturedData.finalPrice).toBe(50000);
     expect(capturedData.endedAt).toBeInstanceOf(Date);
     // ADR 007-D1: el cobro de sistema es el ingreso oficial del servicio.
     expect(prisma.$transaction).toHaveBeenCalled();
@@ -379,5 +380,29 @@ describe("PATCH /api/dashboard/appointments/:id — price resolver contract", ()
       .send({ finalPrice: null });
 
     expect(capturedData.finalPrice).toBeNull();
+  });
+
+  test.each([-1, "", "45000", 100000000, 1.999])("rejects invalid appointment price %p", async (finalPrice) => {
+    prisma.appointment.findFirst.mockResolvedValue({ ...BASE_APPT, status: "confirmed" });
+
+    const app = buildApp({ isSuperAdmin: false, tenantId: TENANT_A });
+    const res = await request(app)
+      .patch("/api/dashboard/appointments/appt-1")
+      .send({ finalPrice });
+
+    expect(res.status).toBe(400);
+    expect(prisma.appointment.update).not.toHaveBeenCalled();
+  });
+
+  test("does not change a completed appointment price after its charge was recorded", async () => {
+    prisma.appointment.findFirst.mockResolvedValue({ ...BASE_APPT, status: "completed", finalPrice: 60000 });
+
+    const app = buildApp({ isSuperAdmin: false, tenantId: TENANT_A });
+    const res = await request(app)
+      .patch("/api/dashboard/appointments/appt-1")
+      .send({ finalPrice: 85000 });
+
+    expect(res.status).toBe(422);
+    expect(prisma.appointment.update).not.toHaveBeenCalled();
   });
 });

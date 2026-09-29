@@ -14,6 +14,7 @@ jest.mock("../../lib/prisma", () => ({
 const prisma = require("../../lib/prisma");
 const {
   isSlotAvailable,
+  listAvailableSlotsForDate,
   suggestAvailableVetSlots,
   findNextAvailableGroomingSlot,
 } = require("../../services/availability-db.service");
@@ -107,6 +108,35 @@ describe("matriz de agenda de la beta — horario temporal 11:00–17:00", () =>
     prisma.appointment.findMany.mockResolvedValue([appointmentAt(11, "vet")]);
     await expect(isSlotAvailable({ dateKey: THURSDAY, hour: 11, serviceType: "vet", tenantId: "t-1" })).resolves.toBe(false);
     await expect(isSlotAvailable({ dateKey: THURSDAY, hour: 13, serviceType: "vet", tenantId: "t-1" })).resolves.toBe(true);
+  });
+
+  test("una consulta a y media no se solapa con la hora anterior o siguiente", async () => {
+    prisma.appointment.findMany.mockResolvedValue([appointmentAt(11, "vet")]);
+    await expect(isSlotAvailable({ dateKey: THURSDAY, hour: 10.5, serviceType: "vet", tenantId: "t-1" })).resolves.toBe(false);
+    prisma.appointment.findMany.mockResolvedValue([{ ...appointmentAt(10, "vet"), date: new Date("2026-01-08T15:30:00Z") }]);
+    await expect(isSlotAvailable({ dateKey: THURSDAY, hour: 11, serviceType: "vet", tenantId: "t-1" })).resolves.toBe(false);
+    await expect(isSlotAvailable({ dateKey: THURSDAY, hour: 12, serviceType: "vet", tenantId: "t-1" })).resolves.toBe(true);
+  });
+
+  test("una consulta a y media debe terminar dentro del horario de atención", async () => {
+    await expect(isSlotAvailable({ dateKey: THURSDAY, hour: 16.5, serviceType: "vet", tenantId: "t-1" })).resolves.toBe(false);
+  });
+
+  test("el formulario ofrece solo medias horas veterinarias libres dentro del horario", async () => {
+    prisma.appointment.findMany.mockResolvedValue([appointmentAt(12, "vet")]);
+    const slots = await listAvailableSlotsForDate({ dateKey: THURSDAY, serviceType: "vet", tenantId: "t-1" });
+    expect(slots).toEqual([11, 13, 13.5, 14, 14.5, 15, 15.5, 16]);
+    expect(prisma.appointment.findMany).toHaveBeenCalledTimes(1);
+  });
+
+  test("el formulario de peluquería conserva turnos consecutivos de hora completa", async () => {
+    prisma.appointment.findMany.mockResolvedValue([appointmentAt(11, "grooming")]);
+    const slots = await listAvailableSlotsForDate({ dateKey: THURSDAY, serviceType: "grooming", tenantId: "t-1" });
+    expect(slots).toEqual([12]);
+  });
+
+  test("un día cerrado no ofrece turnos", async () => {
+    await expect(listAvailableSlotsForDate({ dateKey: "2026-01-11", serviceType: "vet", tenantId: "t-1" })).resolves.toEqual([]);
   });
 
   test("peluquería no permite saltar el primer turno libre", async () => {

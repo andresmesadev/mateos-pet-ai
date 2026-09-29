@@ -115,7 +115,14 @@ export function PetsTable({
     void (async () => {
       const nextPets = await loadPets();
       if (!cancelled && initialPetId && !openedFromQuery) {
-        const pet = nextPets.find((item) => item.id === initialPetId);
+        let pet = nextPets.find((item) => item.id === initialPetId);
+        if (!pet) {
+          try {
+            const response = await fetch(proxyUrl(`/api/dashboard/pets/${encodeURIComponent(initialPetId)}${tenantQuery(tenant)}`), { cache: "no-store" });
+            if (response.ok) pet = await response.json() as DashboardPet;
+          } catch { /* El listado conserva su propio mensaje de error. */ }
+        }
+        if (cancelled) return;
         if (pet) {
           setSelectedPet(pet);
           setSheetOpen(true);

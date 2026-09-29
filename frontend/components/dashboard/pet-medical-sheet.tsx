@@ -25,6 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PetTimeline } from "@/components/dashboard/pet-timeline";
 import { VetConsultationDialog } from "@/components/dashboard/vet-consultation-dialog";
 import { proxyUrl } from "@/lib/api";
+import { tenantQuery, useTenant } from "@/lib/use-tenant";
 import { useToast } from "@/components/ui/toast";
 import {
   type DashboardPet,
@@ -97,6 +98,8 @@ type PetProfileForm = {
   weight: string; sterilized: string; notes: string;
 };
 
+type AgreedPrice = { serviceId: string; serviceName: string; price: number };
+
 function PetMedicalSheetContent({
   pet,
   onRecordAdded,
@@ -105,6 +108,13 @@ function PetMedicalSheetContent({
   onRecordAdded?: () => void;
 }) {
   const { toast } = useToast();
+  const tenant = useTenant();
+  const [agreedPrices, setAgreedPrices] = useState<AgreedPrice[]>([]);
+  const [pricesLoading, setPricesLoading] = useState(true);
+  const [pricesError, setPricesError] = useState<string | null>(null);
+  const [editingPriceService, setEditingPriceService] = useState<string | null>(null);
+  const [priceDraft, setPriceDraft] = useState("");
+  const [savingPrice, setSavingPrice] = useState(false);
   const [timeline, setTimeline]           = useState<PetTimelineData | null>(null);
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState<string | null>(null);
@@ -156,6 +166,51 @@ function PetMedicalSheetContent({
     })();
     return () => { cancelled = true; };
   }, [reloadTimeline]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch(proxyUrl(`/api/dashboard/pets/${pet.id}/prices${tenantQuery(tenant)}`), { cache: "no-store" });
+        if (!response.ok) throw new Error("No se pudieron cargar las tarifas acordadas.");
+        const prices = await response.json() as AgreedPrice[];
+        if (!cancelled) { setAgreedPrices(prices); setPricesError(null); }
+      } catch (cause) {
+        if (!cancelled) setPricesError(cause instanceof Error ? cause.message : "No se pudieron cargar las tarifas.");
+      } finally {
+        if (!cancelled) setPricesLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [pet.id, tenant]);
+
+  async function saveAgreedPrice(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingPriceService) return;
+    const amount = Number(priceDraft);
+    if (!priceDraft.trim() || !Number.isFinite(amount) || amount < 0 || amount > 99999999.99 || Math.abs(amount * 100 - Math.round(amount * 100)) > 0.000001) {
+      setPricesError("Ingresa un precio válido en pesos.");
+      return;
+    }
+    setSavingPrice(true);
+    setPricesError(null);
+    try {
+      const response = await fetch(proxyUrl(`/api/dashboard/pets/${pet.id}/prices/${editingPriceService}${tenantQuery(tenant)}`), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ price: amount }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(payload?.error || "Intenta de nuevo.");
+      setAgreedPrices((current) => current.map((item) => item.serviceId === editingPriceService ? { ...item, price: amount } : item));
+      setEditingPriceService(null);
+      toast("Tarifa de la mascota actualizada.", "success");
+    } catch (cause) {
+      setPricesError(cause instanceof Error ? cause.message : "No se pudo actualizar la tarifa.");
+    } finally {
+      setSavingPrice(false);
+    }
+  }
 
   function openForm(id: ActiveForm) {
     if (id === "consultation") { setShowConsultation(true); return; }
@@ -409,6 +464,29 @@ function PetMedicalSheetContent({
             </div>
           )}
         </div>
+
+        <section className="rounded-xl border border-teal-200 bg-teal-50/40" aria-label="Tarifas de la mascota">
+          <div className="border-b border-teal-100 px-4 py-3">
+            <h3 className="text-sm font-semibold text-slate-900">Tarifas acordadas para {petName}</h3>
+            <p className="mt-0.5 text-xs text-slate-600">Cada valor corresponde a un servicio específico. Las subidas se aplican a próximas citas sin precio fijado; las citas cobradas conservan su importe.</p>
+          </div>
+          <div className="space-y-2 p-4">
+            {pricesLoading ? <p className="text-sm text-slate-600">Cargando tarifas…</p> : agreedPrices.length === 0 ? <p className="text-sm text-slate-600">Aún no hay tarifas propias. Puedes definir una desde el precio de una cita.</p> : agreedPrices.map((item) => (
+              <div key={item.serviceId} className="rounded-lg border border-teal-100 bg-white px-3 py-3">
+                {editingPriceService === item.serviceId ? (
+                  <form onSubmit={saveAgreedPrice} className="flex flex-wrap items-end gap-2">
+                    <div className="min-w-44 flex-1"><label htmlFor={`agreed-price-${item.serviceId}`} className="block text-xs font-medium text-slate-700">{item.serviceName} · nuevo precio (COP)</label><Input id={`agreed-price-${item.serviceId}`} type="number" inputMode="decimal" min="0" max="99999999.99" step="0.01" value={priceDraft} onChange={(event) => setPriceDraft(event.target.value)} required className="mt-1" /></div>
+                    <Button type="submit" size="sm" disabled={savingPrice}>{savingPrice ? "Guardando…" : "Guardar"}</Button>
+                    <Button type="button" size="sm" variant="outline" disabled={savingPrice} onClick={() => { setEditingPriceService(null); setPricesError(null); }}>Cancelar</Button>
+                  </form>
+                ) : (
+                  <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-sm font-semibold text-slate-900">{item.serviceName}</p><p className="text-sm text-slate-600">${item.price.toLocaleString("es-CO")}</p></div><Button type="button" size="sm" variant="outline" onClick={() => { setEditingPriceService(item.serviceId); setPriceDraft(String(item.price)); setPricesError(null); }}>Editar tarifa</Button></div>
+                )}
+              </div>
+            ))}
+            {pricesError && <p role="alert" className="text-sm text-red-700">{pricesError}</p>}
+          </div>
+        </section>
 
         {/* Botones de acción */}
         {!activeForm && (

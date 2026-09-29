@@ -89,6 +89,10 @@ async function handler(
     );
   }
 
+  if ([204, 205, 304].includes(response.status)) {
+    return new NextResponse(null, { status: response.status });
+  }
+
   const text = await response.text();
   return new NextResponse(text, {
     status: response.status,

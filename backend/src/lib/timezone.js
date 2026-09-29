@@ -40,6 +40,12 @@ const getHourInTimezone = (date) => {
   return parseInt(formatInTimeZone(d, TIMEZONE, "H"), 10);
 };
 
+/** Hora local con fracción de minutos (por ejemplo, 10.5 = 10:30). */
+const getDecimalHourInTimezone = (date) => {
+  const d = date instanceof Date ? date : new Date(date);
+  return getHourInTimezone(d) + parseInt(formatInTimeZone(d, TIMEZONE, "m"), 10) / 60;
+};
+
 /**
  * Día de semana JS (0=domingo … 6=sábado) para un dateKey calendario en Bogotá.
  * @param {string} dateKey
@@ -92,12 +98,12 @@ const zonedDateTimeToUtc = (dateKey, hour, minute = 0, second = 0, ms = 0) => {
   const key = String(dateKey || "").trim();
   const h = Number(hour);
 
-  if (!isDateKey(key) || !Number.isFinite(h) || h < 0 || h > 23) {
+  if (!isDateKey(key) || !Number.isFinite(h) || h < 0 || h >= 24) {
     throw new Error("Invalid dateKey or hour for zoned datetime");
   }
 
   const hourStr = String(Math.floor(h)).padStart(2, "0");
-  const minuteStr = String(Math.floor(minute)).padStart(2, "0");
+  const minuteStr = String(Math.floor((h % 1) * 60 + minute)).padStart(2, "0");
   const secondStr = String(Math.floor(second)).padStart(2, "0");
   const msStr = String(Math.floor(ms)).padStart(3, "0");
 
@@ -159,6 +165,7 @@ module.exports = {
   TIMEZONE,
   toDateKey,
   getHourInTimezone,
+  getDecimalHourInTimezone,
   getDayOfWeekFromKey,
   getZonedYearMonthDay,
   dateKeyFromParts,

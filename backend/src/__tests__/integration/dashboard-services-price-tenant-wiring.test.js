@@ -21,7 +21,7 @@ jest.mock("../../contexts/services", () => ({
 }));
 
 const prisma = require("../../lib/prisma");
-const { changeServicePrice } = require("../../contexts/services");
+const { changeServicePrice, updateService, deactivateService } = require("../../contexts/services");
 const servicesRoutes = require("../../routes/dashboard/services.routes");
 
 const TENANT_ID = "tenant-a";
@@ -51,7 +51,38 @@ describe("PATCH /api/dashboard/services/:id — propagación de tenantId a chang
 
     expect(res.status).toBe(200);
     expect(changeServicePrice).toHaveBeenCalledWith(
-      expect.objectContaining({ serviceId: "service-1", tenantId: TENANT_ID })
+      expect.objectContaining({ serviceId: "service-1", tenantId: TENANT_ID, target: { type: "base" } })
     );
   });
+
+  test("guarda nombre y precio base con el contrato correcto", async () => {
+    const res = await request(buildApp()).patch("/api/dashboard/services/service-1")
+      .send({ name: "Consulta general", duration: 45, basePrice: 66000 });
+
+    expect(res.status).toBe(200);
+    expect(updateService).toHaveBeenCalledWith(expect.objectContaining({
+      tenantId: TENANT_ID, serviceId: "service-1", name: "Consulta general", duration: 45,
+    }));
+    expect(changeServicePrice).toHaveBeenCalledWith(expect.objectContaining({
+      tenantId: TENANT_ID, serviceId: "service-1", target: { type: "base" }, newPrice: 66000,
+    }));
+  });
+
+  test("rechaza un precio inválido antes de actualizar el nombre", async () => {
+    const res = await request(buildApp()).patch("/api/dashboard/services/service-1")
+      .send({ name: "Nombre nuevo", basePrice: -1 });
+
+    expect(res.status).toBe(400);
+    expect(updateService).not.toHaveBeenCalled();
+    expect(changeServicePrice).not.toHaveBeenCalled();
+  });
+});
+
+test("DELETE retira el servicio usando el caso de uso de desactivación", async () => {
+  const res = await request(buildApp()).delete("/api/dashboard/services/service-1");
+  expect(res.status).toBe(204);
+  expect(deactivateService).toHaveBeenCalledWith({ serviceId: "service-1" });
+  expect(prisma.service.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+    where: { id: "service-1", tenantId: TENANT_ID },
+  }));
 });

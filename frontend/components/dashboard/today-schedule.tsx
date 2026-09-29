@@ -1,24 +1,24 @@
 ﻿"use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { DailyCloseSheet } from "@/components/dashboard/daily-close-sheet";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { VetRecordSheet } from "@/components/dashboard/vet-record-sheet";
+import { AppointmentDetailDialog } from "@/components/dashboard/appointment-detail-dialog";
 import {
   type TodayAppointment,
+  appointmentNeedsReview,
   formatColombiaTime,
   formatService,
   formatStatus,
-  getStatusTransitions,
   statusBadgeClass,
 } from "@/lib/appointments";
 import { getPetEmoji } from "@/lib/pets";
 import { proxyUrl } from "@/lib/api";
-import { useToast } from "@/components/ui/toast";
+import { useTenant } from "@/lib/use-tenant";
 
 const COP = new Intl.NumberFormat("es-CO", {
   style: "currency",
@@ -28,6 +28,7 @@ const COP = new Intl.NumberFormat("es-CO", {
 
 const PRICE_SOURCE_LABEL: Record<string, string> = {
   manual_override:   "Override",
+  pet_agreed_price: "Tarifa de mascota",
   pet_default_price: "Mascota",
   service_base_price:"Catálogo",
 };
@@ -64,19 +65,6 @@ function DaySummary({ appointments }: { appointments: TodayAppointment[] }) {
   );
 }
 
-const VET_SERVICE_TYPES = ["vet", "consultation", "veterinary_consultation"];
-
-function isVetAppointment(appt: TodayAppointment): boolean {
-  return VET_SERVICE_TYPES.includes(appt.serviceType?.toLowerCase());
-}
-
-function canRecordVetAttention(appt: TodayAppointment): boolean {
-  return (
-    isVetAppointment(appt) &&
-    (appt.status === "in_progress" || appt.status === "completed")
-  );
-}
-
 function formatTimeSince(date: Date): string {
   const secs = Math.floor((Date.now() - date.getTime()) / 1000);
   if (secs < 10) return "justo ahora";
@@ -95,25 +83,26 @@ function formatTodayHeader(): string {
 
 type Props = {
   appointments: TodayAppointment[];
+  initialReview?: boolean;
 };
 
 const POLL_INTERVAL_MS = 30_000;
 
-export function TodaySchedule({ appointments: initial }: Props) {
-  const { toast } = useToast();
+export function TodaySchedule({ appointments: initial, initialReview = false }: Props) {
+  const tenant = useTenant();
   const [appointments, setAppointments] = useState(initial);
-  const [updating, setUpdating] = useState<string | null>(null);
-  const [recordingAppt, setRecordingAppt] = useState<TodayAppointment | null>(null);
+  const [onlyNeedsAttention, setOnlyNeedsAttention] = useState(initialReview);
+  const [selected, setSelected] = useState<TodayAppointment | null>(null);
+  const [startInPriceEdit, setStartInPriceEdit] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [polling, setPolling] = useState(false);
-  const updatingRef = useRef<string | null>(null);
 
   const header = formatTodayHeader();
   const capitalized = header.charAt(0).toUpperCase() + header.slice(1);
+  const attentionCount = appointments.filter(appointmentNeedsReview).length;
+  const visibleAppointments = onlyNeedsAttention ? appointments.filter(appointmentNeedsReview) : appointments;
 
   const refresh = useCallback(async (silent = true) => {
-    // Don't poll while a status update is in flight
-    if (updatingRef.current) return;
     if (!silent) setPolling(true);
     try {
       const res = await fetch(proxyUrl("/api/dashboard/appointments/today"), {
@@ -129,62 +118,23 @@ export function TodaySchedule({ appointments: initial }: Props) {
     }
   }, []);
 
-  // Keep updatingRef in sync so the interval can check it
-  useEffect(() => { updatingRef.current = updating; }, [updating]);
-
   // Auto-refresh every 30s
   useEffect(() => {
     const id = setInterval(() => refresh(true), POLL_INTERVAL_MS);
     return () => clearInterval(id);
   }, [refresh]);
 
-  async function updateStatus(id: string, nextStatus: string) {
-    if (nextStatus === "cancelled") {
-      const confirmed = window.confirm("¿Cancelar esta cita? Esta acción no se puede deshacer.");
-      if (!confirmed) return;
-    }
-    setUpdating(id);
-    const prev = appointments;
-    setAppointments((all) =>
-      all.map((a) => (a.id === id ? { ...a, status: nextStatus } : a))
-    );
-    try {
-      // Entregable Puente (ADR 007): completar una cita es un comando propio —
-      // genera el cobro oficial y la comisión en la misma transacción.
-      const res =
-        nextStatus === "completed"
-          ? await fetch(proxyUrl(`/api/dashboard/appointments/${id}/complete`), {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({}),
-            })
-          : await fetch(proxyUrl(`/api/dashboard/appointments/${id}`), {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ status: nextStatus }),
-            });
-      if (!res.ok) {
-        const p = await res.json().catch(() => null);
-        throw new Error(p?.error ?? "");
-      }
-      const updated: TodayAppointment = await res.json();
-      setAppointments((all) => all.map((a) => (a.id === id ? updated : a)));
-    } catch (err) {
-      setAppointments(prev); // revierte el cambio optimista
-      const detail = err instanceof Error && err.message ? ` ${err.message}` : "";
-      toast(`No se pudo actualizar el estado de la cita.${detail}`, "error");
-    } finally {
-      setUpdating(null);
-    }
-  }
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("dashboard:appointments-updated", { detail: appointments }));
+  }, [appointments]);
 
   return (
     <>
-      <Card className="border-t-2 border-t-teal-500/50 border-black/[0.12]">
-        <CardHeader className="flex flex-row items-center justify-between border-b border-black/[0.06] pb-3">
+      <Card id="agenda-de-hoy" className="scroll-mt-28 border-t-2 border-t-teal-500/50 border-black/[0.12]">
+        <CardHeader className="flex flex-wrap items-center justify-between gap-2 border-b border-black/[0.06] pb-3">
           <CardTitle className="text-base font-semibold">Agenda de hoy</CardTitle>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">{capitalized}</span>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <span className="hidden text-sm text-muted-foreground sm:inline">{capitalized}</span>
             <DailyCloseSheet />
             <button
               onClick={() => refresh(false)}
@@ -213,137 +163,55 @@ export function TodaySchedule({ appointments: initial }: Props) {
 
         <CardContent>
           {appointments.length > 0 && <DaySummary appointments={appointments} />}
+          {appointments.length > 0 && <div className="mb-2 flex flex-wrap items-center gap-2 border-b border-slate-100 pb-3">
+            <button type="button" onClick={() => setOnlyNeedsAttention(false)} aria-pressed={!onlyNeedsAttention} className={`min-h-9 rounded-lg px-3 text-sm font-semibold ${!onlyNeedsAttention ? "bg-teal-700 text-white" : "text-slate-600 hover:bg-slate-100"}`}>Todas las citas</button>
+            <button type="button" onClick={() => setOnlyNeedsAttention(true)} aria-pressed={onlyNeedsAttention} className={`min-h-9 rounded-lg px-3 text-sm font-semibold ${onlyNeedsAttention ? "bg-teal-700 text-white" : "text-slate-600 hover:bg-slate-100"}`}>Por revisar ({attentionCount})</button>
+          </div>}
           {appointments.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-10 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-500/10 ring-1 ring-teal-500/20 text-2xl">🐾</div>
-              <p className="mt-1 text-base font-medium">No hay citas para hoy</p>
-              <p className="text-sm text-muted-foreground">El agente WhatsApp irá agendando durante el día.</p>
+            <div className="flex flex-wrap items-center justify-between gap-3 py-5">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">No hay citas para hoy</p>
+                <p className="text-sm text-muted-foreground">Puedes agendar una cita manualmente.</p>
+              </div>
+              <Link href={`/dashboard/calendar?new=1${tenant ? `&tenant=${encodeURIComponent(tenant)}` : ""}`} className="inline-flex min-h-9 items-center rounded-lg border border-teal-200 px-3 text-sm font-semibold text-teal-800 hover:bg-teal-50 focus-visible:outline-2 focus-visible:outline-teal-700">Nueva cita</Link>
             </div>
+          ) : visibleAppointments.length === 0 ? (
+            <p className="py-8 text-center text-sm text-slate-600">No hay citas que requieran revisión ahora.</p>
           ) : (
             <ul className="divide-y">
-              {appointments.map((appt) => {
-                const transitions = getStatusTransitions(appt.status);
-                const busy = updating === appt.id;
-                const showRecordBtn = canRecordVetAttention(appt);
-                return (
-                  <li key={appt.id} className="py-3">
-                    <div className="flex items-start gap-4">
-                      {/* Hora */}
-                      <div className="w-14 shrink-0 text-right pt-0.5">
-                        <span className="text-lg font-bold tabular-nums leading-none">
-                          {formatColombiaTime(appt.date)}
-                        </span>
-                      </div>
-
-                      {/* Info principal */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-base">{getPetEmoji(appt.petType)}</span>
-                          <span className="font-medium">{appt.petName}</span>
-                          <span className="text-muted-foreground text-sm">·</span>
-                          <span className="text-sm text-muted-foreground truncate">
-                            {appt.clientName ?? appt.clientPhone}
-                          </span>
-                        </div>
-                        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-muted-foreground">
-                          <span>{appt.serviceName ?? formatService(appt.serviceType)}</span>
-                          {appt.staffName ? (
-                            <>
-                              <span>·</span>
-                              <span>{appt.staffName}</span>
-                            </>
-                          ) : (
-                            appt.status !== "cancelled" && appt.status !== "no_show" && (
-                              <>
-                                <span>·</span>
-                                <span className="text-amber-500 font-medium">Sin asignar</span>
-                              </>
-                            )
-                          )}
-                          {appt.finalPrice !== null ? (
-                            <>
-                              <span>·</span>
-                              <span className="text-foreground font-medium">{COP.format(appt.finalPrice)}</span>
-                              {appt.priceResolution?.source &&
-                                appt.priceResolution.source !== "manual_override" && (
-                                <span className="text-xs text-muted-foreground/60">
-                                  {PRICE_SOURCE_LABEL[appt.priceResolution.source]}
-                                </span>
-                              )}
-                            </>
-                          ) : (
-                            appt.status !== "cancelled" && appt.status !== "no_show" && (
-                              <>
-                                <span>·</span>
-                                {appt.petId ? (
-                                  <Link
-                                    href={`/dashboard/pets?pet=${appt.petId}`}
-                                    className="text-amber-500 font-medium hover:text-amber-700 hover:underline underline-offset-2 transition-colors"
-                                  >
-                                    Sin precio →
-                                  </Link>
-                                ) : (
-                                  <span className="text-amber-500 font-medium">Sin precio</span>
-                                )}
-                              </>
-                            )
-                          )}
-                        </div>
-
-                        {/* Acciones de estado + registro clínico */}
-                        {(transitions.length > 0 || showRecordBtn) && (
-                          <div className="mt-2 flex flex-wrap gap-1.5">
-                            {transitions.map((t) => (
-                              <Button
-                                key={t.next}
-                                size="sm"
-                                variant={t.variant ?? "outline"}
-                                className="h-7 px-2.5 text-xs"
-                                disabled={busy}
-                                onClick={() => updateStatus(appt.id, t.next)}
-                              >
-                                {t.label}
-                              </Button>
-                            ))}
-                            {showRecordBtn && (
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                className="h-7 px-2.5 text-xs"
-                                disabled={busy}
-                                onClick={() => setRecordingAppt(appt)}
-                              >
-                                🩺 Registrar atención
-                              </Button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Badge de estado */}
-                      <Badge
-                        variant="outline"
-                        className={`shrink-0 mt-0.5 ${statusBadgeClass(appt.status)}`}
-                      >
-                        {formatStatus(appt.status)}
-                      </Badge>
-                    </div>
-                  </li>
-                );
-              })}
+              {visibleAppointments.map((appt) => (
+                <li key={appt.id} className="flex items-stretch rounded-xl transition-colors hover:bg-slate-50 focus-within:bg-slate-50">
+                  <button type="button" onClick={() => { setStartInPriceEdit(false); setSelected(appt); }} aria-label={`Abrir cita de ${appt.petName}, ${formatColombiaTime(appt.date)}`} className="grid min-w-0 flex-1 grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-3 rounded-xl px-2 py-3 text-left focus-visible:outline-2 focus-visible:outline-teal-700 sm:px-3">
+                    <span className="whitespace-nowrap text-sm font-bold tabular-nums text-slate-950">{formatColombiaTime(appt.date)}</span>
+                    <span className="min-w-0">
+                      <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span className="min-w-0 truncate text-sm font-semibold text-slate-950">{getPetEmoji(appt.petType)} {appt.petName}</span>
+                        <span className="truncate text-sm text-slate-600">{appt.clientName ?? appt.clientPhone}</span>
+                        <Badge variant="outline" className={`ml-auto shrink-0 ${statusBadgeClass(appt.status)}`}>{formatStatus(appt.status)}</Badge>
+                        <ChevronRight className="hidden h-4 w-4 shrink-0 text-slate-400 sm:block" aria-hidden="true" />
+                      </span>
+                      <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-600">
+                        <span>{appt.serviceName ?? formatService(appt.serviceType)}</span>
+                        <span aria-hidden="true">·</span>
+                        <span className={!appt.staffName && !["cancelled", "no_show"].includes(appt.status) ? "font-medium text-amber-700" : ""}>{appt.staffName ?? "Sin asignar"}</span>
+                        <span aria-hidden="true">·</span>
+                        <span className={appt.finalPrice === null ? "font-medium text-amber-700" : "font-medium text-slate-800"}>{appt.finalPrice === null ? "Sin precio" : COP.format(appt.finalPrice)}</span>
+                        {appt.finalPrice !== null && appt.priceResolution?.source && appt.priceResolution.source !== "manual_override" && <span className="text-slate-500">{PRICE_SOURCE_LABEL[appt.priceResolution.source]}</span>}
+                      </span>
+                    </span>
+                  </button>
+                  {appt.finalPrice === null && !["completed", "cancelled", "no_show"].includes(appt.status) && <button type="button" onClick={() => { setStartInPriceEdit(true); setSelected(appt); }} className="my-auto mr-2 shrink-0 rounded-lg px-2 py-2 text-xs font-semibold text-amber-800 underline underline-offset-2 hover:bg-amber-50 focus-visible:outline-2 focus-visible:outline-amber-700 sm:mr-3">Definir precio</button>}
+                </li>
+              ))}
             </ul>
           )}
         </CardContent>
       </Card>
 
-      {recordingAppt && (
-        <VetRecordSheet
-          appointment={recordingAppt}
-          open={recordingAppt !== null}
-          onOpenChange={(open) => { if (!open) setRecordingAppt(null); }}
-          onSaved={() => { /* badge stays; no state change needed */ }}
-        />
-      )}
+      {selected && <AppointmentDetailDialog appointment={selected} startInPriceEdit={startInPriceEdit} onClose={() => { setSelected(null); setStartInPriceEdit(false); }} onUpdated={(updated) => {
+        setSelected(updated);
+        setAppointments((current) => current.map((appointment) => appointment.id === updated.id ? updated : appointment));
+      }} />}
     </>
   );
 }

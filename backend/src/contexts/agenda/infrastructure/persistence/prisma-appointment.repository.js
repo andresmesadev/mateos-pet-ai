@@ -7,16 +7,18 @@ class PrismaAppointmentRepository extends AppointmentRepositoryPort {
       where: { id: appointmentId, ...(tenantId ? { tenantId } : {}) },
       include: {
         pet: { select: { defaultGroomingPrice: true } },
-        service: { select: { id: true, basePrice: true, category: { select: { id: true, name: true } } } },
+        service: { select: { id: true, basePrice: true, category: { select: { id: true, name: true } },
+          priceRules: { where: { active: true, targetType: "pet" }, select: { targetId: true, price: true } },
+        } },
       },
     });
   }
 
-  async markCompleted(appointmentId, endedAt, ctx) {
+  async markCompleted(appointmentId, endedAt, resolvedPrice, ctx) {
     const client = ctx?.tx ?? prisma;
     return client.appointment.update({
       where: { id: appointmentId },
-      data: { status: "completed", endedAt },
+      data: { status: "completed", endedAt, finalPrice: resolvedPrice },
     });
   }
 }

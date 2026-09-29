@@ -21,4 +21,9 @@ describe("timezone", () => {
       "13/06/2026 a las 2:00 PM (hora Colombia)"
     );
   });
+
+  test("conserva los minutos de una reserva a y media en Bogotá", () => {
+    expect(zonedDateTimeToUtc("2026-06-13", 10.5).toISOString()).toBe("2026-06-13T15:30:00.000Z");
+    expect(formatSlotForUser("2026-06-13", 10.5)).toBe("13/06/2026 a las 10:30 AM (hora Colombia)");
+  });
 });

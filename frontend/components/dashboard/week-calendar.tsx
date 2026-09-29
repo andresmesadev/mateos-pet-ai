@@ -2,17 +2,17 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarPlus, ChevronLeft, ChevronRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { AppointmentDetailDialog } from "@/components/dashboard/appointment-detail-dialog";
 import {
   type TodayAppointment,
-  statusBadgeClass,
   formatStatus,
 } from "@/lib/appointments";
 import { getPetEmoji } from "@/lib/pets";
 import { previewMonthAppointments } from "@/lib/calendar-preview";
+import { NewAppointmentDialog } from "@/components/dashboard/new-appointment-dialog";
 
 // ── Constants ─────────────────────────────────────────────────
 
@@ -89,60 +89,24 @@ function parseTimeToFrac(iso: string): number {
 
 // ── Appointment block (time-grid) ─────────────────────────────
 
-function ApptBlock({ appt, topPx, heightPx, onClick }: {
-  appt: TodayAppointment; topPx: number; heightPx: number; onClick: () => void;
+function ApptBlock({ appt, topPx, heightPx, lane, lanes, onClick }: {
+  appt: TodayAppointment; topPx: number; heightPx: number; lane: number; lanes: number; onClick: () => void;
 }) {
   const bg = STATUS_BG[appt.status] ?? STATUS_BG.pending;
   return (
     <button
       onClick={onClick}
-      style={{ top: topPx, height: Math.max(heightPx, 32) }}
-      className={`absolute inset-x-0.5 overflow-hidden rounded border-l-4 px-2 py-1 text-left text-xs ${bg} hover:shadow-md transition-shadow`}
+      style={{ top: topPx, height: Math.max(heightPx, 32), left: `calc(${lane * 100 / lanes}% + 2px)`, width: `calc(${100 / lanes}% - 4px)` }}
+      aria-label={`${appt.petName}, propietario ${appt.clientName ?? appt.clientPhone}, servicio ${appt.serviceName ?? appt.serviceType}`}
+      title={`${appt.petName} · ${appt.clientName ?? appt.clientPhone} · ${appt.serviceName ?? appt.serviceType}`}
+      className={`absolute z-0 overflow-hidden rounded border-l-4 px-2 py-1 text-left text-xs leading-[13px] ${bg} hover:z-10 hover:shadow-md focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-teal-700 transition-shadow`}
     >
-      <span className="block font-semibold leading-tight truncate">
+      <span className="block truncate font-semibold">
         {getPetEmoji(appt.petType)} {appt.petName}
       </span>
-      {heightPx >= 48 && (
-        <span className="block text-muted-foreground truncate leading-tight">
-          {appt.clientName ?? appt.clientPhone}
-        </span>
-      )}
-      {heightPx >= 64 && (
-        <span className="block text-muted-foreground truncate leading-tight">
-          {appt.serviceName ?? appt.serviceType}
-        </span>
-      )}
+      <span className="block truncate text-muted-foreground">{appt.clientName ?? appt.clientPhone}</span>
+      <span className="block truncate font-medium text-slate-700 dark:text-slate-200">{appt.serviceName ?? appt.serviceType}</span>
     </button>
-  );
-}
-
-// ── Detail modal ──────────────────────────────────────────────
-
-function ApptDetail({ appt, onClose }: { appt: TodayAppointment; onClose: () => void }) {
-  const time = new Date(appt.date).toLocaleTimeString("es-CO", {
-    timeZone: "America/Bogota", hour: "2-digit", minute: "2-digit",
-  });
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div className="w-full max-w-sm rounded-2xl border bg-background p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-start justify-between gap-2 mb-4">
-          <div>
-            <p className="text-lg font-bold">{getPetEmoji(appt.petType)} {appt.petName}</p>
-            <p className="text-sm text-muted-foreground">{appt.clientName ?? appt.clientPhone}</p>
-          </div>
-          <Badge variant="outline" className={`shrink-0 text-xs ${statusBadgeClass(appt.status)}`}>
-            {formatStatus(appt.status)}
-          </Badge>
-        </div>
-        <dl className="space-y-2 text-sm">
-          <div className="flex gap-2"><dt className="w-20 shrink-0 text-muted-foreground">Hora</dt><dd className="font-medium">{time}</dd></div>
-          <div className="flex gap-2"><dt className="w-20 shrink-0 text-muted-foreground">Servicio</dt><dd className="font-medium">{appt.serviceName ?? appt.serviceType}</dd></div>
-          {appt.staffName && <div className="flex gap-2"><dt className="w-20 shrink-0 text-muted-foreground">Profesional</dt><dd className="font-medium">{appt.staffName}</dd></div>}
-          {appt.finalPrice != null && <div className="flex gap-2"><dt className="w-20 shrink-0 text-muted-foreground">Precio</dt><dd className="font-medium">${appt.finalPrice.toLocaleString("es-CO")}</dd></div>}
-        </dl>
-        <Button size="sm" variant="outline" className="mt-5 w-full" onClick={onClose}>Cerrar</Button>
-      </div>
-    </div>
   );
 }
 
@@ -168,9 +132,36 @@ function TimeGrid({
     return { top: isNaN(top) ? 12 : top, height: SLOT_H * 0.9 };
   }
 
+  function laidOutAppointments(appts: TodayAppointment[]) {
+    const positioned = appts.map((appt) => ({ appt, ...pos(appt), lane: 0, lanes: 1 }))
+      .filter(({ top }) => top >= 0 && top <= gridH)
+      .sort((a, b) => a.top - b.top || a.appt.id.localeCompare(b.appt.id));
+    let group: typeof positioned = [];
+    let groupEnd = -1;
+    const flush = () => {
+      if (!group.length) return;
+      const laneEnds: number[] = [];
+      for (const entry of group) {
+        let lane = laneEnds.findIndex((end) => end <= entry.top);
+        if (lane === -1) lane = laneEnds.length;
+        laneEnds[lane] = entry.top + Math.max(entry.height, 32);
+        entry.lane = lane;
+      }
+      for (const entry of group) entry.lanes = laneEnds.length;
+      group = [];
+    };
+    for (const entry of positioned) {
+      if (group.length && entry.top >= groupEnd) flush();
+      group.push(entry);
+      groupEnd = Math.max(groupEnd, entry.top + Math.max(entry.height, 32));
+    }
+    flush();
+    return positioned;
+  }
+
   return (
     <div className="overflow-x-auto rounded-xl border bg-background">
-      <div style={{ minWidth: Math.max(480, columns.length * 120 + 48) }}>
+      <div style={{ minWidth: columns.length === 1 ? "100%" : Math.max(480, columns.length * 180 + 48) }}>
         {/* Column headers */}
         <div className="grid border-b sticky top-0 bg-background z-10" style={{ gridTemplateColumns: `3rem repeat(${columns.length}, 1fr)` }}>
           <div className="border-r" />
@@ -218,11 +209,9 @@ function TimeGrid({
                 className={`relative border-r last:border-r-0 ${col.isHighlight ? "bg-primary/[0.06]" : ""}`}
                 style={{ gridColumn: i + 2 }}
               >
-                {appts.map((appt) => {
-                  const { top, height } = pos(appt);
-                  if (top < 0 || top > gridH) return null;
+                {laidOutAppointments(appts).map(({ appt, top, height, lane, lanes }) => {
                   return (
-                    <ApptBlock key={appt.id} appt={appt} topPx={top} heightPx={height} onClick={() => onSelect(appt)} />
+                    <ApptBlock key={appt.id} appt={appt} topPx={top} heightPx={height} lane={lane} lanes={lanes} onClick={() => onSelect(appt)} />
                   );
                 })}
               </div>
@@ -238,10 +227,11 @@ function TimeGrid({
 
 function MonthView({
   year, month, appointments, today,
-  onDayClick,
+  onDayClick, onSelect,
 }: {
   year: number; month: number; appointments: TodayAppointment[];
   today: string; onDayClick: (ymd: string) => void;
+  onSelect: (appointment: TodayAppointment) => void;
 }) {
   const firstDay = new Date(Date.UTC(year, month, 1));
   const firstDow = (firstDay.getUTCDay() + 6) % 7; // 0=Mon
@@ -276,26 +266,25 @@ function MonthView({
           if (!cell) return <div key={i} className="min-h-[90px] border-b border-r last:border-r-0 bg-muted/20" />;
           const isToday = cell.ymd === today;
           return (
-            <button
+            <div
               key={cell.ymd}
-              onClick={() => onDayClick(cell.ymd)}
               className={`min-h-[90px] border-b border-r last:border-r-0 p-1.5 text-left hover:bg-muted/40 transition-colors ${isToday ? "bg-primary/5" : ""}`}
             >
-              <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${isToday ? "bg-primary text-primary-foreground" : "text-foreground"}`}>
+              <button type="button" onClick={() => onDayClick(cell.ymd)} aria-label={`Ver agenda del ${cell.ymd}`} className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${isToday ? "bg-primary text-primary-foreground" : "text-foreground"}`}>
                 {cell.day}
-              </span>
+              </button>
               <div className="mt-1 space-y-0.5">
                 {cell.appts.slice(0, 3).map((a) => (
-                  <div key={a.id} className="flex items-center gap-1 rounded px-1 py-0.5 bg-muted/60">
+                  <button type="button" key={a.id} onClick={() => onSelect(a)} aria-label={`Abrir cita de ${a.petName}`} className="flex w-full items-center gap-1 rounded bg-muted/60 px-1 py-0.5 text-left hover:bg-teal-50 focus-visible:outline-2 focus-visible:outline-teal-700">
                     <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${STATUS_DOT[a.status] ?? "bg-slate-400"}`} />
                     <span className="text-[10px] truncate leading-tight">{getPetEmoji(a.petType)} {a.petName}</span>
-                  </div>
+                  </button>
                 ))}
                 {cell.appts.length > 3 && (
                   <p className="text-[10px] text-muted-foreground pl-1">+{cell.appts.length - 3} más</p>
                 )}
               </div>
-            </button>
+            </div>
           );
         })}
       </div>
@@ -327,6 +316,25 @@ export function WeekCalendar({
   const [view, setView] = useState<ViewMode>("week");
   const [clock, setClock] = useState<ClockMode>("12h");
   const [selected, setSelected] = useState<TodayAppointment | null>(null);
+  const [updatedAppointments, setUpdatedAppointments] = useState<Record<string, TodayAppointment>>({});
+  const [creating, setCreating] = useState(() => !preview && searchParams.get("new") === "1");
+  const [createdVersion, setCreatedVersion] = useState(0);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      if (window.matchMedia("(max-width: 639px)").matches) setView("day");
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  function closeCreate() {
+    setCreating(false);
+    if (searchParams.get("new") === "1") {
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("new");
+      router.replace(`/dashboard/calendar${params.size ? `?${params.toString()}` : ""}`, { scroll: false });
+    }
+  }
 
   useEffect(() => {
     if (preview) return;
@@ -334,7 +342,8 @@ export function WeekCalendar({
     return () => clearInterval(interval);
   }, [router, preview]);
 
-  const { mondayYmd, appointments } = data;
+  const { mondayYmd } = data;
+  const appointments = data.appointments.map((appointment) => updatedAppointments[appointment.id] ?? appointment);
   const today = todayYmd();
 
   // Current day for Day/Scheduler view — default to today if within week, else monday
@@ -360,6 +369,7 @@ export function WeekCalendar({
   const visibleMonthResult = preview
     ? { key: monthKey, appointments: previewMonthAppointments(monthDate.year, monthDate.month), error: false }
     : monthResult;
+  const monthAppointments = visibleMonthResult?.appointments.map((appointment) => updatedAppointments[appointment.id] ?? appointment) ?? [];
 
   useEffect(() => {
     if (view !== "month" || preview) return;
@@ -384,7 +394,7 @@ export function WeekCalendar({
     return () => {
       cancelled = true;
     };
-  }, [view, monthDate.year, monthDate.month, preview]);
+  }, [view, monthDate.year, monthDate.month, preview, createdVersion]);
 
   function navigate(ymd: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -499,7 +509,16 @@ export function WeekCalendar({
 
   return (
     <>
-      {selected && <ApptDetail appt={selected} onClose={() => setSelected(null)} />}
+      {selected && <AppointmentDetailDialog appointment={selected} readOnly={preview} onClose={() => setSelected(null)} onUpdated={(updated) => {
+        setSelected(updated);
+        setUpdatedAppointments((current) => ({ ...current, [updated.id]: updated }));
+        router.refresh();
+      }} />}
+      {creating && <NewAppointmentDialog initialDate={view === "month" ? `${monthDate.year}-${String(monthDate.month + 1).padStart(2, "0")}-01` : currentDay} onClose={closeCreate} onCreated={() => {
+        closeCreate();
+        setCreatedVersion((version) => version + 1);
+        router.refresh();
+      }} />}
 
       {/* Toolbar */}
       <div className="mb-4 space-y-3 rounded-2xl border border-border bg-white p-3 shadow-sm sm:p-4">
@@ -519,7 +538,12 @@ export function WeekCalendar({
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
-          <span className="text-base font-bold capitalize text-foreground sm:text-lg">{periodLabel}</span>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-base font-bold capitalize text-foreground sm:text-lg">{periodLabel}</span>
+            {!preview && <Button type="button" size="sm" onClick={() => setCreating(true)}>
+              <CalendarPlus className="mr-2 h-4 w-4" /> Nueva cita
+            </Button>}
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
@@ -567,8 +591,9 @@ export function WeekCalendar({
         <MonthView
           year={monthDate.year}
           month={monthDate.month}
-          appointments={visibleMonthResult.appointments}
+          appointments={monthAppointments}
           today={today}
+          onSelect={setSelected}
           onDayClick={(ymd) => {
             setCurrentDay(ymd);
             setView("day");

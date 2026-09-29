@@ -1,18 +1,19 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { CalendarDays, ClipboardList, Stethoscope } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { proxyUrl } from "@/lib/api";
-import { type TodayAppointment } from "@/lib/appointments";
+import { formatColombiaDateTime, type TodayAppointment } from "@/lib/appointments";
 import { getPetEmoji, NEXT_ACTION_TYPES, type PetNextAction } from "@/lib/pets";
 
 type VetRecord = {
@@ -62,15 +63,15 @@ function Textarea({
 }) {
   const id = useId();
   return (
-    <div className="space-y-1">
-      <label htmlFor={id} className="text-xs font-medium text-muted-foreground">{label}</label>
+    <div className="space-y-2">
+      <label htmlFor={id} className="text-sm font-semibold text-slate-800">{label}</label>
       <textarea
         id={id}
         rows={rows}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+        className="min-h-24 w-full resize-y rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-600"
       />
     </div>
   );
@@ -90,6 +91,7 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved, previ
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recordLoadFailed, setRecordLoadFailed] = useState(false);
+  const [hasRecord, setHasRecord] = useState(false);
   const dirtyRef = useRef(false);
 
   // next actions
@@ -112,6 +114,11 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved, previ
     void (async () => {
       if (!cancelled) setLoading(true);
       if (!cancelled) setRecordLoadFailed(false);
+      setForm(EMPTY);
+      setHasRecord(false);
+      setSaved(false);
+      setExistingActions([]);
+      dirtyRef.current = false;
       try {
         const [staffRes, recordRes, actionsRes] = await Promise.all([
           fetch(proxyUrl("/api/dashboard/staff"), { cache: "no-store" }),
@@ -134,6 +141,7 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved, previ
 
         if (!cancelled && recordRes.ok) {
           const rec = await recordRes.json();
+          setHasRecord(true);
           setForm({
             reason: rec.reason ?? "",
             findings: rec.findings ?? "",
@@ -199,6 +207,7 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved, previ
       }
       dirtyRef.current = false;
       setSaved(true);
+      setHasRecord(true);
       onSaved?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al guardar");
@@ -208,58 +217,61 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved, previ
   }
 
   return (
-    <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
-        <SheetHeader className="border-b pb-4">
-          <SheetTitle className="flex items-center gap-2">
-            <span>{getPetEmoji(appointment.petType)}</span>
-            <span>Atención de {appointment.petName}</span>
-          </SheetTitle>
-          <SheetDescription>
-            {appointment.clientName ?? appointment.clientPhone} ·{" "}
-            {appointment.serviceName ?? appointment.serviceType}
-          </SheetDescription>
-        </SheetHeader>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="flex h-[min(92dvh,960px)] w-[calc(100vw-24px)] max-w-4xl flex-col gap-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-0 shadow-2xl">
+        <DialogHeader className="shrink-0 border-b border-slate-200 bg-white px-5 py-5 pr-14 sm:px-8 sm:py-6 sm:pr-14">
+          <div className="flex items-start gap-4">
+            <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-teal-50 text-2xl" aria-hidden="true">{getPetEmoji(appointment.petType)}</span>
+            <div className="min-w-0">
+              <DialogTitle className="text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">Historia clínica de {appointment.petName}</DialogTitle>
+              <DialogDescription className="mt-1 text-sm">Registro de esta consulta veterinaria</DialogDescription>
+            </div>
+          </div>
+          <div className="mt-5 grid gap-3 rounded-xl bg-slate-50 px-4 py-3 text-sm sm:grid-cols-3">
+            <div><span className="block text-xs text-slate-500">Responsable</span><span className="font-semibold text-slate-800">{appointment.clientName || appointment.clientPhone || "Sin nombre"}</span></div>
+            <div><span className="block text-xs text-slate-500">Servicio</span><span className="font-semibold text-slate-800">{appointment.serviceName || appointment.serviceType}</span></div>
+            <div><span className="block text-xs text-slate-500">Fecha de la consulta</span><span className="font-semibold text-slate-800">{formatColombiaDateTime(appointment.date)}</span></div>
+          </div>
+        </DialogHeader>
 
-        {preview && (
-          <p role="status" className="mt-4 rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-900">
-            Vista de ejemplo. Puedes explorar el formulario, pero no se guardarán cambios.
-          </p>
-        )}
+        <div className="min-h-0 flex-1 overflow-y-auto bg-white px-5 py-6 sm:px-8">
+          <div className="mx-auto max-w-3xl space-y-6">
+            {preview && (
+              <p role="status" className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-900">
+                Vista de ejemplo. Puedes explorar el formato, pero no se guardarán cambios.
+              </p>
+            )}
 
-        {loading ? (
-          <div className="py-12 text-center text-sm text-muted-foreground">Cargando…</div>
-        ) : (
-          <div className="space-y-4 px-1 py-4">
-            {/* Profesional */}
-            {staff.length > 0 && (
-              <div className="space-y-1">
-                <label htmlFor={staffInputId} className="text-xs font-medium text-muted-foreground">
-                  Profesional responsable
-                </label>
+            {loading ? (
+              <div className="py-12 text-center text-sm text-muted-foreground">Cargando historia de esta consulta…</div>
+            ) : (<>
+            <div className="flex items-center gap-2 text-sm text-slate-600">
+              <ClipboardList className="size-4 text-teal-700" aria-hidden="true" />
+              {hasRecord ? "Registro guardado de esta consulta" : "Nuevo registro para esta consulta"}
+            </div>
+
+            <section aria-labelledby="consulta-datos" className="space-y-4 border-b border-slate-200 px-1 pb-7">
+              <div>
+                <h3 id="consulta-datos" className="text-base font-bold text-slate-950">Datos de la atención</h3>
+                <p className="mt-1 text-sm text-slate-500">Identifica al profesional y registra la medición de hoy.</p>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <label htmlFor={staffInputId} className="text-sm font-semibold text-slate-800">Profesional responsable</label>
                 <select
                   id={staffInputId}
                   value={form.staffId}
                   onChange={(e) => set("staffId")(e.target.value)}
-                  className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-600"
                 >
                   <option value="">Sin asignar</option>
                   {staff.map((s) => (
                     <option key={s.id} value={s.id}>{s.name}</option>
                   ))}
                 </select>
-              </div>
-            )}
-
-            <Textarea label="Motivo de consulta" value={form.reason} onChange={set("reason")} placeholder="¿Por qué vino la mascota?" />
-            <Textarea label="Hallazgos" value={form.findings} onChange={set("findings")} placeholder="Examen físico, observaciones…" rows={3} />
-            <Textarea label="Diagnóstico" value={form.diagnosis} onChange={set("diagnosis")} placeholder="Diagnóstico principal…" />
-            <Textarea label="Tratamiento" value={form.treatment} onChange={set("treatment")} placeholder="Medicamentos, procedimientos…" rows={3} />
-            <Textarea label="Recomendaciones" value={form.recommendations} onChange={set("recommendations")} placeholder="Cuidados en casa, dieta…" />
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label htmlFor={weightInputId} className="text-xs font-medium text-muted-foreground">Peso actual (kg)</label>
+                </div>
+                <div className="space-y-2">
+                <label htmlFor={weightInputId} className="text-sm font-semibold text-slate-800">Peso actual (kg)</label>
                 <Input
                   id={weightInputId}
                   type="number"
@@ -269,9 +281,33 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved, previ
                   value={form.weight}
                   onChange={(e) => set("weight")(e.target.value)}
                 />
+                </div>
               </div>
-              <div className="space-y-1">
-                <label htmlFor={controlInputId} className="text-xs font-medium text-muted-foreground">Próximo control recomendado</label>
+            </section>
+
+            <section aria-labelledby="consulta-evaluacion" className="space-y-4 border-b border-slate-200 px-1 pb-7">
+              <div className="flex items-start gap-3">
+                <Stethoscope className="mt-0.5 size-5 shrink-0 text-teal-700" aria-hidden="true" />
+                <div><h3 id="consulta-evaluacion" className="text-base font-bold text-slate-950">Evaluación clínica</h3><p className="mt-1 text-sm text-slate-500">Deja constancia de lo que motivó la consulta y lo observado durante el examen.</p></div>
+              </div>
+              <Textarea label="Motivo de consulta" value={form.reason} onChange={set("reason")} placeholder="Síntomas y motivo relatado por el responsable…" rows={3} />
+              <Textarea label="Hallazgos y examen físico" value={form.findings} onChange={set("findings")} placeholder="Hallazgos del examen, signos y observaciones…" rows={4} />
+            </section>
+
+            <section aria-labelledby="consulta-plan" className="space-y-4 border-b border-slate-200 px-1 pb-7">
+              <div><h3 id="consulta-plan" className="text-base font-bold text-slate-950">Diagnóstico y plan</h3><p className="mt-1 text-sm text-slate-500">Documenta la conclusión y las indicaciones que quedarán en la historia.</p></div>
+              <Textarea label="Diagnóstico" value={form.diagnosis} onChange={set("diagnosis")} placeholder="Diagnóstico o impresión clínica…" rows={3} />
+              <Textarea label="Tratamiento" value={form.treatment} onChange={set("treatment")} placeholder="Procedimientos, medicamentos o tratamiento indicado…" rows={4} />
+              <Textarea label="Recomendaciones para el responsable" value={form.recommendations} onChange={set("recommendations")} placeholder="Cuidados en casa, alimentación y signos de alerta…" rows={3} />
+            </section>
+
+            <section aria-labelledby="consulta-seguimiento" className="space-y-4 px-1 pb-4">
+              <div className="flex items-start gap-3">
+                <CalendarDays className="mt-0.5 size-5 shrink-0 text-teal-700" aria-hidden="true" />
+                <div><h3 id="consulta-seguimiento" className="text-base font-bold text-slate-950">Seguimiento</h3><p className="mt-1 text-sm text-slate-500">Indica cuándo revisar la evolución y qué acciones quedan pendientes.</p></div>
+              </div>
+              <div className="space-y-2 sm:max-w-xs">
+                <label htmlFor={controlInputId} className="text-sm font-semibold text-slate-800">Próximo control recomendado</label>
                 <Input
                   id={controlInputId}
                   type="date"
@@ -279,40 +315,9 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved, previ
                   onChange={(e) => set("nextControlAt")(e.target.value)}
                 />
               </div>
-            </div>
-
-            {error && (
-              <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-                {error}
-              </div>
-            )}
-
-            {recordLoadFailed && (
-              <div role="alert" className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-                No se pudo comprobar si esta consulta ya tiene un registro. Cierra y vuelve a abrir la atención antes de guardar.
-              </div>
-            )}
-
-            {saved && (
-              <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-300">
-                Atención guardada correctamente.
-              </div>
-            )}
-
-            <div className="flex gap-2 pt-2">
-              <Button onClick={handleSave} disabled={saving || preview || recordLoadFailed} className="flex-1">
-                {preview ? "Guardado desactivado en el ejemplo" : saving ? "Guardando…" : "Guardar atención"}
-              </Button>
-              <Button variant="outline" onClick={() => handleOpenChange(false)}>
-                Cerrar
-              </Button>
-            </div>
-
-            {/* PRÓXIMAS ACCIONES */}
-            <div className="border-t pt-4 space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Próximas acciones pendientes
-              </p>
+            <div className="border-t border-slate-100 pt-5 space-y-3">
+              <p className="text-sm font-semibold text-slate-800">Próximas acciones pendientes</p>
+              <p className="text-xs text-slate-500">Cada acción se guarda por separado al pulsar “Agregar acción”.</p>
 
               {/* existing pending actions */}
               {existingActions.length > 0 && (
@@ -424,9 +429,26 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved, previ
                 </Button>
               </div>
             </div>
+            </section>
+            </>)}
           </div>
-        )}
-      </SheetContent>
-    </Sheet>
+        </div>
+
+        <div className="shrink-0 border-t border-slate-200 bg-white px-5 py-4 sm:px-8">
+          {error && <p role="alert" className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p>}
+          {recordLoadFailed && <p role="alert" className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">No se pudo comprobar el registro de esta consulta. Cierra y vuelve a abrir antes de guardar.</p>}
+          {saved && <p role="status" className="mb-3 rounded-lg bg-teal-50 px-3 py-2 text-sm text-teal-900">La atención quedó guardada en la historia de esta consulta.</p>}
+          <div className="mx-auto flex max-w-3xl flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-slate-500">El registro se vincula a esta cita y podrás consultarlo en la historia de la mascota.</p>
+            <div className="flex shrink-0 gap-2">
+              <Button variant="outline" onClick={() => handleOpenChange(false)}>Cerrar</Button>
+              <Button onClick={handleSave} disabled={loading || saving || preview || recordLoadFailed}>
+                {preview ? "Vista de ejemplo" : saving ? "Guardando…" : hasRecord ? "Guardar cambios" : "Guardar consulta"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -19,6 +19,9 @@ const {
   getRecordsByPet,
 } = require("../../services/medical-record.service");
 const { listInactiveClients } = require("../../services/dashboard-client.service");
+const { createAppointment, buildAppointmentDateTime } = require("../../services/appointment.service");
+const { isSlotAvailable, listAvailableSlotsForDate } = require("../../services/availability-db.service");
+const { SlotAlreadyBookedError } = require("../../services/errors/slot-already-booked.error");
 const {
   upsertControlFromRecord,
   createGroomingReminderIfNeeded,
@@ -26,6 +29,8 @@ const {
 // Entregable Puente: Completar Cita pasa por el contexto Agenda; el side-effect
 // legacy de comisión (commission.service.js) fue retirado — ver contexts/index.js.
 const { completeAppointment } = require("../../contexts");
+const { changeServicePrice } = require("../../contexts/services");
+const { ServiceNotFoundError, PriceRuleTargetNotFoundError, DuplicatePriceRuleError, InvalidPriceError } = require("../../contexts/services/domain/errors");
 const {
   AppointmentNotFoundError,
   InvalidStatusTransitionError,
@@ -253,6 +258,95 @@ router.get("/appointments", async (req, res) => {
   }
 });
 
+// El formulario recibe solo turnos válidos para el horario y la ocupación
+// actuales; el POST vuelve a comprobarlos para cubrir reservas simultáneas.
+router.get("/appointments/available-slots", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    if (!tenantId) return res.status(400).json({ error: "Selecciona un establecimiento" });
+    const { dateKey, serviceId } = req.query;
+    const calendarDate = typeof dateKey === "string" ? new Date(`${dateKey}T12:00:00.000Z`) : null;
+    if (typeof dateKey !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dateKey) ||
+        !calendarDate || Number.isNaN(calendarDate.getTime()) || calendarDate.toISOString().slice(0, 10) !== dateKey ||
+        typeof serviceId !== "string" || !serviceId.trim()) {
+      return res.status(400).json({ error: "Selecciona un servicio y una fecha válidos" });
+    }
+
+    const service = await prisma.service.findFirst({
+      where: { id: serviceId, tenantId, active: true },
+      include: { category: { select: { name: true } } },
+    });
+    if (!service) return res.status(404).json({ error: "Servicio no encontrado en este establecimiento" });
+    if (!service.requiresAppointment) return res.status(422).json({ error: "Este servicio no admite citas" });
+    const bucket = { veterinary: "vet", grooming: "grooming" }[service.category?.name];
+    if (!bucket) return res.status(422).json({ error: "Este servicio no admite reserva de horario" });
+
+    const slots = await listAvailableSlotsForDate({ dateKey, serviceType: bucket, tenantId });
+    return res.json({ slots });
+  } catch (error) {
+    console.error("[Dashboard] Available slots error:", error);
+    return res.status(503).json({ error: "No se pudieron consultar los horarios disponibles" });
+  }
+});
+
+// Creación manual desde la agenda. La identidad del establecimiento proviene
+// exclusivamente de la sesión del dashboard y cada referencia se valida allí.
+router.post("/appointments", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    if (!tenantId) return res.status(400).json({ error: "Selecciona un establecimiento" });
+
+    const { userId, petId, serviceId, dateKey, hour } = req.body ?? {};
+    if (![userId, petId, serviceId].every((value) => typeof value === "string" && value.trim())) {
+      return res.status(400).json({ error: "Selecciona cliente, mascota y servicio" });
+    }
+    if (typeof dateKey !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dateKey) ||
+        (typeof hour !== "number" && typeof hour !== "string") || String(hour).trim() === "" ||
+        !Number.isInteger(Number(hour) * 2) || Number(hour) < 0 || Number(hour) >= 24) {
+      return res.status(400).json({ error: "Selecciona una fecha y hora válidas" });
+    }
+    const calendarDate = new Date(`${dateKey}T12:00:00.000Z`);
+    if (Number.isNaN(calendarDate.getTime()) || calendarDate.toISOString().slice(0, 10) !== dateKey) {
+      return res.status(400).json({ error: "La fecha no es válida" });
+    }
+
+    const [user, pet, service] = await Promise.all([
+      prisma.user.findFirst({ where: { id: userId, tenantId }, select: { id: true } }),
+      prisma.pet.findFirst({ where: { id: petId, ownerId: userId, tenantId }, select: { id: true, name: true, type: true } }),
+      prisma.service.findFirst({ where: { id: serviceId, tenantId, active: true }, include: { category: { select: { name: true } } } }),
+    ]);
+    if (!user || !pet || !service) {
+      return res.status(404).json({ error: "Cliente, mascota o servicio no encontrado en este establecimiento" });
+    }
+    if (!service.requiresAppointment) {
+      return res.status(422).json({ error: "Este servicio no admite citas" });
+    }
+    const bucket = { veterinary: "vet", grooming: "grooming" }[service.category?.name];
+    if (!bucket) return res.status(422).json({ error: "Este servicio no admite reserva de horario" });
+    if (bucket === "grooming" && !Number.isInteger(Number(hour))) {
+      return res.status(422).json({ error: "Los servicios de peluquería se reservan por horas completas" });
+    }
+
+    const available = await isSlotAvailable({ dateKey, hour: Number(hour), serviceType: bucket, tenantId });
+    if (!available) return res.status(409).json({ error: "El horario no está disponible para este servicio" });
+
+    const appointment = await createAppointment({
+      tenantId, userId, petId, serviceId,
+      petName: pet.name, petType: pet.type,
+      serviceType: bucket,
+      date: buildAppointmentDateTime(dateKey, Number(hour)),
+      status: "confirmed",
+    });
+    return res.status(201).json({ id: appointment.id, date: appointment.date, status: appointment.status });
+  } catch (error) {
+    if (error instanceof SlotAlreadyBookedError) {
+      return res.status(409).json({ error: "El horario acaba de ser reservado. Elige otro." });
+    }
+    console.error("[Dashboard] Create appointment error:", error);
+    return res.status(500).json({ error: "No se pudo crear la cita" });
+  }
+});
+
 // POST /appointments/:id/complete — Entregable Puente, caso de uso 1.
 // Transición + comisión + cobro de sistema en UNA transacción (Etapa 2);
 // exige precio resuelto (ADR 007-D4).
@@ -294,6 +388,51 @@ router.post("/appointments/:id/complete", async (req, res) => {
     if (error instanceof UnresolvedPriceError) return res.status(422).json({ error: error.message });
     console.error("[Dashboard] Complete appointment error:", error);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Precio acordado para una mascota y un servicio. Servicios administra la
+// PriceRule; la cita actual conserva el importe pactado como override.
+router.patch("/appointments/:id/agreed-price", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    const amount = req.body?.price;
+    if (typeof amount !== "number" || !Number.isFinite(amount) || amount < 0 || amount > 99999999.99 || Math.abs(amount * 100 - Math.round(amount * 100)) > 0.000001) {
+      return res.status(400).json({ error: "El precio debe ser un número válido entre 0 y 99.999.999,99." });
+    }
+
+    const appointment = await prisma.appointment.findFirst({
+      where: tenantId ? { id: req.params.id, tenantId } : { id: req.params.id },
+    });
+    if (!appointment) return res.status(404).json({ error: ERRORS.NOT_FOUND("Cita") });
+    if (["completed", "cancelled", "no_show"].includes(appointment.status)) {
+      return res.status(422).json({ error: "No se puede cambiar el precio de una cita cerrada." });
+    }
+    if (!appointment.petId || !appointment.serviceId) {
+      return res.status(422).json({ error: "La cita necesita mascota y servicio para guardar una tarifa propia." });
+    }
+
+    await changeServicePrice({
+      serviceId: appointment.serviceId,
+      tenantId: appointment.tenantId ?? null,
+      target: { type: "pet", petId: appointment.petId },
+      newPrice: amount,
+    });
+
+    const updated = await prisma.appointment.update({
+      where: { id: appointment.id },
+      data: { finalPrice: amount },
+      include: APPOINTMENT_INCLUDE,
+    });
+    res.json(mapAppointmentRow(updated));
+  } catch (error) {
+    if (error instanceof ServiceNotFoundError || error instanceof PriceRuleTargetNotFoundError) {
+      return res.status(404).json({ error: "Servicio o mascota no encontrado en este establecimiento." });
+    }
+    if (error instanceof InvalidPriceError) return res.status(400).json({ error: error.message });
+    if (error instanceof DuplicatePriceRuleError) return res.status(409).json({ error: "El precio ya cambió. Actualiza la cita e inténtalo de nuevo." });
+    console.error("[Dashboard] Agreed appointment price error:", error);
+    res.status(500).json({ error: "No se pudo guardar el precio de la mascota." });
   }
 });
 
@@ -357,7 +496,14 @@ router.patch("/appointments/:id", async (req, res) => {
     // Manual override: only store finalPrice when operator explicitly provides it.
     // Effective price at display time is resolved by price-resolver.service via mapAppointmentRow.
     if (finalPrice !== undefined) {
-      data.finalPrice = finalPrice !== null ? Number(finalPrice) : null;
+      if (["completed", "cancelled", "no_show"].includes(existing.status)) {
+        return res.status(422).json({ error: "No se puede cambiar el precio de una cita cerrada." });
+      }
+      const amount = typeof finalPrice === "number" ? finalPrice : NaN;
+      if (finalPrice !== null && (!Number.isFinite(amount) || amount < 0 || amount > 99999999.99 || Math.abs(amount * 100 - Math.round(amount * 100)) > 0.000001)) {
+        return res.status(400).json({ error: "El precio debe ser un número válido entre 0 y 99.999.999,99." });
+      }
+      data.finalPrice = finalPrice === null ? null : amount;
     }
 
     const updated = await prisma.appointment.update({

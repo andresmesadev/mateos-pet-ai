@@ -1,24 +1,20 @@
-﻿import Link from "next/link";
-import { AlertTriangle, ArrowRight, MessageCircle, Pin, RotateCcw } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, MessageCircle, Pin } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DailyMetricsCards } from "@/components/dashboard/daily-metrics-cards";
-import { RecoveryCard } from "@/components/dashboard/recovery-card";
 import { TodaySchedule } from "@/components/dashboard/today-schedule";
 import { formatService } from "@/lib/appointments";
 import { formatPhone, formatRelativeTime } from "@/lib/conversations";
 import { getPetEmoji } from "@/lib/pets";
 import {
-  type UpcomingReminder,
   fetchToday,
-  fetchInactiveCount,
   fetchDailyMetrics,
   fetchUpcomingReminders,
   fetchActiveConversations,
+  fetchEscalatedConversations,
   fetchActionsSummary,
-  fetchRecoveryMetrics,
-  fetchChurnPreview,
 } from "@/components/dashboard/home/fetchers";
 
 type Headers = Record<string, string>;
@@ -35,87 +31,18 @@ function DataUnavailable({ title, className = "" }: { title: string; className?:
     </Card>
   );
 }
-
-const TYPE_LABELS: Record<string, string> = {
-  control: "controles",
-  vaccine: "vacunas",
-  grooming: "grooming",
-  exam: "exámenes",
-  treatment: "tratamientos",
-  other: "otros",
-};
-
-// ── Métricas diarias (5 cards) ────────────────────────────────
-export async function MetricsSection({ headers }: { headers: Headers }) {
-  const metrics = await fetchDailyMetrics(headers);
-  if (!metrics) return <DataUnavailable title="Indicadores no disponibles" />;
-  return <DailyMetricsCards metrics={metrics} />;
+// ── Operación y resultado del administrador ───────────────────
+export async function MetricsSection({ headers, tenant }: { headers: Headers; tenant?: string }) {
+  const [metrics, appointments] = await Promise.all([fetchDailyMetrics(headers), fetchToday(headers)]);
+  if (!metrics && !appointments) return <DataUnavailable title="Indicadores no disponibles" />;
+  return <DailyMetricsCards metrics={metrics} appointments={appointments} tenant={tenant} />;
 }
 
 // ── Agenda de hoy ─────────────────────────────────────────────
-export async function TodaySection({ headers }: { headers: Headers }) {
+export async function TodaySection({ headers, review }: { headers: Headers; review?: boolean }) {
   const today = await fetchToday(headers);
   if (!today) return <DataUnavailable title="Agenda de hoy" />;
-  return <TodaySchedule appointments={today} />;
-}
-
-// ── Recuperación real ─────────────────────────────────────────
-export async function RecoverySection({ headers }: { headers: Headers }) {
-  const recovery = await fetchRecoveryMetrics(headers);
-  return <RecoveryCard metrics={recovery} />;
-}
-
-// ── Bandeja de oportunidades (widget) ─────────────────────────
-export async function OpportunitiesWidget({ headers }: { headers: Headers }) {
-  const actionsSummary = await fetchActionsSummary(headers);
-  if (!actionsSummary) return <DataUnavailable title="Recordatorios pendientes" />;
-  const hasOverdue = actionsSummary.overduePets > 0;
-  const isEmpty = actionsSummary.total === 0;
-
-  return (
-    <Link href="/dashboard/recuperacion?tab=oportunidades" className="block h-full">
-      <Card className={`group h-full glass-card transition-colors ${
-        isEmpty
-          ? "border-border hover:border-teal-300"
-          : hasOverdue
-            ? "border-amber-200 bg-amber-50/40 hover:border-amber-400"
-            : "border-sky-200 bg-sky-50/40 hover:border-sky-400"
-      }`}>
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-            <Pin className={`h-4 w-4 shrink-0 ${isEmpty ? "text-muted-foreground" : hasOverdue ? "text-amber-700" : "text-sky-700"}`} />
-            Recordatorios pendientes
-            {!isEmpty && (
-              <Badge className={hasOverdue
-                ? "border-amber-200 bg-amber-100 text-amber-800"
-                : "border-sky-200 bg-sky-100 text-sky-800"
-              }>
-                {actionsSummary.total}
-              </Badge>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isEmpty ? (
-            <p className="text-sm text-muted-foreground">No hay recordatorios pendientes.</p>
-          ) : (
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-              {Object.entries(actionsSummary.byType).map(([type, count]) => (
-                <span key={type}>{count} {TYPE_LABELS[type] ?? type}</span>
-              ))}
-            </div>
-          )}
-          <p className={`mt-2 flex items-center gap-1.5 text-xs ${hasOverdue && !isEmpty ? "font-medium text-amber-700" : "text-muted-foreground"}`}>
-            {hasOverdue && !isEmpty && <AlertTriangle className="h-3.5 w-3.5 shrink-0" />}
-            {hasOverdue && !isEmpty
-              ? `${actionsSummary.overduePets} mascota${actionsSummary.overduePets === 1 ? "" : "s"} con acción vencida`
-              : "Ver recordatorios"}
-            <ArrowRight className="ml-auto h-3.5 w-3.5 opacity-50" />
-          </p>
-        </CardContent>
-      </Card>
-    </Link>
-  );
+  return <TodaySchedule key={review ? "review" : "all"} appointments={today} initialReview={review} />;
 }
 
 // ── Encabezado de panel con enlace "Ver todas" ────────────────
@@ -134,59 +61,23 @@ function PanelHeader({ title, href, linkLabel }: { title: string; href: string; 
   );
 }
 
-// ── SVG ilustración mascota + IA ──────────────────────────────
-function PetAiIllustration() {
-  return (
-    <svg
-      viewBox="0 0 96 96"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className="h-24 w-24 text-primary/60"
-      aria-hidden="true"
-    >
-      {/* Cuerpo */}
-      <ellipse cx="48" cy="62" rx="22" ry="17" stroke="currentColor" strokeWidth="1.5" />
-      {/* Cabeza */}
-      <circle cx="48" cy="34" r="16" stroke="currentColor" strokeWidth="1.5" />
-      {/* Orejas */}
-      <path d="M34 24 C29 14 21 16 23 26" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M62 24 C67 14 75 16 73 26" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      {/* Ojos */}
-      <circle cx="42" cy="32" r="2.5" fill="currentColor" />
-      <circle cx="54" cy="32" r="2.5" fill="currentColor" />
-      {/* Brillo en ojos */}
-      <circle cx="43" cy="31" r="0.8" fill="white" opacity="0.7" />
-      <circle cx="55" cy="31" r="0.8" fill="white" opacity="0.7" />
-      {/* Nariz */}
-      <ellipse cx="48" cy="38.5" rx="3" ry="2" fill="currentColor" opacity="0.5" />
-      {/* Circuitos — derecha */}
-      <path d="M76 18 L84 18 L84 30 L80 30" stroke="currentColor" strokeWidth="0.8" opacity="0.4" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="80" cy="30" r="1.5" fill="currentColor" opacity="0.4" />
-      <circle cx="84" cy="18" r="1.5" fill="currentColor" opacity="0.35" />
-      {/* Circuitos — izquierda */}
-      <path d="M20 22 L12 22 L12 36 L16 36" stroke="currentColor" strokeWidth="0.8" opacity="0.4" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="16" cy="36" r="1.5" fill="currentColor" opacity="0.4" />
-      {/* Sparkles */}
-      <path d="M10 60 L10 65 M7.5 62.5 L12.5 62.5" stroke="currentColor" strokeWidth="1.2" opacity="0.45" strokeLinecap="round" />
-      <path d="M82 56 L82 60 M80 58 L84 58" stroke="currentColor" strokeWidth="1.2" opacity="0.45" strokeLinecap="round" />
-      <path d="M86 30 L87 32.5 M84.5 31 L87.5 31" stroke="currentColor" strokeWidth="0.9" opacity="0.35" strokeLinecap="round" />
-      <path d="M8 42 L9 44" stroke="currentColor" strokeWidth="0.9" opacity="0.3" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 // ── Conversaciones activas ────────────────────────────────────
 export async function ConversationsActiveSection({ headers }: { headers: Headers }) {
-  const conversations = await fetchActiveConversations(headers);
+  const [conversations, escalations] = await Promise.all([fetchActiveConversations(headers), fetchEscalatedConversations(headers)]);
   if (!conversations) return <DataUnavailable title="Conversaciones activas" />;
+  const humanAttention = escalations?.length ?? 0;
   return (
     <Card className="h-full border-t-2 border-t-emerald-500/50 border-black/[0.10] glass-card bg-emerald-500/[0.03]">
       <PanelHeader title="Conversaciones activas" href="/dashboard/conversations" linkLabel="Ver todas" />
       <CardContent className="p-0">
+        {humanAttention > 0 && <Link href={humanAttention === 1 ? `/dashboard/conversations?conversation=${encodeURIComponent(escalations![0].id)}` : "/dashboard/conversations"} className="flex items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-950 hover:bg-amber-100">
+          <span>{humanAttention === 1 ? "Hay una conversación esperando respuesta" : `${humanAttention} conversaciones esperan respuesta`}</span>
+          <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+        </Link>}
         {conversations.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 px-4 py-10 text-center">
-            <PetAiIllustration />
-            <p className="text-sm text-muted-foreground">Las conversaciones de WhatsApp aparecerán aquí.</p>
+          <div className="flex items-center gap-3 px-4 py-5">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700"><MessageCircle className="h-4 w-4" aria-hidden="true" /></span>
+            <p className="text-sm text-muted-foreground">{humanAttention > 0 ? "Abre la bandeja para responder las conversaciones pendientes." : "No hay conversaciones recientes. Las nuevas aparecerán aquí."}</p>
           </div>
         ) : (
           <ul className="divide-y">
@@ -224,8 +115,7 @@ export async function ConversationsActiveSection({ headers }: { headers: Headers
     </Card>
   );
 }
-
-// ── Recordatorios próximos ────────────────────────────────────
+// ── Seguimientos pendientes y próximos ────────────────────────
 const REMINDER_LABELS: Record<string, string> = {
   control: "Control",
   vaccine: "Vacuna",
@@ -237,7 +127,8 @@ const REMINDER_LABELS: Record<string, string> = {
 
 function reminderRelative(dueAt: string): { label: string; tone: string } {
   const due = new Date(dueAt);
-  const startOfDay = (d: Date) => Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  const bogotaDay = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota", year: "numeric", month: "2-digit", day: "2-digit" });
+  const startOfDay = (d: Date) => Date.parse(`${bogotaDay.format(d)}T00:00:00Z`);
   const days = Math.round((startOfDay(due) - startOfDay(new Date())) / 86_400_000);
   if (days < 0) return { label: "Vencido", tone: "border-red-200 bg-red-100 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300" };
   if (days === 0) return { label: "Hoy", tone: "border-amber-200 bg-amber-100 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300" };
@@ -254,23 +145,29 @@ function reminderDate(dueAt: string): string {
 }
 
 export async function RemindersSection({ headers }: { headers: Headers }) {
-  const reminders: UpcomingReminder[] | null = await fetchUpcomingReminders(headers);
-  if (!reminders) return <DataUnavailable title="Recordatorios próximos" />;
+  const [reminders, summary] = await Promise.all([fetchUpcomingReminders(headers), fetchActionsSummary(headers)]);
+  if (!reminders) return <DataUnavailable title="Seguimientos" />;
+  const overduePets = summary?.overduePets ?? 0;
   return (
     <Card className="h-full border-t-2 border-t-amber-500/50 border-black/[0.10] glass-card bg-amber-500/[0.03]">
-      <PanelHeader title="Recordatorios próximos" href="/dashboard/recuperacion" linkLabel="Ver todos" />
+      <PanelHeader title="Seguimientos" href="/dashboard/recuperacion?tab=oportunidades" linkLabel="Ver todos" />
       <CardContent className="p-0">
+        {overduePets > 0 && <Link href="/dashboard/recuperacion?tab=oportunidades" className="flex items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-950 hover:bg-amber-100">
+          <span>Revisar {overduePets} {overduePets === 1 ? "mascota con seguimiento vencido" : "mascotas con seguimiento vencido"}</span>
+          <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+        </Link>}
         {reminders.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 px-4 py-10 text-center">
-            <PetAiIllustration />
-            <p className="text-sm text-muted-foreground">No hay recordatorios pendientes.</p>
+          <div className="flex items-center gap-3 px-4 py-5">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-800"><Pin className="h-4 w-4" aria-hidden="true" /></span>
+            <p className="text-sm text-muted-foreground">{overduePets > 0 ? "Abre el seguimiento para revisar los vencidos." : "No hay seguimientos pendientes."}</p>
           </div>
         ) : (
           <ul className="divide-y">
             {reminders.map((r) => {
               const rel = reminderRelative(r.dueAt);
               return (
-                <li key={r.id} className="flex items-center gap-3 px-4 py-3">
+                <li key={r.id}>
+                  <Link href={`/dashboard/contacto?pet=${encodeURIComponent(r.petId)}`} className="flex min-h-16 items-center gap-3 px-4 py-3 transition-colors hover:bg-amber-50 focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-amber-700" aria-label={`Abrir seguimiento de ${r.petName}: ${REMINDER_LABELS[r.type] ?? formatService(r.type)}`}>
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-base">
                     {getPetEmoji(r.petType ?? "other")}
                   </div>
@@ -284,6 +181,8 @@ export async function RemindersSection({ headers }: { headers: Headers }) {
                     <span className="text-xs text-muted-foreground">{reminderDate(r.dueAt)}</span>
                     <Badge variant="outline" className={rel.tone}>{rel.label}</Badge>
                   </div>
+                  <ArrowRight className="h-4 w-4 shrink-0 text-amber-700" aria-hidden="true" />
+                  </Link>
                 </li>
               );
             })}
@@ -291,92 +190,5 @@ export async function RemindersSection({ headers }: { headers: Headers }) {
         )}
       </CardContent>
     </Card>
-  );
-}
-
-// ── Widget de churn ───────────────────────────────────────────
-export async function ChurnWidget({ headers }: { headers: Headers }) {
-  const churnAtRisk = await fetchChurnPreview(headers);
-  if (!churnAtRisk) return <DataUnavailable title="Riesgo de abandono" />;
-  const churnHigh = churnAtRisk.filter((c) => c.riskLevel === "high").length;
-  const isEmpty = churnAtRisk.length === 0;
-
-  return (
-    <Link href="/dashboard/recuperacion?tab=churn" className="block h-full">
-      <Card className={`group h-full glass-card transition-colors ${
-        isEmpty
-          ? "border-border hover:border-teal-300"
-          : "border-rose-200 bg-rose-50/40 hover:border-rose-400"
-      }`}>
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-            <AlertTriangle className={`h-4 w-4 shrink-0 ${isEmpty ? "text-muted-foreground" : "text-red-700"}`} />
-            Riesgo de abandono
-            {!isEmpty && (
-              <Badge className="border-rose-200 bg-rose-100 text-rose-800">
-                {churnAtRisk.length}
-              </Badge>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isEmpty ? (
-            <p className="text-sm text-muted-foreground">No hay clientes en riesgo.</p>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              {churnAtRisk.length} cliente{churnAtRisk.length === 1 ? "" : "s"} sin visitar en más tiempo del habitual.
-            </p>
-          )}
-          <p className={`mt-2 flex items-center gap-1.5 text-xs ${churnHigh > 0 ? "font-medium text-red-700" : "text-muted-foreground"}`}>
-            {churnHigh > 0 && <span className="inline-block h-2 w-2 rounded-full bg-red-400" />}
-            {churnHigh > 0 ? `${churnHigh} en riesgo alto` : "Ver análisis de churn"}
-            <ArrowRight className="ml-auto h-3.5 w-3.5 opacity-50" />
-          </p>
-        </CardContent>
-      </Card>
-    </Link>
-  );
-}
-
-// ── Widget de reactivación ────────────────────────────────────
-export async function ReactivarWidget({ headers }: { headers: Headers }) {
-  const inactiveCount = await fetchInactiveCount(headers);
-  if (inactiveCount === null) return <DataUnavailable title="Clientes a reactivar" />;
-  const isEmpty = inactiveCount === 0;
-
-  return (
-    <Link href="/dashboard/recuperacion?tab=reactivar" className="block h-full">
-      <Card className={`group h-full glass-card transition-colors ${
-        isEmpty
-          ? "border-border hover:border-teal-300"
-          : "border-orange-200 bg-orange-50/40 hover:border-orange-400"
-      }`}>
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-            <RotateCcw className={`h-4 w-4 shrink-0 ${isEmpty ? "text-muted-foreground" : "text-orange-700"}`} />
-            Clientes a reactivar
-            {!isEmpty && (
-              <Badge className="border-orange-200 bg-orange-100 text-orange-800">
-                {inactiveCount}
-              </Badge>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isEmpty ? (
-            <p className="text-sm text-muted-foreground">No hay clientes inactivos.</p>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              {inactiveCount.toLocaleString()} cliente{inactiveCount === 1 ? "" : "s"} de peluquería sin visita en más de 60 días.
-            </p>
-          )}
-          <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-            {!isEmpty && <span className="inline-block h-2 w-2 rounded-full bg-orange-400" />}
-            {isEmpty ? "Ver reactivación" : "Enviar campaña de reactivación"}
-            <ArrowRight className="ml-auto h-3.5 w-3.5 opacity-50" />
-          </p>
-        </CardContent>
-      </Card>
-    </Link>
   );
 }

@@ -38,7 +38,9 @@ function createCompleteAppointmentUseCase({ appointmentRepository, priceResoluti
     const endedAt = completedAt ? new Date(completedAt) : new Date();
 
     const updated = await unitOfWork.run(async (ctx) => {
-      const completed = await appointmentRepository.markCompleted(appointmentId, endedAt, ctx);
+      // Freeze the amount used for the charge so future tariff edits do not
+      // change the displayed price of this completed appointment.
+      const completed = await appointmentRepository.markCompleted(appointmentId, endedAt, priceResolutionResult.finalPrice, ctx);
 
       await eventPublisher.publish(
         "CitaCompletada",

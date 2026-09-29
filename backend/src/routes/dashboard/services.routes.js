@@ -128,6 +128,19 @@ router.patch("/services/:id", async (req, res) => {
     const { tenantId, isSuperAdmin } = req.tenant;
     const { name, category, duration, requiresAppointment, active, basePrice } = req.body ?? {};
 
+    if (name !== undefined && (typeof name !== "string" || !name.trim() || name.trim().length > 100)) {
+      return res.status(400).json({ error: "El nombre debe tener entre 1 y 100 caracteres" });
+    }
+    if (category !== undefined && !VALID_CATEGORIES.includes(category)) {
+      return res.status(400).json({ error: "Categoría de servicio no válida" });
+    }
+    if (duration !== undefined && (!Number.isInteger(Number(duration)) || Number(duration) <= 0)) {
+      return res.status(400).json({ error: "La duración debe ser un entero positivo" });
+    }
+    if (basePrice !== undefined && basePrice !== null && (!Number.isFinite(Number(basePrice)) || Number(basePrice) < 0)) {
+      return res.status(400).json({ error: "El precio debe ser un número no negativo" });
+    }
+
     if (!isSuperAdmin || tenantId) {
       const owned = await prisma.service.findFirst({
         where: { id, tenantId: tenantId ?? null },
@@ -156,7 +169,7 @@ router.patch("/services/:id", async (req, res) => {
       await changeServicePrice({
         serviceId: id,
         tenantId: tenantId ?? null,
-        target: null,
+        target: { type: "base" },
         newPrice: basePrice !== null ? Number(basePrice) : 0,
       });
     }

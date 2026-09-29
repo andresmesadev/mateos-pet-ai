@@ -15,7 +15,7 @@
 const prisma = require("../lib/prisma");
 const {
   toDateKey,
-  getHourInTimezone,
+  getDecimalHourInTimezone,
   dayBoundsInTimezone,
   zonedDateTimeToUtc,
 } = require("../lib/timezone");
@@ -82,7 +82,7 @@ const appointmentToSlot = (row) => {
     serviceType: normalizeServiceType(row.serviceType),
     status: row.status,
     dateKey: toDateKey(date),
-    hour: getHourInTimezone(date),
+    hour: getDecimalHourInTimezone(date),
     date,
   };
 };
@@ -155,7 +155,7 @@ const getBookedHoursForDate = async (dateKey, serviceType, tenantId) => {
  * ya resuelta — evita volver a consultarla en llamadas repetidas dentro de un
  * mismo bucle de búsqueda (`findNextAvailableGroomingSlot`, `suggestAvailableVetSlots`).
  */
-const isSlotAvailableWithConfig = async ({ dateKey, hour, serviceType, businessHours, exception, referenceDate, tenantId }) => {
+const isSlotAvailableWithConfig = async ({ dateKey, hour, serviceType, businessHours, exception, referenceDate, tenantId, bookedHours }) => {
   const key = toDateKey(dateKey);
   const h = Number(hour);
   const type = normalizeServiceType(serviceType);
@@ -175,14 +175,20 @@ const isSlotAvailableWithConfig = async ({ dateKey, hour, serviceType, businessH
       return false;
     }
 
+    if (!Number.isInteger(h) && h + 1 > resolveHourWindow(type, key, businessHours, exception).endHourExclusive) {
+      return false;
+    }
+
     if (isPastSlot(key, h, referenceDate)) {
       console.log("[AvailabilityDB] Slot occupied (ya pasó):", key, h, type);
       return false;
     }
 
-    const booked = await getBookedHoursForDate(key, type, tenantId);
+    const booked = bookedHours ?? await getBookedHoursForDate(key, type, tenantId);
 
-    if (booked.has(h)) {
+    // La unidad de capacidad existente es un turno de una hora por bucket.
+    // Una cita a las 10:30 se cruza tanto con 10:00 como con 11:00.
+    if ([...booked].some((bookedHour) => Math.abs(bookedHour - h) < 1)) {
       console.log("[AvailabilityDB] Slot occupied:", key, h, type);
       return false;
     }
@@ -228,6 +234,33 @@ const isSlotAvailable = async ({ dateKey, hour, serviceType, tenantId, reference
     return false;
   }
   return isSlotAvailableWithConfig({ dateKey, hour, serviceType, businessHours, exception, referenceDate, tenantId });
+};
+
+/** Horas reservables de un día para el formulario manual del dashboard. */
+const listAvailableSlotsForDate = async ({ dateKey, serviceType, tenantId, referenceDate }) => {
+  const key = toDateKey(dateKey);
+  const type = normalizeServiceType(serviceType);
+  if (!key || ![SERVICE_TYPES.VET, SERVICE_TYPES.GROOMING].includes(type)) {
+    throw new Error("Fecha o tipo de servicio inválido");
+  }
+
+  const businessHours = await getBusinessHours(tenantId);
+  const exception = await getAgendaExceptionForDate(tenantId, key, type);
+  if (!isBusinessDay(key, businessHours, type, exception)) return [];
+
+  const { startHour, endHourExclusive } = resolveHourWindow(type, key, businessHours, exception);
+  if (startHour === null || endHourExclusive === null) return [];
+  const bookedHours = await getBookedHoursForDate(key, type, tenantId);
+  const step = type === SERVICE_TYPES.VET ? 0.5 : 1;
+  const slots = [];
+
+  for (let h = Math.ceil(startHour / step) * step; h + 1 <= endHourExclusive && h < 24; h += step) {
+    if (await isSlotAvailableWithConfig({
+      dateKey: key, hour: h, serviceType: type, businessHours, exception,
+      referenceDate, tenantId, bookedHours,
+    })) slots.push(h);
+  }
+  return slots;
 };
 
 /**
@@ -382,6 +415,7 @@ const getSchedulingAppointments = async (dateKey) => {
 module.exports = {
   getAppointmentsByDate,
   isSlotAvailable,
+  listAvailableSlotsForDate,
   findNextAvailableGroomingSlot,
   suggestAvailableVetSlots,
   getSchedulingAppointments,

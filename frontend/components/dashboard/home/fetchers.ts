@@ -18,6 +18,7 @@ export type DailyMetrics = {
 
 export type UpcomingReminder = {
   id: string;
+  petId: string;
   type: string;
   notes: string | null;
   dueAt: string;
@@ -43,6 +44,11 @@ export type ActionsSummary = {
   total: number;
   byType: Record<string, number>;
   overduePets: number;
+};
+
+export type EscalatedConversation = {
+  id: string;
+  requiresHumanAttention: boolean;
 };
 
 export type RecoveryMetrics = {
@@ -141,6 +147,15 @@ export async function fetchActiveConversations(headers: Headers): Promise<Dashbo
     if (!res.ok) return null;
     const payload: ConversationsResponse = await res.json();
     return Array.isArray(payload.data) ? payload.data : [];
+  } catch { return null; }
+}
+
+export async function fetchEscalatedConversations(headers: Headers): Promise<EscalatedConversation[] | null> {
+  try {
+    const res = await fetch(apiUrl("/api/dashboard/escalations"), { cache: "no-store", headers });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return Array.isArray(data) ? data.filter((item) => item?.requiresHumanAttention === true) : null;
   } catch { return null; }
 }
 

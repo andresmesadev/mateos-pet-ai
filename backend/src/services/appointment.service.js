@@ -15,7 +15,7 @@ const {
   TIMEZONE,
   zonedDateTimeToUtc,
   dayBoundsInTimezone,
-  getHourInTimezone,
+  getDecimalHourInTimezone,
   formatSlotForUser,
   formatInTimeZone,
 } = require("../lib/timezone");
@@ -56,7 +56,7 @@ const buildAppointmentDateTime = (dateKey, hour) => {
   const key = String(dateKey || "").trim();
   const h = Number(hour);
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(key) || !Number.isFinite(h) || h < 0 || h > 23) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(key) || !Number.isFinite(h) || h < 0 || h > 23.5 || !Number.isInteger(h * 2)) {
     throw new Error("Invalid dateKey or hour for appointment");
   }
 
@@ -155,7 +155,7 @@ const formatAppointmentDateLabel = (appointment) => {
     return "fecha programada";
   }
 
-  return formatSlotForUser(toDateKey(date), getHourInTimezone(date));
+  return formatSlotForUser(toDateKey(date), getDecimalHourInTimezone(date));
 };
 
 const formatAppointmentServiceLabel = (serviceType) => {
@@ -265,6 +265,7 @@ const createAppointment = async (data) => {
   const {
     userId, tenantId = null, petName, petType, serviceType, date, status = "confirmed",
     address = null, groomingBreed = null, groomingSize = null,
+    petId: selectedPetId = null, serviceId = null,
   } = data || {};
 
   if (!userId || !petName || !petType || !serviceType || !date) {
@@ -277,18 +278,20 @@ const createAppointment = async (data) => {
     const trimmedPetName = String(petName).trim();
     const trimmedPetType = String(petType).trim();
 
-    let petId = null;
+    let petId = selectedPetId;
 
-    try {
-      const pet = await findPetByNameAndOwner(trimmedPetName, userId);
-      if (pet?.id) {
-        petId = pet.id;
+    if (!petId) {
+      try {
+        const pet = await findPetByNameAndOwner(trimmedPetName, userId);
+        if (pet?.id) {
+          petId = pet.id;
+        }
+      } catch (lookupError) {
+        logger.warn(
+          "[AppointmentService] Pet lookup skipped:",
+          lookupError.message
+        );
       }
-    } catch (lookupError) {
-      logger.warn(
-        "[AppointmentService] Pet lookup skipped:",
-        lookupError.message
-      );
     }
 
     // La mascota se materializa solo al confirmar una cita válida. Antes se
@@ -313,6 +316,7 @@ const createAppointment = async (data) => {
       status: String(status).trim(),
     };
     if (tenantId) appointmentData.tenantId = String(tenantId);
+    if (serviceId) appointmentData.serviceId = String(serviceId);
     if (address) appointmentData.address = String(address).trim();
     if (groomingBreed) appointmentData.groomingBreed = String(groomingBreed).trim();
     if (groomingSize) appointmentData.groomingSize = String(groomingSize).trim();
@@ -321,7 +325,35 @@ const createAppointment = async (data) => {
 
     let appointment;
     try {
-      appointment = await prisma.appointment.create({ data: appointmentData });
+      if (appointmentData.tenantId) {
+        // El índice único protege el instante exacto. Un lock por bucket
+        // hace atómica la comprobación de cruces al admitir inicios a :30.
+        const lockKey = `${appointmentData.tenantId}:${appointmentData.availabilityBucket}`;
+        const slotMs = 60 * 60 * 1000;
+        appointment = await prisma.$transaction(async (tx) => {
+          await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey})::bigint)::text AS locked`;
+          const conflict = await tx.appointment.findFirst({
+            where: {
+              tenantId: appointmentData.tenantId,
+              availabilityBucket: appointmentData.availabilityBucket,
+              status: { not: "cancelled" },
+              date: {
+                gt: new Date(appointmentData.date.getTime() - slotMs),
+                lt: new Date(appointmentData.date.getTime() + slotMs),
+              },
+            },
+            select: { id: true },
+          });
+          if (conflict) throw new SlotAlreadyBookedError({
+            tenantId: appointmentData.tenantId,
+            availabilityBucket: appointmentData.availabilityBucket,
+            date: appointmentData.date,
+          });
+          return tx.appointment.create({ data: appointmentData });
+        });
+      } else {
+        appointment = await prisma.appointment.create({ data: appointmentData });
+      }
     } catch (createError) {
       const isSlotConflict =
         createError?.code === "P2002" &&
@@ -439,7 +471,7 @@ const checkAppointmentConflict = async ({ date, serviceType, dateKey, hour, tena
   if ((!key || !Number.isFinite(h)) && date) {
     const slotDate = date instanceof Date ? date : new Date(date);
     key = toDateKey(slotDate);
-    h = getHourInTimezone(slotDate);
+    h = getDecimalHourInTimezone(slotDate);
   }
 
   if (!key || !Number.isFinite(h)) {
