@@ -104,7 +104,10 @@ async function resolveTenant(req, res, next) {
  */
 async function checkActiveAndContinue(req, res, next) {
   const { tenantId } = req.tenant;
-  if (!tenantId) return next();
+  if (!tenantId) {
+    req.actor = { type: "admin", email: typeof req.headers["x-admin-email"] === "string" ? req.headers["x-admin-email"].trim().toLowerCase() : null };
+    return next();
+  }
 
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
@@ -115,6 +118,21 @@ async function checkActiveAndContinue(req, res, next) {
     return res.status(402).json({ error: "Suscripción inactiva — acceso suspendido" });
   }
 
+  const staffId = req.headers["x-staff-id"];
+  if (staffId) {
+    const sessionVersion = Number(req.headers["x-staff-session-version"]);
+    if (!Number.isSafeInteger(sessionVersion) || sessionVersion < 1) {
+      return res.status(403).json({ error: "Sesión del profesional no válida" });
+    }
+    const credential = await prisma.staffCredential.findFirst({
+      where: { staffId: String(staffId), active: true, sessionVersion, staff: { tenantId, active: true, role: "vet" } },
+      select: { staffId: true },
+    });
+    if (!credential) return res.status(403).json({ error: "Acceso del profesional no disponible" });
+    req.actor = { type: "vet", staffId: credential.staffId };
+  } else {
+    req.actor = { type: "admin", email: typeof req.headers["x-admin-email"] === "string" ? req.headers["x-admin-email"].trim().toLowerCase() : null };
+  }
   return next();
 }
 

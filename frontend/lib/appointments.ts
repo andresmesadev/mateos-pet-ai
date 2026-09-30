@@ -37,6 +37,9 @@ export type TodayAppointment = {
   clientName: string | null;
   petId: string | null;
   serviceId?: string | null;
+  serviceCategory?: string | null;
+  staffId?: string | null;
+  hasMedicalRecord?: boolean;
   // Operational fields
   serviceName: string | null;
   staffName: string | null;
@@ -209,6 +212,12 @@ const STATUS_TRANSITIONS: Record<string, { label: string; next: string; variant?
 
 export function getStatusTransitions(status: AppointmentStatus) {
   return STATUS_TRANSITIONS[status] ?? [];
+}
+
+export const ARRIVAL_GRACE_MS = 30 * 60 * 1000;
+
+export function arrivalWindowExpired(date: string, nowMs = Date.now()): boolean {
+  return new Date(date).getTime() + ARRIVAL_GRACE_MS <= nowMs;
 }
 
 function getZonedYmd(date: Date): string {

@@ -50,7 +50,7 @@ export function LoginForm() {
       <CardHeader>
         <CardTitle>Iniciar sesión</CardTitle>
         <CardDescription>
-          Acceso administrativo a Mateos Pet AI
+          Acceso del equipo de Mateos Pet AI
         </CardDescription>
       </CardHeader>
 

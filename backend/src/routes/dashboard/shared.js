@@ -35,6 +35,8 @@ function mapAppointmentRow(a) {
     petId: a.petId ?? null,
     serviceId: a.serviceId ?? null,
     serviceName: a.service?.name ?? null,
+    serviceCategory: a.service?.category?.name ?? null,
+    staffId: a.staffId ?? null,
     staffName: a.staff?.name ?? null,
     finalPrice: priceResolution.finalPrice,
     priceResolution,
@@ -46,9 +48,12 @@ function mapAppointmentRow(a) {
 function mapMedicalRecord(r) {
   return {
     id: r.id,
+    version: r.version ?? 1,
     appointmentId: r.appointmentId ?? null,
     staffId: r.staffId ?? null,
     staffName: r.staff?.name ?? null,
+    createdByStaffName: r.createdByStaff?.name ?? null,
+    updatedByStaffName: r.updatedByStaff?.name ?? null,
     type: r.type,
     title: r.title,
     detail: r.detail ?? null,

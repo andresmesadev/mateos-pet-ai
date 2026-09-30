@@ -26,6 +26,9 @@ export async function POST(req: NextRequest) {
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (session.user.role === "vet") {
+    return NextResponse.json({ error: "Esta acción requiere acceso administrativo" }, { status: 403 });
+  }
 
   const tenantId = session.user.tenantId ?? null;
   if (!tenantId && !session.user.isSuperAdmin) {
@@ -59,6 +62,9 @@ export async function GET() {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (session.user.role === "vet") {
+    return NextResponse.json({ error: "Esta acción requiere acceso administrativo" }, { status: 403 });
   }
 
   const tenantId = session.user.tenantId ?? null;

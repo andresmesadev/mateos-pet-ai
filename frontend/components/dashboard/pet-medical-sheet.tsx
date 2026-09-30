@@ -62,7 +62,7 @@ const ACTION_BUTTONS: {
   bg: string;
   ring: string;
 }[] = [
-  { id: "consultation", label: "Consulta",        icon: Stethoscope, color: "text-sky-700",    bg: "bg-sky-500/10",    ring: "ring-sky-500/25 border-sky-500/20" },
+  { id: "consultation", label: "Antecedente sin cita", icon: Stethoscope, color: "text-sky-700", bg: "bg-sky-500/10", ring: "ring-sky-500/25 border-sky-500/20" },
   { id: "vaccine",      label: "Vacuna",           icon: Syringe,     color: "text-emerald-700",bg: "bg-emerald-500/10",ring: "ring-emerald-500/25 border-emerald-500/20" },
   { id: "deworming",    label: "Desparasitación",  icon: Pill,        color: "text-violet-700", bg: "bg-violet-500/10", ring: "ring-violet-500/25 border-violet-500/20" },
   { id: "grooming",     label: "Peluquería",       icon: Scissors,    color: "text-amber-700",  bg: "bg-amber-500/10",  ring: "ring-amber-500/25 border-amber-500/20" },

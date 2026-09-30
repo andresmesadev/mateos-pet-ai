@@ -8,6 +8,7 @@ jest.mock("../../lib/prisma", () => {
       findFirst: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
     staff: {
       findFirst: jest.fn(),
@@ -59,7 +60,7 @@ const BASE_APPT = {
   petName: "Luna",
   petType: "dog",
   serviceType: "vet",
-  date: new Date("2026-06-17T14:00:00Z"),
+  date: new Date("2099-06-17T14:00:00Z"),
   finalPrice: null,
   startedAt: null,
   endedAt: null,
@@ -71,6 +72,12 @@ const BASE_APPT = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  let conditionalData = {};
+  prisma.appointment.updateMany.mockImplementation(async ({ data }) => {
+    conditionalData = data;
+    return { count: 1 };
+  });
+  prisma.appointment.findUnique.mockImplementation(async () => ({ ...BASE_APPT, ...conditionalData }));
   // Default: update echoes the input
   prisma.appointment.update.mockImplementation(async ({ data }) => ({
     ...BASE_APPT,
@@ -168,6 +175,28 @@ describe("PATCH /api/dashboard/appointments/:id — status transitions", () => {
       .send({ status: "done" });
 
     expect(res.status).toBe(400);
+  });
+
+  test("rejects recording a late arrival after the 30 minute grace period", async () => {
+    prisma.appointment.findFirst.mockResolvedValue({ ...BASE_APPT, status: "confirmed", date: new Date("2026-09-28T14:00:00Z") });
+    const app = buildApp({ isSuperAdmin: false, tenantId: TENANT_A });
+
+    const res = await request(app).patch("/api/dashboard/appointments/appt-1").send({ status: "arrived" });
+
+    expect(res.status).toBe(422);
+    expect(res.body.error).toMatch(/30 minutos/);
+    expect(prisma.appointment.update).not.toHaveBeenCalled();
+  });
+
+  test("does not restore a confirmed appointment if the no-show sweep wins the race", async () => {
+    prisma.appointment.findFirst.mockResolvedValue({ ...BASE_APPT, status: "confirmed" });
+    prisma.appointment.updateMany.mockResolvedValue({ count: 0 });
+    const app = buildApp({ isSuperAdmin: false, tenantId: TENANT_A });
+
+    const res = await request(app).patch("/api/dashboard/appointments/appt-1").send({ status: "arrived" });
+
+    expect(res.status).toBe(409);
+    expect(prisma.appointment.update).not.toHaveBeenCalled();
   });
 });
 

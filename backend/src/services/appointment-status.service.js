@@ -7,6 +7,7 @@ const VALID_STATUSES = [
   "no_show",
   "cancelled",
 ];
+const ARRIVAL_GRACE_MS = 30 * 60 * 1000;
 
 const TRANSITIONS = {
   pending: ["confirmed", "cancelled"],
@@ -33,4 +34,8 @@ function autoTimestamps(from, to) {
   return data;
 }
 
-module.exports = { VALID_STATUSES, TRANSITIONS, isValidStatus, isAllowedTransition, autoTimestamps };
+function isArrivalWindowExpired(date, now = new Date()) {
+  return new Date(date).getTime() + ARRIVAL_GRACE_MS <= now.getTime();
+}
+
+module.exports = { VALID_STATUSES, TRANSITIONS, ARRIVAL_GRACE_MS, isValidStatus, isAllowedTransition, isArrivalWindowExpired, autoTimestamps };

@@ -68,6 +68,12 @@ async function handler(
     "X-Super-Admin": String(isSuperAdmin),
   };
   if (tenantId) headers["X-Tenant-Id"] = tenantId;
+  if (session.user.staffId) {
+    headers["X-Staff-Id"] = session.user.staffId;
+    headers["X-Staff-Session-Version"] = String(session.user.sessionVersion ?? "");
+  } else if (session.user.email) {
+    headers["X-Admin-Email"] = session.user.email;
+  }
   if (viewAllTenants) headers["X-View-All-Tenants"] = "true";
 
   const body =

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ type StaffMember = {
   email: string | null;
   active: boolean;
   availability: Availability | null;
+  credential?: { email: string; active: boolean } | null;
 };
 
 const ROLES = [
@@ -146,6 +148,7 @@ type EditForm = { name: string; role: string; phone: string; email: string };
 const EMPTY_FORM: NewForm = { name: "", role: "vet", phone: "", email: "" };
 
 export function StaffManager() {
+  const { data: session } = useSession();
   const tenant = useTenant();
   const { toast } = useToast();
   const [members, setMembers] = useState<StaffMember[]>([]);
@@ -156,6 +159,9 @@ export function StaffManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EditForm | null>(null);
   const [availabilityOpenId, setAvailabilityOpenId] = useState<string | null>(null);
+  const [accessOpenId, setAccessOpenId] = useState<string | null>(null);
+  const [accessEmail, setAccessEmail] = useState("");
+  const [accessPassword, setAccessPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   async function fetchStaff() {
@@ -271,13 +277,66 @@ export function StaffManager() {
     }
   }
 
+  function openAccess(member: StaffMember) {
+    setAccessOpenId(accessOpenId === member.id ? null : member.id);
+    setAccessEmail(member.credential?.email ?? member.email ?? "");
+    setAccessPassword("");
+    setError(null);
+  }
+
+  async function saveAccess(member: StaffMember) {
+    if (!accessEmail.trim() || accessPassword.length < 12) {
+      setError("Escribe el correo del veterinario y una contraseña de al menos 12 caracteres.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await fetch(proxyUrl(`/api/dashboard/staff/${member.id}/credential`), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: accessEmail.trim(), password: accessPassword }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error ?? "No se pudo guardar el acceso.");
+      setAccessPassword("");
+      setAccessOpenId(null);
+      await reload();
+      toast(`Acceso clínico actualizado para ${member.name}.`, "success");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No se pudo guardar el acceso.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function revokeAccess(member: StaffMember) {
+    if (!window.confirm(`¿Revocar el acceso de ${member.name}? Tendrá que volver a recibir una contraseña para entrar.`)) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await fetch(proxyUrl(`/api/dashboard/staff/${member.id}/credential`), { method: "DELETE" });
+      if (!response.ok) throw new Error("No se pudo revocar el acceso.");
+      await reload();
+      setAccessOpenId(null);
+      toast(`Acceso revocado para ${member.name}.`, "success");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No se pudo revocar el acceso.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const grouped = ROLES.map((r) => ({
     ...r,
     items: members.filter((m) => m.role === r.value),
   }));
+  const adminEmail = session?.user?.role !== "vet" ? session?.user?.email?.trim().toLowerCase() : null;
+  const usesAdminAccess = (member: StaffMember) => Boolean(adminEmail && member.role === "vet" && member.email?.trim().toLowerCase() === adminEmail);
 
   return (
     <div className="space-y-6">
+      <p className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-950">Si también atiendes como veterinario, registra tu ficha de veterinario con el mismo correo de tu cuenta administradora. Entrarás con tu contraseña actual; la cuenta clínica individual es para otros profesionales.</p>
       {error && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           {error}
@@ -405,8 +464,10 @@ export function StaffManager() {
                                 {m.phone && <span>{m.phone}</span>}
                                 {m.email && <span>{m.email}</span>}
                               </div>
+                              {m.role === "vet" && <p className="mt-1 text-xs text-teal-800">{usesAdminAccess(m) ? "Tu cuenta de administrador también sirve para atender consultas" : m.credential?.active ? `Acceso clínico activo: ${m.credential.email}` : "Sin acceso clínico individual"}</p>}
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
+                              {m.role === "vet" && !usesAdminAccess(m) && <Button size="sm" variant="ghost" onClick={() => openAccess(m)}>{accessOpenId === m.id ? "Cerrar acceso" : "Acceso"}</Button>}
                               <Button size="sm" variant="ghost" onClick={() => startEdit(m)}>
                                 Editar
                               </Button>
@@ -434,6 +495,22 @@ export function StaffManager() {
                               initial={m.availability}
                               onSaved={(av) => setMembers((prev) => prev.map((s) => s.id === m.id ? { ...s, availability: av } : s))}
                             />
+                          )}
+                          {accessOpenId === m.id && m.role === "vet" && (
+                            <div className="mt-3 space-y-3 rounded-xl border border-teal-200 bg-teal-50/50 p-4">
+                              <div>
+                                <p className="text-sm font-semibold text-teal-950">Cuenta individual de {m.name}</p>
+                                <p className="mt-1 text-xs text-teal-900">Da acceso solo a Consultas veterinarias. La historia guardará quién la creó y quién la editó por última vez.</p>
+                              </div>
+                              <div className="grid gap-3 sm:grid-cols-2">
+                                <label className="space-y-1 text-xs font-semibold text-slate-700">Correo de ingreso<Input type="email" autoComplete="off" value={accessEmail} onChange={(event) => setAccessEmail(event.target.value)} /></label>
+                                <label className="space-y-1 text-xs font-semibold text-slate-700">{m.credential?.active ? "Nueva contraseña" : "Contraseña inicial"}<Input type="password" autoComplete="new-password" minLength={12} value={accessPassword} onChange={(event) => setAccessPassword(event.target.value)} placeholder="Mínimo 12 caracteres" /></label>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                <Button size="sm" disabled={saving || !m.active || accessPassword.length < 12} onClick={() => void saveAccess(m)}>{saving ? "Guardando…" : m.credential?.active ? "Cambiar acceso" : "Habilitar acceso"}</Button>
+                                {m.credential?.active && <Button size="sm" variant="outline" disabled={saving} onClick={() => void revokeAccess(m)}>Revocar acceso</Button>}
+                              </div>
+                            </div>
                           )}
                         </div>
                       )}

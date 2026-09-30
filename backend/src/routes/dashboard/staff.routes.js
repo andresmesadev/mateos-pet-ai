@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const prisma = require("../../lib/prisma");
+const { normalizeEmail, validPassword, hashPassword } = require("../../services/staff-credential.service");
 // Entregable Puente: este adaptador delega en los casos de uso del contexto
 // Staff (2.2) — el roster deja de gestionarse vía staff.service.js legacy.
 const {
@@ -69,14 +70,75 @@ function mapStaffDomainError(res, error) {
 router.get("/staff", async (req, res) => {
   try {
     const { tenantId } = req.tenant;
+    if (req.actor?.type === "vet") {
+      const clinicians = await prisma.staff.findMany({
+        where: { tenantId, role: "vet", active: true },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, role: true },
+      });
+      return res.json(clinicians);
+    }
     const rows = await prisma.staff.findMany({
       where: tenantId ? { tenantId } : {},
       orderBy: [{ role: "asc" }, { name: "asc" }],
+      include: { credential: { select: { email: true, active: true } } },
     });
     res.json(rows);
   } catch (error) {
     console.error("[Dashboard] Staff error:", error);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// La cuenta identifica al autor de la historia. Solo el administrador puede
+// provisionar, restablecer o revocar este acceso.
+router.put("/staff/:id/credential", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    const staff = await prisma.staff.findFirst({
+      where: tenantId ? { id: req.params.id, tenantId } : { id: req.params.id },
+      select: { id: true, role: true, active: true, email: true },
+    });
+    if (!staff) return res.status(404).json({ error: "Profesional no encontrado" });
+    if (staff.role !== "vet" || !staff.active) return res.status(422).json({ error: "Solo un veterinario activo puede tener acceso clínico" });
+    const email = normalizeEmail(req.body?.email ?? staff.email);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
+      return res.status(400).json({ error: "Escribe un correo válido para el profesional" });
+    }
+    if (req.actor?.email && email === req.actor.email) {
+      return res.status(422).json({ error: "Tu cuenta de administrador ya permite atender consultas. Vincula este correo a tu ficha de veterinario sin crear otra contraseña." });
+    }
+    if (!validPassword(req.body?.password)) {
+      return res.status(400).json({ error: "La contraseña debe tener entre 12 y 128 caracteres" });
+    }
+    const passwordHash = await hashPassword(req.body.password);
+    const credential = await prisma.staffCredential.upsert({
+      where: { staffId: staff.id },
+      create: { staffId: staff.id, email, passwordHash },
+      update: { email, passwordHash, active: true, sessionVersion: { increment: 1 } },
+      select: { email: true, active: true },
+    });
+    return res.json(credential);
+  } catch (error) {
+    if (error.code === "P2002") return res.status(409).json({ error: "Ese correo ya tiene una cuenta" });
+    console.error("[Dashboard] Staff credential error:", error);
+    return res.status(500).json({ error: "No se pudo guardar el acceso" });
+  }
+});
+
+router.delete("/staff/:id/credential", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    const staff = await prisma.staff.findFirst({
+      where: tenantId ? { id: req.params.id, tenantId } : { id: req.params.id },
+      select: { id: true },
+    });
+    if (!staff) return res.status(404).json({ error: "Profesional no encontrado" });
+    await prisma.staffCredential.updateMany({ where: { staffId: staff.id }, data: { active: false } });
+    return res.status(204).end();
+  } catch (error) {
+    console.error("[Dashboard] Revoke staff credential error:", error);
+    return res.status(500).json({ error: "No se pudo revocar el acceso" });
   }
 });
 

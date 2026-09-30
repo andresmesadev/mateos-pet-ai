@@ -657,6 +657,12 @@ router.delete("/clients/:id", async (req, res) => {
       const pets = await tx.pet.findMany({ where: { ownerId: id }, select: { id: true } });
       const petIds = pets.map((p) => p.id);
       if (petIds.length > 0) {
+        const clinicalRecord = await tx.medicalRecord.findFirst({ where: { petId: { in: petIds }, appointmentId: { not: null } }, select: { id: true } });
+        if (clinicalRecord) {
+          const error = new Error("Este cliente tiene consultas clínicas conservadas. No se puede eliminar su expediente y sus versiones.");
+          error.status = 409;
+          throw error;
+        }
         await tx.medicalRecord.deleteMany({ where: { petId: { in: petIds } } });
         await tx.petNextAction.deleteMany({ where: { petId: { in: petIds } } });
         await tx.transaction.deleteMany({ where: { petId: { in: petIds } } });
@@ -689,6 +695,8 @@ router.delete("/clients/:id", async (req, res) => {
     res.json({ ok: true });
   } catch (error) {
     console.error("[Dashboard] Delete client error:", error);
+    if (error.status === 409) return res.status(409).json({ error: error.message });
+    if (error.code === "P2003") return res.status(409).json({ error: "El cliente tiene historial vinculado que debe conservarse." });
     if (error.code === "P2025") return res.status(404).json({ error: "No encontrado" });
     res.status(500).json({ error: "Internal server error" });
   }

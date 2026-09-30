@@ -36,9 +36,13 @@ export default async function ConsultasPage({ searchParams }: PageProps) {
   const isPreview = process.env.NODE_ENV === "development" && preview === "1";
   let appointments: TodayAppointment[] | null = isPreview ? previewConsultations() : null;
   let veterinaryEnabled: boolean | null = null;
+  let clinician = false;
+  let clinicianStaffId: string | null = null;
 
   if (!isPreview) {
     const session = await auth();
+    clinician = session?.user?.role === "vet";
+    clinicianStaffId = clinician ? session?.user?.staffId ?? null : null;
     const headers = makeServerHeaders(session, tenant);
     try {
       const [appointmentsRes, profileRes] = await Promise.all([
@@ -68,7 +72,7 @@ export default async function ConsultasPage({ searchParams }: PageProps) {
     <div className="mx-auto max-w-[1500px] pb-10">
       <PageHeader
         title="Consultas veterinarias"
-        description="Atiende las citas de esta semana y abre la historia de cada mascota."
+        description="Atiende las citas y encuentra consultas anteriores por mascota o propietario."
         icon={Stethoscope}
         tint="bg-teal-100 text-teal-700"
       />
@@ -86,7 +90,7 @@ export default async function ConsultasPage({ searchParams }: PageProps) {
           <p className="mt-1 text-sm text-muted-foreground">Esta sección se habilita en establecimientos que prestan atención veterinaria.</p>
         </div>
       ) : appointments ? (
-        <VetConsultationsView appointments={appointments} preview={isPreview} />
+        <VetConsultationsView appointments={appointments} preview={isPreview} tenantId={tenant} clinician={clinician} clinicianStaffId={clinicianStaffId} />
       ) : (
         <div role="alert" className="max-w-2xl rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-950">
           <h2 className="font-semibold">No se pudieron cargar las consultas</h2>

@@ -5,6 +5,9 @@ declare module "next-auth" {
   interface User {
     tenantId?: string | null;
     isSuperAdmin?: boolean;
+    role?: "admin" | "vet";
+    staffId?: string | null;
+    sessionVersion?: number | null;
   }
   interface Session {
     user: {
@@ -12,6 +15,9 @@ declare module "next-auth" {
       name: string;
       tenantId: string | null;
       isSuperAdmin: boolean;
+      role: "admin" | "vet";
+      staffId: string | null;
+      sessionVersion: number | null;
     };
   }
 }
@@ -20,5 +26,8 @@ declare module "next-auth/jwt" {
   interface JWT {
     tenantId?: string | null;
     isSuperAdmin?: boolean;
+    role?: "admin" | "vet";
+    staffId?: string | null;
+    sessionVersion?: number | null;
   }
 }

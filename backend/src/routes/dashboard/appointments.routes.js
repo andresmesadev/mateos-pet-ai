@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const prisma = require("../../lib/prisma");
+const { saveConsultationRecord, ClinicalRevisionError } = require("../../services/clinical-record-revision.service");
 const ERRORS = require("../../constants/errors");
 const {
   getBogotaYmd,
@@ -13,6 +14,8 @@ const {
   isValidStatus,
   isAllowedTransition,
   autoTimestamps,
+  isArrivalWindowExpired,
+  ARRIVAL_GRACE_MS,
 } = require("../../services/appointment-status.service");
 const {
   createRecord,
@@ -52,6 +55,18 @@ const GROOMING_TYPES = [
   "antipulgas",
 ];
 
+const VETERINARY_APPOINTMENT_FILTER = {
+  OR: [
+    { service: { is: { category: { is: { name: "veterinary" } } } } },
+    { serviceId: null, serviceType: { in: VET_SERVICE_TYPES } },
+  ],
+};
+
+function mapForActor(req, row) {
+  const mapped = mapAppointmentRow(row);
+  return req.actor?.type === "vet" ? { ...mapped, finalPrice: null, priceResolution: null } : mapped;
+}
+
 async function resolveVetAppointment(id, tenantId) {
   const where = tenantId ? { id, tenantId } : { id };
   const appt = await prisma.appointment.findFirst({
@@ -81,6 +96,8 @@ function validateVetAppointment(appt) {
 
 const MEDICAL_RECORD_INCLUDE = {
   staff: { select: { name: true } },
+  createdByStaff: { select: { name: true } },
+  updatedByStaff: { select: { name: true } },
 };
 
 router.get("/appointments/today", async (req, res) => {
@@ -186,19 +203,77 @@ router.get("/appointments/week", async (req, res) => {
       where: {
         ...tenantFilter,
         date: { gte: weekStart, lt: weekEnd },
+        ...(req.actor?.type === "vet" ? VETERINARY_APPOINTMENT_FILTER : {}),
       },
       orderBy: { date: "asc" },
-      include: APPOINTMENT_INCLUDE,
+      include: {
+        ...APPOINTMENT_INCLUDE,
+        medicalRecord: { select: { id: true } },
+      },
     });
 
     res.json({
       weekStart: weekStart.toISOString(),
       weekEnd: weekEnd.toISOString(),
       mondayYmd,
-      appointments: rows.map(mapAppointmentRow),
+      appointments: rows.map((row) => ({
+        ...mapForActor(req, row),
+        hasMedicalRecord: Boolean(row.medicalRecord),
+      })),
     });
   } catch (error) {
     console.error("[Dashboard] Week appointments error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Busca consultas de cualquier fecha por mascota o propietario dentro del tenant.
+router.get("/appointments/consultations/search", async (req, res) => {
+  try {
+    const query = typeof req.query.q === "string" ? req.query.q.trim() : "";
+    if (query.length < 2 || query.length > 80) {
+      return res.status(400).json({ error: "Escribe entre 2 y 80 caracteres para buscar." });
+    }
+
+    const { tenantId } = req.tenant;
+    const nameFilter = { contains: query, mode: "insensitive" };
+    const rows = await prisma.appointment.findMany({
+      where: {
+        ...(tenantId ? { tenantId } : {}),
+        status: { notIn: BLOCKED_STATUSES },
+        AND: [
+          {
+            OR: [
+              { service: { is: { category: { is: { name: "veterinary" } } } } },
+              { serviceId: null, serviceType: { in: VET_SERVICE_TYPES } },
+            ],
+          },
+          {
+            OR: [
+              { petName: nameFilter },
+              { pet: { is: { name: nameFilter } } },
+              { user: { is: { name: nameFilter } } },
+            ],
+          },
+        ],
+      },
+      orderBy: { date: "desc" },
+      take: 51,
+      include: {
+        ...APPOINTMENT_INCLUDE,
+        medicalRecord: { select: { id: true } },
+      },
+    });
+
+    res.json({
+      appointments: rows.slice(0, 50).map((row) => ({
+        ...mapForActor(req, row),
+        hasMedicalRecord: Boolean(row.medicalRecord),
+      })),
+      hasMore: rows.length > 50,
+    });
+  } catch (error) {
+    console.error("[Dashboard] Consultation search error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -355,6 +430,18 @@ router.post("/appointments/:id/complete", async (req, res) => {
     const { tenantId } = req.tenant;
     const { completedAt } = req.body ?? {};
 
+    if (req.actor?.type === "vet") {
+      const clinicalAppointment = await resolveVetAppointment(req.params.id, tenantId);
+      const validation = validateVetAppointment(clinicalAppointment);
+      if (validation) return res.status(validation.status).json({ error: validation.error });
+      if (clinicalAppointment.staffId !== req.actor.staffId) {
+        return res.status(403).json({ error: "La atención debe estar asignada a tu usuario para finalizarla" });
+      }
+      if (completedAt !== undefined) return res.status(403).json({ error: "La fecha de cierre se registra automáticamente" });
+      const record = await prisma.medicalRecord.findUnique({ where: { appointmentId: req.params.id }, select: { id: true } });
+      if (!record) return res.status(422).json({ error: "Guarda la historia clínica antes de finalizar la cita" });
+    }
+
     const { appointment } = await completeAppointment({
       tenantId,
       appointmentId: req.params.id,
@@ -381,7 +468,7 @@ router.post("/appointments/:id/complete", async (req, res) => {
       }
     }
 
-    res.json(mapAppointmentRow(full));
+    res.json(mapForActor(req, full));
   } catch (error) {
     if (error instanceof AppointmentNotFoundError) return res.status(404).json({ error: error.message });
     if (error instanceof InvalidStatusTransitionError) return res.status(422).json({ error: error.message });
@@ -424,7 +511,7 @@ router.patch("/appointments/:id/agreed-price", async (req, res) => {
       data: { finalPrice: amount },
       include: APPOINTMENT_INCLUDE,
     });
-    res.json(mapAppointmentRow(updated));
+    res.json(mapForActor(req, updated));
   } catch (error) {
     if (error instanceof ServiceNotFoundError || error instanceof PriceRuleTargetNotFoundError) {
       return res.status(404).json({ error: "Servicio o mascota no encontrado en este establecimiento." });
@@ -447,6 +534,14 @@ router.patch("/appointments/:id", async (req, res) => {
       where: tenantId ? { id, tenantId } : { id },
     });
     if (!existing) return res.status(404).json({ error: ERRORS.NOT_FOUND("Cita") });
+    if (req.actor?.type === "vet") {
+      const clinicalAppointment = await resolveVetAppointment(id, tenantId);
+      const validation = validateVetAppointment(clinicalAppointment);
+      if (validation) return res.status(validation.status).json({ error: validation.error });
+      if (clinicalAppointment.staffId && clinicalAppointment.staffId !== req.actor.staffId) {
+        return res.status(403).json({ error: "La cita está asignada a otro profesional" });
+      }
+    }
 
     const data = {};
 
@@ -454,6 +549,12 @@ router.patch("/appointments/:id", async (req, res) => {
     if (status !== undefined) {
       if (!isValidStatus(status)) {
         return res.status(400).json({ error: ERRORS.INVALID_STATUS });
+      }
+      if (["pending", "confirmed"].includes(existing.status) && ["confirmed", "arrived"].includes(status) && isArrivalWindowExpired(existing.date)) {
+        return res.status(422).json({ error: "Pasaron más de 30 minutos sin registrar la llegada. La cita se marcará como no asistida." });
+      }
+      if (req.actor?.type === "vet" && existing.status === "arrived" && status === "in_progress" && existing.date < bogotaDayStart(getBogotaYmd())) {
+        return res.status(422).json({ error: "Esta llegada pertenece a un día anterior. Solicita al administrador que revise la cita." });
       }
       // Entregable Puente (Etapa 1): la transición a "completed" pasa
       // obligatoriamente por el comando Completar Cita del contexto Agenda.
@@ -469,6 +570,9 @@ router.patch("/appointments/:id", async (req, res) => {
       }
       data.status = status;
       Object.assign(data, autoTimestamps(existing.status, status));
+      if (req.actor?.type === "vet" && status === "in_progress" && !existing.staffId) {
+        data.staffId = req.actor.staffId;
+      }
     }
 
     // Staff must belong to same tenant
@@ -506,13 +610,28 @@ router.patch("/appointments/:id", async (req, res) => {
       data.finalPrice = finalPrice === null ? null : amount;
     }
 
-    const updated = await prisma.appointment.update({
-      where: { id },
-      data,
-      include: APPOINTMENT_INCLUDE,
-    });
+    let updated;
+    if (["pending", "confirmed"].includes(existing.status) && ["confirmed", "arrived"].includes(status)) {
+      // El barrido de ausencias puede correr al mismo tiempo. Solo avanzar si
+      // la cita conserva su estado y todavía está dentro de la tolerancia.
+      const advanced = await prisma.appointment.updateMany({
+        where: { id, tenantId: existing.tenantId, status: existing.status, date: { gt: new Date(Date.now() - ARRIVAL_GRACE_MS) } },
+        data,
+      });
+      if (advanced.count !== 1) return res.status(409).json({ error: "La cita cambió de estado o venció la tolerancia. Actualiza la agenda." });
+      updated = await prisma.appointment.findUnique({ where: { id }, include: APPOINTMENT_INCLUDE });
+    } else if (req.actor?.type === "vet" && status === "in_progress" && !existing.staffId) {
+      const claim = await prisma.appointment.updateMany({
+        where: { id, tenantId, staffId: null, status: existing.status },
+        data,
+      });
+      if (claim.count !== 1) return res.status(409).json({ error: "Otro profesional acaba de iniciar esta atención. Actualiza la lista." });
+      updated = await prisma.appointment.findUnique({ where: { id }, include: APPOINTMENT_INCLUDE });
+    } else {
+      updated = await prisma.appointment.update({ where: { id }, data, include: APPOINTMENT_INCLUDE });
+    }
 
-    res.json(mapAppointmentRow(updated));
+    res.json(mapForActor(req, updated));
   } catch (error) {
     console.error("[Dashboard] Patch appointment error:", error);
     if (error.code === "P2025") return res.status(404).json({ error: "Not found" });
@@ -551,7 +670,7 @@ router.put("/appointments/:id/medical-record", async (req, res) => {
     const { tenantId } = req.tenant;
     const {
       reason, findings, diagnosis, treatment, recommendations,
-      weight, nextControlAt, staffId,
+      weight, nextControlAt, staffId, expectedVersion, correctionReason,
     } = req.body ?? {};
 
     const appt = await resolveVetAppointment(id, tenantId);
@@ -559,15 +678,40 @@ router.put("/appointments/:id/medical-record", async (req, res) => {
     if (validationError) {
       return res.status(validationError.status).json({ error: validationError.error });
     }
+    if (req.actor?.type === "vet") {
+      if (appt.staffId !== req.actor.staffId) {
+        return res.status(403).json({ error: "La atención debe estar asignada a tu usuario para registrar la historia" });
+      }
+      if (!["in_progress", "completed"].includes(appt.status)) {
+        return res.status(422).json({ error: "Inicia la atención antes de registrar la historia" });
+      }
+    }
 
     // Staff must belong to same tenant
-    if (staffId) {
+    const attendingStaffId = req.actor?.type === "vet" ? req.actor.staffId : staffId;
+    let actorName = req.actor?.email ?? "Administrador";
+    if (attendingStaffId) {
       const staffMember = await prisma.staff.findFirst({
-        where: tenantId ? { id: staffId, tenantId } : { id: staffId },
+        where: tenantId ? { id: attendingStaffId, tenantId, role: "vet", active: true } : { id: attendingStaffId, role: "vet", active: true },
       });
       if (!staffMember) {
         return res.status(404).json({ error: "Profesional no encontrado en este tenant" });
       }
+      if (req.actor?.type === "vet") actorName = staffMember.name;
+    }
+
+    // El dueño que usa su acceso administrador puede ser también veterinario.
+    // Su ficha se vincula por correo dentro del tenant; no necesita otra clave.
+    // Si el correo no identifica exactamente a una persona, no atribuimos la
+    // historia a un profesional de forma ambigua.
+    let authorStaffId = req.actor?.type === "vet" ? req.actor.staffId : null;
+    if (req.actor?.type === "admin" && req.actor.email) {
+      const matches = await prisma.staff.findMany({
+        where: { tenantId: appt.tenantId, email: { equals: req.actor.email, mode: "insensitive" }, role: "vet", active: true },
+        select: { id: true, name: true },
+        take: 2,
+      });
+      if (matches.length === 1) { authorStaffId = matches[0].id; actorName = matches[0].name; }
     }
 
     const recordData = {
@@ -576,13 +720,13 @@ router.put("/appointments/:id/medical-record", async (req, res) => {
       type: "consultation",
       title: "Consulta veterinaria",
       date: appt.date,
-      staffId: staffId ?? null,
+      staffId: attendingStaffId ?? null,
       reason: reason?.trim() || null,
       findings: findings?.trim() || null,
       diagnosis: diagnosis?.trim() || null,
       treatment: treatment?.trim() || null,
       recommendations: recommendations?.trim() || null,
-      weight: weight !== undefined && weight !== null ? Number(weight) : undefined,
+      weight: weight === undefined ? undefined : weight === null ? null : Number(weight),
       nextControlAt: nextControlAt ? new Date(nextControlAt) : null,
     };
 
@@ -593,13 +737,15 @@ router.put("/appointments/:id/medical-record", async (req, res) => {
     const updateData = Object.fromEntries(
       Object.entries(recordData).filter(([, v]) => v !== undefined)
     );
+    createData.createdByStaffId = authorStaffId;
+    createData.updatedByStaffId = authorStaffId;
+    updateData.updatedByStaffId = authorStaffId;
 
     const result = await prisma.$transaction(async (tx) => {
-      const record = await tx.medicalRecord.upsert({
-        where: { appointmentId: id },
-        create: createData,
-        update: updateData,
-        include: MEDICAL_RECORD_INCLUDE,
+      const record = await saveConsultationRecord(tx, {
+        appointment: appt, createData, updateData, include: MEDICAL_RECORD_INCLUDE,
+        expectedVersion, correctionReason,
+        actor: { type: req.actor?.type ?? "admin", staffId: authorStaffId, name: actorName || "Profesional", email: req.actor?.email ?? null },
       });
 
       // Update Pet.weight with the most recent measurement
@@ -611,7 +757,7 @@ router.put("/appointments/:id/medical-record", async (req, res) => {
       }
 
       return record;
-    });
+    }, { isolationLevel: "Serializable" });
 
     // Auto-upsert "control" next action when nextControlAt is set
     await upsertControlFromRecord({
@@ -624,6 +770,8 @@ router.put("/appointments/:id/medical-record", async (req, res) => {
 
     res.json(mapMedicalRecord(result));
   } catch (error) {
+    if (error instanceof ClinicalRevisionError) return res.status(error.status).json({ error: error.message });
+    if (["P2034", "P2002"].includes(error.code)) return res.status(409).json({ error: "El registro cambió mientras guardabas. Vuelve a abrir la consulta antes de guardar." });
     console.error("[Dashboard] PUT medical-record error:", error);
     res.status(500).json({ error: "Internal server error" });
   }

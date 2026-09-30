@@ -112,10 +112,10 @@ export function VetConsultationDialog({ open, onOpenChange, petId, petName, onSa
         <DialogHeader className="border-b px-6 py-4">
           <DialogTitle className="flex items-center gap-2">
             <span>🩺</span>
-            <span>Historia clínica — {petName}</span>
+            <span>Antecedente sin cita — {petName}</span>
           </DialogTitle>
           <DialogDescription>
-            Registra los datos de la consulta veterinaria
+            Registra una consulta anterior que no tiene cita en la agenda. Para una atención programada, usa Consultas veterinarias.
           </DialogDescription>
         </DialogHeader>
 

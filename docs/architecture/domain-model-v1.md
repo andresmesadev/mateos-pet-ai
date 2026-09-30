@@ -460,6 +460,7 @@ Gestionar el historial médico de cada animal. Se activa únicamente en establec
 **Entidades principales**
 
 - **Historia Clínica** — El expediente completo de una mascota. Agrupa todas las entidades clínicas bajo una identidad única vinculada a la mascota.
+- **Corrección de Registro Clínico** — Constancia inmutable de una modificación: conserva las versiones anterior y nueva, el motivo, la identidad del autor y la fecha. Una nueva visita crea una consulta nueva; una corrección nunca sustituye una visita ni borra la versión anterior. Reconciliación de mantenimiento del dashboard autorizada el 2026-09-30: `MedicalRecord` continúa representando el registro por consulta y `MedicalRecordRevision` conserva sus correcciones. Los registros históricos existentes parten de la versión 1; no se reconstruyen ni inventan cambios anteriores.
 - **Consulta** — Un episodio clínico. Tiene fecha, motivo de consulta, hallazgos, diagnóstico, plan de tratamiento y las notas del veterinario. Es la unidad básica de la historia clínica.
 - **Vacuna** — El registro de una vacuna aplicada o programada. Tiene tipo, fecha de aplicación, lote, próxima dosis y el veterinario que la aplicó.
 - **Tratamiento** — Una intervención clínica en curso. Tiene duración, medicamentos asociados, instrucciones para el propietario y seguimiento.

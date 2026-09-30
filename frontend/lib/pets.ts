@@ -48,6 +48,9 @@ export type PetMedicalRecord = {
   weight?: number | null;
   nextControlAt?: string | null;
   updatedAt?: string;
+  version?: number;
+  createdByStaffName?: string | null;
+  updatedByStaffName?: string | null;
 };
 
 export const PET_TYPE_LABELS: Record<string, string> = {

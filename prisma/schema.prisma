@@ -84,6 +84,22 @@ model Staff {
   capabilities   StaffCapability[]
   settlements    Settlement[]
   escalations    Escalation[]
+  credential     StaffCredential?
+  authoredMedicalRecords MedicalRecord[] @relation("MedicalRecordAuthor")
+  editedMedicalRecords   MedicalRecord[] @relation("MedicalRecordEditor")
+}
+
+// Acceso individual del profesional al dashboard clínico. La cuenta se
+// desactiva también cuando Staff.active pasa a false.
+model StaffCredential {
+  staffId      String   @id
+  staff        Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  email        String   @unique
+  passwordHash String
+  active       Boolean  @default(true)
+  sessionVersion Int     @default(1)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model StaffAvailability {
@@ -304,6 +320,10 @@ model MedicalRecord {
   // Attending professional
   staffId   String?
   staff     Staff?   @relation(fields: [staffId], references: [id])
+  createdByStaffId String?
+  createdByStaff   Staff? @relation("MedicalRecordAuthor", fields: [createdByStaffId], references: [id])
+  updatedByStaffId String?
+  updatedByStaff   Staff? @relation("MedicalRecordEditor", fields: [updatedByStaffId], references: [id])
 
   type      String
   title     String
@@ -320,6 +340,8 @@ model MedicalRecord {
   nextControlAt   DateTime?
 
   reminderSent Boolean @default(false)
+  version Int @default(1)
+  revisions MedicalRecordRevision[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -329,8 +351,28 @@ model MedicalRecord {
   // churn/inactivos/reactivar filtran por type="grooming" + date
   @@index([petId, type])
   @@index([type, date])
+  @@index([createdByStaffId])
+  @@index([updatedByStaffId])
   // opportunities: nextControlAt con ventana de fechas
   @@index([nextControlAt])
+}
+
+model MedicalRecordRevision {
+  id String @id @default(cuid())
+  recordId String
+  record MedicalRecord @relation(fields: [recordId], references: [id], onDelete: Restrict)
+  version Int
+  before Json
+  after Json
+  reason String
+  actorType String
+  actorStaffId String?
+  actorName String
+  actorEmail String?
+  createdAt DateTime @default(now())
+
+  @@unique([recordId, version])
+  @@index([recordId, createdAt])
 }
 
 model Conversation {

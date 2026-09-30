@@ -4,7 +4,7 @@ const request = require("supertest");
 jest.mock("../../lib/prisma", () => ({
   appointment: { findFirst: jest.fn() },
   medicalRecord: { findUnique: jest.fn(), upsert: jest.fn() },
-  staff: { findFirst: jest.fn() },
+  staff: { findFirst: jest.fn(), findMany: jest.fn() },
   pet: { update: jest.fn() },
   $transaction: jest.fn(),
 }));
@@ -15,10 +15,10 @@ const dashboardRoutes = require("../../routes/dashboard.routes");
 const TENANT_A = "tenant-a";
 const TENANT_B = "tenant-b";
 
-function buildApp(tenant) {
+function buildApp(tenant, actor) {
   const app = express();
   app.use(express.json());
-  app.use((req, _res, next) => { req.tenant = tenant; next(); });
+  app.use((req, _res, next) => { req.tenant = tenant; req.actor = actor; next(); });
   app.use("/api/dashboard", dashboardRoutes);
   return app;
 }
@@ -60,7 +60,7 @@ const MEDICAL_RECORD = {
 function setupTransaction(record) {
   prisma.$transaction.mockImplementation(async (fn) => {
     const tx = {
-      medicalRecord: { upsert: jest.fn().mockResolvedValue(record) },
+      medicalRecord: { findUnique: jest.fn().mockResolvedValue(null), upsert: jest.fn().mockResolvedValue(record) },
       pet: { update: jest.fn().mockResolvedValue({}) },
     };
     return fn(tx);
@@ -214,6 +214,67 @@ describe("PUT /api/dashboard/appointments/:id/medical-record — staff isolation
     expect(res.status).toBe(200);
     expect(res.body.staffName).toBe("Dr. Mesa");
   });
+
+  test("uses the authenticated veterinarian as author even if the body names someone else", async () => {
+    prisma.appointment.findFirst.mockResolvedValue({ ...VET_APPT, staffId: "vet-1" });
+    prisma.staff.findFirst.mockResolvedValue({ id: "vet-1", tenantId: TENANT_A, role: "vet", active: true });
+    const upsert = jest.fn().mockResolvedValue({ ...MEDICAL_RECORD, staffId: "vet-1" });
+    prisma.$transaction.mockImplementation(async (fn) => fn({
+      medicalRecord: { findUnique: jest.fn().mockResolvedValue(null), upsert },
+      pet: { update: jest.fn() },
+    }));
+    const clinicalApp = buildApp({ isSuperAdmin: false, tenantId: TENANT_A }, { type: "vet", staffId: "vet-1" });
+    const response = await request(clinicalApp).put("/api/dashboard/appointments/appt-1/medical-record")
+      .send({ staffId: "someone-else", reason: "Revisión" });
+    expect(response.status).toBe(200);
+    expect(upsert).toHaveBeenCalledWith(expect.objectContaining({
+      create: expect.objectContaining({ staffId: "vet-1", createdByStaffId: "vet-1", updatedByStaffId: "vet-1" }),
+      update: {},
+    }));
+  });
+
+  test("clinical account cannot alter another clinician's record", async () => {
+    prisma.appointment.findFirst.mockResolvedValue({ ...VET_APPT, staffId: "vet-2" });
+    const clinicalApp = buildApp({ isSuperAdmin: false, tenantId: TENANT_A }, { type: "vet", staffId: "vet-1" });
+    const response = await request(clinicalApp).put("/api/dashboard/appointments/appt-1/medical-record")
+      .send({ diagnosis: "Cambio indebido" });
+    expect(response.status).toBe(403);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  test("clinical account cannot write before being assigned to an ongoing appointment", async () => {
+    prisma.appointment.findFirst.mockResolvedValue({ ...VET_APPT, staffId: null });
+    const clinicalApp = buildApp({ isSuperAdmin: false, tenantId: TENANT_A }, { type: "vet", staffId: "vet-1" });
+    const response = await request(clinicalApp).put("/api/dashboard/appointments/appt-1/medical-record")
+      .send({ reason: "Revisión" });
+    expect(response.status).toBe(403);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  test("administrator who is also a veterinarian uses the same login as clinical author", async () => {
+    prisma.appointment.findFirst.mockResolvedValue({ ...VET_APPT, staffId: "owner-vet" });
+    prisma.staff.findFirst.mockResolvedValue({ id: "owner-vet", tenantId: TENANT_A, role: "vet", active: true });
+    prisma.staff.findMany.mockResolvedValue([{ id: "owner-vet" }]);
+    const upsert = jest.fn().mockResolvedValue(MEDICAL_RECORD);
+    prisma.$transaction.mockImplementation(async (fn) => fn({
+      medicalRecord: { findUnique: jest.fn().mockResolvedValue(null), upsert },
+      pet: { update: jest.fn() },
+    }));
+    const ownerApp = buildApp({ isSuperAdmin: false, tenantId: TENANT_A }, { type: "admin", email: "duena@example.com" });
+
+    const response = await request(ownerApp).put("/api/dashboard/appointments/appt-1/medical-record")
+      .send({ staffId: "owner-vet", reason: "Revisión" });
+
+    expect(response.status).toBe(200);
+    expect(prisma.staff.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { tenantId: TENANT_A, email: { equals: "duena@example.com", mode: "insensitive" }, role: "vet", active: true },
+      take: 2,
+    }));
+    expect(upsert).toHaveBeenCalledWith(expect.objectContaining({
+      create: expect.objectContaining({ createdByStaffId: "owner-vet", updatedByStaffId: "owner-vet" }),
+      update: {},
+    }));
+  });
 });
 
 // ── PUT — weight handling ─────────────────────────────────────
@@ -227,7 +288,7 @@ describe("PUT /api/dashboard/appointments/:id/medical-record — weight", () => 
     let petUpdateCalled = false;
     prisma.$transaction.mockImplementation(async (fn) => {
       const tx = {
-        medicalRecord: { upsert: jest.fn().mockResolvedValue(MEDICAL_RECORD) },
+        medicalRecord: { findUnique: jest.fn().mockResolvedValue(null), upsert: jest.fn().mockResolvedValue(MEDICAL_RECORD) },
         pet: {
           update: jest.fn().mockImplementation(async ({ data }) => {
             if (data.weight !== undefined) petUpdateCalled = true;
@@ -250,7 +311,7 @@ describe("PUT /api/dashboard/appointments/:id/medical-record — weight", () => 
     let petUpdateCalled = false;
     prisma.$transaction.mockImplementation(async (fn) => {
       const tx = {
-        medicalRecord: { upsert: jest.fn().mockResolvedValue(MEDICAL_RECORD) },
+        medicalRecord: { findUnique: jest.fn().mockResolvedValue(null), upsert: jest.fn().mockResolvedValue(MEDICAL_RECORD) },
         pet: {
           update: jest.fn().mockImplementation(async () => {
             petUpdateCalled = true;
@@ -273,6 +334,7 @@ describe("PUT /api/dashboard/appointments/:id/medical-record — weight", () => 
     prisma.$transaction.mockImplementation(async (fn) => {
       const tx = {
         medicalRecord: {
+          findUnique: jest.fn().mockResolvedValue(null),
           upsert: jest.fn().mockImplementation(async ({ create }) => {
             upsertData = create;
             return { ...MEDICAL_RECORD, weight: create.weight };
@@ -298,7 +360,7 @@ describe("PUT /api/dashboard/appointments/:id/medical-record — upsert", () => 
     prisma.appointment.findFirst.mockResolvedValue(VET_APPT);
     const upsertMock = jest.fn().mockResolvedValue({ ...MEDICAL_RECORD, diagnosis: "Actualizado" });
     prisma.$transaction.mockImplementation(async (fn) => {
-      return fn({ medicalRecord: { upsert: upsertMock }, pet: { update: jest.fn() } });
+      return fn({ medicalRecord: { findUnique: jest.fn().mockResolvedValue(null), upsert: upsertMock }, pet: { update: jest.fn() } });
     });
 
     await request(appA).put("/api/dashboard/appointments/appt-1/medical-record").send({ diagnosis: "Primera vez" });

@@ -256,12 +256,17 @@ router.get("/pets/:id/records", async (req, res) => {
     const records = await prisma.medicalRecord.findMany({
       where: { petId: id },
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-      include: { staff: { select: { name: true } } },
+      include: {
+        staff: { select: { name: true } },
+        createdByStaff: { select: { name: true } },
+        updatedByStaff: { select: { name: true } },
+      },
     });
 
     res.json(
       records.map((record) => ({
         id: record.id,
+        version: record.version ?? 1,
         appointmentId: record.appointmentId,
         type: record.type,
         title: record.title,
@@ -270,6 +275,8 @@ router.get("/pets/:id/records", async (req, res) => {
         // Clinical fields (TAREA 10)
         staffId: record.staffId,
         staffName: record.staff?.name ?? null,
+        createdByStaffName: record.createdByStaff?.name ?? null,
+        updatedByStaffName: record.updatedByStaff?.name ?? null,
         reason: record.reason,
         findings: record.findings,
         diagnosis: record.diagnosis,
@@ -287,6 +294,23 @@ router.get("/pets/:id/records", async (req, res) => {
     res.status(500).json({
       error: "Internal server error",
     });
+  }
+});
+
+router.get("/pets/:petId/records/:recordId/revisions", async (req, res) => {
+  try {
+    const { petId, recordId } = req.params;
+    const { tenantId } = req.tenant;
+    const record = await prisma.medicalRecord.findFirst({
+      where: { id: recordId, petId, ...(tenantId ? { pet: { owner: { tenantId } } } : {}) },
+      select: { id: true, version: true },
+    });
+    if (!record) return res.status(404).json({ error: "Registro no encontrado" });
+    const revisions = await prisma.medicalRecordRevision.findMany({ where: { recordId: record.id }, orderBy: { version: "desc" } });
+    res.json({ version: record.version, revisions });
+  } catch (error) {
+    console.error("[Dashboard] Clinical revisions error:", error.message);
+    res.status(500).json({ error: "No se pudieron cargar las correcciones" });
   }
 });
 
@@ -378,9 +402,10 @@ router.patch("/pets/:petId/records/:recordId", async (req, res) => {
     // tenant — permitía editar registros médicos de otro establecimiento.
     const existing = await prisma.medicalRecord.findFirst({
       where: { id: recordId, petId, ...(tenantId ? { pet: { tenantId } } : {}) },
-      select: { id: true },
+      select: { id: true, appointmentId: true },
     });
     if (!existing) return res.status(404).json({ error: "Record not found" });
+    if (existing.appointmentId) return res.status(409).json({ error: "Edita este registro desde Consultas veterinarias para conservar sus versiones y el motivo de corrección." });
 
     const normalizeDate = (d) => {
       if (!d) return null;
@@ -450,9 +475,10 @@ router.delete("/pets/:petId/records/:recordId", async (req, res) => {
     // borrar registros médicos de otro establecimiento.
     const existing = await prisma.medicalRecord.findFirst({
       where: { id: recordId, petId, ...(tenantId ? { pet: { tenantId } } : {}) },
-      select: { id: true },
+      select: { id: true, appointmentId: true },
     });
     if (!existing) return res.status(404).json({ error: "Record not found" });
+    if (existing.appointmentId) return res.status(409).json({ error: "Las consultas vinculadas a una cita se conservan en la historia. Corrige el registro desde Consultas veterinarias." });
     await prisma.medicalRecord.delete({ where: { id: recordId } });
     await prisma.petNextAction.deleteMany({ where: { sourceRecordId: recordId } });
     res.json({ ok: true });
@@ -635,7 +661,7 @@ router.post("/pets/:id/next-actions", async (req, res) => {
   try {
     const { id } = req.params;
     const { tenantId } = req.tenant;
-    const { type, notes, dueAt } = req.body ?? {};
+    const { type, notes, dueAt, sourceAppointmentId } = req.body ?? {};
 
     const pet = await prisma.pet.findFirst({
       where: tenantId ? { id, tenantId } : { id },
@@ -647,8 +673,32 @@ router.post("/pets/:id/next-actions", async (req, res) => {
     if (!VALID_ACTION_TYPES.includes(type)) {
       return res.status(400).json({ error: `Tipo inválido. Valores: ${VALID_ACTION_TYPES.join(", ")}` });
     }
+    if (sourceAppointmentId != null && typeof sourceAppointmentId !== "string") {
+      return res.status(400).json({ error: "La cita de origen no es válida." });
+    }
+    if (req.actor?.type === "vet" && !sourceAppointmentId) {
+      return res.status(422).json({ error: "La acción clínica debe vincularse a una consulta" });
+    }
 
-    const action = await createNextAction({ petId: id, tenantId, type, notes, dueAt });
+    if (sourceAppointmentId) {
+      const appointment = await prisma.appointment.findFirst({
+        where: {
+          id: sourceAppointmentId,
+          petId: id,
+          ...(tenantId ? { tenantId } : {}),
+        },
+        select: { id: true, staffId: true, status: true, serviceType: true, service: { select: { category: { select: { name: true } } } } },
+      });
+      if (!appointment) return res.status(422).json({ error: "La cita no corresponde a esta mascota." });
+      if (req.actor?.type === "vet") {
+        const isClinical = appointment.service?.category?.name === "veterinary" || (appointment.serviceType && VET_SERVICE_TYPES.includes(appointment.serviceType.toLowerCase()));
+        if (appointment.staffId !== req.actor.staffId || !isClinical || !["in_progress", "completed"].includes(appointment.status)) {
+          return res.status(403).json({ error: "Esta acción corresponde a otra atención" });
+        }
+      }
+    }
+
+    const action = await createNextAction({ petId: id, tenantId, type, notes, dueAt, sourceAppointmentId: sourceAppointmentId || null });
     res.status(201).json(action);
   } catch (error) {
     console.error("[Dashboard] Create next action error:", error);
@@ -661,6 +711,25 @@ router.patch("/next-actions/:id", async (req, res) => {
     const { id } = req.params;
     const { tenantId } = req.tenant;
     const { status, notes, dueAt } = req.body ?? {};
+
+    if (req.actor?.type === "vet") {
+      if (status !== "dismissed" || notes !== undefined || dueAt !== undefined) {
+        return res.status(403).json({ error: "El profesional solo puede descartar acciones de su consulta" });
+      }
+      const action = await prisma.petNextAction.findFirst({
+        where: { id, tenantId },
+        select: { sourceAppointmentId: true, sourceRecordId: true },
+      });
+      if (!action) return res.status(404).json({ error: "Acción no encontrada" });
+      let appointmentId = action.sourceAppointmentId;
+      if (!appointmentId && action.sourceRecordId) {
+        const record = await prisma.medicalRecord.findUnique({ where: { id: action.sourceRecordId }, select: { appointmentId: true } });
+        appointmentId = record?.appointmentId ?? null;
+      }
+      if (!appointmentId) return res.status(403).json({ error: "Esta acción no pertenece a una consulta" });
+      const appointment = await prisma.appointment.findFirst({ where: { id: appointmentId, tenantId, staffId: req.actor.staffId }, select: { id: true } });
+      if (!appointment) return res.status(403).json({ error: "Esta acción corresponde a otro profesional" });
+    }
 
     const updated = await updateNextAction(id, tenantId, { status, notes, dueAt });
     if (!updated) return res.status(404).json({ error: "Not found" });

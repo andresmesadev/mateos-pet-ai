@@ -15,6 +15,7 @@ import {
   formatService,
   formatStatus,
   getStatusTransitions,
+  arrivalWindowExpired,
   statusBadgeClass,
   type TodayAppointment,
 } from "@/lib/appointments";
@@ -37,13 +38,16 @@ export function AppointmentDetailDialog({ appointment, onClose, onUpdated, readO
   const [editingPrice, setEditingPrice] = useState(startInPriceEdit);
   const [price, setPrice] = useState(appointment.priceResolution?.manualOverride?.toString() ?? "");
   const [error, setError] = useState<string | null>(null);
-  const transitions = getStatusTransitions(appointment.status);
+  const graceExpired = ["pending", "confirmed"].includes(appointment.status) && arrivalWindowExpired(appointment.date);
+  const previousDayArrival = appointment.status === "arrived" && new Date(appointment.date).toLocaleDateString("en-CA", { timeZone: "America/Bogota" }) < new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
+  const transitions = getStatusTransitions(appointment.status).filter((transition) => (!graceExpired || !["confirmed", "arrived"].includes(transition.next)) && (!previousDayArrival || transition.next !== "in_progress"));
   const canEditPrice = !readOnly && !["completed", "cancelled", "no_show"].includes(appointment.status);
   const canSavePetPrice = Boolean(appointment.petId && appointment.serviceId);
   const canRecord = VET_SERVICE_TYPES.includes(appointment.serviceType?.toLowerCase()) &&
     (appointment.status === "in_progress" || appointment.status === "completed") && !!appointment.petId;
 
   async function updateStatus(nextStatus: string) {
+    if (nextStatus === "in_progress" && previousDayArrival && !window.confirm("Esta llegada corresponde a un día anterior. ¿Confirmas que sí se prestó la atención y vas a completar su historia clínica?")) return;
     if (["cancelled", "no_show", "completed"].includes(nextStatus)) {
       const question = nextStatus === "completed"
         ? "¿Completar esta cita? Se registrarán el cobro y la comisión correspondientes."
@@ -133,6 +137,8 @@ export function AppointmentDetailDialog({ appointment, onClose, onUpdated, readO
             </form>}
 
             {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</p>}
+            {graceExpired && <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">Pasaron 30 minutos sin llegada registrada. Esta cita se marcará automáticamente como “No asistió”.</p>}
+            {previousDayArrival && <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">Esta cita figura como “Llegó” en un día anterior. Verifica si hubo atención antes de cerrarla.</p>}
 
             {!readOnly && (transitions.length > 0 || canRecord) && (
               <section className="rounded-2xl border border-teal-100 bg-teal-50/50 p-4 sm:p-5" aria-label="Acciones de la cita">
@@ -144,6 +150,7 @@ export function AppointmentDetailDialog({ appointment, onClose, onUpdated, readO
                       {busy ? "Guardando…" : transition.label}
                     </Button>
                   ))}
+                  {previousDayArrival && <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => updateStatus("in_progress")}>Regularizar atención anterior</Button>}
                   {canRecord && <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => setRecordOpen(true)}>Abrir historia clínica</Button>}
                 </div>
               </section>

@@ -3,6 +3,7 @@ const request = require("supertest");
 
 jest.mock("../../lib/prisma", () => ({
   pet: { findFirst: jest.fn() },
+  appointment: { findFirst: jest.fn() },
   petNextAction: {
     findFirst: jest.fn(),
     findMany: jest.fn(),
@@ -51,6 +52,7 @@ const pendingControl = {
 beforeEach(() => {
   jest.clearAllMocks();
   prisma.pet.findFirst.mockResolvedValue(petA);
+  prisma.appointment.findFirst.mockResolvedValue({ id: "appt-1" });
   prisma.petNextAction.findMany.mockResolvedValue([pendingControl]);
   prisma.petNextAction.findFirst.mockResolvedValue(pendingControl);
   prisma.petNextAction.create.mockResolvedValue({ ...pendingControl, id: "action-new" });
@@ -104,6 +106,29 @@ describe("POST /api/dashboard/pets/:id/next-actions", () => {
         data: expect.objectContaining({ petId: "pet-1", type: "vaccine", tenantId: TENANT_A }),
       })
     );
+  });
+
+  test("links a follow-up to a consultation from the same pet and tenant", async () => {
+    const res = await request(app)
+      .post("/api/dashboard/pets/pet-1/next-actions")
+      .send({ type: "control", dueAt: "2026-07-15", sourceAppointmentId: "appt-1" });
+    expect(res.status).toBe(201);
+    expect(prisma.appointment.findFirst).toHaveBeenCalledWith({
+      where: { id: "appt-1", petId: "pet-1", tenantId: TENANT_A },
+      select: expect.objectContaining({ id: true, staffId: true, status: true, serviceType: true }),
+    });
+    expect(prisma.petNextAction.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ sourceAppointmentId: "appt-1" }) })
+    );
+  });
+
+  test("rejects a follow-up linked to a consultation outside the pet or tenant", async () => {
+    prisma.appointment.findFirst.mockResolvedValue(null);
+    const res = await request(app)
+      .post("/api/dashboard/pets/pet-1/next-actions")
+      .send({ type: "control", dueAt: "2026-07-15", sourceAppointmentId: "appt-other" });
+    expect(res.status).toBe(422);
+    expect(prisma.petNextAction.create).not.toHaveBeenCalled();
   });
 
   test("returns 400 for invalid type", async () => {

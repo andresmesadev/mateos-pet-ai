@@ -1,5 +1,6 @@
 jest.mock("../../lib/prisma", () => ({
   tenant: { findUnique: jest.fn() },
+  staffCredential: { findFirst: jest.fn() },
 }));
 
 const prisma = require("../../lib/prisma");
@@ -35,6 +36,7 @@ describe("resolveTenant middleware", () => {
     jest.clearAllMocks();
     // Entregable 4.4 — por defecto el tenant está activo, salvo que el test lo diga.
     prisma.tenant.findUnique.mockResolvedValue({ active: true });
+    prisma.staffCredential.findFirst.mockResolvedValue({ staffId: "vet-1" });
   });
 
   afterEach(() => {
@@ -170,6 +172,26 @@ describe("resolveTenant middleware", () => {
     expect(req.tenant).toEqual({ isSuperAdmin: false, tenantId: "tenant-abc", viewAllTenants: false });
   });
 
+  test("validates clinician identity, tenant and session version on every request", async () => {
+    process.env.SINGLE_TENANT_ID = "tenant-abc";
+    const req = makeReq({ "x-staff-id": "vet-1", "x-staff-session-version": "3" });
+    const res = makeRes();
+    const next = jest.fn();
+    await resolveTenant(req, res, next);
+    expect(next).toHaveBeenCalled();
+    expect(req.actor).toEqual({ type: "vet", staffId: "vet-1" });
+    expect(prisma.staffCredential.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: {
+      staffId: "vet-1", active: true, sessionVersion: 3,
+      staff: { tenantId: "tenant-abc", active: true, role: "vet" },
+    } }));
+    prisma.staffCredential.findFirst.mockResolvedValueOnce(null);
+    const expired = makeRes();
+    const expiredNext = jest.fn();
+    await resolveTenant(req, expired, expiredNext);
+    expect(expired._status).toBe(403);
+    expect(expiredNext).not.toHaveBeenCalled();
+  });
+
   // Entregable 4.4 — Facturación / Habilitación Comercial: Tenant.active como
   // única fuente de verdad de suspensión comercial, sin excepciones.
 
@@ -237,5 +259,23 @@ describe("resolveTenant middleware", () => {
     await resolveTenant(req, res, next);
 
     expect(next).toHaveBeenCalled();
+  });
+
+  test("admin email from the trusted server is available to link the owner veterinarian", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.INTERNAL_API_SECRET = "mysecret";
+    prisma.tenant.findUnique.mockResolvedValue({ active: true });
+    const req = makeReq({
+      "x-internal-token": "mysecret",
+      "x-tenant-id": "tenant-abc",
+      "x-admin-email": "DUENA@example.com",
+    });
+    const res = makeRes();
+    const next = jest.fn();
+
+    await resolveTenant(req, res, next);
+
+    expect(next).toHaveBeenCalled();
+    expect(req.actor).toEqual({ type: "admin", email: "duena@example.com" });
   });
 });
