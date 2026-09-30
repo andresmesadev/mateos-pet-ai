@@ -26,8 +26,21 @@ Migración aditiva 20260930190000_grooming_visit_notes. Sin nuevos estados de ci
 Mantener tipografía y paleta del dashboard: fondo #f3f8f7, texto #15343d, teal #007c76, blanco #ffffff y ámbar #b45309 para peluquería. Lista operativa con etapas visibles y acciones directas; formulario centrado de notas, ancho cómodo, un campo principal y antecedentes colapsables. Etiquetas sencillas; sin terminología médica ni métricas comerciales duplicadas.
 
 ## Validación
+### Mejoras de uso autorizadas — 2026-09-30
+- Cierre y entrega: resumen de mascota, propietario, servicio, responsable, precio y notas; aviso de responsable/precio/notas pendientes con accesos para resolverlos. Las notas siguen siendo opcionales y el cierre conserva su validación de precio existente.
+- En celular, la siguiente acción y las notas quedan visibles; detalles y cambios ya resueltos se agrupan en «Más opciones». Controles táctiles y formulario dentro del ancho disponible.
+- Ajuste visual posterior: cuando la única acción secundaria es consultar la cita, «Ver cita» se muestra directamente. Si hay varias, «Acciones» abre un menú compacto con navegación por teclado; se elimina el panel desplegable grande.
+- Verificación del recorrido completo con fixtures aislados en PostgreSQL local y rollback: llegada, inicio, notas, cierre financiero único, entrega idempotente e historia de otra visita. No se modifican citas reales.
+- Ficha rápida al abrir notas y preparar la atención: raza, propietario, observaciones generales y última nota anterior por mascota. Reutiliza los endpoints autenticados de mascotas e historia de peluquería; el cursor de la cita excluye visitas posteriores.
+- Un único campo de notas, con encabezados opcionales de corte, productos y cuidados. Sin nuevos campos obligatorios ni copia automática de notas anteriores.
+- Asignación directa de peluquero activo mediante el PATCH existente; precio abre directamente el editor existente, conservando el precio por mascota y servicio y su resolución centralizada.
+- Vista inicial de pendientes prioriza servicio en curso, espera y entrega. Entregadas, canceladas y no asistidas tienen vista secundaria; búsqueda incluye todas las fechas y estados. La tarjeta muestra el estado individual y si hay notas guardadas.
+- Sin migraciones, nuevas reglas contables ni cambios del motor. La preparación precede al comando existente de inicio; no inicia la atención al abrir el formulario.
+
 - Migración local aplicada y Prisma Client regenerado: 39 migraciones.
 - Backend: 148 suites y 1128 pruebas aprobadas. Casos específicos: permisos y módulo, alcance de tenant y mascota, fechas inválidas, versiones y colisiones, notas de citas cerradas, entrega idempotente e historia paginada.
 - `node scripts/verify-grooming-local.cjs`: ejecuta el adaptador HTTP real con PostgreSQL dentro de una transacción revertida. Guardado, conflicto, consulta de notas y entrega verificados; cero cobros o comisiones de la prueba; fixture ausente al finalizar.
+- `node scripts/verify-grooming-journey-local.cjs`: adaptadores HTTP y casos de uso reales en un tenant temporal aislado, dentro de una transacción revertida. Asignación, llegada, inicio, rechazo de cierre sin precio, tarifa por mascota, notas y conflicto, cierre con un cobro/una comisión, rechazo de doble cierre, entrega idempotente e historial en nueva visita; nota anterior intacta y nueva visita independiente. Confirma que tenant y citas de prueba no quedan persistidos.
+- Comprobación responsive en Chrome a 390 × 844: notas visibles, «Más opciones» desplegable y página sin desbordamiento horizontal. Se restauró el tamaño original del navegador.
 - Frontend: lint y build aprobados; búsqueda por mascota, citas anteriores, nota centrada y antecedentes comprobados en navegador. No se simuló una atención real ni se completaron citas de usuarios para probar.
 - Versionado evaluado: mantenimiento autorizado del dashboard, sin cierre de fase ni tag oficial; permanece la versión declarada 2.39.11. El commit identifica el cambio desplegado.

@@ -9,6 +9,17 @@ export type GroomingVisit = TodayAppointment & {
 
 export const GROOMING_STAGES = ["Por recibir", "En espera", "En baño o corte", "Listas para entrega", "Entregadas", "Por revisar", "Canceladas / No asistieron"] as const;
 
+export function groomingIsArchived(visit: GroomingVisit): boolean {
+  return ["cancelled", "no_show"].includes(visit.status) || Boolean(visit.status === "completed" && visit.groomingDeliveredAt);
+}
+
+export function groomingPriority(visit: GroomingVisit): number {
+  if (visit.status === "in_progress") return 0;
+  if (visit.status === "arrived") return 1;
+  if (visit.status === "completed" && !visit.groomingDeliveredAt) return 2;
+  return 3;
+}
+
 export function groomingStage(visit: GroomingVisit, today: string): typeof GROOMING_STAGES[number] {
   if (["cancelled", "no_show"].includes(visit.status)) return "Canceladas / No asistieron";
   if (visit.status === "completed") return visit.groomingDeliveredAt ? "Entregadas" : "Listas para entrega";
