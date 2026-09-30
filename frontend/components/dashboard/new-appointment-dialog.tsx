@@ -29,11 +29,12 @@ function hourLabel(hour: number) {
 }
 
 export function NewAppointmentDialog({
-  initialDate, onClose, onCreated,
+  initialDate, onClose, onCreated, serviceCategory,
 }: {
   initialDate: string;
   onClose: () => void;
   onCreated: () => void;
+  serviceCategory?: "grooming" | "veterinary";
 }) {
   const tenant = useTenant();
   const { toast } = useToast();
@@ -67,13 +68,13 @@ export function NewAppointmentDialog({
         return res.json() as Promise<Service[]>;
       })
       .then((rows) => setServices(rows.filter((service) => service.active && service.requiresAppointment &&
-        ["veterinary", "grooming"].includes(service.category ?? ""))))
+        (serviceCategory ? service.category === serviceCategory : ["veterinary", "grooming"].includes(service.category ?? "")))))
       .catch((cause) => {
         if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "No se pudieron cargar los servicios");
       })
       .finally(() => { if (!controller.signal.aborted) setLoadingServices(false); });
     return () => controller.abort();
-  }, [tenant]);
+  }, [tenant, serviceCategory]);
 
   useEffect(() => {
     if (client || query.trim().length < 2) return;

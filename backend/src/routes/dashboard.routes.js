@@ -4,6 +4,7 @@ router.use(require("../middleware/allowVeterinaryDashboard").allowVeterinaryDash
 
 router.use(require("./dashboard/tenant.routes"));
 router.use(require("./dashboard/appointments.routes"));
+router.use(require("./dashboard/grooming.routes"));
 router.use(require("./dashboard/pets.routes"));
 router.use(require("./dashboard/clients.routes"));
 router.use(require("./dashboard/services.routes"));

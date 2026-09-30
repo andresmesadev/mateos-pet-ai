@@ -540,6 +540,12 @@ model Appointment {
   groomingBreed String?
   groomingSize  String?
 
+  // Notas operativas por visita; independientes del expediente clínico.
+  groomingNotes          String?
+  groomingNotesVersion   Int       @default(1)
+  groomingNotesUpdatedAt DateTime?
+  groomingDeliveredAt   DateTime?
+
   reminderSent  Boolean  @default(false)
   followUpSent  Boolean  @default(false)
 

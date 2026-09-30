@@ -18,6 +18,7 @@ import {
   X,
   PawPrint,
   Stethoscope,
+  Scissors,
   type LucideIcon,
 } from "lucide-react";
 
@@ -36,6 +37,7 @@ const SECTIONS: NavSection[] = [
       { href: "/dashboard", label: "Inicio", icon: Home, exact: true },
       { href: "/dashboard/calendar", label: "Agenda", icon: Calendar },
       { href: "/dashboard/consultas", label: "Consultas veterinarias", icon: Stethoscope },
+      { href: "/dashboard/peluqueria", label: "Peluquería", icon: Scissors },
       { href: "/dashboard/contacto", label: "Clientes y mascotas", icon: Users, alsoActiveOn: ["/dashboard/clients", "/dashboard/pets"] },
       { href: "/dashboard/conversations", label: "WhatsApp", icon: MessageCircle },
     ],
@@ -101,6 +103,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { data: session } = useSession();
   const [veterinaryEnabled, setVeterinaryEnabled] = useState<boolean | null>(null);
+  const [groomingEnabled, setGroomingEnabled] = useState<boolean | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -109,6 +112,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       .then((profile: { activeModules?: string[] } | null) => {
         if (!cancelled && Array.isArray(profile?.activeModules)) {
           setVeterinaryEnabled(profile.activeModules.includes("veterinary"));
+          setGroomingEnabled(profile.activeModules.includes("grooming"));
         }
       })
       .catch(() => { /* Si el perfil no carga, se conserva el acceso a la sección. */ });
@@ -118,7 +122,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const isVet = session?.user?.role === "vet";
   const sections = SECTIONS.map((section) => ({
     ...section,
-    items: section.items.filter((item) => isVet ? item.href === "/dashboard/consultas" : item.href !== "/dashboard/consultas" || veterinaryEnabled !== false),
+    items: section.items.filter((item) => isVet ? item.href === "/dashboard/consultas" : (item.href !== "/dashboard/consultas" || veterinaryEnabled !== false) && (item.href !== "/dashboard/peluqueria" || groomingEnabled !== false)),
   })).filter((section) => section.items.length > 0);
   const userName = session?.user?.name ?? session?.user?.email ?? "Usuario";
   const role = isVet ? "Veterinario/a" : session?.user?.isSuperAdmin ? "Super administrador" : "Administrador";
