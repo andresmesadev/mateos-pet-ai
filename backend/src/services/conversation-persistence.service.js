@@ -18,9 +18,9 @@ const findOrCreateConversation = async (userId) => {
     const existing = await prisma.conversation.findFirst({
       where: {
         userId: id,
-        OR: [{ step: null }, { step: { not: ACTIVE_STEP_EXCLUDED } }],
+        OR: [{ assignedActorId: { not: null } }, { step: null }, { step: { not: ACTIVE_STEP_EXCLUDED } }],
       },
-      orderBy: { updatedAt: "desc" },
+      orderBy: [{ assignedAt: { sort: "desc", nulls: "last" } }, { updatedAt: "desc" }],
       include: { user: true },
     });
 

@@ -66,7 +66,7 @@ model Staff {
   tenantId  String?
   tenant    Tenant?  @relation(fields: [tenantId], references: [id])
   name      String
-  role      String   // "vet" | "groomer" | "admin"
+  role      String   // "vet" | "groomer" | "receptionist" | "admin"
   phone     String?
   email     String?
   active    Boolean  @default(true)
@@ -389,6 +389,12 @@ model Conversation {
 
   // Entregable 3.1 — Comunicación: reemplaza sessionData.requires_human_attention.
   status    String   @default("activa") // "activa" | "esperando_humano" | "cerrada"
+  assignedActorId   String?
+  assignedActorName String?
+  assignedActorRole String?
+  assignedAt       DateTime?
+  controlChangedAt DateTime?
+  controlVersion   Int @default(0)
   channelId String?
   channel   Channel? @relation(fields: [channelId], references: [id], onDelete: SetNull)
 
@@ -422,6 +428,11 @@ model Message {
   // "cliente" | "agente" | "sistema" — distingue por primera vez una
   // notificación proactiva de una respuesta conversacional.
   origin          String   @default("cliente")
+  // Snapshot autenticado. Nulos: historial anterior sin autoría verificable.
+  senderKind      String?  // "human" | "ai" | "system"
+  senderActorId   String?
+  senderName      String?
+  senderRole      String?
 
   // Entregable 8.1 (D-E4) — el `wamid` de Meta (message.id) para mensajes
   // entrantes de WhatsApp. Nulo para mensajes salientes/de sistema y para

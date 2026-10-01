@@ -24,6 +24,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import { proxyUrl } from "@/lib/api";
+import { canVisitDashboard, homeForRole, ROLE_NAMES } from "@/lib/dashboard-access";
 
 // ── Estructura de navegación ──────────────────────────────────
 
@@ -119,13 +120,13 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     return () => { cancelled = true; };
   }, []);
 
-  const isVet = session?.user?.role === "vet";
+  const teamRole = session?.user?.role ?? "admin";
   const sections = SECTIONS.map((section) => ({
     ...section,
-    items: section.items.filter((item) => isVet ? item.href === "/dashboard/consultas" : (item.href !== "/dashboard/consultas" || veterinaryEnabled !== false) && (item.href !== "/dashboard/peluqueria" || groomingEnabled !== false)),
+    items: section.items.filter((item) => canVisitDashboard(teamRole, item.href) && (item.href !== "/dashboard/consultas" || veterinaryEnabled !== false) && (item.href !== "/dashboard/peluqueria" || groomingEnabled !== false)),
   })).filter((section) => section.items.length > 0);
   const userName = session?.user?.name ?? session?.user?.email ?? "Usuario";
-  const role = isVet ? "Veterinario/a" : session?.user?.isSuperAdmin ? "Super administrador" : "Administrador";
+  const role = session?.user?.isSuperAdmin ? "Super administrador" : ROLE_NAMES[teamRole];
   const initials = userName.slice(0, 2).toUpperCase();
 
   return (
@@ -133,7 +134,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       className="flex h-full flex-col bg-white text-sidebar-foreground"
     >
       {/* Marca */}
-      <Link href={isVet ? "/dashboard/consultas" : "/dashboard"} onClick={onNavigate} className="flex items-center gap-3 border-b border-sidebar-border px-5 py-5 focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-teal-700">
+      <Link href={homeForRole(teamRole)} onClick={onNavigate} className="flex items-center gap-3 border-b border-sidebar-border px-5 py-5 focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-teal-700">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-700 text-white">
           <PawPrint className="h-5 w-5" />
         </div>

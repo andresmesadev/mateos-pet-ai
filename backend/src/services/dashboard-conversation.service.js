@@ -1,4 +1,10 @@
 const prisma = require("../lib/prisma");
+const { CANONICAL_ORDER } = require("../contexts/communication/infrastructure/persistence/prisma-conversation-control.repository");
+
+const mapControl = (row) => ({
+  controlVersion: row.controlVersion ?? 0,
+  assignment: row.assignedActorId ? { actorId: row.assignedActorId, name: row.assignedActorName, role: row.assignedActorRole, since: row.assignedAt } : null,
+});
 
 const parseSessionData = (sessionData) => {
   if (
@@ -32,12 +38,16 @@ const mapConversationSummary = (conversation) => {
 
   return {
     id: conversation.id,
+    userId: conversation.userId,
+    tenantId: conversation.tenantId,
     phone: conversation.user?.phone ?? null,
     name: conversation.user?.name ?? null,
     lastMessage: lastMessage?.content ?? null,
     lastMessageAt: lastMessage?.createdAt ?? conversation.updatedAt,
     step: conversation.step ?? sessionData.step ?? null,
-    requires_human_attention: sessionData.requires_human_attention === true,
+    status: conversation.status,
+    ...mapControl(conversation),
+    requires_human_attention: conversation.status === "esperando_humano",
     updatedAt: conversation.updatedAt,
   };
 };
@@ -53,35 +63,31 @@ const listConversations = async (query = {}) => {
   const { page, limit, skip } = parsePagination(query);
   const tenantId = query.tenantId ?? null;
   const where = tenantId ? { tenantId } : {};
-
-  const grouped = await prisma.conversation.groupBy({
-    by: ["userId"],
+  const search = String(query.search ?? "").trim().slice(0, 160);
+  if (search) {
+    const phone = /^[+\d\s().-]+$/.test(search) ? search.replace(/\D/g, "") : search;
+    where.user = { OR: [
+      { name: { contains: search, mode: "insensitive" } },
+      { phone: { contains: phone || search } },
+    ] };
+  }
+  // Filtrar estado después de elegir la sesión más reciente evita volver
+  // a presentar una escalación antigua de un hilo que ya está resuelto.
+  const representatives = await prisma.conversation.findMany({
     where,
-    _max: { updatedAt: true },
+    distinct: ["userId"],
+    orderBy: CANONICAL_ORDER,
+    include: {
+      user: { select: { phone: true, name: true } },
+      messages: { orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 1 },
+    },
   });
-
-  const total = grouped.length;
-  const pageUserIds = grouped
-    .sort((a, b) => new Date(b._max.updatedAt) - new Date(a._max.updatedAt))
-    .slice(skip, skip + limit)
-    .map((g) => g.userId);
-
-  const representatives = await Promise.all(
-    pageUserIds.map((userId) =>
-      prisma.conversation.findFirst({
-        where: { ...where, userId },
-        orderBy: { updatedAt: "desc" },
-        include: {
-          user: { select: { phone: true, name: true } },
-          messages: { orderBy: { createdAt: "desc" }, take: 1 },
-        },
-      })
-    )
-  );
-
-  // Preserva el orden por actividad más reciente calculado arriba.
-  const byUserId = new Map(representatives.filter(Boolean).map((c) => [c.userId, c]));
-  const conversations = pageUserIds.map((id) => byUserId.get(id)).filter(Boolean);
+  representatives.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+  const matching = query.attention === "human"
+    ? representatives.filter((row) => row.status === "esperando_humano")
+    : representatives;
+  const total = matching.length;
+  const conversations = matching.slice(skip, skip + limit);
 
   return {
     data: conversations.map(mapConversationSummary),
@@ -107,8 +113,13 @@ const getConversationMessages = async (conversationId) => {
     return null;
   }
 
-  const conversation = await prisma.conversation.findUnique({
+  const anchor = await prisma.conversation.findUnique({
     where: { id },
+  });
+  if (!anchor) return null;
+  const conversation = await prisma.conversation.findFirst({
+    where: { userId: anchor.userId, tenantId: anchor.tenantId },
+    orderBy: CANONICAL_ORDER,
     include: {
       user: {
         select: { phone: true, name: true },
@@ -128,10 +139,15 @@ const getConversationMessages = async (conversationId) => {
 
   const messages = await prisma.message.findMany({
     where: { conversationId: { in: threadConversationIds } },
-    orderBy: { createdAt: "asc" },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     select: {
       id: true,
       role: true,
+      origin: true,
+      senderKind: true,
+      senderActorId: true,
+      senderName: true,
+      senderRole: true,
       content: true,
       createdAt: true,
     },
@@ -142,10 +158,14 @@ const getConversationMessages = async (conversationId) => {
   return {
     conversation: {
       id: conversation.id,
+      userId: conversation.userId,
+      tenantId: conversation.tenantId,
       phone: conversation.user?.phone ?? null,
       name: conversation.user?.name ?? null,
       step: conversation.step ?? sessionData.step ?? null,
-      requires_human_attention: sessionData.requires_human_attention === true,
+      status: conversation.status,
+      ...mapControl(conversation),
+      requires_human_attention: conversation.status === "esperando_humano",
       updatedAt: conversation.updatedAt,
     },
     messages,

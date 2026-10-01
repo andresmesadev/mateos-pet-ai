@@ -105,7 +105,7 @@ async function resolveTenant(req, res, next) {
 async function checkActiveAndContinue(req, res, next) {
   const { tenantId } = req.tenant;
   if (!tenantId) {
-    req.actor = { type: "admin", email: typeof req.headers["x-admin-email"] === "string" ? req.headers["x-admin-email"].trim().toLowerCase() : null };
+    req.actor = { type: "admin", email: typeof req.headers["x-admin-email"] === "string" ? req.headers["x-admin-email"].trim().toLowerCase() : null, name: req.headers["x-admin-name"] || "Administrador" };
     return next();
   }
 
@@ -125,13 +125,13 @@ async function checkActiveAndContinue(req, res, next) {
       return res.status(403).json({ error: "Sesión del profesional no válida" });
     }
     const credential = await prisma.staffCredential.findFirst({
-      where: { staffId: String(staffId), active: true, sessionVersion, staff: { tenantId, active: true, role: "vet" } },
-      select: { staffId: true },
+      where: { staffId: String(staffId), active: true, sessionVersion, staff: { tenantId, active: true, role: { in: ["vet", "groomer", "receptionist", "admin"] } } },
+      select: { staffId: true, staff: { select: { role: true, name: true } } },
     });
     if (!credential) return res.status(403).json({ error: "Acceso del profesional no disponible" });
-    req.actor = { type: "vet", staffId: credential.staffId };
+    req.actor = { type: credential.staff.role, staffId: credential.staffId, name: credential.staff.name };
   } else {
-    req.actor = { type: "admin", email: typeof req.headers["x-admin-email"] === "string" ? req.headers["x-admin-email"].trim().toLowerCase() : null };
+    req.actor = { type: "admin", email: typeof req.headers["x-admin-email"] === "string" ? req.headers["x-admin-email"].trim().toLowerCase() : null, name: req.headers["x-admin-name"] || "Administrador" };
   }
   return next();
 }

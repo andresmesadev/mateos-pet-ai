@@ -106,6 +106,7 @@ describe("processOneJob", () => {
     expect(didWork).toBe(true);
     expect(processIncomingMessage).toHaveBeenCalledWith({ entry: [] });
     expect(sendMessage).toHaveBeenCalledWith({
+      preparedAt: expect.any(String),
       tenantId: "tenant-1",
       userId: "user-1",
       conversationId: "conv-1",

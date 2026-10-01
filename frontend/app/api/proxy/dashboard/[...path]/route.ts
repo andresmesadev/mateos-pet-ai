@@ -73,6 +73,7 @@ async function handler(
     headers["X-Staff-Session-Version"] = String(session.user.sessionVersion ?? "");
   } else if (session.user.email) {
     headers["X-Admin-Email"] = session.user.email;
+    headers["X-Admin-Name"] = session.user.name || "Administrador";
   }
   if (viewAllTenants) headers["X-View-All-Tenants"] = "true";
 

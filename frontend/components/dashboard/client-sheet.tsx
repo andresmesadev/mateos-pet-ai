@@ -2,22 +2,28 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { CalendarPlus, Plus, UserRound, MessageCircle } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { NewAppointmentDialog } from "@/components/dashboard/new-appointment-dialog";
+import { ProtectedDialog, SavedChangesStatus, useDialogEditGuard } from "@/components/dashboard/protected-dialog";
 import {
-  Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatPetAge, groupClientAppointments } from "@/lib/contact-profile-utils";
+import { ownerAgendaHref } from "@/lib/contact-navigation";
 import { PetMedicalSheet } from "@/components/dashboard/pet-medical-sheet";
 import { NewPetSheet } from "@/components/dashboard/new-pet-sheet";
 import { proxyUrl } from "@/lib/api";
+import { tenantQuery, useTenant } from "@/lib/use-tenant";
 import { useToast } from "@/components/ui/toast";
 import {
   formatColombiaDateTime,
@@ -33,7 +39,7 @@ import {
 } from "@/lib/clients";
 import { type DashboardPet, formatPetType, getPetEmoji } from "@/lib/pets";
 
-function clientPetToDashboardPet(pet: ClientPet, owner: { phone: string; name: string | null }): DashboardPet {
+function clientPetToDashboardPet(pet: ClientPet, owner: { id: string; phone: string; name: string | null }): DashboardPet {
   return {
     id: pet.id,
     name: pet.name,
@@ -53,6 +59,8 @@ type ClientSheetProps = {
   clientId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialEdit?: boolean;
+  onUpdated?: () => void;
 };
 
 function ClientSheetSkeleton() {
@@ -65,23 +73,33 @@ function ClientSheetSkeleton() {
   );
 }
 
-function ClientSheetContent({ clientId }: { clientId: string }) {
+function ClientSheetContent({ clientId, initialEdit = false, onUpdated, onNavigate }: { clientId: string; initialEdit?: boolean; onUpdated?: () => void; onNavigate: () => void }) {
+  const router = useRouter();
+  const tenant = useTenant();
   const { toast } = useToast();
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 60_000); return () => clearInterval(timer); }, []);
   const [client, setClient] = useState<ClientDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(initialEdit);
   const [saving, setSaving] = useState(false);
   const [editForm, setEditForm] = useState({ name: "", phone: "", phoneAlt: "", email: "", address: "", notes: "" });
   const [expedientePet, setExpedientePet] = useState<DashboardPet | null>(null);
   const [addingPet, setAddingPet] = useState(false);
+  const [refresh, setRefresh] = useState(0);
+  const [savedAt, setSavedAt] = useState<Date | null>(null);
+  const [newAppointment, setNewAppointment] = useState(false);
+  const [appointmentPetId, setAppointmentPetId] = useState<string | undefined>();
+  const dirty = Boolean(editing && client && (Object.keys(editForm) as (keyof typeof editForm)[]).some((field) => editForm[field] !== (client[field] ?? "")));
+  const discard = useDialogEditGuard(dirty, saving);
 
   useEffect(() => {
     let cancelled = false;
 
     void (async () => {
       try {
-        const response = await fetch(proxyUrl(`/api/dashboard/clients/${clientId}`), {
+        const response = await fetch(proxyUrl(`/api/dashboard/clients/${clientId}${tenantQuery(tenant)}`), {
           cache: "no-store",
         });
 
@@ -93,6 +111,7 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
 
         if (!cancelled) {
           setClient(data);
+          setEditForm({ name: data.name ?? "", phone: data.phone, phoneAlt: data.phoneAlt ?? "", email: data.email ?? "", address: data.address ?? "", notes: data.notes ?? "" });
           setError(null);
         }
       } catch (err) {
@@ -114,7 +133,7 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [clientId]);
+  }, [clientId, tenant, refresh]);
 
   if (loading) {
     return (
@@ -143,7 +162,7 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
     if (!client) return;
     setSaving(true);
     try {
-      const res = await fetch(proxyUrl(`/api/dashboard/clients/${client.id}`), {
+      const res = await fetch(proxyUrl(`/api/dashboard/clients/${client.id}${tenantQuery(tenant)}`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editForm),
@@ -152,6 +171,8 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
       const updated = await res.json();
       setClient((prev) => prev ? { ...prev, ...updated } : prev);
       setEditing(false);
+      setSavedAt(new Date());
+      onUpdated?.();
       toast("Cambios guardados.", "success");
     } catch (err) {
       console.error(err);
@@ -174,94 +195,121 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
     );
   }
 
+  const appointments = groupClientAppointments(client.appointments, now);
+  const agendaHref = ownerAgendaHref(client.id, tenant, (appointments.upcoming[0] ?? appointments.pending[0] ?? appointments.previous[0])?.date);
+  const conversationHref = `/dashboard/conversations?conversation=${encodeURIComponent(client.latestConversationId ?? "")}${tenant ? `&tenant=${encodeURIComponent(tenant)}` : ""}`;
+
   return (
     <>
-      <DialogHeader className="border-b px-4 py-4">
+      <DialogHeader className="border-b px-6 py-5">
+        <div className="flex items-start gap-3 pr-6">
+        <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-800"><UserRound className="size-6" /></span>
+        <div className="min-w-0">
         <DialogTitle className="flex flex-col items-start gap-1">
-          <span>{formatPhone(client.phone)}</span>
+          <span>{client.name || "Cliente sin nombre"}</span>
           {client.name ? (
             <span className="text-base font-normal text-muted-foreground">
-              {client.name}
+              {formatPhone(client.phone)}
             </span>
           ) : null}
         </DialogTitle>
         <DialogDescription>
           Cliente desde {formatClientRegisteredAt(client.createdAt)}
         </DialogDescription>
+        </div></div>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+          <SavedChangesStatus dirty={dirty} saving={saving} savedAt={savedAt} />
+          <Button disabled={dirty || saving || client.pets.length === 0} onClick={() => { setAppointmentPetId(client.pets.length === 1 ? client.pets[0].id : undefined); setNewAppointment(true); }} className="gap-2"><CalendarPlus className="h-4 w-4" />Nueva cita</Button>
+        </div>
+        {dirty && <p className="text-xs text-muted-foreground">Guarda o cancela los cambios antes de agendar.</p>}
       </DialogHeader>
 
-      <div className="flex flex-col gap-6 overflow-y-auto px-4 pb-6">
+      <div className="flex flex-col gap-6 overflow-y-auto px-6 py-5">
         {/* Ficha del cliente */}
         <section className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium text-muted-foreground">Datos del cliente</h3>
+            <h3 className="text-sm font-medium text-muted-foreground">Contacto y notas del propietario</h3>
             {!editing && (
               <Button size="sm" variant="outline" onClick={handleEdit}>Editar</Button>
             )}
           </div>
           {editing ? (
-            <div className="space-y-2">
+            <fieldset disabled={saving} className="space-y-3">
+              <label className="block text-sm font-medium">Nombre
               <Input
                 placeholder="Nombre"
                 value={editForm.name}
                 onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
               />
+              </label>
+              <label className="block text-sm font-medium">Teléfono principal
               <Input
                 placeholder="Telefono principal"
                 type="tel"
                 value={editForm.phone}
                 onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
               />
+              </label>
+              <label className="block text-sm font-medium">Teléfono alternativo (opcional)
               <Input
                 placeholder="Telefono alternativo (opcional)"
                 type="tel"
                 value={editForm.phoneAlt}
                 onChange={(e) => setEditForm((f) => ({ ...f, phoneAlt: e.target.value }))}
               />
+              </label>
+              <label className="block text-sm font-medium">Correo electrónico (opcional)
               <Input
                 placeholder="Email"
                 value={editForm.email}
                 onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
               />
+              </label>
+              <label className="block text-sm font-medium">Dirección (opcional)
               <Input
                 placeholder="Dirección"
                 value={editForm.address}
                 onChange={(e) => setEditForm((f) => ({ ...f, address: e.target.value }))}
               />
-              <Input
+              </label>
+              <label className="block text-sm font-medium">Notas del propietario (opcional)
+              <Textarea
+                rows={4}
                 placeholder="Notas"
                 value={editForm.notes}
                 onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
               />
+              </label>
               <div className="flex gap-2">
                 <Button size="sm" onClick={handleSave} disabled={saving}>
                   {saving ? "Guardando…" : "Guardar"}
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => setEditing(false)} disabled={saving}>
+                <Button size="sm" variant="outline" onClick={() => discard(() => setEditing(false))} disabled={saving}>
                   Cancelar
                 </Button>
               </div>
-            </div>
+            </fieldset>
           ) : (
-            <div className="rounded-lg border bg-muted/30 px-3 py-3 text-sm space-y-1">
-              {client.phoneAlt && <p><span className="text-muted-foreground">Tel. alternativo: </span>{formatPhone(client.phoneAlt)}</p>}
-              {client.email && <p><span className="text-muted-foreground">Email: </span>{client.email}</p>}
-              {client.address && <p><span className="text-muted-foreground">Dirección: </span>{client.address}</p>}
-              {client.notes && <p><span className="text-muted-foreground">Notas: </span>{client.notes}</p>}
-              {!client.phoneAlt && !client.email && !client.address && !client.notes && (
-                <p className="text-muted-foreground">Sin datos adicionales.</p>
-              )}
+            <div className="rounded-xl border p-4 text-sm">
+              <dl className="grid gap-4 sm:grid-cols-2">
+                <div><dt className="text-xs text-muted-foreground">Teléfono principal</dt><dd className="mt-1 break-words font-medium">{formatPhone(client.phone)}</dd></div>
+                <div><dt className="text-xs text-muted-foreground">Teléfono alternativo</dt><dd className="mt-1 break-words">{client.phoneAlt ? formatPhone(client.phoneAlt) : "Sin registrar"}</dd></div>
+                <div><dt className="text-xs text-muted-foreground">Correo electrónico</dt><dd className="mt-1 break-words">{client.email || "Sin registrar"}</dd></div>
+                <div><dt className="text-xs text-muted-foreground">Dirección</dt><dd className="mt-1 break-words">{client.address || "Sin registrar"}</dd></div>
+              </dl>
+              <div className="mt-4 border-t pt-4"><h4 className="font-semibold">Notas del propietario</h4><p className="mt-2 whitespace-pre-wrap break-words text-muted-foreground">{client.notes || "Todavía no hay notas del propietario."}</p></div>
             </div>
           )}
         </section>
 
         <section className="space-y-2">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Mascotas</h3>
+            <h3 className="text-base font-semibold">Mascotas ({client.pets.length})</h3>
             <button
               type="button"
+              disabled={dirty || saving}
               onClick={() => setAddingPet(true)}
-              className="flex items-center gap-1 text-xs text-primary hover:underline"
+              className="flex min-h-11 items-center gap-1 text-sm font-semibold text-primary hover:underline"
             >
               <Plus className="h-3 w-3" /> Agregar mascota
             </button>
@@ -273,7 +321,7 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
               {client.pets.map((pet) => (
                 <li
                   key={pet.id}
-                  className="flex items-center justify-between rounded-xl border border-black/[0.06] bg-card px-3 py-2.5"
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-black/[0.06] bg-card px-3 py-2.5"
                 >
                   <div className="flex items-center gap-2.5">
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-base ring-1 ring-amber-500/20">
@@ -281,82 +329,50 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
                     </div>
                     <div>
                       <p className="text-sm font-medium">{pet.name}</p>
-                      <p className="text-xs text-muted-foreground">{formatPetType(pet.type)}</p>
+                      <p className="text-sm text-muted-foreground">{formatPetType(pet.type)}{pet.breed ? ` · ${pet.breed}` : ""}</p><p className="mt-1 text-xs text-muted-foreground">{formatPetAge(pet.birthDate)}</p>
                     </div>
                   </div>
-                  <Button
+                  <div className="flex flex-wrap gap-2"><Button
                     size="sm"
                     variant="outline"
-                    className="h-7 text-xs"
-                    onClick={() => setExpedientePet(clientPetToDashboardPet(pet, { phone: client.phone, name: client.name }))}
+                    className="min-h-11 text-sm"
+                    disabled={dirty || saving}
+                    onClick={() => setExpedientePet(clientPetToDashboardPet(pet, { id: client.id, phone: client.phone, name: client.name }))}
                   >
                     Ver expediente
                   </Button>
+                  <Button size="sm" variant="outline" disabled={dirty || saving} onClick={() => { setAppointmentPetId(pet.id); setNewAppointment(true); }}>Nueva cita</Button></div>
                 </li>
               ))}
             </ul>
           )}
         </section>
 
-        <section className="space-y-2">
-          <h3 className="text-sm font-medium text-muted-foreground">
-            Últimas citas
-          </h3>
-          {client.appointments.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sin citas registradas.</p>
-          ) : (
-            <ul className="space-y-2">
-              {client.appointments.map((appointment) => (
-                <li
-                  key={appointment.id}
-                  className="rounded-lg border px-3 py-2 text-sm"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="font-medium">
-                      {formatColombiaDateTime(appointment.date)}
-                    </p>
-                    <Badge
-                      variant="outline"
-                      className={statusBadgeClass(appointment.status)}
-                    >
-                      {formatStatus(appointment.status)}
-                    </Badge>
-                  </div>
-                  <p className="mt-1 text-muted-foreground">
-                    {formatService(appointment.serviceType)} ·{" "}
-                    {appointment.petName}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
+        <section aria-label="Citas del propietario" className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-base font-semibold">Citas del propietario</h3><Link href={agendaHref} onClick={(event) => { event.preventDefault(); discard(() => { onNavigate(); router.push(agendaHref); }); }} className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline">Abrir agenda del propietario</Link></div>
+          <p className="text-xs text-muted-foreground">Esta ficha muestra las cinco citas más recientes por fecha. Consulta la agenda para ver todas.</p>
+          {[{ title: "Próximas citas", rows: appointments.upcoming, empty: "No hay citas próximas en esta selección." }, { title: "Atenciones pendientes de cierre", rows: appointments.pending, empty: "" }, { title: "Visitas y citas anteriores", rows: appointments.previous, empty: "No hay citas cerradas en esta selección." }].map((group) => group.rows.length || group.empty ? <div key={group.title}>
+            <h4 className="mb-2 text-sm font-semibold">{group.title}</h4>
+            {group.rows.length ? <ul className="divide-y rounded-xl border">{group.rows.map((appointment) => <li key={appointment.id} className="p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-semibold">{formatColombiaDateTime(appointment.date)}</p><Badge variant="outline" className={statusBadgeClass(appointment.status)}>{formatStatus(appointment.status)}</Badge></div>
+              <p className="mt-1 text-sm text-muted-foreground">{formatService(appointment.serviceType)} · {appointment.petName}</p>
+            </li>)}</ul> : <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">{group.empty}</p>}
+          </div> : null)}
         </section>
 
-        <section className="rounded-lg border bg-muted/30 px-3 py-3 text-sm">
-          <p>
-            <span className="text-muted-foreground">Conversaciones:</span>{" "}
-            <span className="font-medium">{client.conversationsCount}</span>
-          </p>
+        <section aria-label="Conversaciones del propietario" className="flex flex-wrap items-center justify-between gap-4 rounded-xl border bg-teal-50/30 p-4">
+          <div><h3 className="flex items-center gap-2 text-base font-semibold"><MessageCircle className="size-4" />Conversaciones</h3><p className="mt-1 text-sm text-muted-foreground">{client.conversationsCount ? `${client.conversationsCount} conversaciones registradas.` : "Todavía no hay conversaciones de este propietario."}</p></div>
+          {client.latestConversationId && <Button asChild variant="outline"><Link href={conversationHref} onClick={(event) => { event.preventDefault(); discard(() => { onNavigate(); router.push(conversationHref); }); }}>Ver última conversación</Link></Button>}
         </section>
-
-        {client.latestConversationId ? (
-          <Button asChild className="w-full">
-            <Link href={`/dashboard/conversations?conversation=${client.latestConversationId}`}>
-              Ver conversación
-            </Link>
-          </Button>
-        ) : (
-          <Button asChild className="w-full" variant="outline">
-            <Link href="/dashboard/conversations">Ir a conversaciones</Link>
-          </Button>
-        )}
       </div>
 
       {/* Expediente de mascota inline */}
+      {newAppointment && <NewAppointmentDialog initialDate={new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" })} initialClientId={client.id} initialPetId={appointmentPetId} onClose={() => setNewAppointment(false)} onCreated={() => { setNewAppointment(false); setRefresh((value) => value + 1); onUpdated?.(); }} />}
       <PetMedicalSheet
         pet={expedientePet}
         open={expedientePet !== null}
         onOpenChange={(v) => { if (!v) setExpedientePet(null); }}
+        onRecordAdded={() => { setRefresh((value) => value + 1); onUpdated?.(); }}
       />
 
       {/* Agregar mascota con teléfono pre-llenado */}
@@ -366,7 +382,8 @@ function ClientSheetContent({ clientId }: { clientId: string }) {
         defaultOwnerPhone={client.phone}
         onCreated={() => {
           setAddingPet(false);
-          setClient((prev) => prev ? { ...prev } : prev);
+          setRefresh((value) => value + 1);
+          onUpdated?.();
           toast("Mascota agregada.", "success");
         }}
       />
@@ -378,14 +395,16 @@ export function ClientSheet({
   clientId,
   open,
   onOpenChange,
+  initialEdit = false,
+  onUpdated,
 }: ClientSheetProps) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <ProtectedDialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex h-[92vh] w-full max-w-[95vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
         {open && clientId ? (
-          <ClientSheetContent key={clientId} clientId={clientId} />
+          <ClientSheetContent key={`${clientId}-${initialEdit}`} clientId={clientId} initialEdit={initialEdit} onUpdated={onUpdated} onNavigate={() => onOpenChange(false)} />
         ) : null}
       </DialogContent>
-    </Dialog>
+    </ProtectedDialog>
   );
 }

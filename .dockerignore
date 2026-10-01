@@ -1,0 +1,14 @@
+.git
+.agents
+.codex
+.claude
+**/node_modules
+**/.next
+**/.env
+**/.env.*
+**/logs
+**/coverage
+**/*.log
+**/*.tsbuildinfo
+secrets
+backend/scripts/migrations/backups

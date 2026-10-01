@@ -7,11 +7,21 @@ const {
 } = require("../../services/dashboard-conversation.service");
 // Entregable 3.1 — Comunicación: escalation.service.js y whatsapp-api.service.js
 // (llamada directa) quedan retirados de este archivo — casos de uso 3/5/8.
-const { sendMessage, resolveConversationEscalation, listEscalatedConversations } = require("../../contexts/communication");
-const {
-  ConversationNotFoundError,
-  ConversationNotEscalatedError,
-} = require("../../contexts/communication/domain/errors");
+const { sendMessage, controlConversation, listEscalatedConversations } = require("../../contexts/communication");
+const { ConversationControlError } = require("../../contexts/communication/application/use-cases/control-conversation.usecase");
+const { getConversationContext } = require("../../services/dashboard-conversation-context.service");
+function operator(req) {
+  const actor = req.actor;
+  return { id: actor?.staffId ? `staff:${actor.staffId}` : actor?.email ? `admin:${actor.email}` : null,
+    name: actor?.name || "Administrador", role: actor?.type || "admin" };
+}
+function withViewer(detail, req) {
+  const actor = operator(req);
+  const mine = Boolean(detail.conversation.assignment?.actorId === actor.id);
+  return { ...detail, viewer: { role: actor.role, isMine: mine,
+    canRelease: mine || actor.role === "admin", canTakeOver: actor.role === "admin",
+    canCreateAppointment: ["admin", "receptionist"].includes(actor.role) } };
+}
 
 // Mismo contrato externo que el legacy escalation.service.js — mapEscalation.
 function mapEscalation(conversation) {
@@ -63,7 +73,7 @@ async function assertConversationBelongsToTenant(conversationId, tenantId) {
   return Boolean(conversation);
 }
 
-router.patch("/escalations/:id/resolve", async (req, res) => {
+async function changeControl(req, res, action = req.body?.action) {
   try {
     const { id } = req.params;
     const { tenantId } = req.tenant;
@@ -72,33 +82,30 @@ router.patch("/escalations/:id/resolve", async (req, res) => {
       return res.status(404).json({ error: "Conversation not found" });
     }
 
-    try {
-      const { conversation } = await resolveConversationEscalation({ conversationId: id });
-      const full = await prisma.conversation.findUnique({
-        where: { id: conversation.id },
-        include: { user: { select: { phone: true } }, messages: { orderBy: { createdAt: "desc" }, take: 1 } },
-      });
-      return res.json(mapEscalation(full));
-    } catch (error) {
-      if (error instanceof ConversationNotEscalatedError) {
-        // Idempotente: ya estaba resuelta — mismo criterio que el legacy.
-        const full = await prisma.conversation.findUnique({
-          where: { id },
-          include: { user: { select: { phone: true } }, messages: { orderBy: { createdAt: "desc" }, take: 1 } },
-        });
-        return res.json(mapEscalation(full));
-      }
-      throw error;
-    }
+    await controlConversation({ tenantId, conversationId: id, actor: operator(req), action,
+      expectedVersion: req.body?.expectedVersion, takeOver: req.body?.takeOver === true });
+    const detail = await getConversationMessages(id);
+    return res.json(withViewer(detail, req));
   } catch (error) {
-    if (error instanceof ConversationNotFoundError) {
-      return res.status(404).json({ error: "Conversation not found" });
-    }
+    if (error instanceof ConversationControlError) return res.status(error.status).json({ error: error.message });
     console.error("[Dashboard] Resolve escalation error:", error);
 
     res.status(500).json({
       error: "Internal server error",
     });
+  }
+}
+router.patch("/conversations/:id/control", (req, res) => changeControl(req, res));
+router.patch("/escalations/:id/resolve", (req, res) => changeControl(req, res, "release"));
+
+router.get("/conversations/:id/context", async (req, res) => {
+  try {
+    if (!req.tenant.tenantId) return res.status(400).json({ error: "Selecciona un establecimiento." });
+    const context = await getConversationContext(req.params.id, req.tenant.tenantId, operator(req).role);
+    return context ? res.json(context) : res.status(404).json({ error: "Cliente no disponible en este establecimiento." });
+  } catch (error) {
+    console.error("[Dashboard] Conversation context:", error.message);
+    return res.status(500).json({ error: "No se pudo cargar el contexto de la conversación." });
   }
 });
 
@@ -133,7 +140,7 @@ router.get("/conversations/:id/messages", async (req, res) => {
       });
     }
 
-    res.json(result);
+    res.json(withViewer(result, req));
   } catch (error) {
     console.error("[Dashboard] Conversation messages error:", error);
 
@@ -149,7 +156,7 @@ router.post("/conversations/:id/send", async (req, res) => {
     const { id } = req.params;
     const { message } = req.body ?? {};
 
-    if (!message || !String(message).trim()) {
+    if (typeof message !== "string" || !message.trim() || message.length > 4096) {
       return res.status(400).json({ error: "El mensaje no puede estar vacío" });
     }
 
@@ -176,8 +183,11 @@ router.post("/conversations/:id/send", async (req, res) => {
         phone,
         content: String(message).trim(),
         origin: "agente",
+        author: operator(req),
+        expectedVersion: req.body?.expectedVersion,
       });
     } catch (error) {
+      if (error instanceof ConversationControlError) return res.status(error.status).json({ error: error.message });
       console.error("[Dashboard] Send message error:", error.message);
       return res.status(502).json({ error: "No se pudo enviar el mensaje por WhatsApp. Verifica las credenciales." });
     }

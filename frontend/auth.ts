@@ -50,14 +50,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             cache: "no-store",
           });
           if (!response.ok) return null;
-          const staff = await response.json() as { staffId: string; tenantId: string; name: string; email: string; role: "vet"; sessionVersion: number };
+          const staff = await response.json() as { staffId: string; tenantId: string; name: string; email: string; role: "admin" | "vet" | "groomer" | "receptionist"; sessionVersion: number };
           return {
             id: staff.staffId,
             email: staff.email,
             name: staff.name,
             tenantId: staff.tenantId,
             staffId: staff.staffId,
-            role: "vet",
+            role: staff.role,
             sessionVersion: staff.sessionVersion,
             isSuperAdmin: false,
           };

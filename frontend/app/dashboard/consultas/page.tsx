@@ -10,7 +10,7 @@ import { type TodayAppointment } from "@/lib/appointments";
 import { previewWeekData } from "@/lib/calendar-preview";
 
 type PageProps = {
-  searchParams: Promise<{ preview?: string; tenant?: string }>;
+  searchParams: Promise<{ preview?: string; tenant?: string; date?: string; appointment?: string }>;
 };
 
 function previewConsultations(): TodayAppointment[] {
@@ -32,7 +32,9 @@ function previewConsultations(): TodayAppointment[] {
 
 export default async function ConsultasPage({ searchParams }: PageProps) {
   await connection();
-  const { preview, tenant } = await searchParams;
+  const { preview, tenant, date: requestedDate, appointment } = await searchParams;
+  const dateValue = requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) ? new Date(`${requestedDate}T12:00:00Z`) : null;
+  const date = dateValue && !Number.isNaN(dateValue.getTime()) && dateValue.toISOString().slice(0, 10) === requestedDate ? requestedDate : undefined;
   const isPreview = process.env.NODE_ENV === "development" && preview === "1";
   let appointments: TodayAppointment[] | null = isPreview ? previewConsultations() : null;
   let veterinaryEnabled: boolean | null = null;
@@ -44,9 +46,11 @@ export default async function ConsultasPage({ searchParams }: PageProps) {
     clinician = session?.user?.role === "vet";
     clinicianStaffId = clinician ? session?.user?.staffId ?? null : null;
     const headers = makeServerHeaders(session, tenant);
+    const appointmentsUrl = new URL(apiUrl("/api/dashboard/appointments/week"));
+    if (date) appointmentsUrl.searchParams.set("date", date);
     try {
       const [appointmentsRes, profileRes] = await Promise.all([
-        fetch(apiUrl("/api/dashboard/appointments/week"), { cache: "no-store", headers }),
+        fetch(appointmentsUrl.toString(), { cache: "no-store", headers }),
         fetch(apiUrl("/api/dashboard/tenant/profile"), { cache: "no-store", headers }),
       ]);
       if (appointmentsRes.ok) {
@@ -64,6 +68,8 @@ export default async function ConsultasPage({ searchParams }: PageProps) {
 
   const realParams = new URLSearchParams();
   if (tenant) realParams.set("tenant", tenant);
+  if (date) realParams.set("date", date);
+  if (appointment) realParams.set("appointment", appointment);
   const realHref = `/dashboard/consultas${realParams.size ? `?${realParams.toString()}` : ""}`;
   const previewParams = new URLSearchParams(realParams);
   previewParams.set("preview", "1");
@@ -90,7 +96,7 @@ export default async function ConsultasPage({ searchParams }: PageProps) {
           <p className="mt-1 text-sm text-muted-foreground">Esta sección se habilita en establecimientos que prestan atención veterinaria.</p>
         </div>
       ) : appointments ? (
-        <VetConsultationsView appointments={appointments} preview={isPreview} tenantId={tenant} clinician={clinician} clinicianStaffId={clinicianStaffId} />
+        <VetConsultationsView key={`${tenant ?? "current"}:${appointment ?? "list"}:${date ?? "today"}`} appointments={appointments} preview={isPreview} tenantId={tenant} clinician={clinician} clinicianStaffId={clinicianStaffId} initialAppointmentId={appointment} initialDate={date} />
       ) : (
         <div role="alert" className="max-w-2xl rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-950">
           <h2 className="font-semibold">No se pudieron cargar las consultas</h2>

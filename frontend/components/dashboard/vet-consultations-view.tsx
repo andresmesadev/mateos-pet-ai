@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Clock3, Search, Stethoscope, X } from "lucide-react";
 
 import { VetRecordSheet } from "@/components/dashboard/vet-record-sheet";
@@ -15,6 +16,8 @@ type Props = {
   tenantId?: string;
   clinician?: boolean;
   clinicianStaffId?: string | null;
+  initialAppointmentId?: string;
+  initialDate?: string;
 };
 
 const VET_SERVICE_TYPES = new Set(["vet", "consultation", "veterinary_consultation"]);
@@ -76,17 +79,20 @@ function appointmentTime(iso: string): string {
   }).format(new Date(iso));
 }
 
-export function VetConsultationsView({ appointments, preview = false, tenantId, clinician = false, clinicianStaffId = null }: Props) {
+export function VetConsultationsView({ appointments, preview = false, tenantId, clinician = false, clinicianStaffId = null, initialAppointmentId, initialDate }: Props) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedAppointment = appointments.find((item) => item.id === initialAppointmentId && item.petId && isVetAppointment(item) && !["cancelled", "no_show"].includes(item.status));
   const isVet = clinician;
-  const [scope, setScope] = useState<"today" | "week">("today");
+  const [scope, setScope] = useState<"today" | "week">(initialDate ? "week" : "today");
   const [professionalFilter, setProfessionalFilter] = useState(clinician && clinicianStaffId ? clinicianStaffId : "all");
   const [careFilter, setCareFilter] = useState("all");
   const [professionals, setProfessionals] = useState<{ id: string; name: string }[]>([]);
   const [professionalError, setProfessionalError] = useState(false);
-  const [selected, setSelected] = useState<TodayAppointment | null>(null);
+  const [selected, setSelected] = useState<TodayAppointment | null>(requestedAppointment ?? null);
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const [anchor, setAnchor] = useState(today);
+  const [anchor, setAnchor] = useState(initialDate ?? today);
   const [weekAppointments, setWeekAppointments] = useState(appointments);
   const [loading, setLoading] = useState(false);
   const [weekError, setWeekError] = useState<string | null>(null);
@@ -101,6 +107,15 @@ export function VetConsultationsView({ appointments, preview = false, tenantId, 
   const [statusError, setStatusError] = useState<string | null>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchRequestId = useRef(0);
+
+  function closeRecord() {
+    setSelected(null);
+    if (searchParams.has("appointment")) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("appointment");
+      router.replace(`/dashboard/consultas${params.size ? `?${params}` : ""}`, { scroll: false });
+    }
+  }
 
   useEffect(() => {
     if (preview) return;
@@ -268,6 +283,7 @@ export function VetConsultationsView({ appointments, preview = false, tenantId, 
 
   return (
     <div className="space-y-6">
+      {initialAppointmentId && !requestedAppointment && <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">No se pudo abrir esa consulta. Comprueba el establecimiento y la fecha, o busca al paciente en las consultas anteriores.</div>}
       {(!searchActive || searchResults) && <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5" aria-label={`Resumen de consultas: ${period}`}>
         {metrics.map(({ label, value, icon: Icon, tint }) => (
           <button type="button" key={label} onClick={() => setCareFilter((current) => current === label ? "all" : label)} aria-pressed={careFilter === label} className={`flex items-center gap-4 rounded-2xl border bg-white p-4 text-left shadow-sm transition-colors hover:bg-teal-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 ${careFilter === label ? "border-teal-600 ring-1 ring-teal-600" : "border-border"}`}>
@@ -406,7 +422,7 @@ export function VetConsultationsView({ appointments, preview = false, tenantId, 
         <VetRecordSheet
           appointment={selected}
           open
-          onOpenChange={(open) => { if (!open) setSelected(null); }}
+          onOpenChange={(open) => { if (!open) closeRecord(); }}
           onSaved={() => {
             setWeekAppointments((previous) => previous.map((item) => item.id === selected.id ? { ...item, hasMedicalRecord: true } : item));
             setSearchResults((previous) => previous?.map((item) => item.id === selected.id ? { ...item, hasMedicalRecord: true } : item) ?? null);

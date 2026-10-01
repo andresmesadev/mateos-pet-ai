@@ -1,7 +1,7 @@
 const { InvalidStaffAttributesError } = require("../../domain/errors");
 
-const VALID_ROLES = ["vet", "groomer", "admin"];
-const DEFAULT_GENERATES_COMMISSION_BY_ROLE = { vet: true, groomer: true, admin: false };
+const VALID_ROLES = ["vet", "groomer", "receptionist", "admin"];
+const DEFAULT_GENERATES_COMMISSION_BY_ROLE = { vet: true, groomer: true, receptionist: false, admin: false };
 
 /**
  * RegisterStaffUseCase — Administración.

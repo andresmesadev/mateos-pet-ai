@@ -1,8 +1,17 @@
 import { BOGOTA_TIMEZONE } from "@/lib/appointments";
 import { formatPhone, formatRelativeTime } from "@/lib/escalations";
+import type { TeamRole } from "@/lib/dashboard-access";
+
+export type ConversationAssignment = { actorId: string; name: string; role: TeamRole; since: string };
 
 export type DashboardConversation = {
   id: string;
+  userId: string;
+  tenantId: string | null;
+  name: string | null;
+  status: string;
+  assignment?: ConversationAssignment | null;
+  controlVersion?: number;
   phone: string | null;
   lastMessage: string | null;
   lastMessageAt: string;
@@ -14,6 +23,10 @@ export type DashboardConversation = {
 export type ConversationMessage = {
   id: string;
   role: string;
+  origin?: string;
+  senderKind?: "human" | "ai" | "system" | null;
+  senderName?: string | null;
+  senderRole?: TeamRole | null;
   content: string;
   createdAt: string;
 };
@@ -21,6 +34,11 @@ export type ConversationMessage = {
 export type ConversationDetail = {
   conversation: {
     id: string;
+    userId: string;
+    tenantId: string | null;
+    status: string;
+    assignment: ConversationAssignment | null;
+    controlVersion: number;
     phone: string | null;
     name: string | null;
     step: string | null;
@@ -28,6 +46,14 @@ export type ConversationDetail = {
     updatedAt: string;
   };
   messages: ConversationMessage[];
+  viewer: { role: TeamRole; isMine: boolean; canRelease: boolean; canTakeOver: boolean; canCreateAppointment: boolean };
+};
+
+export type ChatAppointment = { id: string; date: string; status: string; petId: string | null; petName: string; serviceName: string; category: string | null; professional: string | null };
+export type ConversationContext = {
+  client: { id: string; name: string | null; phone: string; phoneAlt: string | null; email: string | null; address: string | null; pets: { id: string; name: string; type: string; breed: string | null }[] };
+  upcoming: ChatAppointment[]; active: ChatAppointment[]; lastVisit: ChatAppointment | null;
+  permissions: { role: TeamRole; canViewClient: boolean; canViewClinical: boolean; canViewGrooming: boolean; canCreateAppointment: boolean };
 };
 
 export type ConversationsResponse = {

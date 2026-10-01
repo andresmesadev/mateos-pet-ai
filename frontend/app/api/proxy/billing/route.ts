@@ -1,6 +1,7 @@
 // Proxy para /api/billing/* — añade autenticación NextAuth y pasa el tenantId
 import { auth } from "@/auth";
 import { type NextRequest, NextResponse } from "next/server";
+import type { Session } from "next-auth";
 
 const BACKEND_URL = (
   process.env.API_URL ??
@@ -9,6 +10,21 @@ const BACKEND_URL = (
 ).replace(/\/$/, "");
 
 const INTERNAL_API_SECRET = process.env.INTERNAL_API_SECRET ?? "";
+
+async function verifyAdministrativeSession(session: Session) {
+  if (session.user.role !== "admin") return false;
+  if (!session.user.staffId) return true;
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/internal/staff-session`, {
+      headers: { "X-Internal-Token": INTERNAL_API_SECRET, "X-Staff-Id": session.user.staffId,
+        "X-Staff-Session-Version": String(session.user.sessionVersion), "X-Tenant-Id": session.user.tenantId ?? "" },
+      cache: "no-store",
+    });
+    if (!response.ok) return false;
+    const current = await response.json() as { role: string };
+    return current.role === "admin";
+  } catch { return false; }
+}
 
 // Entregable 4.4 (Fase 4) — Facturación / Habilitación Comercial: además de
 // checkout (alta inicial), soporta cancel y change-plan (cambio entre planes
@@ -26,7 +42,7 @@ export async function POST(req: NextRequest) {
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (session.user.role === "vet") {
+  if (!(await verifyAdministrativeSession(session))) {
     return NextResponse.json({ error: "Esta acción requiere acceso administrativo" }, { status: 403 });
   }
 
@@ -63,7 +79,7 @@ export async function GET() {
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (session.user.role === "vet") {
+  if (!(await verifyAdministrativeSession(session))) {
     return NextResponse.json({ error: "Esta acción requiere acceso administrativo" }, { status: 403 });
   }
 

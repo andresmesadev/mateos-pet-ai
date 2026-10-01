@@ -2,17 +2,21 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { CalendarPlus, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter,
+  DialogContent, DialogDescription, DialogFooter,
   DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { proxyUrl } from "@/lib/api";
+import { formatPetType } from "@/lib/pets";
 import { useTenant, tenantQuery } from "@/lib/use-tenant";
 import { useToast } from "@/components/ui/toast";
+import { ProtectedDialog, useDialogEditGuard } from "@/components/dashboard/protected-dialog";
 
 type Client = { id: string; name: string | null; phone: string };
 type Pet = { id: string; name: string; type: string };
@@ -28,17 +32,25 @@ function hourLabel(hour: number) {
   return `${String(Math.floor(hour)).padStart(2, "0")}:${Number.isInteger(hour) ? "00" : "30"}`;
 }
 
-export function NewAppointmentDialog({
-  initialDate, onClose, onCreated, serviceCategory,
-}: {
+type NewAppointmentProps = {
   initialDate: string;
   onClose: () => void;
   onCreated: () => void;
   serviceCategory?: "grooming" | "veterinary";
-}) {
+  initialClientId?: string;
+  initialPetId?: string;
+};
+
+function NewAppointmentContent({
+  initialDate, onClose, onCreated, serviceCategory, initialClientId, initialPetId,
+}: NewAppointmentProps) {
   const tenant = useTenant();
+  const { data: session } = useSession();
+  const router = useRouter();
+  const contactsHref = `/dashboard/contacto${tenant ? `?tenant=${encodeURIComponent(tenant)}` : ""}`;
   const { toast } = useToast();
   const [query, setQuery] = useState("");
+  const [initialQuery, setInitialQuery] = useState("");
   const [matches, setMatches] = useState<Client[]>([]);
   const [client, setClient] = useState<Client | null>(null);
   const [pets, setPets] = useState<Pet[]>([]);
@@ -49,7 +61,7 @@ export function NewAppointmentDialog({
   const [hour, setHour] = useState("");
   const [slotVersion, setSlotVersion] = useState(0);
   const [slotResult, setSlotResult] = useState<{ key: string; slots: number[]; error: string | null } | null>(null);
-  const [loadingClient, setLoadingClient] = useState(false);
+  const [loadingClient, setLoadingClient] = useState(Boolean(initialClientId || initialPetId));
   const [loadingServices, setLoadingServices] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +69,42 @@ export function NewAppointmentDialog({
   const currentSlots = slotResult?.key === slotKey ? slotResult : null;
   const availableHours = currentSlots?.slots ?? [];
   const loadingSlots = Boolean(serviceId && dateKey && !currentSlots);
+  const dirty = Boolean(serviceId || hour || dateKey !== initialDate ||
+    (petId && petId !== initialPetId) || query !== initialQuery);
+  const discard = useDialogEditGuard(dirty, saving);
+
+  useEffect(() => {
+    if (!initialClientId && !initialPetId) return;
+    const controller = new AbortController();
+    async function loadInitialSelection() {
+      try {
+        let ownerId = initialClientId;
+        if (!ownerId && initialPetId) {
+          const petResponse = await fetch(proxyUrl(`/api/dashboard/pets/${encodeURIComponent(initialPetId)}${tenantQuery(tenant)}`), { cache: "no-store", signal: controller.signal });
+          if (!petResponse.ok) throw new Error("No se pudo cargar el propietario de la mascota.");
+          const selectedPet = await petResponse.json() as { owner?: { id?: string } };
+          ownerId = selectedPet.owner?.id;
+        }
+        if (!ownerId) throw new Error("No se pudo identificar al propietario. Búscalo por nombre o teléfono.");
+        const response = await fetch(proxyUrl(`/api/dashboard/clients/${encodeURIComponent(ownerId)}${tenantQuery(tenant)}`), { cache: "no-store", signal: controller.signal });
+        if (!response.ok) throw new Error("No se pudo cargar el cliente. Intenta de nuevo con el buscador.");
+        const selected = await response.json() as Client & { pets?: Pet[] };
+        const ownerPets = selected.pets ?? [];
+        if (initialPetId && !ownerPets.some((pet) => pet.id === initialPetId)) throw new Error("La mascota ya no está vinculada a este propietario. Revisa su ficha antes de agendar.");
+        if (!controller.signal.aborted) {
+          setClient(selected);
+          setQuery(selected.name || selected.phone);
+          setInitialQuery(selected.name || selected.phone);
+          setPets(ownerPets);
+          setPetId(initialPetId ?? "");
+        }
+      } catch (cause) {
+        if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "No se pudo cargar la selección inicial.");
+      } finally { if (!controller.signal.aborted) setLoadingClient(false); }
+    }
+    void loadInitialSelection();
+    return () => controller.abort();
+  }, [initialClientId, initialPetId, tenant]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -180,7 +228,6 @@ export function NewAppointmentDialog({
   const fieldClass = "h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
   return (
-    <Dialog open onOpenChange={(open) => { if (!open && !saving) onClose(); }}>
       <DialogContent className="max-h-[92vh] max-w-lg overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-3">
@@ -192,12 +239,12 @@ export function NewAppointmentDialog({
           </div>
         </DialogHeader>
         <form onSubmit={submit}>
-          <div className="space-y-4 px-6 py-5">
+          <fieldset disabled={saving} className="space-y-4 px-6 py-5">
             <div className="space-y-1.5">
               <label htmlFor="appointment-client" className="text-sm font-semibold">Cliente</label>
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input id="appointment-client" value={query} autoComplete="off" placeholder="Busca por nombre o teléfono"
+                <Input id="appointment-client" value={query} autoComplete="off" disabled={loadingClient || saving} placeholder="Busca por nombre o teléfono"
                   onChange={(event) => { setQuery(event.target.value); setClient(null); setPetId(""); setPets([]); setMatches([]); }} className="pl-9" />
               </div>
               {!client && matches.length > 0 && (
@@ -211,13 +258,13 @@ export function NewAppointmentDialog({
                   ))}
                 </div>
               )}
-              <p className="text-xs text-muted-foreground">¿No aparece? <Link href={`/dashboard/contacto${tenantQuery(tenant)}`} className="font-semibold text-teal-700 underline">Regístralo en Clientes y mascotas</Link>.</p>
+              <p className="text-xs text-muted-foreground">{session?.user.role === "admin" ? <>¿No aparece? <Link href={contactsHref} onClick={(event) => { event.preventDefault(); discard(() => router.push(contactsHref)); }} className="font-semibold text-teal-700 underline">Regístralo en Clientes y mascotas</Link>.</> : "Si faltan el cliente o la mascota, solicita su registro al administrador."}</p>
             </div>
             <div className="space-y-1.5">
               <label htmlFor="appointment-pet" className="text-sm font-semibold">Mascota</label>
               <select id="appointment-pet" className={fieldClass} value={petId} onChange={(event) => setPetId(event.target.value)} disabled={!client || loadingClient} required>
                 <option value="">{loadingClient ? "Cargando mascotas…" : "Selecciona una mascota"}</option>
-                {pets.map((pet) => <option key={pet.id} value={pet.id}>{pet.name} · {pet.type}</option>)}
+                {pets.map((pet) => <option key={pet.id} value={pet.id}>{pet.name} · {formatPetType(pet.type)}</option>)}
               </select>
               {client && !loadingClient && pets.length === 0 && <p className="text-xs text-amber-700">Este cliente todavía no tiene mascotas registradas.</p>}
             </div>
@@ -248,15 +295,20 @@ export function NewAppointmentDialog({
                   : "Solo se muestran turnos disponibles para el servicio y la fecha elegidos. La disponibilidad se confirma al guardar."}
             </div>
             {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p>}
-          </div>
+          </fieldset>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose} disabled={saving}>Cancelar</Button>
+            <Button type="button" variant="outline" onClick={() => discard(onClose)} disabled={saving}>Cancelar</Button>
             <Button type="submit" disabled={saving || loadingClient || loadingServices || loadingSlots || !client || !petId || !serviceId || !dateKey || !hour || Boolean(currentSlots?.error)}>
               {saving ? "Guardando…" : "Crear cita"}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
-    </Dialog>
   );
+}
+
+export function NewAppointmentDialog(props: NewAppointmentProps) {
+  return <ProtectedDialog open onOpenChange={(open) => { if (!open) props.onClose(); }}>
+    <NewAppointmentContent {...props} />
+  </ProtectedDialog>;
 }

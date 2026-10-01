@@ -13,6 +13,10 @@ const { PrismaMessageRepository } = require("./infrastructure/persistence/prisma
 const { buildChannelProviderRegistry } = require("./infrastructure/providers/channel-provider-registry");
 const { CommunicationDomainEventsPublisher } = require("./infrastructure/events/communication-domain-events.publisher");
 const events = require("../events");
+const { runExclusive } = require("../../services/phone-lock.service");
+const { PrismaConversationControlRepository } = require("./infrastructure/persistence/prisma-conversation-control.repository");
+const { createControlConversationUseCase } = require("./application/use-cases/control-conversation.usecase");
+const { createTeamDeliveryGuard } = require("./infrastructure/providers/team-delivery-guard");
 
 const {
   createRegisterChannelUseCase,
@@ -31,6 +35,8 @@ const conversationRepository = new PrismaConversationRepository();
 const messageRepository = new PrismaMessageRepository();
 const channelProvider = buildChannelProviderRegistry();
 const eventPublisher = new CommunicationDomainEventsPublisher({ registerDomainEvent: events.registerDomainEvent });
+const controlRepository = new PrismaConversationControlRepository();
+const controlConversation = createControlConversationUseCase({ repository: controlRepository, runExclusive, eventPublisher });
 
 const registerChannel = createRegisterChannelUseCase({ channelRepository, eventPublisher });
 const deactivateChannel = createDeactivateChannelUseCase({ channelRepository, eventPublisher });
@@ -40,6 +46,7 @@ const sendMessage = createSendMessageUseCase({
   messageRepository,
   channelProvider,
   eventPublisher,
+  deliveryGuard: createTeamDeliveryGuard({ repository: controlRepository, runExclusive }),
 });
 // Mejora post-Fase 8 (2026-09-08).
 const sendTemplateMessage = createSendTemplateMessageUseCase({
@@ -56,6 +63,7 @@ const getUserCommunicationHistory = createGetUserCommunicationHistoryUseCase({ m
 const listEscalatedConversations = createListEscalatedConversationsUseCase({ conversationRepository });
 
 module.exports = {
+  controlConversation,
   registerChannel,
   deactivateChannel,
   sendMessage,

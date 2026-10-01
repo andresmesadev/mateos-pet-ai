@@ -13,6 +13,7 @@ import {
 import { getPetEmoji } from "@/lib/pets";
 import { previewMonthAppointments } from "@/lib/calendar-preview";
 import { NewAppointmentDialog } from "@/components/dashboard/new-appointment-dialog";
+import { filterOwnerAppointments } from "@/lib/contact-navigation";
 
 // ── Constants ─────────────────────────────────────────────────
 
@@ -305,14 +306,17 @@ export function WeekCalendar({
   hourStart = 8,
   hourEnd = 18,
   preview = false,
+  owner,
 }: {
   data: WeekData;
   hourStart?: number;
   hourEnd?: number;
   preview?: boolean;
+  owner?: { id: string; name: string };
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const selectedTenant = searchParams.get("tenant");
   const [view, setView] = useState<ViewMode>("week");
   const [clock, setClock] = useState<ClockMode>("12h");
   const [selected, setSelected] = useState<TodayAppointment | null>(null);
@@ -343,13 +347,14 @@ export function WeekCalendar({
   }, [router, preview]);
 
   const { mondayYmd } = data;
-  const appointments = data.appointments.map((appointment) => updatedAppointments[appointment.id] ?? appointment);
+  const appointments = filterOwnerAppointments(data.appointments.map((appointment) => updatedAppointments[appointment.id] ?? appointment), owner?.id);
   const today = todayYmd();
 
   // Current day for Day/Scheduler view — default to today if within week, else monday
   const [currentDay, setCurrentDay] = useState<string>(() => {
     const days = Array.from({ length: 7 }, (_, i) => addDays(mondayYmd, i));
-    return days.includes(today) ? today : mondayYmd;
+    const requestedDay = searchParams.get("date");
+    return requestedDay && days.includes(requestedDay) ? requestedDay : days.includes(today) ? today : mondayYmd;
   });
 
   // Current month for Month view
@@ -365,17 +370,19 @@ export function WeekCalendar({
     appointments: TodayAppointment[];
     error: boolean;
   } | null>(null);
-  const monthKey = `${monthDate.year}-${monthDate.month}`;
+  const monthKey = `${selectedTenant ?? "current"}:${monthDate.year}-${monthDate.month}`;
   const visibleMonthResult = preview
     ? { key: monthKey, appointments: previewMonthAppointments(monthDate.year, monthDate.month), error: false }
     : monthResult;
-  const monthAppointments = visibleMonthResult?.appointments.map((appointment) => updatedAppointments[appointment.id] ?? appointment) ?? [];
+  const monthAppointments = filterOwnerAppointments(visibleMonthResult?.appointments.map((appointment) => updatedAppointments[appointment.id] ?? appointment) ?? [], owner?.id);
 
   useEffect(() => {
     if (view !== "month" || preview) return;
     let cancelled = false;
-    const key = `${monthDate.year}-${monthDate.month}`;
-    fetch(`/api/proxy/dashboard/appointments/month?year=${monthDate.year}&month=${monthDate.month}`, {
+    const key = `${selectedTenant ?? "current"}:${monthDate.year}-${monthDate.month}`;
+    const params = new URLSearchParams({ year: String(monthDate.year), month: String(monthDate.month) });
+    if (selectedTenant) params.set("tenantId", selectedTenant);
+    fetch(`/api/proxy/dashboard/appointments/month?${params}`, {
       cache: "no-store",
     })
       .then((res) => {
@@ -394,12 +401,18 @@ export function WeekCalendar({
     return () => {
       cancelled = true;
     };
-  }, [view, monthDate.year, monthDate.month, preview, createdVersion]);
+  }, [view, monthDate.year, monthDate.month, preview, createdVersion, selectedTenant]);
 
   function navigate(ymd: string) {
     const params = new URLSearchParams(searchParams.toString());
     params.set("date", ymd);
     router.push(`/dashboard/calendar?${params.toString()}`);
+  }
+
+  function clearOwnerFilter() {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("client");
+    router.push(`/dashboard/calendar${params.size ? `?${params}` : ""}`);
   }
 
   // Week days
@@ -514,11 +527,13 @@ export function WeekCalendar({
         setUpdatedAppointments((current) => ({ ...current, [updated.id]: updated }));
         router.refresh();
       }} />}
-      {creating && <NewAppointmentDialog initialDate={view === "month" ? `${monthDate.year}-${String(monthDate.month + 1).padStart(2, "0")}-01` : currentDay} onClose={closeCreate} onCreated={() => {
+      {creating && <NewAppointmentDialog initialClientId={owner?.id} initialDate={view === "month" ? `${monthDate.year}-${String(monthDate.month + 1).padStart(2, "0")}-01` : currentDay} onClose={closeCreate} onCreated={() => {
         closeCreate();
         setCreatedVersion((version) => version + 1);
         router.refresh();
       }} />}
+
+      {owner && <section aria-label="Filtro de propietario" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-teal-200 bg-teal-50 p-4"><div><h2 className="font-semibold text-teal-950">Agenda de {owner.name}</h2><p className="mt-1 text-sm text-teal-900">Solo sus citas del período seleccionado, en todas las vistas.</p></div><Button variant="outline" className="min-h-11 bg-white" onClick={clearOwnerFilter}>Ver toda la agenda</Button></section>}
 
       {/* Toolbar */}
       <div className="mb-4 space-y-3 rounded-2xl border border-border bg-white p-3 shadow-sm sm:p-4">

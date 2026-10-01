@@ -74,7 +74,10 @@ router.get("/grooming/pets/:petId/notes", async (req, res) => {
     }
     const rows = await prisma.appointment.findMany({ where: { petId, tenantId, AND: conditions }, include: APPOINTMENT_INCLUDE, orderBy: [{ date: "desc" }, { id: "desc" }], take: 21 });
     const visits = rows.slice(0, 20);
-    res.json({ visits: visits.map(mapVisit), nextCursor: rows.length > 20 ? visits.at(-1).id : null });
+    res.json({ visits: visits.map(row => {
+      const mapped = mapVisit(row);
+      return req.actor?.type === "groomer" ? { ...mapped, finalPrice: null, priceResolution: null } : mapped;
+    }), nextCursor: rows.length > 20 ? visits.at(-1).id : null });
   } catch (error) {
     console.error("[Grooming] Notes history failed:", error.message);
     res.status(500).json({ error: "No se pudieron cargar las notas anteriores." });

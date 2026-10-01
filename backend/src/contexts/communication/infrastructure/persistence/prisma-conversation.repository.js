@@ -10,8 +10,8 @@ class PrismaConversationRepository extends ConversationRepositoryPort {
   // (Decisión Diferida 3).
   async findOrCreateActiveForUser(userId, channelId) {
     const existing = await prisma.conversation.findFirst({
-      where: { userId, OR: [{ step: null }, { step: { not: ACTIVE_STEP_EXCLUDED } }] },
-      orderBy: { updatedAt: "desc" },
+      where: { userId, OR: [{ assignedActorId: { not: null } }, { step: null }, { step: { not: ACTIVE_STEP_EXCLUDED } }] },
+      orderBy: [{ assignedAt: { sort: "desc", nulls: "last" } }, { updatedAt: "desc" }],
     });
 
     if (existing) {
@@ -33,7 +33,7 @@ class PrismaConversationRepository extends ConversationRepositoryPort {
   }
 
   async resolveEscalation(conversationId) {
-    return prisma.conversation.update({ where: { id: conversationId }, data: { status: "activa" } });
+    return prisma.conversation.update({ where: { id: conversationId }, data: { status: "activa", assignedActorId: null, assignedActorName: null, assignedActorRole: null, assignedAt: null, controlChangedAt: new Date(), controlVersion: { increment: 1 } } });
   }
 
   async listEscalatedPending(tenantId) {

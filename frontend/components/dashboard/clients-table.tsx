@@ -26,6 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ContactPagination } from "@/components/dashboard/contact-pagination";
 import { proxyUrl } from "@/lib/api";
 import {
   type DashboardClient,
@@ -51,6 +52,7 @@ export function ClientsTable() {
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [initialEdit, setInitialEdit] = useState(false);
   const [newOpen, setNewOpen] = useState(() => searchParams.get("new") === "cliente");
   const [version, setVersion] = useState(0);
   const [query, setQuery] = useState(() => searchParams.get("search") ?? "");
@@ -60,7 +62,7 @@ export function ClientsTable() {
   const [total, setTotal] = useState(0);
   const [debouncedQuery, setDebouncedQuery] = useState(query);
   const PAGE_SIZE = 50;
-  const totalPages = Math.ceil(total / PAGE_SIZE);
+
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -97,6 +99,8 @@ export function ClientsTable() {
         if (!cancelled) {
           setClients(data);
           setTotal(payload.total ?? data.length);
+          const pages = Math.max(1, Math.ceil((payload.total ?? data.length) / PAGE_SIZE));
+          if (page > pages) setPage(pages);
           setError(null);
         }
       } catch (err) {
@@ -111,7 +115,8 @@ export function ClientsTable() {
     return () => { cancelled = true; };
   }, [tenant, version, page, debouncedQuery]);
 
-  const handleOpenClient = (client: DashboardClient) => {
+  const handleOpenClient = (client: DashboardClient, edit = false) => {
+    setInitialEdit(edit);
     setSelectedId(client.id);
     setSheetOpen(true);
   };
@@ -129,7 +134,8 @@ export function ClientsTable() {
       const base = proxyUrl(`/api/dashboard/clients/${id}`);
       const tq = tenantQuery(tenant);
       const url = tq ? `${base}?${tq.replace("?", "")}` : base;
-      await fetch(url, { method: "DELETE" });
+      const response = await fetch(url, { method: "DELETE" });
+      if (!response.ok) throw new Error("No se pudo eliminar el cliente.");
       setVersion((v) => v + 1);
     } catch {
       alert("No se pudo eliminar el cliente.");
@@ -152,28 +158,30 @@ export function ClientsTable() {
               </Badge>
             )}
           </div>
-          <div className="flex w-full items-center gap-2 sm:w-auto">
-            {!loading && !error && (total > 0 || debouncedQuery.trim()) && (
-              <div className="relative w-full sm:w-64">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            {(
+              <div className="w-full sm:w-80"><label htmlFor="clients-search" className="mb-1 block text-sm font-medium">Buscar cliente</label><div className="relative w-full">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
+                  id="clients-search"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Buscar por nombre o telefono..."
+                  aria-label="Buscar cliente por nombre o teléfono"
+                  placeholder="Nombre o teléfono del cliente"
                   className="pl-9 pr-8"
                 />
                 {query && (
                   <button
                     onClick={() => setQuery("")}
                     className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    aria-label="Limpiar busqueda"
+                    aria-label="Limpiar búsqueda"
                   >
                     <X className="h-4 w-4" />
                   </button>
                 )}
-              </div>
+              </div></div>
             )}
-            <Button size="sm" className="shrink-0 gap-1" onClick={() => setNewOpen(true)}>
+            <Button size="sm" className="min-h-11 shrink-0 gap-1 sm:self-end" onClick={() => setNewOpen(true)}>
               <Plus className="h-4 w-4" />
               Nuevo cliente
             </Button>
@@ -192,17 +200,18 @@ export function ClientsTable() {
             </div>
           ) : clients.length === 0 && debouncedQuery.trim() ? (
             <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-              {["Ningun cliente coincide con ", debouncedQuery, "."].join("")}
+              {["Ningún cliente coincide con “", debouncedQuery, "”. Prueba otro nombre o teléfono."].join("")}
             </div>
           ) : clients.length === 0 ? (
             <EmptyState
               icon={<Users className="h-7 w-7" />}
               title="No hay clientes registrados"
-              description="Los clientes apareceran aqui cuando alguien escriba por WhatsApp."
-              hint="El agente WhatsApp esta activo"
+              description="Registra al propietario y sus mascotas desde Nuevo cliente."
             />
           ) : (
-            <div className="overflow-x-auto">
+            <>
+            <div className="space-y-3 md:hidden">{clients.map((client) => <article key={client.id} className="rounded-xl border p-4"><h3 className="font-semibold">{client.name || "Cliente sin nombre"}</h3><p className="text-sm text-muted-foreground">{formatPhone(client.phone)}</p><p className="mt-2 text-sm">{client.petsCount} mascotas · {client.appointmentsCount} citas</p><p className="text-xs text-muted-foreground">Última actividad: {formatRelativeTime(client.lastActivityAt)}</p><div className="mt-3 flex flex-wrap gap-2"><Button variant="outline" onClick={() => handleOpenClient(client)}>Ver cliente</Button><Button variant="outline" onClick={() => handleOpenClient(client, true)}>Editar</Button><Button variant="ghost" aria-label={`Eliminar cliente ${client.name ?? client.phone}`} disabled={deleting === client.id} onClick={(e) => handleDelete(e, client.id, client.name ?? client.phone)}><Trash2 className="h-4 w-4" /></Button></div></article>)}</div>
+            <div className="hidden overflow-x-auto md:block">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/30 hover:bg-muted/30 border-b border-black/[0.08]">
@@ -254,22 +263,22 @@ export function ClientsTable() {
                           <button
                             title="Ver cliente"
                             onClick={() => handleOpenClient(client)}
-                            className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                            className="inline-flex min-h-11 items-center gap-1 rounded px-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
                           >
-                            <Eye className="h-4 w-4" />
+                            <Eye className="h-4 w-4" /> Ver
                           </button>
                           <button
                             title="Editar cliente"
-                            onClick={() => handleOpenClient(client)}
-                            className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                            onClick={() => handleOpenClient(client, true)}
+                            className="inline-flex min-h-11 items-center gap-1 rounded px-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
                           >
-                            <Pencil className="h-4 w-4" />
+                            <Pencil className="h-4 w-4" /> Editar
                           </button>
                           <button
                             title="Eliminar cliente"
                             disabled={deleting === client.id}
                             onClick={(e) => handleDelete(e, client.id, client.name ?? client.phone)}
-                            className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors disabled:opacity-50"
+                            className="inline-flex h-11 w-11 items-center justify-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors disabled:opacity-50"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -280,51 +289,11 @@ export function ClientsTable() {
                 </TableBody>
               </Table>
             </div>
+            </>
           )}
 
-          {!loading && !error && totalPages > 1 && (
-            <div className="mt-4 flex items-center justify-between border-t border-black/[0.06] pt-4">
-              <p className="text-xs text-muted-foreground">
-                {["Pagina ", page, " de ", totalPages, " · mostrando ", ((page - 1) * PAGE_SIZE) + 1, "–", Math.min(page * PAGE_SIZE, total), " de ", total.toLocaleString()].join("")}
-              </p>
-              <div className="flex items-center gap-1">
-                <Button size="sm" variant="outline" className="h-7 px-2 text-xs" disabled={page === 1} onClick={() => setPage(1)}>
-                  {"«"}
-                </Button>
-                <Button size="sm" variant="outline" className="h-7 px-2 text-xs" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
-                  {"‹ Anterior"}
-                </Button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1)
-                  .filter((n) => n === 1 || n === totalPages || Math.abs(n - page) <= 2)
-                  .reduce<(number | string)[]>((acc, n, i, arr) => {
-                    if (i > 0 && n - (arr[i - 1] as number) > 1) acc.push("...");
-                    acc.push(n);
-                    return acc;
-                  }, [])
-                  .map((n, i) =>
-                    n === "..." ? (
-                      <span key={["ellipsis", i].join("-")} className="px-1 text-xs text-muted-foreground">{"..."}</span>
-                    ) : (
-                      <Button
-                        key={n}
-                        size="sm"
-                        variant={page === n ? "default" : "outline"}
-                        className="h-7 w-7 p-0 text-xs"
-                        onClick={() => setPage(n as number)}
-                      >
-                        {n}
-                      </Button>
-                    )
-                  )}
-                <Button size="sm" variant="outline" className="h-7 px-2 text-xs" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)}>
-                  {"Siguiente ›"}
-                </Button>
-                <Button size="sm" variant="outline" className="h-7 px-2 text-xs" disabled={page === totalPages} onClick={() => setPage(totalPages)}>
-                  {"»"}
-                </Button>
-              </div>
-            </div>
-          )}
+          {!loading && !error && <ContactPagination page={page} total={total} pageSize={PAGE_SIZE} onChange={setPage} />}
+
         </CardContent>
       </Card>
 
@@ -332,6 +301,8 @@ export function ClientsTable() {
         clientId={selectedId}
         open={sheetOpen}
         onOpenChange={handleSheetOpenChange}
+        initialEdit={initialEdit}
+        onUpdated={() => setVersion((v) => v + 1)}
       />
 
       <NewOwnerPetsSheet

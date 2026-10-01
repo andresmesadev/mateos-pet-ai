@@ -127,7 +127,7 @@ export function DashboardTopbar() {
   return (
     <header className="sticky top-0 z-20 flex flex-col gap-4 border-b border-border bg-white/95 px-4 py-4 backdrop-blur-md md:flex-row md:items-center md:justify-between md:px-8">
       <div className="pl-12 lg:pl-0">
-        {isVet ? (
+        {isVet && pathname === "/dashboard/consultas" ? (
           <><h1 className="text-xl font-bold tracking-tight">Consultas veterinarias</h1><p className="text-sm text-muted-foreground">Tu espacio clínico de trabajo</p></>
         ) : isHome ? (
           <>
@@ -146,7 +146,7 @@ export function DashboardTopbar() {
       </div>
 
       {/* Acciones */}
-      {!isVet && <div className="flex items-center gap-2 md:gap-3">
+      {session?.user?.role === "admin" && <div className="flex items-center gap-2 md:gap-3">
         {/* Buscador con dropdown */}
         <div ref={containerRef} className="relative hidden sm:block">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

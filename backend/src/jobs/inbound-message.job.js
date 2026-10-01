@@ -22,7 +22,7 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Persist only the public Communication command, not sessions, analysis or
 // arbitrary engine objects. Preserve the existing order of replies in a batch.
-const prepareReplies = (result) => {
+const prepareReplies = (result, preparedAt) => {
   if (!result?.processed || !result?.from) return [];
   const replies = [...(Array.isArray(result.additionalReplies) ? result.additionalReplies : []), result];
   return replies.flatMap(({ from, reply, user, conversation }) => {
@@ -32,7 +32,7 @@ const prepareReplies = (result) => {
       return [];
     }
     return [{ tenantId: user.tenantId ?? null, userId: user.id,
-      conversationId: conversation?.id ?? null, phone: from, content: reply, origin: "agente" }];
+      conversationId: conversation?.id ?? null, phone: from, content: reply, origin: "agente", preparedAt }];
   });
 };
 
@@ -74,8 +74,9 @@ const processOneJob = async () => {
     if (job.phase === "pending") {
       job = await checkpointInboundJob(job, "processing");
       await assertLease();
+      const preparedAt = new Date().toISOString();
       const result = await processIncomingMessage(job.payload);
-      const replies = prepareReplies(result);
+      const replies = prepareReplies(result, preparedAt);
       job = await checkpointInboundJob(job, replies.length ? "ready" : "complete", { replies, replyCursor: 0 });
     }
     if (job.phase === "ready") {

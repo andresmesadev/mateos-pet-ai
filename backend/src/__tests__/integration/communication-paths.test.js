@@ -8,7 +8,7 @@ const express = require("express");
 const request = require("supertest");
 
 jest.mock("../../lib/prisma", () => ({
-  conversation: { findUnique: jest.fn(), findFirst: jest.fn(), update: jest.fn(), create: jest.fn(), findMany: jest.fn() },
+  conversation: { findUnique: jest.fn(), findFirst: jest.fn(), update: jest.fn(), updateMany: jest.fn(), create: jest.fn(), findMany: jest.fn() },
   message: { create: jest.fn(), findMany: jest.fn() },
   channel: { findFirst: jest.fn() },
 }));
@@ -26,13 +26,28 @@ function buildApp() {
   app.use(express.json());
   app.use((req, _res, next) => {
     req.tenant = { isSuperAdmin: false, tenantId: "tenant-a" };
+    req.actor = { type: "admin", email: "admin@example.com", name: "Administrador" };
     next();
   });
   app.use("/api/dashboard", conversationsRoutes);
   return app;
 }
 
-beforeEach(() => jest.clearAllMocks());
+let current;
+beforeEach(() => {
+  jest.clearAllMocks();
+  current = { id: "conv-1", tenantId: "tenant-a", userId: "user-1", status: "esperando_humano",
+    assignedActorId: "admin:admin@example.com", controlVersion: 0, updatedAt: new Date(),
+    user: { phone: "573000000000" }, sessionData: {} };
+  prisma.conversation.findFirst.mockImplementation(async () => current);
+  prisma.conversation.findUnique.mockImplementation(async () => current);
+  prisma.conversation.findMany.mockResolvedValue([]);
+  prisma.message.findMany.mockResolvedValue([]);
+  prisma.conversation.updateMany.mockImplementation(async ({ data }) => {
+    current = { ...current, ...data, controlVersion: current.controlVersion + 1 };
+    return { count: 1 };
+  });
+});
 
 describe("POST /conversations/:id/send — Enviar Mensaje con conversationId explícito", () => {
   test("envía por el proveedor y persiste con origin=agente en la conversación exacta de la URL", async () => {
@@ -52,7 +67,7 @@ describe("POST /conversations/:id/send — Enviar Mensaje con conversationId exp
 
     const res = await request(buildApp())
       .post("/api/dashboard/conversations/conv-1/send")
-      .send({ message: "hola desde el operador" });
+      .send({ message: "hola desde el operador", expectedVersion: 0 });
 
     expect(res.status).toBe(200);
     expect(sendWhatsAppMessage).toHaveBeenCalledWith("573000000000", "hola desde el operador");
@@ -72,7 +87,7 @@ describe("POST /conversations/:id/send — Enviar Mensaje con conversationId exp
 
     const res = await request(buildApp())
       .post("/api/dashboard/conversations/conv-1/send")
-      .send({ message: "hola" });
+      .send({ message: "hola", expectedVersion: 0 });
 
     expect(res.status).toBe(502);
     expect(prisma.message.create).not.toHaveBeenCalled();
@@ -90,7 +105,7 @@ describe("POST /conversations/:id/send — Enviar Mensaje con conversationId exp
 
     const res = await request(buildApp())
       .post("/api/dashboard/conversations/conv-1/send")
-      .send({ message: "hola" });
+      .send({ message: "hola", expectedVersion: 0 });
 
     expect(res.status).toBe(502);
     expect(prisma.message.create).not.toHaveBeenCalled();
@@ -118,46 +133,23 @@ describe("GET/PATCH /escalations — evolución de Conversation.status", () => {
     expect(res.body[0].petName).toBe("Firulais");
   });
 
-  test("resuelve una escalación: status vuelve a activa", async () => {
-    prisma.conversation.findFirst.mockResolvedValue({ id: "conv-2" });
-    // Primera llamada (findById dentro del caso de uso): aún escalada.
-    // Segunda llamada (la ruta releyendo tras resolver): ya activa.
-    prisma.conversation.findUnique
-      .mockResolvedValueOnce({ id: "conv-2", status: "esperando_humano" })
-      .mockResolvedValueOnce({
-        id: "conv-2",
-        status: "activa",
-        updatedAt: new Date(),
-        sessionData: {},
-        user: { phone: "573000000001" },
-        messages: [],
-      });
-    prisma.conversation.update.mockImplementation(async ({ data }) => ({
-      id: "conv-2",
-      status: data.status,
-      updatedAt: new Date(),
-      sessionData: {},
-      user: { phone: "573000000001" },
-      messages: [],
-    }));
-
-    const res = await request(buildApp()).patch("/api/dashboard/escalations/conv-2/resolve");
-
+  test("resuelve una escalación y libera el responsable con versión comprobada", async () => {
+    current = { ...current, id: "conv-2" };
+    const res = await request(buildApp()).patch("/api/dashboard/escalations/conv-2/resolve").send({ expectedVersion: 0 });
     expect(res.status).toBe(200);
-    expect(prisma.conversation.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { status: "activa" } })
-    );
-    expect(res.body.requiresHumanAttention).toBe(false);
+    expect(prisma.conversation.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "conv-2", tenantId: "tenant-a", controlVersion: 0 },
+      data: expect.objectContaining({ status: "activa", assignedActorId: null, controlVersion: { increment: 1 } }),
+    }));
+    expect(res.body.conversation.requires_human_attention).toBe(false);
+    expect(res.body.conversation.controlVersion).toBe(1);
   });
 
-  test("resolver una conversación ya no escalada es idempotente (200, no error)", async () => {
-    prisma.conversation.findFirst.mockResolvedValue({ id: "conv-3" });
-    prisma.conversation.findUnique.mockResolvedValue({ id: "conv-3", status: "activa" });
-
-    const res = await request(buildApp()).patch("/api/dashboard/escalations/conv-3/resolve");
-
+  test("resolver una conversación ya activa es idempotente", async () => {
+    current = { ...current, id: "conv-3", status: "activa", assignedActorId: null };
+    const res = await request(buildApp()).patch("/api/dashboard/escalations/conv-3/resolve").send({ expectedVersion: 0 });
     expect(res.status).toBe(200);
-    expect(prisma.conversation.update).not.toHaveBeenCalled();
+    expect(prisma.conversation.updateMany).not.toHaveBeenCalled();
   });
 
   test("resolver una conversación inexistente responde 404", async () => {

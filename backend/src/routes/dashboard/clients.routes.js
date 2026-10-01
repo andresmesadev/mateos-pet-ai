@@ -42,6 +42,9 @@ router.get("/clients", async (req, res) => {
     }
 
     const result = await listClients(tenantId, { page, limit, search });
+    if (req.actor?.type === "receptionist") {
+      return res.json({ ...result, data: result.data.map(({ id, name, phone }) => ({ id, name, phone })) });
+    }
     res.json(result);
   } catch (error) {
     console.error("[Dashboard] Clients error:", error);
@@ -536,6 +539,11 @@ router.get("/clients/:id", async (req, res) => {
       return res.status(404).json({ error: ERRORS.NOT_FOUND("Cliente") });
     }
 
+    if (req.actor?.type === "receptionist") {
+      // El selector de citas necesita identidad básica; nunca notas clínicas.
+      return res.json({ id: client.id, name: client.name, phone: client.phone,
+        pets: client.pets.map(({ id, name, type }) => ({ id, name, type })) });
+    }
     res.json(client);
   } catch (error) {
     console.error("[Dashboard] Client detail error:", error);

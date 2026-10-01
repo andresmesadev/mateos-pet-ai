@@ -37,7 +37,7 @@ export function proxyUrl(dashboardPath: string): string {
  * For server components: direct to backend with internal auth headers.
  */
 export function makeServerHeaders(
-  session: { user: { tenantId: string | null; isSuperAdmin: boolean; email?: string | null; staffId?: string | null; sessionVersion?: number | null } } | null,
+  session: { user: { tenantId: string | null; isSuperAdmin: boolean; email?: string | null; name?: string | null; staffId?: string | null; sessionVersion?: number | null } } | null,
   selectedTenant?: string | null
 ): Record<string, string> {
   const headers: Record<string, string> = {
@@ -54,6 +54,7 @@ export function makeServerHeaders(
     headers["X-Staff-Session-Version"] = String(session.user.sessionVersion ?? "");
   } else if (session?.user?.email) {
     headers["X-Admin-Email"] = session.user.email;
+    headers["X-Admin-Name"] = session.user.name || "Administrador";
   }
   return headers;
 }

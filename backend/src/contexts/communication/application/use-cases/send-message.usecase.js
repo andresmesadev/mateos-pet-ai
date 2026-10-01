@@ -44,8 +44,9 @@ function createSendMessageUseCase({
   messageRepository,
   channelProvider,
   eventPublisher,
+  deliveryGuard = (_input, deliver) => deliver(),
 }) {
-  return async function execute({ tenantId, userId, phone, content, origin, conversationId = null }) {
+  return async function execute({ tenantId, userId, phone, content, origin, conversationId = null, author = null, expectedVersion, preparedAt = null }) {
     if (!userId) {
       throw new InvalidMessageAttributesError("userId es obligatorio.");
     }
@@ -74,6 +75,7 @@ function createSendMessageUseCase({
       conversation = await conversationRepository.findOrCreateActiveForUser(userId, channel.id);
     }
 
+    const result = await deliveryGuard({ tenantId, userId, phone, origin, conversationId: conversation.id, author, expectedVersion, preparedAt }, async () => {
     const delivered = await channelProvider.send(channel.type, phone, content);
     if (!delivered) {
       throw new MessageDeliveryFailedError(`proveedor del canal "${channel.type}" no confirmó el envío`);
@@ -84,11 +86,16 @@ function createSendMessageUseCase({
       role: "assistant",
       origin,
       content,
+      senderKind: author ? "human" : origin === "sistema" ? "system" : "ai",
+      ...(author ? { senderActorId: author.id, senderName: author.name, senderRole: author.role } : {}),
     });
 
-    await eventPublisher.publish("MensajeEnviado", { message, channel });
-
     return { message };
+    });
+    // Un consumidor de eventos puede enviar otro mensaje al mismo teléfono.
+    // Publicar después de soltar el mutex evita una espera circular.
+    if (result.message) await eventPublisher.publish("MensajeEnviado", { message: result.message, channel });
+    return result;
   };
 }
 

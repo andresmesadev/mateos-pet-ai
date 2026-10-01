@@ -20,6 +20,7 @@ export default async function DashboardConversationsPage({
 
   return (
     <section className="overflow-hidden">
+      <h1 className="sr-only">WhatsApp</h1>
       <Suspense fallback={<ConversationsLoading />}>
         <WhatsAppWebView initialConversationId={params.conversation ?? null} />
       </Suspense>

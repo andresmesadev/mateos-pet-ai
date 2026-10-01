@@ -36,7 +36,7 @@ describe("resolveTenant middleware", () => {
     jest.clearAllMocks();
     // Entregable 4.4 — por defecto el tenant está activo, salvo que el test lo diga.
     prisma.tenant.findUnique.mockResolvedValue({ active: true });
-    prisma.staffCredential.findFirst.mockResolvedValue({ staffId: "vet-1" });
+    prisma.staffCredential.findFirst.mockResolvedValue({ staffId: "vet-1", staff: { role: "vet", name: "Dra. Lina" } });
   });
 
   afterEach(() => {
@@ -179,10 +179,10 @@ describe("resolveTenant middleware", () => {
     const next = jest.fn();
     await resolveTenant(req, res, next);
     expect(next).toHaveBeenCalled();
-    expect(req.actor).toEqual({ type: "vet", staffId: "vet-1" });
+    expect(req.actor).toEqual({ type: "vet", staffId: "vet-1", name: "Dra. Lina" });
     expect(prisma.staffCredential.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: {
       staffId: "vet-1", active: true, sessionVersion: 3,
-      staff: { tenantId: "tenant-abc", active: true, role: "vet" },
+      staff: { tenantId: "tenant-abc", active: true, role: { in: ["vet", "groomer", "receptionist", "admin"] } },
     } }));
     prisma.staffCredential.findFirst.mockResolvedValueOnce(null);
     const expired = makeRes();
@@ -276,6 +276,6 @@ describe("resolveTenant middleware", () => {
     await resolveTenant(req, res, next);
 
     expect(next).toHaveBeenCalled();
-    expect(req.actor).toEqual({ type: "admin", email: "duena@example.com" });
+    expect(req.actor).toEqual({ type: "admin", email: "duena@example.com", name: "Administrador" });
   });
 });

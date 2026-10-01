@@ -34,6 +34,7 @@ type StaffMember = {
 const ROLES = [
   { value: "vet", label: "Veterinario/a" },
   { value: "groomer", label: "Peluquero/a" },
+  { value: "receptionist", label: "Recepción" },
   { value: "admin", label: "Administrativo/a" },
 ];
 
@@ -139,6 +140,7 @@ function AvailabilityPanel({ staffId, initial, onSaved }: {
 const ROLE_LABELS: Record<string, string> = {
   vet: "Veterinario/a",
   groomer: "Peluquero/a",
+  receptionist: "Recepción",
   admin: "Administrativo/a",
 };
 
@@ -286,7 +288,7 @@ export function StaffManager() {
 
   async function saveAccess(member: StaffMember) {
     if (!accessEmail.trim() || accessPassword.length < 12) {
-      setError("Escribe el correo del veterinario y una contraseña de al menos 12 caracteres.");
+      setError("Escribe el correo del integrante y una contraseña de al menos 12 caracteres.");
       return;
     }
     setSaving(true);
@@ -302,7 +304,7 @@ export function StaffManager() {
       setAccessPassword("");
       setAccessOpenId(null);
       await reload();
-      toast(`Acceso clínico actualizado para ${member.name}.`, "success");
+      toast(`Acceso actualizado para ${member.name}.`, "success");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo guardar el acceso.");
     } finally {
@@ -331,8 +333,8 @@ export function StaffManager() {
     ...r,
     items: members.filter((m) => m.role === r.value),
   }));
-  const adminEmail = session?.user?.role !== "vet" ? session?.user?.email?.trim().toLowerCase() : null;
-  const usesAdminAccess = (member: StaffMember) => Boolean(adminEmail && member.role === "vet" && member.email?.trim().toLowerCase() === adminEmail);
+  const adminEmail = session?.user?.role === "admin" ? session?.user?.email?.trim().toLowerCase() : null;
+  const usesAdminAccess = (member: StaffMember) => Boolean(adminEmail && member.email?.trim().toLowerCase() === adminEmail);
 
   return (
     <div className="space-y-6">
@@ -464,10 +466,10 @@ export function StaffManager() {
                                 {m.phone && <span>{m.phone}</span>}
                                 {m.email && <span>{m.email}</span>}
                               </div>
-                              {m.role === "vet" && <p className="mt-1 text-xs text-teal-800">{usesAdminAccess(m) ? "Tu cuenta de administrador también sirve para atender consultas" : m.credential?.active ? `Acceso clínico activo: ${m.credential.email}` : "Sin acceso clínico individual"}</p>}
+                              <p className="mt-1 text-xs text-teal-800">{usesAdminAccess(m) ? "Tu cuenta administradora también permite atender y responder" : m.credential?.active ? `Acceso activo: ${m.credential.email}` : "Sin acceso individual"}</p>
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
-                              {m.role === "vet" && !usesAdminAccess(m) && <Button size="sm" variant="ghost" onClick={() => openAccess(m)}>{accessOpenId === m.id ? "Cerrar acceso" : "Acceso"}</Button>}
+                              {!usesAdminAccess(m) && <Button size="sm" variant="ghost" onClick={() => openAccess(m)}>{accessOpenId === m.id ? "Cerrar acceso" : "Acceso"}</Button>}
                               <Button size="sm" variant="ghost" onClick={() => startEdit(m)}>
                                 Editar
                               </Button>
@@ -496,11 +498,11 @@ export function StaffManager() {
                               onSaved={(av) => setMembers((prev) => prev.map((s) => s.id === m.id ? { ...s, availability: av } : s))}
                             />
                           )}
-                          {accessOpenId === m.id && m.role === "vet" && (
+                          {accessOpenId === m.id && (
                             <div className="mt-3 space-y-3 rounded-xl border border-teal-200 bg-teal-50/50 p-4">
                               <div>
                                 <p className="text-sm font-semibold text-teal-950">Cuenta individual de {m.name}</p>
-                                <p className="mt-1 text-xs text-teal-900">Da acceso solo a Consultas veterinarias. La historia guardará quién la creó y quién la editó por última vez.</p>
+                                <p className="mt-1 text-xs text-teal-900">{m.role === "vet" ? "Consultas veterinarias y WhatsApp con acceso clínico." : m.role === "groomer" ? "WhatsApp, citas y notas de peluquería. Sin acceso clínico ni financiero." : m.role === "receptionist" ? "WhatsApp y creación de citas. Sin acceso clínico ni financiero." : "Acceso administrativo completo. Asigna este perfil solo a responsables autorizados."} Los mensajes guardarán el nombre de quien respondió.</p>
                               </div>
                               <div className="grid gap-3 sm:grid-cols-2">
                                 <label className="space-y-1 text-xs font-semibold text-slate-700">Correo de ingreso<Input type="email" autoComplete="off" value={accessEmail} onChange={(event) => setAccessEmail(event.target.value)} /></label>

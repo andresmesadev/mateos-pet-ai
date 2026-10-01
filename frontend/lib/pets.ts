@@ -101,7 +101,7 @@ export function formatPhone(phone: string | null): string {
   return phone;
 }
 
-export function formatRecordDate(iso: string | null): string {
+export function formatRecordDate(iso: string | null, calendarDate = false): string {
   if (!iso) return "—";
 
   const date = new Date(iso);
@@ -111,7 +111,7 @@ export function formatRecordDate(iso: string | null): string {
   }
 
   return new Intl.DateTimeFormat("es-CO", {
-    timeZone: "America/Bogota",
+    timeZone: calendarDate || /^\d{4}-\d{2}-\d{2}$/.test(iso) ? "UTC" : "America/Bogota",
     day: "2-digit",
     month: "2-digit",
     year: "numeric",

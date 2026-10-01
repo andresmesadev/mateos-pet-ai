@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import {
   Download,
   Syringe,
@@ -10,11 +10,15 @@ import {
   StickyNote,
   Stethoscope,
   ChevronLeft,
+  CalendarPlus,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { NewAppointmentDialog } from "@/components/dashboard/new-appointment-dialog";
+import { ProtectedDialog, SavedChangesStatus, useDialogEditGuard } from "@/components/dashboard/protected-dialog";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +26,10 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PetGroomingHistory } from "@/components/dashboard/pet-grooming-history";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { PetRecordForm, type QuickRecordKind } from "@/components/dashboard/pet-record-form";
+import { formatPetAge } from "@/lib/contact-profile-utils";
 import { PetTimeline } from "@/components/dashboard/pet-timeline";
 import { VetConsultationDialog } from "@/components/dashboard/vet-consultation-dialog";
 import { proxyUrl } from "@/lib/api";
@@ -31,6 +39,8 @@ import {
   type DashboardPet,
   type MedicalRecordType,
   type PetTimeline as PetTimelineData,
+  type TimelineItem,
+  formatRecordDate,
   formatPetType,
   getPetEmoji,
 } from "@/lib/pets";
@@ -41,6 +51,7 @@ type PetMedicalSheetProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onRecordAdded?: () => void;
+  initialEdit?: boolean;
 };
 
 type AddRecordForm = {
@@ -70,15 +81,6 @@ const ACTION_BUTTONS: {
   { id: "note",         label: "Nota",             icon: StickyNote,  color: "text-muted-foreground", bg: "bg-accent/40", ring: "ring-black/10 border-black/[0.06]" },
 ];
 
-const FORM_LABELS: Record<ActiveForm, { title: string; titlePlaceholder: string; detailLabel: string; detailPlaceholder: string; nextLabel?: string }> = {
-  consultation: { title: "", titlePlaceholder: "", detailLabel: "", detailPlaceholder: "" },
-  vaccine:   { title: "Nombre de la vacuna *",   titlePlaceholder: "Ej. Antirrábica, Parvovirus…", detailLabel: "Laboratorio / Lote (opcional)", detailPlaceholder: "Ej. Nobivac, Lote 1234…",         nextLabel: "Próxima vacunación" },
-  deworming: { title: "Producto / Nombre *",      titlePlaceholder: "Ej. Milbemax, Drontal…",       detailLabel: "Dosis / Observaciones (opcional)", detailPlaceholder: "Ej. 1 tableta, vía oral…",   nextLabel: "Próxima desparasitación" },
-  grooming:  { title: "Servicio realizado *",     titlePlaceholder: "Ej. Baño y corte, uñas…",      detailLabel: "Observaciones (opcional)",          detailPlaceholder: "Ej. Pelaje en buen estado…", nextLabel: "Próxima visita" },
-  allergy:   { title: "Alergia / Sustancia *",    titlePlaceholder: "Ej. Pollo, penicilina…",       detailLabel: "Reacción / descripción (opcional)", detailPlaceholder: "Ej. Urticaria, vómito…" },
-  note:      { title: "Título *",                 titlePlaceholder: "Ej. Observación post-cirugía", detailLabel: "Detalle (opcional)",                detailPlaceholder: "Descripción adicional" },
-};
-
 const SELECT_CLASS =
   "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring";
 
@@ -103,9 +105,11 @@ type AgreedPrice = { serviceId: string; serviceName: string; price: number };
 function PetMedicalSheetContent({
   pet,
   onRecordAdded,
+  initialEdit = false,
 }: {
   pet: DashboardPet;
   onRecordAdded?: () => void;
+  initialEdit?: boolean;
 }) {
   const { toast } = useToast();
   const tenant = useTenant();
@@ -124,7 +128,7 @@ function PetMedicalSheetContent({
   const [form, setForm]                   = useState<AddRecordForm>(INITIAL_FORM);
   const [nextDate, setNextDate]           = useState("");
   const [formError, setFormError]         = useState<string | null>(null);
-  const [editingProfile, setEditingProfile]   = useState(false);
+  const [editingProfile, setEditingProfile]   = useState(initialEdit);
   const [savingProfile, setSavingProfile]     = useState(false);
   const [profile, setProfile]             = useState<Partial<DashboardPet>>({
     breed: pet.breed, gender: pet.gender, birthDate: pet.birthDate,
@@ -144,12 +148,28 @@ function PetMedicalSheetContent({
     sterilized: pet.sterilized != null ? String(pet.sterilized) : "",
     notes:      pet.notes ?? "",
   });
+  const [savedAt, setSavedAt] = useState<Date | null>(null);
+  const [newAppointment, setNewAppointment] = useState(false);
+  const recordFormId = useId();
+  const [activeTab, setActiveTab] = useState("ficha");
+  const [selectedAllergy, setSelectedAllergy] = useState<TimelineItem | null>(null);
+  const savedProfile: PetProfileForm = {
+    petName, ownerName, ownerPhone, breed: profile.breed ?? "", gender: profile.gender ?? "",
+    birthDate: profile.birthDate?.slice(0, 10) ?? "", weight: profile.weight != null ? String(profile.weight) : "",
+    sterilized: profile.sterilized != null ? String(profile.sterilized) : "", notes: profile.notes ?? "",
+  };
+  const profileDirty = editingProfile && (Object.keys(savedProfile) as (keyof PetProfileForm)[]).some((field) => profileForm[field] !== savedProfile[field]);
+  const priceDirty = Boolean(editingPriceService && priceDraft !== String(agreedPrices.find((item) => item.serviceId === editingPriceService)?.price ?? ""));
+  const recordDirty = Boolean(activeForm && (form.title || form.detail || form.date || nextDate));
+  const dirty = profileDirty || priceDirty || recordDirty;
+  const busy = saving || savingProfile || savingPrice;
+  const discard = useDialogEditGuard(dirty, busy);
 
   const reloadTimeline = useCallback(async () => {
-    const res = await fetch(proxyUrl(`/api/dashboard/pets/${pet.id}/timeline`), { cache: "no-store" });
+    const res = await fetch(proxyUrl(`/api/dashboard/pets/${pet.id}/timeline${tenantQuery(tenant)}`), { cache: "no-store" });
     if (!res.ok) throw new Error("No se pudo cargar el historial");
     return (await res.json()) as PetTimelineData;
-  }, [pet.id]);
+  }, [pet.id, tenant]);
 
   useEffect(() => {
     let cancelled = false;
@@ -204,6 +224,7 @@ function PetMedicalSheetContent({
       if (!response.ok) throw new Error(payload?.error || "Intenta de nuevo.");
       setAgreedPrices((current) => current.map((item) => item.serviceId === editingPriceService ? { ...item, price: amount } : item));
       setEditingPriceService(null);
+      setSavedAt(new Date());
       toast("Tarifa de la mascota actualizada.", "success");
     } catch (cause) {
       setPricesError(cause instanceof Error ? cause.message : "No se pudo actualizar la tarifa.");
@@ -214,6 +235,7 @@ function PetMedicalSheetContent({
 
   function openForm(id: ActiveForm) {
     if (id === "consultation") { setShowConsultation(true); return; }
+    if (id === "grooming") { setActiveTab("peluqueria"); return; }
     setActiveForm(id);
     setForm({ ...INITIAL_FORM, type: id as MedicalRecordType });
     setNextDate("");
@@ -230,8 +252,17 @@ function PetMedicalSheetContent({
   async function handleSaveProfile() {
     setSavingProfile(true);
     try {
+      const ownerChanged = profileForm.ownerName !== ownerName || profileForm.ownerPhone !== ownerPhone;
+      let ownerId = pet.owner?.id;
+      if (ownerChanged && !ownerId) {
+        const response = await fetch(proxyUrl(`/api/dashboard/pets/${pet.id}${tenantQuery(tenant)}`), { cache: "no-store" });
+        if (!response.ok) throw new Error("No se pudo verificar el propietario. Intenta de nuevo.");
+        const current = await response.json() as DashboardPet;
+        ownerId = current.owner?.id;
+        if (!ownerId) throw new Error("No se pudo identificar al propietario. No se guardaron los cambios.");
+      }
       // Guardar mascota (nombre + datos clínicos)
-      const petRes = await fetch(proxyUrl(`/api/dashboard/pets/${pet.id}`), {
+      const petRes = await fetch(proxyUrl(`/api/dashboard/pets/${pet.id}${tenantQuery(tenant)}`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -250,8 +281,8 @@ function PetMedicalSheetContent({
       setPetName(profileForm.petName.trim() || pet.name);
 
       // Guardar propietario si tiene id
-      if (pet.owner?.id) {
-        const ownerRes = await fetch(proxyUrl(`/api/dashboard/clients/${pet.owner.id}`), {
+      if (ownerChanged && ownerId) {
+        const ownerRes = await fetch(proxyUrl(`/api/dashboard/clients/${ownerId}${tenantQuery(tenant)}`), {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -265,6 +296,8 @@ function PetMedicalSheetContent({
       }
 
       setEditingProfile(false);
+      setSavedAt(new Date());
+      onRecordAdded?.();
       toast("Ficha guardada.", "success");
     } catch (err) {
       toast(err instanceof Error ? err.message : "No se guardó. Intenta de nuevo.", "error");
@@ -280,7 +313,7 @@ function PetMedicalSheetContent({
     setSaving(true);
     setFormError(null);
     try {
-      const res = await fetch(proxyUrl(`/api/dashboard/pets/${pet.id}/records`), {
+      const res = await fetch(proxyUrl(`/api/dashboard/pets/${pet.id}/records${tenantQuery(tenant)}`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -296,10 +329,11 @@ function PetMedicalSheetContent({
         throw new Error(payload?.error || "No se pudo guardar el registro");
       }
       closeForm();
-      const data = await reloadTimeline();
-      setTimeline(data);
+      setSavedAt(new Date());
       onRecordAdded?.();
       toast("Registro guardado.", "success");
+      try { const data = await reloadTimeline(); setTimeline(data); setError(null); }
+      catch { setError("El registro se guardó, pero no se pudo actualizar el historial. Reintenta la carga."); }
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Error al guardar registro");
     } finally {
@@ -308,33 +342,33 @@ function PetMedicalSheetContent({
   }
 
   const activeBtn = ACTION_BUTTONS.find((b) => b.id === activeForm);
-  const labels    = activeForm && activeForm !== "consultation" ? FORM_LABELS[activeForm] : null;
+  const allergies = timeline?.items.filter((item) => item.kind === "allergy" && item.recordId) ?? [];
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex shrink-0 items-start justify-between gap-4 border-b border-black/[0.06] py-5 pl-6 pr-14">
-        <div className="flex items-center gap-3">
+      <div className="flex shrink-0 flex-wrap items-start justify-between gap-4 border-b border-black/[0.06] py-5 pl-6 pr-14">
+        <div className="flex min-w-0 items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-xl ring-1 ring-amber-500/25">
             {getPetEmoji(pet.type)}
           </div>
-          <div>
+          <div className="min-w-0">
             <DialogTitle className="text-base font-semibold tracking-tight">{petName}</DialogTitle>
-            <DialogDescription className="text-sm text-muted-foreground">
+            <DialogDescription className="break-words text-sm text-muted-foreground">
               {formatPetType(pet.type)}
               {ownerName ? ` · ${ownerName}` : ""}
               {ownerPhone ? ` · ${ownerPhone}` : ""}
             </DialogDescription>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline" className="text-xs tabular-nums">
             {timeline?.items.length ?? "–"} eventos
           </Badge>
           <Badge variant="outline" className="text-xs tabular-nums">
             {pet._count.appointments} citas
           </Badge>
-          <a href={`/print/pets/${pet.id}`} target="_blank" rel="noopener noreferrer">
+          <a href={`/print/pets/${pet.id}${tenantQuery(tenant)}`} target="_blank" rel="noopener noreferrer">
             <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs">
               <Download className="h-3.5 w-3.5" />
               PDF
@@ -345,15 +379,43 @@ function PetMedicalSheetContent({
 
       {/* Body */}
       <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-6 py-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <SavedChangesStatus dirty={dirty} saving={busy} savedAt={savedAt} />
+          <Button className="gap-2" disabled={dirty || busy} onClick={() => setNewAppointment(true)}><CalendarPlus className="h-4 w-4" />Nueva cita para {petName}</Button>
+        </div>
+        {dirty && <p className="text-xs text-muted-foreground">Guarda o cancela los cambios antes de agendar.</p>}
+        <dl aria-label="Resumen de la mascota" className="grid grid-cols-2 gap-x-6 gap-y-4 border-y py-4 sm:grid-cols-4">
+          {[["Especie", formatPetType(pet.type)], ["Raza", profile.breed || "Sin registrar"], ["Edad", formatPetAge(profile.birthDate)], ["Peso registrado", profile.weight != null ? `${profile.weight} kg` : "Sin registrar"]].map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-xs text-muted-foreground">{label}</dt><dd className="mt-1 break-words text-sm font-semibold">{value}</dd></div>)}
+        </dl>
+        {allergies.length > 0 && <section aria-label="Alergias registradas" className="rounded-xl border border-rose-200 bg-rose-50 p-4">
+          <h3 className="flex items-center gap-2 font-semibold text-rose-900"><AlertCircle className="size-4" />Alergias registradas</h3>
+          <ul className="mt-2 divide-y divide-rose-200">{allergies.map((item) => <li key={item.id} className="flex flex-wrap items-start justify-between gap-3 py-3"><div className="min-w-0 flex-1"><p className="break-words text-sm font-semibold">{item.title}</p><p className="mt-1 text-xs text-rose-900">Registrada el <time dateTime={item.date}>{formatRecordDate(item.date, Boolean(item.recordId && !item.appointmentId && /T00:00:00(?:\.000)?Z$/.test(item.date)))}</time></p>{item.detail && <p className="mt-1 whitespace-pre-wrap break-words text-sm">{item.detail}</p>}</div><Button type="button" variant="outline" className="min-h-11 border-rose-200 bg-white text-rose-950" aria-label={`Ver detalle de ${item.title}`} onClick={() => setSelectedAllergy(item)}>Ver detalle</Button></li>)}</ul>
+          <p className="mt-2 text-xs text-rose-800">Antecedentes registrados. El profesional debe confirmar su vigencia antes de la atención.</p>
+        </section>}
+        {error && <p role="alert" className="text-sm text-destructive">No se pudieron comprobar los antecedentes de alergias. Reintenta la carga del historial.</p>}
+        <section aria-label="Cuidados importantes" className={`rounded-xl border p-4 ${profile.notes ? "border-amber-200 bg-amber-50/60" : "bg-muted/30"}`}>
+          <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="flex items-center gap-2 font-semibold"><AlertCircle className="h-4 w-4 text-amber-700" />Cuidados importantes</h3><Button size="sm" variant="outline" disabled={busy} onClick={() => { if (!editingProfile) setProfileForm(savedProfile); setEditingProfile(true); setActiveTab("ficha"); }}>Editar cuidados</Button></div>
+          <p className="mt-2 whitespace-pre-wrap break-words text-sm">{profile.notes || "Todavía no hay observaciones registradas en la ficha."}</p>
+          <p className="mt-2 text-xs text-muted-foreground">Observaciones del equipo para tener en cuenta antes de una consulta, baño o corte.</p>
+        </section>
 
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-5">
+          <TabsList aria-label="Secciones de la ficha" className="grid h-auto! w-full grid-cols-2 gap-1 sm:grid-cols-4">
+            <TabsTrigger value="ficha" className="min-h-11">Datos y cuidados</TabsTrigger>
+            <TabsTrigger value="historial" className="min-h-11">Historial y citas</TabsTrigger>
+            <TabsTrigger value="peluqueria" className="min-h-11">Peluquería</TabsTrigger>
+            <TabsTrigger value="tarifas" className="min-h-11">Tarifas acordadas</TabsTrigger>
+          </TabsList>
+          <TabsContent value="ficha" forceMount className="data-[state=inactive]:hidden">
+          <section className="mb-4 rounded-xl border bg-teal-50/40 p-4"><h3 className="font-semibold">Propietario</h3><p className="mt-1 text-sm">{ownerName || "Sin nombre registrado"}</p><p className="text-sm text-muted-foreground">{ownerPhone || "Sin teléfono registrado"}</p></section>
         {/* Ficha */}
         <div className="rounded-xl border border-black/[0.06] bg-card">
           <div className="flex items-center justify-between border-b border-black/[0.04] px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ficha clínica</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Datos y cuidados de la mascota</p>
             {!editingProfile && (
               <button
                 type="button"
-                onClick={() => setEditingProfile(true)}
+                  onClick={() => { setProfileForm(savedProfile); setEditingProfile(true); }}
                 className="text-xs text-primary hover:underline"
               >
                 Editar
@@ -362,26 +424,26 @@ function PetMedicalSheetContent({
           </div>
 
           {editingProfile ? (
-            <div className="space-y-3 p-4">
+            <fieldset disabled={savingProfile} className="space-y-3 p-4">
               {/* Identificación */}
               <div className="grid grid-cols-1 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Nombre de la mascota</label>
-                  <Input value={profileForm.petName}
+                  <label htmlFor="pet-name" className="text-xs font-medium text-muted-foreground">Nombre de la mascota</label>
+                  <Input id="pet-name" value={profileForm.petName}
                     onChange={(e) => setProfileForm((f) => ({ ...f, petName: e.target.value }))}
                     placeholder="Ej. Max" />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Nombre del propietario</label>
-                  <Input value={profileForm.ownerName}
+                  <label htmlFor="pet-owner-name" className="text-xs font-medium text-muted-foreground">Nombre del propietario</label>
+                  <Input id="pet-owner-name" value={profileForm.ownerName}
                     onChange={(e) => setProfileForm((f) => ({ ...f, ownerName: e.target.value }))}
                     placeholder="Ej. María López" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Teléfono / WhatsApp</label>
-                  <Input value={profileForm.ownerPhone}
+                  <label htmlFor="pet-owner-phone" className="text-xs font-medium text-muted-foreground">Teléfono / WhatsApp</label>
+                  <Input id="pet-owner-phone" value={profileForm.ownerPhone}
                     onChange={(e) => setProfileForm((f) => ({ ...f, ownerPhone: e.target.value }))}
                     placeholder="+57 300 000 0000" />
                 </div>
@@ -389,15 +451,15 @@ function PetMedicalSheetContent({
               <div className="border-t border-black/[0.06] pt-3">
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Datos clínicos</p>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Raza</label>
-                  <Input placeholder="Ej. Golden Retriever" value={profileForm.breed}
+                  <label htmlFor="pet-breed" className="text-xs font-medium text-muted-foreground">Raza</label>
+                  <Input id="pet-breed" placeholder="Ej. Golden Retriever" value={profileForm.breed}
                     onChange={(e) => setProfileForm((f) => ({ ...f, breed: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Sexo</label>
-                  <select value={profileForm.gender}
+                  <label htmlFor="pet-gender" className="text-xs font-medium text-muted-foreground">Sexo</label>
+                  <select id="pet-gender" value={profileForm.gender}
                     onChange={(e) => setProfileForm((f) => ({ ...f, gender: e.target.value }))}
                     className={SELECT_CLASS}>
                     <option value="">Sin especificar</option>
@@ -406,18 +468,18 @@ function PetMedicalSheetContent({
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Fecha de nacimiento</label>
-                  <Input type="date" value={profileForm.birthDate}
+                  <label htmlFor="pet-birth" className="text-xs font-medium text-muted-foreground">Fecha de nacimiento</label>
+                  <Input id="pet-birth" type="date" value={profileForm.birthDate}
                     onChange={(e) => setProfileForm((f) => ({ ...f, birthDate: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Peso (kg)</label>
-                  <Input type="number" step="0.1" min="0" placeholder="Ej. 12.5" value={profileForm.weight}
+                  <label htmlFor="pet-weight" className="text-xs font-medium text-muted-foreground">Peso (kg)</label>
+                  <Input id="pet-weight" type="number" step="0.1" min="0" placeholder="Ej. 12.5" value={profileForm.weight}
                     onChange={(e) => setProfileForm((f) => ({ ...f, weight: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Esterilizado/a</label>
-                  <select value={profileForm.sterilized}
+                  <label htmlFor="pet-sterilized" className="text-xs font-medium text-muted-foreground">Esterilizado/a</label>
+                  <select id="pet-sterilized" value={profileForm.sterilized}
                     onChange={(e) => setProfileForm((f) => ({ ...f, sterilized: e.target.value }))}
                     className={SELECT_CLASS}>
                     <option value="">Sin especificar</option>
@@ -426,8 +488,8 @@ function PetMedicalSheetContent({
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Notas</label>
-                  <Input placeholder="Observaciones generales" value={profileForm.notes}
+                  <label htmlFor="pet-notes" className="text-xs font-medium text-muted-foreground">Notas</label>
+                  <Textarea id="pet-notes" rows={5} placeholder="Cuidados, comportamiento o precauciones que el equipo debe tener en cuenta…" value={profileForm.notes}
                     onChange={(e) => setProfileForm((f) => ({ ...f, notes: e.target.value }))} />
                 </div>
               </div>
@@ -435,11 +497,11 @@ function PetMedicalSheetContent({
                 <Button size="sm" onClick={handleSaveProfile} disabled={savingProfile}>
                   {savingProfile ? "Guardando…" : "Guardar ficha"}
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => setEditingProfile(false)} disabled={savingProfile}>
+                <Button size="sm" variant="outline" onClick={() => discard(() => { setProfileForm(savedProfile); setEditingProfile(false); }, profileDirty)} disabled={savingProfile}>
                   Cancelar
                 </Button>
               </div>
-            </div>
+            </fieldset>
           ) : (
             <div className="divide-y divide-black/[0.04]">
               {(
@@ -449,7 +511,6 @@ function PetMedicalSheetContent({
                   profile.birthDate  ? ["Nacimiento",     new Date(profile.birthDate).toLocaleDateString("es-CO")] : null,
                   profile.weight != null ? ["Peso",       `${profile.weight} kg`] : null,
                   profile.sterilized != null ? ["Esterilizado/a", profile.sterilized ? "Sí" : "No"] : null,
-                  profile.notes      ? ["Notas",          profile.notes] : null,
                 ] as ([string, string] | null)[]
               ).filter((row): row is [string, string] => row !== null).map(([label, value]) => (
                 <div key={label} className="flex items-center gap-4 px-4 py-2.5 text-sm">
@@ -458,13 +519,15 @@ function PetMedicalSheetContent({
                 </div>
               ))}
               {!profile.breed && !profile.gender && !profile.birthDate &&
-                profile.weight == null && profile.sterilized == null && !profile.notes && (
+                profile.weight == null && profile.sterilized == null && (
                 <p className="px-4 py-3 text-sm text-muted-foreground">Sin datos adicionales.</p>
               )}
             </div>
           )}
         </div>
 
+          </TabsContent>
+          <TabsContent value="tarifas" forceMount className="data-[state=inactive]:hidden">
         <section className="rounded-xl border border-teal-200 bg-teal-50/40" aria-label="Tarifas de la mascota">
           <div className="border-b border-teal-100 px-4 py-3">
             <h3 className="text-sm font-semibold text-slate-900">Tarifas acordadas para {petName}</h3>
@@ -477,7 +540,7 @@ function PetMedicalSheetContent({
                   <form onSubmit={saveAgreedPrice} className="flex flex-wrap items-end gap-2">
                     <div className="min-w-44 flex-1"><label htmlFor={`agreed-price-${item.serviceId}`} className="block text-xs font-medium text-slate-700">{item.serviceName} · nuevo precio (COP)</label><Input id={`agreed-price-${item.serviceId}`} type="number" inputMode="decimal" min="0" max="99999999.99" step="0.01" value={priceDraft} onChange={(event) => setPriceDraft(event.target.value)} required className="mt-1" /></div>
                     <Button type="submit" size="sm" disabled={savingPrice}>{savingPrice ? "Guardando…" : "Guardar"}</Button>
-                    <Button type="button" size="sm" variant="outline" disabled={savingPrice} onClick={() => { setEditingPriceService(null); setPricesError(null); }}>Cancelar</Button>
+                    <Button type="button" size="sm" variant="outline" disabled={savingPrice} onClick={() => discard(() => { setEditingPriceService(null); setPricesError(null); }, priceDirty)}>Cancelar</Button>
                   </form>
                 ) : (
                   <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-sm font-semibold text-slate-900">{item.serviceName}</p><p className="text-sm text-slate-600">${item.price.toLocaleString("es-CO")}</p></div><Button type="button" size="sm" variant="outline" onClick={() => { setEditingPriceService(item.serviceId); setPriceDraft(String(item.price)); setPricesError(null); }}>Editar tarifa</Button></div>
@@ -488,11 +551,15 @@ function PetMedicalSheetContent({
           </div>
         </section>
 
+          </TabsContent>
+          <TabsContent value="peluqueria"><PetGroomingHistory petId={pet.id} appointments={timeline?.items ?? []} onSaved={() => { setSavedAt(new Date()); onRecordAdded?.(); }} /></TabsContent>
+          <TabsContent value="historial" forceMount className="space-y-5 data-[state=inactive]:hidden">
         {/* Botones de acción */}
         {!activeForm && (
           <div>
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Agregar registro</p>
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+            <h3 className="text-lg font-semibold">Agregar registro</h3>
+            <p className="mb-4 mt-1 text-sm text-muted-foreground">Guarda antecedentes y observaciones de esta mascota. Para una cita programada, registra la atención en su sección correspondiente.</p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {ACTION_BUTTONS.map((btn) => {
                 const Icon = btn.icon;
                 return (
@@ -501,8 +568,8 @@ function PetMedicalSheetContent({
                     type="button"
                     onClick={() => openForm(btn.id)}
                     className={cn(
-                      "group flex flex-col items-center gap-2 rounded-xl border p-3 transition-all duration-150",
-                      "hover:-translate-y-0.5 hover:shadow-[0_4px_16px_-4px_rgba(15,23,42,0.12)]",
+                      "group flex min-h-20 items-center gap-3 rounded-xl border p-4 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                      "hover:border-primary/40",
                       btn.ring,
                       btn.bg
                     )}
@@ -510,8 +577,8 @@ function PetMedicalSheetContent({
                     <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg ring-1 transition-transform group-hover:scale-110", btn.bg, btn.ring)}>
                       <Icon className={cn("h-4 w-4", btn.color)} />
                     </div>
-                    <span className={cn("text-[11px] font-medium leading-tight", btn.color)}>
-                      {btn.label}
+                    <span className={cn("text-sm font-semibold leading-tight", btn.color)}>
+                      {btn.id === "grooming" ? "Notas de peluquería" : btn.label}
                     </span>
                   </button>
                 );
@@ -520,78 +587,12 @@ function PetMedicalSheetContent({
           </div>
         )}
 
-        {/* Formulario activo */}
-        {activeForm && activeForm !== "consultation" && activeBtn && labels && (
-          <div className={cn("rounded-xl border p-5", activeBtn.bg, activeBtn.ring)}>
-            <div className="mb-4 flex items-center gap-3">
-              <button
-                type="button"
-                onClick={closeForm}
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <div className={cn("flex h-7 w-7 items-center justify-center rounded-lg ring-1", activeBtn.bg, activeBtn.ring)}>
-                <activeBtn.icon className={cn("h-3.5 w-3.5", activeBtn.color)} />
-              </div>
-              <p className="text-sm font-semibold">{activeBtn.label}</p>
-            </div>
-
-            <form id="medical-record-form" onSubmit={handleSubmit} className="space-y-3">
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">{labels.title}</label>
-                <Input
-                  value={form.title}
-                  onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                  placeholder={labels.titlePlaceholder}
-                  autoFocus
-                  disabled={saving}
-                />
-              </div>
-
-              {labels.nextLabel ? (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-muted-foreground">Fecha</label>
-                    <Input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} disabled={saving} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-muted-foreground">{labels.nextLabel}</label>
-                    <Input type="date" value={nextDate} onChange={(e) => setNextDate(e.target.value)} disabled={saving} />
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Fecha (opcional)</label>
-                  <Input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} disabled={saving} />
-                </div>
-              )}
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">{labels.detailLabel}</label>
-                <Input
-                  value={form.detail}
-                  onChange={(e) => setForm((f) => ({ ...f, detail: e.target.value }))}
-                  placeholder={labels.detailPlaceholder}
-                  disabled={saving}
-                />
-              </div>
-
-              {formError && (
-                <p className="text-sm text-destructive">{formError}</p>
-              )}
-            </form>
-
-            <div className="mt-4 flex gap-2">
-              <Button type="submit" form="medical-record-form" size="sm" disabled={saving}>
-                {saving ? "Guardando…" : `Guardar ${activeBtn.label.toLowerCase()}`}
-              </Button>
-              <Button type="button" size="sm" variant="outline" onClick={closeForm} disabled={saving}>
-                Cancelar
-              </Button>
-            </div>
-          </div>
-        )}
+        {activeForm && activeForm !== "consultation" && activeForm !== "grooming" && activeBtn && <div className="space-y-3">
+          <Button type="button" variant="ghost" disabled={saving} onClick={() => discard(closeForm, recordDirty)} className="gap-2"><ChevronLeft className="size-4" />Volver a tipos de registro</Button>
+          <PetRecordForm key={activeForm} id={recordFormId} kind={activeForm as QuickRecordKind} petName={petName} form={form} nextDate={nextDate} saving={saving} error={formError}
+            onChange={(field, value) => { setForm((current) => ({ ...current, [field]: value })); setFormError(null); }}
+            onNextDate={(value) => { setNextDate(value); setFormError(null); }} onSubmit={handleSubmit} />
+        </div>}
 
         {/* Timeline */}
         <div>
@@ -600,40 +601,62 @@ function PetMedicalSheetContent({
             <TimelineSkeleton />
           ) : error ? (
             <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-6 text-center text-sm text-destructive">
-              {error}
+              {error}<Button variant="outline" className="mx-auto mt-3 block" onClick={() => { void reloadTimeline().then((data) => { setTimeline(data); setError(null); }).catch(() => setError("No se pudo cargar el historial. Intenta de nuevo.")); }}>Reintentar</Button>
             </div>
           ) : timeline ? (
-            <PetTimeline items={timeline.items} nextActions={timeline.nextActions} petId={pet.id} onReload={reloadTimeline} />
+            <PetTimeline items={timeline.items} nextActions={timeline.nextActions} petId={pet.id} onReload={() => {
+              void reloadTimeline().then((data) => { setTimeline(data); setError(null); onRecordAdded?.(); }).catch(() => setError("No se pudo actualizar el historial. Reintenta la carga."));
+            }} />
           ) : null}
         </div>
+          </TabsContent>
+        </Tabs>
       </div>
 
+      {activeForm && activeForm !== "consultation" && activeForm !== "grooming" && activeTab === "historial" && <footer className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t bg-card px-6 py-4">
+        <p className="text-sm text-muted-foreground">Registro de {petName} · {activeBtn?.label}</p>
+        <div className="flex gap-2"><Button variant="outline" disabled={saving} onClick={() => discard(closeForm, recordDirty)}>Cancelar</Button><Button type="submit" form={recordFormId} disabled={saving}>{saving ? "Guardando…" : "Guardar registro"}</Button></div>
+      </footer>}
       <VetConsultationDialog
         open={showConsultation}
         onOpenChange={setShowConsultation}
         petId={pet.id}
         petName={pet.name}
         onSaved={async () => {
-          const data = await reloadTimeline();
-          setTimeline(data);
+          setSavedAt(new Date());
           onRecordAdded?.();
+          try { const data = await reloadTimeline(); setTimeline(data); setError(null); }
+          catch { setError("El antecedente se guardó, pero no se pudo actualizar el historial. Reintenta la carga."); }
         }}
       />
+      <Dialog open={Boolean(selectedAllergy)} onOpenChange={(open) => { if (!open) setSelectedAllergy(null); }}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+          <DialogTitle>Detalle de alergia registrada</DialogTitle>
+          <DialogDescription>Antecedente de {petName}. El profesional debe confirmar su vigencia antes de la atención.</DialogDescription>
+          {selectedAllergy && <dl className="space-y-4 text-sm"><div><dt className="font-semibold text-muted-foreground">Sustancia o alergia</dt><dd className="mt-1 break-words font-semibold">{selectedAllergy.title}</dd></div><div><dt className="font-semibold text-muted-foreground">Fecha del registro</dt><dd className="mt-1">{formatRecordDate(selectedAllergy.date, Boolean(selectedAllergy.recordId && !selectedAllergy.appointmentId && /T00:00:00(?:\.000)?Z$/.test(selectedAllergy.date)))}</dd></div>{selectedAllergy.staffName && <div><dt className="font-semibold text-muted-foreground">Profesional registrado</dt><dd className="mt-1">{selectedAllergy.staffName}</dd></div>}<div><dt className="font-semibold text-muted-foreground">Reacción y observaciones</dt><dd className="mt-1 whitespace-pre-wrap break-words">{selectedAllergy.detail || "Sin observaciones adicionales."}</dd></div></dl>}
+          <div className="flex justify-end"><Button variant="outline" className="min-h-11" onClick={() => setSelectedAllergy(null)}>Cerrar detalle</Button></div>
+        </DialogContent>
+      </Dialog>
+      {newAppointment && <NewAppointmentDialog initialDate={new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" })} initialClientId={pet.owner?.id} initialPetId={pet.id} onClose={() => setNewAppointment(false)} onCreated={() => {
+        setNewAppointment(false);
+        onRecordAdded?.();
+        void reloadTimeline().then(setTimeline).catch(() => setError("La cita se creó, pero no se pudo actualizar el historial. Cierra y vuelve a abrir la ficha."));
+      }} />}
     </div>
   );
 }
 
-export function PetMedicalSheet({ pet, open, onOpenChange, onRecordAdded }: PetMedicalSheetProps) {
+export function PetMedicalSheet({ pet, open, onOpenChange, onRecordAdded, initialEdit = false }: PetMedicalSheetProps) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <ProtectedDialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showClose
         className="flex h-[92vh] w-full max-w-[95vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl"
       >
         {open && pet ? (
-          <PetMedicalSheetContent key={pet.id} pet={pet} onRecordAdded={onRecordAdded} />
+          <PetMedicalSheetContent key={`${pet.id}-${initialEdit}`} pet={pet} onRecordAdded={onRecordAdded} initialEdit={initialEdit} />
         ) : null}
       </DialogContent>
-    </Dialog>
+    </ProtectedDialog>
   );
 }

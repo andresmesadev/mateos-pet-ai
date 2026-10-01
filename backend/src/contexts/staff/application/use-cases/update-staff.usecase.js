@@ -1,6 +1,6 @@
 const { StaffNotFoundError, InvalidStaffAttributesError } = require("../../domain/errors");
 
-const VALID_ROLES = ["vet", "groomer", "admin"];
+const VALID_ROLES = ["vet", "groomer", "receptionist", "admin"];
 
 /**
  * UpdateStaffUseCase — Administración.

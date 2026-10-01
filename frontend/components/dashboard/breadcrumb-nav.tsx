@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { ChevronRight, Home } from "lucide-react";
 
 const PATH_LABELS: Record<string, string> = {
@@ -28,8 +29,9 @@ const PATH_LABELS: Record<string, string> = {
 
 export function BreadcrumbNav() {
   const pathname = usePathname();
+  const { data: session } = useSession();
 
-  if (pathname === "/dashboard") return null;
+  if (pathname === "/dashboard" || session?.user.role !== "admin") return null;
 
   const segments = pathname.replace("/dashboard", "").split("/").filter(Boolean);
   if (segments.length === 0) return null;

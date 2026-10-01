@@ -33,7 +33,7 @@ const {
   CommissionInActiveSettlementError,
 } = require("../../contexts/staff/domain/errors");
 
-const VALID_ROLES = ["vet", "groomer", "admin"];
+const VALID_ROLES = ["vet", "groomer", "receptionist", "admin"];
 
 function mapStaffDomainError(res, error) {
   if (
@@ -70,7 +70,7 @@ function mapStaffDomainError(res, error) {
 router.get("/staff", async (req, res) => {
   try {
     const { tenantId } = req.tenant;
-    if (req.actor?.type === "vet") {
+    if (req.actor?.type && req.actor.type !== "admin") {
       const clinicians = await prisma.staff.findMany({
         where: { tenantId, role: "vet", active: true },
         orderBy: { name: "asc" },
@@ -100,7 +100,7 @@ router.put("/staff/:id/credential", async (req, res) => {
       select: { id: true, role: true, active: true, email: true },
     });
     if (!staff) return res.status(404).json({ error: "Profesional no encontrado" });
-    if (staff.role !== "vet" || !staff.active) return res.status(422).json({ error: "Solo un veterinario activo puede tener acceso clínico" });
+    if (!VALID_ROLES.includes(staff.role) || !staff.active) return res.status(422).json({ error: "Solo un miembro activo del equipo puede tener acceso" });
     const email = normalizeEmail(req.body?.email ?? staff.email);
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
       return res.status(400).json({ error: "Escribe un correo válido para el profesional" });

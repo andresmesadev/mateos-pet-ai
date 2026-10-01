@@ -84,6 +84,7 @@ function createSendTemplateMessageUseCase({
       conversationId: conversation.id,
       role: "assistant",
       origin,
+      senderKind: origin === "sistema" ? "system" : "ai",
       content,
     });
 

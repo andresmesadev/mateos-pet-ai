@@ -25,6 +25,7 @@ function mapAppointmentRow(a) {
   const priceResolution = resolveAppointmentPrice(a);
   return {
     id: a.id,
+    userId: a.userId,
     date: a.date,
     status: a.status,
     serviceType: a.serviceType,

@@ -1,4 +1,5 @@
 import type { NextAuthConfig } from "next-auth";
+import { canVisitDashboard, homeForRole, type TeamRole } from "./lib/dashboard-access";
 
 export const authConfig = {
   trustHost: true,
@@ -12,9 +13,9 @@ export const authConfig = {
       const isDashboard = nextUrl.pathname.startsWith("/dashboard");
       const isPrint = nextUrl.pathname.startsWith("/print");
       const isLogin = nextUrl.pathname === "/login";
-      if (isLoggedIn && auth?.user.role === "vet" && (isDashboard || isPrint)) {
-        if (nextUrl.pathname !== "/dashboard/consultas") {
-          return Response.redirect(new URL("/dashboard/consultas", nextUrl));
+      if (isLoggedIn && auth?.user.role !== "admin" && (isDashboard || isPrint)) {
+        if (!canVisitDashboard(auth!.user.role, nextUrl.pathname)) {
+          return Response.redirect(new URL(homeForRole(auth!.user.role), nextUrl));
         }
       }
 
@@ -27,7 +28,7 @@ export const authConfig = {
       }
 
       if (isLogin && isLoggedIn) {
-        return Response.redirect(new URL(auth?.user.role === "vet" ? "/dashboard/consultas" : "/dashboard", nextUrl));
+        return Response.redirect(new URL(homeForRole(auth!.user.role), nextUrl));
       }
 
       return true;
@@ -53,7 +54,7 @@ export const authConfig = {
       }
       session.user.tenantId = (token.tenantId ?? null) as string | null;
       session.user.isSuperAdmin = (token.isSuperAdmin ?? false) as boolean;
-      session.user.role = (token.role ?? "admin") as "admin" | "vet";
+      session.user.role = (token.role ?? "admin") as TeamRole;
       session.user.staffId = (token.staffId ?? null) as string | null;
       session.user.sessionVersion = (token.sessionVersion ?? null) as number | null;
       return session;

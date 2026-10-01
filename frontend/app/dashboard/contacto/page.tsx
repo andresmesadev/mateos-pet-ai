@@ -7,12 +7,16 @@ import { PetsTable } from "@/components/dashboard/pets-table";
 import { PageHeader } from "@/components/dashboard/page-header";
 
 type ContactoPageProps = {
-  searchParams: Promise<{ pet?: string; view?: string; new?: string }>;
+  searchParams: Promise<{ pet?: string; view?: string; new?: string; tenant?: string }>;
 };
 
 export default async function ContactoPage({ searchParams }: ContactoPageProps) {
   await connection();
-  const { pet, view, new: newRecord } = await searchParams;
+  const { pet, view, new: newRecord, tenant } = await searchParams;
+  const clientParams = new URLSearchParams();
+  if (tenant) clientParams.set("tenant", tenant);
+  const petParams = new URLSearchParams(clientParams);
+  petParams.set("view", "mascotas");
   const activeView = pet || view === "mascotas" || newRecord === "mascota" ? "mascotas" : "clientes";
 
   return (
@@ -26,14 +30,14 @@ export default async function ContactoPage({ searchParams }: ContactoPageProps) 
 
       <nav aria-label="Ver contactos" className="mb-6 inline-flex gap-1 rounded-xl border border-border bg-white p-1 shadow-sm">
         <Link
-          href="/dashboard/contacto"
+          href={`/dashboard/contacto${clientParams.size ? `?${clientParams}` : ""}`}
           aria-current={activeView === "clientes" ? "page" : undefined}
           className={`inline-flex min-h-10 items-center rounded-lg px-5 text-sm font-semibold transition-colors ${activeView === "clientes" ? "bg-teal-700 text-white" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
         >
           Clientes
         </Link>
         <Link
-          href="/dashboard/contacto?view=mascotas"
+          href={`/dashboard/contacto?${petParams}`}
           aria-current={activeView === "mascotas" ? "page" : undefined}
           className={`inline-flex min-h-10 items-center rounded-lg px-5 text-sm font-semibold transition-colors ${activeView === "mascotas" ? "bg-teal-700 text-white" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
         >

@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Eye, Pencil, Plus, PawPrint, Search, Trash2, X } from "lucide-react";
 import { useTenant, tenantQuery } from "@/lib/use-tenant";
 
@@ -25,6 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ContactPagination } from "@/components/dashboard/contact-pagination";
 import { proxyUrl } from "@/lib/api";
 import {
   type DashboardPet,
@@ -55,6 +56,7 @@ export function PetsTable({
   const [error, setError] = useState<string | null>(null);
   const [selectedPet, setSelectedPet] = useState<DashboardPet | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [initialEdit, setInitialEdit] = useState(false);
   const [openedFromQuery, setOpenedFromQuery] = useState(false);
   const [newOpen, setNewOpen] = useState(initialNew);
   const [query, setQuery] = useState("");
@@ -64,7 +66,7 @@ export function PetsTable({
   const [debouncedQuery, setDebouncedQuery] = useState(query);
   const [deleting, setDeleting] = useState<string | null>(null);
   const PAGE_SIZE = 50;
-  const totalPages = Math.ceil(total / PAGE_SIZE);
+
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -75,9 +77,11 @@ export function PetsTable({
   }, [query]);
 
   const tenant = useTenant();
+  const requestId = useRef(0);
 
   const loadPets = useCallback(async (overridePage?: number) => {
     const currentPage = overridePage ?? page;
+    const thisRequest = ++requestId.current;
     setLoading(true);
     setError(null);
 
@@ -95,17 +99,21 @@ export function PetsTable({
 
       const payload = await response.json() as { data: DashboardPet[]; total: number; totalPages: number };
       const nextPets = Array.isArray(payload) ? payload : (payload.data ?? []);
+      if (thisRequest !== requestId.current) return [];
       setPets(nextPets);
       setTotal(payload.total ?? nextPets.length);
+      const pages = Math.max(1, Math.ceil((payload.total ?? nextPets.length) / PAGE_SIZE));
+      if (currentPage > pages) setPage(pages);
       return nextPets;
     } catch (err) {
+      if (thisRequest !== requestId.current) return [];
       setError(
         err instanceof Error ? err.message : "Error al cargar mascotas"
       );
       setPets([]);
       return [];
     } finally {
-      setLoading(false);
+      if (thisRequest === requestId.current) setLoading(false);
     }
   }, [tenant, page, debouncedQuery]);
 
@@ -142,7 +150,8 @@ export function PetsTable({
     return () => window.removeEventListener("pets:refresh", handler);
   }, [loadPets]);
 
-  const handleSelectPet = (pet: DashboardPet) => {
+  const handleSelectPet = (pet: DashboardPet, edit = false) => {
+    setInitialEdit(edit);
     setSelectedPet(pet);
     setSheetOpen(true);
   };
@@ -153,7 +162,8 @@ export function PetsTable({
     setDeleting(pet.id);
     try {
       const sep = tenantQuery(tenant) ? `${tenantQuery(tenant)}&` : "?";
-      await fetch(proxyUrl(`/api/dashboard/pets/${pet.id}${sep.replace("&", "")}`), { method: "DELETE" });
+      const response = await fetch(proxyUrl(`/api/dashboard/pets/${pet.id}${sep.replace("&", "")}`), { method: "DELETE" });
+      if (!response.ok) throw new Error("No se pudo eliminar la mascota.");
       void loadPets();
     } catch {
       alert("No se pudo eliminar la mascota. Inténtalo de nuevo.");
@@ -188,14 +198,16 @@ export function PetsTable({
               </Badge>
             )}
           </div>
-          <div className="flex w-full items-center gap-2 sm:w-auto">
-            {!loading && !error && pets.length > 0 && (
-              <div className="relative w-full sm:w-64">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            {(
+              <div className="w-full sm:w-80"><label htmlFor="pets-search" className="mb-1 block text-sm font-medium">Buscar mascota o propietario</label><div className="relative w-full">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
+                  id="pets-search"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Buscar por mascota o teléfono…"
+                  aria-label="Buscar mascota por nombre, propietario, raza o teléfono"
+                  placeholder="Mascota, propietario, raza o teléfono"
                   className="pl-9 pr-8"
                 />
                 {query && (
@@ -207,9 +219,9 @@ export function PetsTable({
                     <X className="h-4 w-4" />
                   </button>
                 )}
-              </div>
+              </div></div>
             )}
-            <Button size="sm" className="shrink-0 gap-1" onClick={() => setNewOpen(true)}>
+            <Button size="sm" className="min-h-11 shrink-0 gap-1 sm:self-end" onClick={() => setNewOpen(true)}>
               <Plus className="h-4 w-4" />
               Nueva mascota
             </Button>
@@ -226,19 +238,14 @@ export function PetsTable({
                 Reintentar
               </Button>
             </div>
-          ) : pets.length === 0 ? (
-            <EmptyState
-              icon={<PawPrint className="h-7 w-7" />}
-              title="No hay mascotas registradas"
-              description="Las mascotas se registran solas cuando los clientes conversan por WhatsApp y mencionan a sus compañeros peludos."
-              hint="El agente WhatsApp está activo"
-            />
           ) : pets.length === 0 && debouncedQuery.trim() ? (
-            <div className={['px-4 py-8 text-center text-sm text-muted-foreground'].join('')}>
-              {['Ninguna mascota coincide con “', debouncedQuery, '”.'].join('')}
-            </div>
+            <p role="status" className="px-4 py-8 text-center text-sm text-muted-foreground">Ninguna mascota coincide con “{debouncedQuery}”. Prueba otro nombre, propietario o teléfono.</p>
+          ) : pets.length === 0 ? (
+            <EmptyState icon={<PawPrint className="h-7 w-7" />} title="No hay mascotas registradas" description="Agrega una mascota y vincúlala a su propietario desde Nueva mascota." />
           ) : (
-            <div className="overflow-x-auto">
+            <>
+            <div className="space-y-3 md:hidden">{pets.map((pet) => <article key={pet.id} className="rounded-xl border p-4"><h3 className="font-semibold">{getPetEmoji(pet.type)} {pet.name}</h3><p className="text-sm text-muted-foreground">{formatPetType(pet.type)} · {pet.breed || "Raza sin registrar"}</p><p className="mt-2 text-sm">Propietario: {pet.owner.name || "Sin nombre"}</p><p className="text-sm text-muted-foreground">{formatPhone(pet.owner.phone)}</p><p className="mt-2 text-xs text-muted-foreground">{pet._count.medicalRecords} registros · {pet._count.appointments} citas</p><div className="mt-3 flex flex-wrap gap-2"><Button variant="outline" onClick={() => handleSelectPet(pet)}>Ver ficha</Button><Button variant="outline" onClick={() => handleSelectPet(pet, true)}>Editar</Button><Button variant="ghost" aria-label={`Eliminar mascota ${pet.name}`} disabled={deleting === pet.id} onClick={(e) => handleDeletePet(e, pet)}><Trash2 className="h-4 w-4" /></Button></div></article>)}</div>
+            <div className="hidden overflow-x-auto md:block">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -262,7 +269,7 @@ export function PetsTable({
                         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-base">
                           {getPetEmoji(pet.type)}
                         </div>
-                        {pet.name}
+                        <div><p>{pet.name}</p><p className="text-xs font-normal text-muted-foreground">{pet.breed || "Raza sin registrar"}</p></div>
                       </div>
                     </TableCell>
                     <TableCell>{formatPetType(pet.type)}</TableCell>
@@ -285,22 +292,22 @@ export function PetsTable({
                         <button
                           title="Ver expediente"
                           onClick={() => handleSelectPet(pet)}
-                          className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                          className="inline-flex min-h-11 items-center gap-1 rounded px-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
                         >
-                          <Eye className="h-4 w-4" />
+                          <Eye className="h-4 w-4" /> Ver
                         </button>
                         <button
                           title="Editar mascota"
-                          onClick={() => handleSelectPet(pet)}
-                          className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                          onClick={() => handleSelectPet(pet, true)}
+                          className="inline-flex min-h-11 items-center gap-1 rounded px-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
                         >
-                          <Pencil className="h-4 w-4" />
+                          <Pencil className="h-4 w-4" /> Editar
                         </button>
                         <button
                           title="Eliminar mascota"
                           disabled={deleting === pet.id}
                           onClick={(e) => handleDeletePet(e, pet)}
-                          className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors disabled:opacity-50"
+                          className="inline-flex h-11 w-11 items-center justify-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors disabled:opacity-50"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -311,58 +318,12 @@ export function PetsTable({
               </TableBody>
             </Table>
             </div>
+            </>
           )}
 
           {/* Paginación */}
-          {!loading && !error && totalPages > 1 && (
-            <div className="mt-4 flex items-center justify-between border-t border-black/[0.06] pt-4">
-              <p className="text-xs text-muted-foreground">
-                Página {page} de {totalPages} · mostrando {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, total)} de {total.toLocaleString()}
-              </p>
-              <div className="flex items-center gap-1">
-                <Button
-                  size="sm" variant="outline" className="h-7 px-2 text-xs"
-                  disabled={page === 1}
-                  onClick={() => setPage(1)}
-                >«</Button>
-                <Button
-                  size="sm" variant="outline" className="h-7 px-2 text-xs"
-                  disabled={page === 1}
-                  onClick={() => setPage((p) => p - 1)}
-                >‹ Anterior</Button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1)
-                  .filter((n) => n === 1 || n === totalPages || Math.abs(n - page) <= 2)
-                  .reduce<(number | "...")[]>((acc, n, i, arr) => {
-                    if (i > 0 && n - (arr[i - 1] as number) > 1) acc.push("...");
-                    acc.push(n);
-                    return acc;
-                  }, [])
-                  .map((n, i) =>
-                    n === "..." ? (
-                      <span key={`ellipsis-${i}`} className="px-1 text-xs text-muted-foreground">…</span>
-                    ) : (
-                      <Button
-                        key={n}
-                        size="sm"
-                        variant={page === n ? "default" : "outline"}
-                        className="h-7 w-7 p-0 text-xs"
-                        onClick={() => setPage(n as number)}
-                      >{n}</Button>
-                    )
-                  )}
-                <Button
-                  size="sm" variant="outline" className="h-7 px-2 text-xs"
-                  disabled={page === totalPages}
-                  onClick={() => setPage((p) => p + 1)}
-                >Siguiente ›</Button>
-                <Button
-                  size="sm" variant="outline" className="h-7 px-2 text-xs"
-                  disabled={page === totalPages}
-                  onClick={() => setPage(totalPages)}
-                >»</Button>
-              </div>
-            </div>
-          )}
+          {!loading && !error && <ContactPagination page={page} total={total} pageSize={PAGE_SIZE} onChange={setPage} />}
+
         </CardContent>
       </Card>
 
@@ -371,6 +332,7 @@ export function PetsTable({
         open={sheetOpen}
         onOpenChange={setSheetOpen}
         onRecordAdded={handleRecordAdded}
+        initialEdit={initialEdit}
       />
 
       <AddPetToOwnerFlow

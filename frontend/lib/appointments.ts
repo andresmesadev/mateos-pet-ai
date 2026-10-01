@@ -28,6 +28,7 @@ export type AppointmentStatus =
 
 export type TodayAppointment = {
   id: string;
+  userId?: string;
   date: string;
   status: AppointmentStatus;
   serviceType: string;
