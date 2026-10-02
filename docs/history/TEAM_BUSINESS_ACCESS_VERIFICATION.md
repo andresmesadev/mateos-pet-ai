@@ -48,4 +48,14 @@ Migración aditiva `20261001193000_team_business_access` aplicada en PostgreSQL 
 
 Comprobación del servicio el 2026-10-02: el worker local apareció inicialmente stale tras la pausa del equipo. Se solicitó recarga al proceso local mediante la fecha de modificación de su entrada, sin cambiar su contenido. Verificación posterior de `/api/health`: HTTP 200, status ok, versión 2.41.0, database ok e inboundWorker ok.
 
-El diseño de las cinco etapas está en `docs/architecture/team-business-access.md`, y su reconciliación está en `docs/architecture/domain-model-v1.md`. Se evaluó versionado: es una capacidad funcional nueva y corresponde la versión menor `2.41.0` en package y lock del backend. No se creó tag ni commit de cierre en esta solicitud. Commit, push y despliegue permanecen pendientes; al publicar debe aplicarse la migración y regenerarse Prisma en producción antes de iniciar la versión nueva.
+El diseño de las cinco etapas está en `docs/architecture/team-business-access.md`, y su reconciliación está en `docs/architecture/domain-model-v1.md`. Se evaluó versionado: es una capacidad funcional nueva y corresponde la versión menor `2.41.0` en package y lock del backend.
+
+## Publicación autorizada y verificada (2026-10-02)
+
+- Commit funcional `fc68b3609a4fef30d4ed9da119127f4a96e27dd1`, subido a `origin/main`.
+- CI de GitHub completado con éxito: https://github.com/andresmesadev/mateos-pet-ai/actions/runs/37032261555.
+- Respaldo cifrado previo: `/var/backups/mateos-pet-ai/mateos-pet-ai-20261002T161051Z`; checksum verificado. Imágenes anteriores conservadas con etiquetas `rollback-2.40.0-20261002` para backend y frontend. La migración es aditiva y permite recuperar esas imágenes conservando columnas nuevas; ante regresión funcional se detiene la entrega y se restablecen los servicios anteriores sin eliminar datos.
+- `scripts/deploy.sh` finalizó con código 0 en `/home/ubuntu/mateos-pet-ai`. Migración aplicada y cliente Prisma generado durante la construcción de la imagen.
+- Contenedores backend/frontend en ejecución; PostgreSQL healthy. Endpoint público `https://bot.nexoweb.co/api/health`: HTTP 200, versión 2.41.0, database/openai/inboundWorker ok. Login público de frontend: HTTP 200.
+- `scripts/verify-team-access-vps.cjs` verificó sin escritura: política de cuatro perfiles por siete combinaciones, manifiesto y endpoints administrativos, módulos actuales y todas las columnas nuevas.
+- La VPS tiene cero credenciales individuales activas de equipo: no se afirma que se hayan probado cuatro inicios de sesión profesionales allí. Esos accesos, revocación y sesiones vencidas sí se comprobaron con cuentas sintéticas locales retiradas al terminar. No se crearon cuentas ni se modificaron permisos de usuarios reales durante el despliegue.

@@ -37,4 +37,4 @@ Migración aditiva: Staff.accessPermissions (TEXT[] vacío), Transaction snapsho
 
 Pruebas de las siete combinaciones, cuatro perfiles y habilitaciones; rechazo de privilegios por body/JWT, revocación, rutas directas y cross-tenant; propiedad de atenciones; separación de Caja operativa y finanzas; privacidad de expedientes; permisos de precio y snapshots. Lint/build y recorrido real con cuentas sintéticas locales, retiradas al finalizar. Producción se publica únicamente después de la verificación y autorización de entrega correspondiente.
 
-Validación local ejecutada y evidencia de cierre: [Informe de verificación](../history/TEAM_BUSINESS_ACCESS_VERIFICATION.md). Versión funcional: `2.41.0`; publicación pendiente.
+Validación local y publicación en VPS ejecutadas; evidencia y alcance de la comprobación de producción: [Informe de verificación](../history/TEAM_BUSINESS_ACCESS_VERIFICATION.md). Versión funcional publicada: `2.41.0`.

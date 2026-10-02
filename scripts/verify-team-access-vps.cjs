@@ -49,7 +49,9 @@ const { effectiveAccess } = require("./src/services/dashboard-access.service");
       await check("/metrics/daily", headers, row.role === "admin" ? 200 : 403);
       await check("/access", { ...headers, "X-Staff-Session-Version": String(row.sessionVersion + 1) }, 403);
     }
-    console.log(`PASS: ${credentials.rows.length} existing active team credentials checked; stale sessions denied`);
+    console.log(credentials.rows.length
+      ? `PASS: ${credentials.rows.length} existing active team credentials checked; stale sessions denied`
+      : "INFO: no active individual team credentials in production; live team sign-ins were verified with disposable local accounts");
     await db.query('SELECT "accessPermissions" FROM "Staff" LIMIT 0');
     await db.query('SELECT "priceActorId", "priceActorName", "priceActorRole" FROM "Appointment" LIMIT 0');
     await db.query('SELECT "recordedActorId", "recordedActorName", "recordedActorRole" FROM "Transaction" LIMIT 0');
