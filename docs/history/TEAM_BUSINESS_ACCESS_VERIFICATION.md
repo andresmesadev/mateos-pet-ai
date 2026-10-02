@@ -59,3 +59,9 @@ El diseño de las cinco etapas está en `docs/architecture/team-business-access.
 - Contenedores backend/frontend en ejecución; PostgreSQL healthy. Endpoint público `https://bot.nexoweb.co/api/health`: HTTP 200, versión 2.41.0, database/openai/inboundWorker ok. Login público de frontend: HTTP 200.
 - `scripts/verify-team-access-vps.cjs` verificó sin escritura: política de cuatro perfiles por siete combinaciones, manifiesto y endpoints administrativos, módulos actuales y todas las columnas nuevas.
 - La VPS tiene cero credenciales individuales activas de equipo: no se afirma que se hayan probado cuatro inicios de sesión profesionales allí. Esos accesos, revocación y sesiones vencidas sí se comprobaron con cuentas sintéticas locales retiradas al terminar. No se crearon cuentas ni se modificaron permisos de usuarios reales durante el despliegue.
+
+### Corrección detectada en el smoke test público
+
+Una petición sin cookies al dashboard devolvió 200 después de sustituir el export directo de `auth` por un callback personalizado. En esta integración de NextAuth, `authorized: false` no ejecuta la redirección predeterminada cuando existe ese callback. Se restableció inmediatamente la imagen previa de frontend para recuperar el gate anterior (307 a login), sin revertir la migración ni el backend.
+
+La corrección exige sesión explícitamente al inicio de `frontend/proxy.ts`, antes de llamar APIs de servidor, tanto para `/dashboard` como para `/print`. Se añadió `scripts/verify-dashboard-session.cjs`: sin cookies, prueba Inicio, Administración, Caja y PDF, exige redirección a login con callback y comprueba que login siga disponible. Local: las cinco comprobaciones pasaron; lint y build posteriores con código 0. La entrega no se declara cerrada hasta ejecutar esta prueba sobre el frontend corregido en la VPS.

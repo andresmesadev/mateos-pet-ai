@@ -5,7 +5,15 @@ import type { DashboardAccess } from "./lib/dashboard-access";
 
 export const proxy = auth(async (req) => {
   const path = req.nextUrl.pathname;
-  if (!req.auth?.user || (!path.startsWith("/dashboard") && !path.startsWith("/print"))) return NextResponse.next();
+  const protectedPath = path.startsWith("/dashboard") || path.startsWith("/print");
+  // With a custom auth callback, NextAuth's authorized=false does not perform
+  // the default redirect. Enforce the session before any server API request.
+  if (protectedPath && !req.auth?.user) {
+    const login = new URL("/login", req.nextUrl);
+    login.searchParams.set("callbackUrl", req.nextUrl.href);
+    return NextResponse.redirect(login);
+  }
+  if (!protectedPath || !req.auth?.user) return NextResponse.next();
   try {
     const response = await fetch(apiUrl("/api/dashboard/access"), {
       headers: makeServerHeaders(req.auth, req.nextUrl.searchParams.get("tenant")), cache: "no-store",
