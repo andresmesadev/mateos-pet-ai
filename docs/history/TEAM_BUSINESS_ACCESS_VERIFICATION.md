@@ -64,4 +64,19 @@ El diseño de las cinco etapas está en `docs/architecture/team-business-access.
 
 Una petición sin cookies al dashboard devolvió 200 después de sustituir el export directo de `auth` por un callback personalizado. En esta integración de NextAuth, `authorized: false` no ejecuta la redirección predeterminada cuando existe ese callback. Se restableció inmediatamente la imagen previa de frontend para recuperar el gate anterior (307 a login), sin revertir la migración ni el backend.
 
-La corrección exige sesión explícitamente al inicio de `frontend/proxy.ts`, antes de llamar APIs de servidor, tanto para `/dashboard` como para `/print`. Se añadió `scripts/verify-dashboard-session.cjs`: sin cookies, prueba Inicio, Administración, Caja y PDF, exige redirección a login con callback y comprueba que login siga disponible. Local: las cinco comprobaciones pasaron; lint y build posteriores con código 0. La entrega no se declara cerrada hasta ejecutar esta prueba sobre el frontend corregido en la VPS.
+La corrección exige sesión explícitamente al inicio de `frontend/proxy.ts`, antes de llamar APIs de servidor, tanto para `/dashboard` como para `/print`. Se añadió `scripts/verify-dashboard-session.cjs`: sin cookies, prueba Inicio, Administración, Caja y PDF, exige redirección a login con callback y comprueba que login siga disponible. Local: las cinco comprobaciones pasaron; lint y build posteriores con código 0.
+
+Corrección `855159d3870db70cbbad929636ac797b852e65b4` subida y desplegada; `scripts/deploy.sh` terminó con código 0 a las 16:20 UTC del 2026-10-02. CI completado con éxito: https://github.com/andresmesadev/mateos-pet-ai/actions/runs/37033174030. La prueba contra el dominio público del frontend corregido y la verificación de permisos en VPS finalizaron con código 0:
+
+```text
+PASS: /dashboard without a session redirects to login (307)
+PASS: /dashboard/settings without a session redirects to login (307)
+PASS: /dashboard/pos without a session redirects to login (307)
+PASS: /print/pets/session-guard-probe without a session redirects to login (307)
+PASS: public login remains available (200)
+PASS: deployed policy for four profiles and seven module combinations; administrator endpoints
+INFO: no active individual team credentials in production; live team sign-ins were verified with disposable local accounts
+PASS: migration applied and all new columns available; existing business modules preserved
+```
+
+Estado final: frontend y backend en ejecución, PostgreSQL healthy; salud del backend con status ok y versión 2.41.0. Se cierra la entrega tras verificar la imagen corregida en producción.
