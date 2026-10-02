@@ -24,6 +24,7 @@ export type TenantProfile = {
   logoUrl: string | null;
   businessHours: BusinessHours | null;
   plan: string;
+  activeModules: string[];
 };
 
 export type ServiceRow = {

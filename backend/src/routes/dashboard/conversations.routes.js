@@ -20,7 +20,7 @@ function withViewer(detail, req) {
   const mine = Boolean(detail.conversation.assignment?.actorId === actor.id);
   return { ...detail, viewer: { role: actor.role, isMine: mine,
     canRelease: mine || actor.role === "admin", canTakeOver: actor.role === "admin",
-    canCreateAppointment: ["admin", "receptionist"].includes(actor.role) } };
+    canCreateAppointment: req.access ? req.access.capabilities.schedule : ["admin", "receptionist"].includes(actor.role) } };
 }
 
 // Mismo contrato externo que el legacy escalation.service.js — mapEscalation.
@@ -101,7 +101,7 @@ router.patch("/escalations/:id/resolve", (req, res) => changeControl(req, res, "
 router.get("/conversations/:id/context", async (req, res) => {
   try {
     if (!req.tenant.tenantId) return res.status(400).json({ error: "Selecciona un establecimiento." });
-    const context = await getConversationContext(req.params.id, req.tenant.tenantId, operator(req).role);
+    const context = await getConversationContext(req.params.id, req.tenant.tenantId, operator(req).role, req.access);
     return context ? res.json(context) : res.status(404).json({ error: "Cliente no disponible en este establecimiento." });
   } catch (error) {
     console.error("[Dashboard] Conversation context:", error.message);

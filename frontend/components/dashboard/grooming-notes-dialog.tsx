@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Scissors } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { useDashboardAccess } from "@/components/dashboard/dashboard-access-provider";
 import { proxyUrl } from "@/lib/api";
 import { formatColombiaDateTime, formatStatus } from "@/lib/appointments";
 import { type GroomingVisit } from "@/lib/grooming";
@@ -13,6 +14,7 @@ export function GroomingNotesDialog({ visit, tenantId, onClose, onSaved, onStart
   visit: GroomingVisit; tenantId?: string; onClose: () => void; onSaved: (visit: GroomingVisit) => void;
   onStart?: () => void; starting?: boolean; startError?: string | null;
 }) {
+  const access = useDashboardAccess();
   const [current, setCurrent] = useState(visit);
   const [notes, setNotes] = useState(visit.groomingNotes ?? "");
   const [saving, setSaving] = useState(false);
@@ -24,7 +26,7 @@ export function GroomingNotesDialog({ visit, tenantId, onClose, onSaved, onStart
   const [historyBusy, setHistoryBusy] = useState(false);
   const [cursor, setCursor] = useState<string | null>(null);
   const dirty = notes !== (current.groomingNotes ?? "");
-  const canWrite = Boolean(visit.petId) && !["cancelled", "no_show"].includes(visit.status);
+  const canWrite = Boolean(access?.capabilities.administration || (access?.staffId && visit.staffId === access.staffId)) && Boolean(visit.petId) && !["cancelled", "no_show"].includes(visit.status);
 
   useEffect(() => {
     function warn(event: BeforeUnloadEvent) {

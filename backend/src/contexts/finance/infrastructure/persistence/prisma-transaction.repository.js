@@ -38,12 +38,13 @@ class PrismaTransactionRepository extends TransactionRepositoryPort {
   }
 
   // ADR 007-D3(a): el POS liquida el cobro de sistema — nunca su monto.
-  async settle(transactionId, { paymentMethod, notes }) {
+  async settle(transactionId, { paymentMethod, notes, recordedBy }) {
     return prisma.transaction.update({
       where: { id: transactionId },
       data: {
         ...(paymentMethod !== undefined ? { paymentMethod } : {}),
         ...(notes !== undefined ? { notes } : {}),
+        ...(recordedBy ? { recordedActorId: recordedBy.id, recordedActorName: recordedBy.name, recordedActorRole: recordedBy.role } : {}),
       },
     });
   }

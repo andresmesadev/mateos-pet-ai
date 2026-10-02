@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { CalendarDays, ClipboardList, Stethoscope } from "lucide-react";
 import { useSession } from "next-auth/react";
+import { useDashboardAccess } from "./dashboard-access-provider";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -117,9 +118,10 @@ const EMPTY_ACTION: NewAction = { type: "control", dueAt: "", notes: "" };
 export function VetRecordSheet({ appointment, open, onOpenChange, onSaved, preview = false, readOnly = false }: Props) {
   const { toast } = useToast();
   const { data: session } = useSession();
+  const access = useDashboardAccess();
   const tenant = useTenant();
-  const clinicianId = session?.user?.role === "vet" ? session.user.staffId : null;
-  const adminEmail = session?.user?.role !== "vet" ? session?.user?.email?.trim().toLowerCase() : null;
+  const clinicianId = access?.role === "vet" ? access.staffId : null;
+  const adminEmail = access?.capabilities.administration ? session?.user?.email?.trim().toLowerCase() : null;
   const staffInputId = useId();
   const weightInputId = useId();
   const controlInputId = useId();
@@ -258,10 +260,10 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved, previ
 
         if (!cancelled && staffRes.ok) {
           const data = await staffRes.json();
-          const vets = Array.isArray(data) ? data.filter((s: StaffOption) => s.role === "vet") as StaffOption[] : [];
+          const vets = Array.isArray(data) ? data.filter((s: StaffOption) => s.role === "vet" || (access?.capabilities.administration && s.role === "admin")) as StaffOption[] : [];
           setStaff(vets);
           if (adminEmail) {
-            const ownProfile = vets.filter((s) => s.email?.trim().toLowerCase() === adminEmail);
+            const ownProfile = vets.filter((s) => access?.staffId ? s.id === access.staffId : s.email?.trim().toLowerCase() === adminEmail);
             if (ownProfile.length === 1) setForm((current) => current.staffId ? current : { ...current, staffId: ownProfile[0].id });
           }
         }
@@ -299,7 +301,7 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved, previ
     })();
 
     return () => { cancelled = true; };
-  }, [open, appointment.id, appointment.petId, appointment.staffId, clinicianId, adminEmail, preview, tenant]);
+  }, [open, appointment.id, appointment.petId, appointment.staffId, clinicianId, adminEmail, preview, tenant, access?.staffId, access?.capabilities.administration]);
 
   function handleOpenChange(next: boolean) {
     if (!next && busy) return;

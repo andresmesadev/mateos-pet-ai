@@ -21,10 +21,11 @@ beforeEach(() => {
 });
 test("grooming module is required and restricted vets cannot access it", async () => {
   expect((await request(app).get("/api/dashboard/grooming/appointments").set("x-test-role", "vet")).status).toBe(403);
-  expect(prisma.tenant.findUnique).not.toHaveBeenCalled();
+  expect(prisma.tenant.findUnique).toHaveBeenCalledWith({ where: { id: "tenant-a" }, select: { activeModules: true } });
   prisma.tenant.findUnique.mockResolvedValue({ activeModules: ["veterinary"] });
-  expect((await request(app).get("/api/dashboard/grooming/appointments")).status).toBe(403);
-  expect(prisma.appointment.findMany).not.toHaveBeenCalled();
+  expect((await request(app).get("/api/dashboard/grooming/appointments")).status).toBe(200);
+  expect((await request(app).put("/api/dashboard/grooming/appointments/a-1/notes").send({ notes: "Cambio", expectedVersion: 2 })).status).toBe(403);
+  expect(prisma.appointment.updateMany).not.toHaveBeenCalled();
 });
 test("list combines tenant, category and civil day while searching across dates", async () => {
   expect((await request(app).get("/api/dashboard/grooming/appointments?date=2026-09-30")).status).toBe(200);

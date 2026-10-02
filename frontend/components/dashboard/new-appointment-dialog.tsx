@@ -3,7 +3,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { CalendarPlus, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -12,6 +11,7 @@ import {
   DialogContent, DialogDescription, DialogFooter,
   DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import { useDashboardAccess } from "@/components/dashboard/dashboard-access-provider";
 import { proxyUrl } from "@/lib/api";
 import { formatPetType } from "@/lib/pets";
 import { useTenant, tenantQuery } from "@/lib/use-tenant";
@@ -45,7 +45,6 @@ function NewAppointmentContent({
   initialDate, onClose, onCreated, serviceCategory, initialClientId, initialPetId,
 }: NewAppointmentProps) {
   const tenant = useTenant();
-  const { data: session } = useSession();
   const router = useRouter();
   const contactsHref = `/dashboard/contacto${tenant ? `?tenant=${encodeURIComponent(tenant)}` : ""}`;
   const { toast } = useToast();
@@ -55,6 +54,7 @@ function NewAppointmentContent({
   const [client, setClient] = useState<Client | null>(null);
   const [pets, setPets] = useState<Pet[]>([]);
   const [petId, setPetId] = useState("");
+  const access = useDashboardAccess();
   const [services, setServices] = useState<Service[]>([]);
   const [serviceId, setServiceId] = useState("");
   const [dateKey, setDateKey] = useState(initialDate);
@@ -115,14 +115,14 @@ function NewAppointmentContent({
         if (!res.ok) throw new Error("No se pudieron cargar los servicios");
         return res.json() as Promise<Service[]>;
       })
-      .then((rows) => setServices(rows.filter((service) => service.active && service.requiresAppointment &&
+      .then((rows) => setServices(rows.filter((service) => access?.activeModules.includes(service.category ?? "") && service.active && service.requiresAppointment &&
         (serviceCategory ? service.category === serviceCategory : ["veterinary", "grooming"].includes(service.category ?? "")))))
       .catch((cause) => {
         if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "No se pudieron cargar los servicios");
       })
       .finally(() => { if (!controller.signal.aborted) setLoadingServices(false); });
     return () => controller.abort();
-  }, [tenant, serviceCategory]);
+  }, [tenant, serviceCategory, access]);
 
   useEffect(() => {
     if (client || query.trim().length < 2) return;
@@ -258,7 +258,7 @@ function NewAppointmentContent({
                   ))}
                 </div>
               )}
-              <p className="text-xs text-muted-foreground">{session?.user.role === "admin" ? <>¿No aparece? <Link href={contactsHref} onClick={(event) => { event.preventDefault(); discard(() => router.push(contactsHref)); }} className="font-semibold text-teal-700 underline">Regístralo en Clientes y mascotas</Link>.</> : "Si faltan el cliente o la mascota, solicita su registro al administrador."}</p>
+              <p className="text-xs text-muted-foreground">{access?.capabilities.contacts ? <>¿No aparece? <Link href={contactsHref} onClick={(event) => { event.preventDefault(); discard(() => router.push(contactsHref)); }} className="font-semibold text-teal-700 underline">Regístralo en Clientes y mascotas</Link>.</> : "Si faltan el cliente o la mascota, solicita su registro al administrador."}</p>
             </div>
             <div className="space-y-1.5">
               <label htmlFor="appointment-pet" className="text-sm font-semibold">Mascota</label>

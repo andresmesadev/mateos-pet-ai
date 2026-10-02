@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { BusinessModules } from "@/components/dashboard/business-modules";
 import { StaffManager } from "@/components/dashboard/staff-manager";
 import { ContactsImporter } from "@/components/dashboard/contacts-importer";
 import {
@@ -12,9 +13,10 @@ import {
 } from "@/components/dashboard/settings-view";
 import { type ServiceRow, type TenantProfile } from "@/app/dashboard/settings/page";
 
-type Tab = "general" | "localizacion" | "agenda" | "fiscal" | "usuarios" | "importar";
+type Tab = "areas" | "general" | "localizacion" | "agenda" | "fiscal" | "usuarios" | "importar";
 
 const TABS: { id: Tab; label: string }[] = [
+  { id: "areas", label: "Áreas del negocio" },
   { id: "general",     label: "Información general" },
   { id: "localizacion",label: "Localización y servicios" },
   { id: "agenda",      label: "Agenda y disponibilidad" },
@@ -51,6 +53,7 @@ export function SettingsTabs({ profile, services }: Props) {
         ))}
       </div>
 
+      {active === "areas" && <BusinessModules initial={profile?.activeModules ?? []} />}
       {active === "general" && <GeneralInfoSection profile={profile} />}
       {active === "localizacion" && <LocationServicesSection profile={profile} services={services} />}
       {active === "agenda" && <ScheduleSection profile={profile} />}

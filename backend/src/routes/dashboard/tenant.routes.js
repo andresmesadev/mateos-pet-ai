@@ -90,7 +90,7 @@ router.get("/tenant/profile", async (req, res) => {
       },
     });
     if (!tenant) return res.status(404).json({ error: "Tenant not found" });
-    if (req.actor?.type === "vet") {
+    if (req.actor?.type && req.actor.type !== "admin") {
       return res.json({ id: tenant.id, name: tenant.name, activeModules: tenant.activeModules });
     }
     res.json(tenant);

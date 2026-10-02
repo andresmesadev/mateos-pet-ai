@@ -29,9 +29,9 @@ describe("getActiveModules", () => {
     await expect(getActiveModules("tenant-1")).resolves.toEqual(["veterinary"]);
   });
 
-  test("retorna el default si el tenant no tiene módulos configurados (array vacío)", async () => {
+  test("un array vacío no reactiva módulos implícitamente", async () => {
     prisma.tenant.findUnique.mockResolvedValue({ activeModules: [] });
-    await expect(getActiveModules("tenant-1")).resolves.toEqual(DEFAULT_ACTIVE_MODULES);
+    await expect(getActiveModules("tenant-1")).resolves.toEqual([]);
   });
 });
 

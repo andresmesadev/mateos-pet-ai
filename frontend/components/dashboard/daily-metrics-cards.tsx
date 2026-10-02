@@ -8,6 +8,7 @@ import { MetricCard } from "@/components/dashboard/metric-card";
 import { type DailyMetrics } from "@/components/dashboard/home/fetchers";
 import { appointmentNeedsReview, type TodayAppointment } from "@/lib/appointments";
 import { proxyUrl } from "@/lib/api";
+import { useDashboardAccess } from "./dashboard-access-provider";
 
 const COP = new Intl.NumberFormat("es-CO", {
   style: "currency",
@@ -18,6 +19,7 @@ const COP = new Intl.NumberFormat("es-CO", {
 export function DailyMetricsCards({ metrics: initialMetrics, appointments: initialAppointments, tenant }: { metrics: DailyMetrics | null; appointments: TodayAppointment[] | null; tenant?: string }) {
   const [metrics, setMetrics] = useState(initialMetrics);
   const [appointments, setAppointments] = useState(initialAppointments);
+  const access = useDashboardAccess();
 
   useEffect(() => {
     let request = 0;
@@ -40,7 +42,7 @@ export function DailyMetricsCards({ metrics: initialMetrics, appointments: initi
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-3">
+      {access?.capabilities.agenda && <div className="grid gap-3 sm:grid-cols-3">
         <Link href={agendaHref} className="block rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700">
           <MetricCard
             size="sm"
@@ -71,7 +73,7 @@ export function DailyMetricsCards({ metrics: initialMetrics, appointments: initi
             delta={<span className="inline-flex items-center gap-1 text-xs font-medium text-teal-700">Ver calendario <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" /></span>}
           />
         </Link>
-      </div>
+      </div>}
 
       <section aria-labelledby="business-results-heading" className="flex flex-wrap items-center gap-x-8 gap-y-4 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
         <div className="min-w-40 flex-1">

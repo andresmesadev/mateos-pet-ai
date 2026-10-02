@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { TeamPermissions } from "@/components/dashboard/team-permissions";
 import { useSession } from "next-auth/react";
 
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +25,7 @@ type StaffMember = {
   tenantId: string | null;
   name: string;
   role: string;
+  accessPermissions?: string[];
   phone: string | null;
   email: string | null;
   active: boolean;
@@ -34,8 +36,8 @@ type StaffMember = {
 const ROLES = [
   { value: "vet", label: "Veterinario/a" },
   { value: "groomer", label: "Peluquero/a" },
-  { value: "receptionist", label: "Recepción" },
-  { value: "admin", label: "Administrativo/a" },
+  { value: "receptionist", label: "Recepción y caja" },
+  { value: "admin", label: "Administrador" },
 ];
 
 const DAYS = [
@@ -140,8 +142,8 @@ function AvailabilityPanel({ staffId, initial, onSaved }: {
 const ROLE_LABELS: Record<string, string> = {
   vet: "Veterinario/a",
   groomer: "Peluquero/a",
-  receptionist: "Recepción",
-  admin: "Administrativo/a",
+  receptionist: "Recepción y caja",
+  admin: "Administrador",
 };
 
 type NewForm = { name: string; role: string; phone: string; email: string };
@@ -338,7 +340,7 @@ export function StaffManager() {
 
   return (
     <div className="space-y-6">
-      <p className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-950">Si también atiendes como veterinario, registra tu ficha de veterinario con el mismo correo de tu cuenta administradora. Entrarás con tu contraseña actual; la cuenta clínica individual es para otros profesionales.</p>
+      <p className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-950">El administrador puede gestionar el negocio y atender con la misma cuenta. Para identificarlo en la historia clínica, su ficha del equipo debe tener el correo de esa cuenta. Recepción incluye Caja; puedes habilitar cobros y ajustes de precio a otros profesionales sin cambiar su perfil.</p>
       {error && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           {error}
@@ -491,6 +493,7 @@ export function StaffManager() {
                               </Button>
                             </div>
                           </div>
+                          <TeamPermissions key={m.id + (m.accessPermissions ?? []).join(",")} member={m} onSaved={reload} />
                           {availabilityOpenId === m.id && (
                             <AvailabilityPanel
                               staffId={m.id}
@@ -502,7 +505,7 @@ export function StaffManager() {
                             <div className="mt-3 space-y-3 rounded-xl border border-teal-200 bg-teal-50/50 p-4">
                               <div>
                                 <p className="text-sm font-semibold text-teal-950">Cuenta individual de {m.name}</p>
-                                <p className="mt-1 text-xs text-teal-900">{m.role === "vet" ? "Consultas veterinarias y WhatsApp con acceso clínico." : m.role === "groomer" ? "WhatsApp, citas y notas de peluquería. Sin acceso clínico ni financiero." : m.role === "receptionist" ? "WhatsApp y creación de citas. Sin acceso clínico ni financiero." : "Acceso administrativo completo. Asigna este perfil solo a responsables autorizados."} Los mensajes guardarán el nombre de quien respondió.</p>
+                                <p className="mt-1 text-xs text-teal-900">{m.role === "vet" ? "Consultas veterinarias y WhatsApp con acceso clínico." : m.role === "groomer" ? "WhatsApp, citas y notas de peluquería. Sin acceso clínico ni financiero." : m.role === "receptionist" ? "Agenda, clientes, WhatsApp y Caja operativa. Sin edición clínica ni reportes financieros generales." : "Acceso administrativo completo. Asigna este perfil solo a responsables autorizados."} Los mensajes guardarán el nombre de quien respondió.</p>
                               </div>
                               <div className="grid gap-3 sm:grid-cols-2">
                                 <label className="space-y-1 text-xs font-semibold text-slate-700">Correo de ingreso<Input type="email" autoComplete="off" value={accessEmail} onChange={(event) => setAccessEmail(event.target.value)} /></label>

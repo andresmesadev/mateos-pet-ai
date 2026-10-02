@@ -46,6 +46,7 @@ export type TodayAppointment = {
   staffName: string | null;
   finalPrice: number | null;
   priceResolution: PriceResolution | null;
+  hasResolvedPrice?: boolean;
   startedAt: string | null;
   endedAt: string | null;
 };

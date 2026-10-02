@@ -17,6 +17,7 @@ export const PAYMENT_METHOD_ICONS: Record<PaymentMethod, string> = {
 export type TransactionItem = {
   id: string;
   description: string;
+  itemKind?: "product" | "service" | "legacy";
   quantity: number;
   unitPrice: number;
   total: number;
@@ -34,6 +35,7 @@ export type Transaction = {
   appointmentId: string | null;
   total: number;
   paymentMethod: PaymentMethod;
+  recordedBy?: { id: string; name: string | null; role: string | null } | null;
   notes: string | null;
   paidAt: string;
   createdAt: string;

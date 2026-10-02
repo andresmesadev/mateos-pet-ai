@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ShoppingCart, Wallet, TrendingDown, History, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useDashboardAccess } from "@/components/dashboard/dashboard-access-provider";
 
 export type PosTab = "venta" | "caja" | "egreso" | "historial" | "reportes";
 
@@ -17,6 +18,7 @@ const TABS: { id: PosTab; label: string; icon: React.ElementType }[] = [
 
 export function PosTabs({ active }: { active: PosTab }) {
   const searchParams = useSearchParams();
+  const access = useDashboardAccess();
 
   function href(tab: PosTab) {
     const p = new URLSearchParams(searchParams.toString());
@@ -29,7 +31,7 @@ export function PosTabs({ active }: { active: PosTab }) {
 
   return (
     <nav aria-label="Secciones de caja y ventas" className="mb-6 flex max-w-full gap-1 overflow-x-auto rounded-xl border border-border bg-white p-1 shadow-sm">
-      {TABS.map(({ id, label, icon: Icon }) => {
+      {TABS.filter(tab => access?.capabilities.finance || ["venta", "caja"].includes(tab.id)).map(({ id, label, icon: Icon }) => {
         const isActive = active === id;
         return (
           <Link

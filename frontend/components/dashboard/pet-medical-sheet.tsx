@@ -28,6 +28,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { PetGroomingHistory } from "@/components/dashboard/pet-grooming-history";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { OperationalPetSheet, OperationalAlerts } from "@/components/dashboard/operational-pet-sheet";
+import { useDashboardAccess } from "@/components/dashboard/dashboard-access-provider";
 import { PetRecordForm, type QuickRecordKind } from "@/components/dashboard/pet-record-form";
 import { formatPetAge } from "@/lib/contact-profile-utils";
 import { PetTimeline } from "@/components/dashboard/pet-timeline";
@@ -111,6 +113,9 @@ function PetMedicalSheetContent({
   onRecordAdded?: () => void;
   initialEdit?: boolean;
 }) {
+  const access = useDashboardAccess();
+  const admin = Boolean(access?.capabilities.administration);
+  const canManageRecords = admin && Boolean(access?.capabilities.clinical);
   const { toast } = useToast();
   const tenant = useTenant();
   const [agreedPrices, setAgreedPrices] = useState<AgreedPrice[]>([]);
@@ -128,7 +133,7 @@ function PetMedicalSheetContent({
   const [form, setForm]                   = useState<AddRecordForm>(INITIAL_FORM);
   const [nextDate, setNextDate]           = useState("");
   const [formError, setFormError]         = useState<string | null>(null);
-  const [editingProfile, setEditingProfile]   = useState(initialEdit);
+  const [editingProfile, setEditingProfile]   = useState(initialEdit && admin);
   const [savingProfile, setSavingProfile]     = useState(false);
   const [profile, setProfile]             = useState<Partial<DashboardPet>>({
     breed: pet.breed, gender: pet.gender, birthDate: pet.birthDate,
@@ -191,6 +196,7 @@ function PetMedicalSheetContent({
     let cancelled = false;
     void (async () => {
       try {
+        if (!admin) return;
         const response = await fetch(proxyUrl(`/api/dashboard/pets/${pet.id}/prices${tenantQuery(tenant)}`), { cache: "no-store" });
         if (!response.ok) throw new Error("No se pudieron cargar las tarifas acordadas.");
         const prices = await response.json() as AgreedPrice[];
@@ -202,7 +208,7 @@ function PetMedicalSheetContent({
       }
     })();
     return () => { cancelled = true; };
-  }, [pet.id, tenant]);
+  }, [pet.id, tenant, admin]);
 
   async function saveAgreedPrice(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -381,7 +387,7 @@ function PetMedicalSheetContent({
       <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-6 py-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <SavedChangesStatus dirty={dirty} saving={busy} savedAt={savedAt} />
-          <Button className="gap-2" disabled={dirty || busy} onClick={() => setNewAppointment(true)}><CalendarPlus className="h-4 w-4" />Nueva cita para {petName}</Button>
+          {access?.capabilities.schedule && <Button className="gap-2" disabled={dirty || busy} onClick={() => setNewAppointment(true)}><CalendarPlus className="h-4 w-4" />Nueva cita para {petName}</Button>}
         </div>
         {dirty && <p className="text-xs text-muted-foreground">Guarda o cancela los cambios antes de agendar.</p>}
         <dl aria-label="Resumen de la mascota" className="grid grid-cols-2 gap-x-6 gap-y-4 border-y py-4 sm:grid-cols-4">
@@ -394,7 +400,7 @@ function PetMedicalSheetContent({
         </section>}
         {error && <p role="alert" className="text-sm text-destructive">No se pudieron comprobar los antecedentes de alergias. Reintenta la carga del historial.</p>}
         <section aria-label="Cuidados importantes" className={`rounded-xl border p-4 ${profile.notes ? "border-amber-200 bg-amber-50/60" : "bg-muted/30"}`}>
-          <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="flex items-center gap-2 font-semibold"><AlertCircle className="h-4 w-4 text-amber-700" />Cuidados importantes</h3><Button size="sm" variant="outline" disabled={busy} onClick={() => { if (!editingProfile) setProfileForm(savedProfile); setEditingProfile(true); setActiveTab("ficha"); }}>Editar cuidados</Button></div>
+          <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="flex items-center gap-2 font-semibold"><AlertCircle className="h-4 w-4 text-amber-700" />Cuidados importantes</h3><Button size="sm" variant="outline" disabled={busy || !admin} onClick={() => { if (!editingProfile) setProfileForm(savedProfile); setEditingProfile(true); setActiveTab("ficha"); }}>Editar cuidados</Button></div>
           <p className="mt-2 whitespace-pre-wrap break-words text-sm">{profile.notes || "Todavía no hay observaciones registradas en la ficha."}</p>
           <p className="mt-2 text-xs text-muted-foreground">Observaciones del equipo para tener en cuenta antes de una consulta, baño o corte.</p>
         </section>
@@ -403,8 +409,8 @@ function PetMedicalSheetContent({
           <TabsList aria-label="Secciones de la ficha" className="grid h-auto! w-full grid-cols-2 gap-1 sm:grid-cols-4">
             <TabsTrigger value="ficha" className="min-h-11">Datos y cuidados</TabsTrigger>
             <TabsTrigger value="historial" className="min-h-11">Historial y citas</TabsTrigger>
-            <TabsTrigger value="peluqueria" className="min-h-11">Peluquería</TabsTrigger>
-            <TabsTrigger value="tarifas" className="min-h-11">Tarifas acordadas</TabsTrigger>
+            {(admin || access?.capabilities.grooming) && <TabsTrigger value="peluqueria" className="min-h-11">Peluquería</TabsTrigger>}
+            {admin && <TabsTrigger value="tarifas" className="min-h-11">Tarifas acordadas</TabsTrigger>}
           </TabsList>
           <TabsContent value="ficha" forceMount className="data-[state=inactive]:hidden">
           <section className="mb-4 rounded-xl border bg-teal-50/40 p-4"><h3 className="font-semibold">Propietario</h3><p className="mt-1 text-sm">{ownerName || "Sin nombre registrado"}</p><p className="text-sm text-muted-foreground">{ownerPhone || "Sin teléfono registrado"}</p></section>
@@ -412,7 +418,7 @@ function PetMedicalSheetContent({
         <div className="rounded-xl border border-black/[0.06] bg-card">
           <div className="flex items-center justify-between border-b border-black/[0.04] px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Datos y cuidados de la mascota</p>
-            {!editingProfile && (
+            {admin && !editingProfile && (
               <button
                 type="button"
                   onClick={() => { setProfileForm(savedProfile); setEditingProfile(true); }}
@@ -555,7 +561,7 @@ function PetMedicalSheetContent({
           <TabsContent value="peluqueria"><PetGroomingHistory petId={pet.id} appointments={timeline?.items ?? []} onSaved={() => { setSavedAt(new Date()); onRecordAdded?.(); }} /></TabsContent>
           <TabsContent value="historial" forceMount className="space-y-5 data-[state=inactive]:hidden">
         {/* Botones de acción */}
-        {!activeForm && (
+        {canManageRecords && !activeForm && (
           <div>
             <h3 className="text-lg font-semibold">Agregar registro</h3>
             <p className="mb-4 mt-1 text-sm text-muted-foreground">Guarda antecedentes y observaciones de esta mascota. Para una cita programada, registra la atención en su sección correspondiente.</p>
@@ -594,6 +600,7 @@ function PetMedicalSheetContent({
             onNextDate={(value) => { setNextDate(value); setFormError(null); }} onSubmit={handleSubmit} />
         </div>}
 
+        {!canManageRecords && access?.capabilities.clinical && <p className="rounded-xl border bg-teal-50 p-4 text-sm">Para guardar o corregir tu atención, abre la consulta correspondiente desde el historial o desde Consultas veterinarias.</p>}
         {/* Timeline */}
         <div>
           <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Historial</p>
@@ -647,6 +654,8 @@ function PetMedicalSheetContent({
 }
 
 export function PetMedicalSheet({ pet, open, onOpenChange, onRecordAdded, initialEdit = false }: PetMedicalSheetProps) {
+  const access = useDashboardAccess();
+  if (access && !access.capabilities.administration && !access.capabilities.clinical) return <OperationalPetSheet pet={pet} open={open} onOpenChange={onOpenChange} onUpdated={onRecordAdded} />;
   return (
     <ProtectedDialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -654,7 +663,7 @@ export function PetMedicalSheet({ pet, open, onOpenChange, onRecordAdded, initia
         className="flex h-[92vh] w-full max-w-[95vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl"
       >
         {open && pet ? (
-          <PetMedicalSheetContent key={`${pet.id}-${initialEdit}`} pet={pet} onRecordAdded={onRecordAdded} initialEdit={initialEdit} />
+          <><div className="px-5 pt-5"><OperationalAlerts pet={pet} onSaved={onRecordAdded} /></div><PetMedicalSheetContent key={`${pet.id}-${initialEdit}`} pet={pet} onRecordAdded={onRecordAdded} initialEdit={initialEdit} /></>
         ) : null}
       </DialogContent>
     </ProtectedDialog>

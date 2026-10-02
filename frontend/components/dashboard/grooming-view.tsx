@@ -10,6 +10,7 @@ import { GroomingNotesDialog } from "@/components/dashboard/grooming-notes-dialo
 import { GroomingAssignmentDialog } from "@/components/dashboard/grooming-assignment-dialog";
 import { GroomingCloseDialog } from "@/components/dashboard/grooming-close-dialog";
 import { GroomingSecondaryActions } from "@/components/dashboard/grooming-secondary-actions";
+import { useDashboardAccess } from "@/components/dashboard/dashboard-access-provider";
 import { proxyUrl } from "@/lib/api";
 import { arrivalWindowExpired, formatColombiaDateTime, formatService, formatStatus, type TodayAppointment } from "@/lib/appointments";
 import { GROOMING_STAGES, groomingIsArchived, groomingPriority, groomingStage, type GroomingVisit } from "@/lib/grooming";
@@ -20,6 +21,7 @@ type ListResult = { key: string; appointments: GroomingVisit[]; hasMore: boolean
 export function GroomingView({ initialVisits, initialHasMore, initialError, tenantId }: {
   initialVisits: GroomingVisit[]; initialHasMore: boolean; initialError: string | null; tenantId?: string;
 }) {
+  const access = useDashboardAccess();
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
   const [date, setDate] = useState(today);
   const [search, setSearch] = useState("");
@@ -117,7 +119,7 @@ export function GroomingView({ initialVisits, initialHasMore, initialError, tena
   const agendaHref = `/dashboard/calendar${tenantId ? `?tenant=${encodeURIComponent(tenantId)}` : ""}`;
 
   return <div className="space-y-5">
-    <div className="flex flex-wrap items-center justify-between gap-3"><p className="max-w-xl text-sm text-muted-foreground">Recibe la mascota, registra el baño o corte y confirma su entrega al propietario.</p><Button onClick={() => setNewOpen(true)}><CalendarPlus className="size-4" /> Nueva cita</Button></div>
+    <div className="flex flex-wrap items-center justify-between gap-3"><p className="max-w-xl text-sm text-muted-foreground">Recibe la mascota, registra el baño o corte y confirma su entrega al propietario.</p><Button disabled={!access?.capabilities.schedule} onClick={() => setNewOpen(true)}><CalendarPlus className="size-4" /> Nueva cita</Button></div>
     <section className="overflow-hidden rounded-2xl border bg-white shadow-sm" aria-labelledby="grooming-list-title">
       <div className="space-y-4 border-b p-5 sm:p-6">
         <div className="flex flex-wrap items-end gap-4">
@@ -138,12 +140,13 @@ export function GroomingView({ initialVisits, initialHasMore, initialError, tena
         const visitStage = groomingStage(visit, today);
         const expired = ["pending", "confirmed"].includes(visit.status) && arrivalWindowExpired(visit.date, now);
         const priorArrival = visit.status === "arrived" && visitStage === "Por revisar";
-        const editable = !["completed", "cancelled", "no_show"].includes(visit.status);
+        const own = access?.capabilities.administration || !visit.staffId || visit.staffId === access?.staffId;
+        const editable = own && !["completed", "cancelled", "no_show"].includes(visit.status);
         const badgeLabel = ["cancelled", "no_show"].includes(visit.status) ? formatStatus(visit.status) : visitStage;
         const secondaryActions = [
           { label: "Ver cita", onSelect: () => { setPriceEditing(false); setDetailVisit(visit); } },
-          ...(editable && visit.staffId ? [{ label: "Cambiar peluquero", disabled: staffLoading || staffError, onSelect: () => setAssignmentVisit(visit) }] : []),
-          ...(editable && visit.finalPrice != null ? [{ label: "Editar precio", onSelect: () => { setPriceEditing(true); setDetailVisit(visit); } }] : []),
+          ...(access?.capabilities.schedule && editable && visit.staffId ? [{ label: "Cambiar peluquero", disabled: staffLoading || staffError, onSelect: () => setAssignmentVisit(visit) }] : []),
+          ...(access?.capabilities.appointmentPrice && editable && visit.finalPrice != null ? [{ label: "Editar precio", onSelect: () => { setPriceEditing(true); setDetailVisit(visit); } }] : []),
         ];
         return <article key={visit.id} className="flex flex-col gap-4 px-5 py-5 sm:px-6 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex min-w-0 gap-3">
@@ -160,24 +163,24 @@ export function GroomingView({ initialVisits, initialHasMore, initialError, tena
           </div>
           <div className="flex w-full shrink-0 flex-col gap-3 sm:flex-row sm:flex-wrap xl:w-auto xl:max-w-md">
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap [&>button]:min-h-11"><Button variant="outline" disabled={Boolean(busy)} onClick={() => { setActionError(null); setNotesVisit(visit); }}><StickyNote className="size-3.5" />{visit.groomingNotes ? "Ver notas guardadas" : "Notas de la atención"}</Button>
-            {visit.status === "pending" && !expired && <Button size="sm" disabled={Boolean(busy)} onClick={() => void advance(visit, "confirmed")}>Confirmar cita</Button>}
-            {visit.status === "confirmed" && !expired && <Button size="sm" disabled={Boolean(busy)} onClick={() => void advance(visit, "arrived")}>Registrar llegada</Button>}
+            {visit.status === "pending" && !expired && <Button size="sm" disabled={Boolean(busy) || !own} onClick={() => void advance(visit, "confirmed")}>Confirmar cita</Button>}
+            {visit.status === "confirmed" && !expired && <Button size="sm" disabled={Boolean(busy) || !own} onClick={() => void advance(visit, "arrived")}>Registrar llegada</Button>}
             {visit.status === "arrived" && !priorArrival && <Button size="sm" disabled={Boolean(busy)} onClick={() => { setActionError(null); setNotesVisit(visit); }}><Scissors className="size-3.5" />Preparar atención</Button>}
-            {visit.status === "in_progress" && <Button size="sm" disabled={Boolean(busy)} onClick={() => { setActionError(null); setConfirm({ visit, action: "complete" }); }}>Terminar servicio</Button>}
-            {visit.status === "completed" && !visit.groomingDeliveredAt && <Button size="sm" disabled={Boolean(busy)} onClick={() => { setActionError(null); setConfirm({ visit, action: "delivery" }); }}><CheckCheck className="size-3.5" />Registrar entrega</Button>}
+            {visit.status === "in_progress" && <Button size="sm" disabled={Boolean(busy) || !own} onClick={() => { setActionError(null); setConfirm({ visit, action: "complete" }); }}>Terminar servicio</Button>}
+            {visit.status === "completed" && !visit.groomingDeliveredAt && <Button size="sm" disabled={Boolean(busy) || !own} onClick={() => { setActionError(null); setConfirm({ visit, action: "delivery" }); }}><CheckCheck className="size-3.5" />Registrar entrega</Button>}
             {(expired || priorArrival) && <Button variant="outline" size="sm" asChild><Link href={agendaHref}>Revisar en Agenda</Link></Button>}
             </div>
-            {editable && (!visit.staffId || visit.finalPrice == null) && <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">{!visit.staffId && <Button variant="outline" className="min-h-11" disabled={Boolean(busy) || staffLoading || staffError} onClick={() => setAssignmentVisit(visit)}>Asignar peluquero</Button>}{visit.finalPrice == null && <Button variant="outline" className="min-h-11" disabled={Boolean(busy)} onClick={() => { setPriceEditing(true); setDetailVisit(visit); }}>Colocar precio</Button>}</div>}
+            {editable && (!visit.staffId || visit.finalPrice == null) && <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">{access?.capabilities.schedule && !visit.staffId && <Button variant="outline" className="min-h-11" disabled={Boolean(busy) || staffLoading || staffError} onClick={() => setAssignmentVisit(visit)}>Asignar peluquero</Button>}{access?.capabilities.appointmentPrice && visit.finalPrice == null && <Button variant="outline" className="min-h-11" disabled={Boolean(busy)} onClick={() => { setPriceEditing(true); setDetailVisit(visit); }}>Colocar precio</Button>}</div>}
             <div className="flex flex-col sm:flex-row sm:justify-end"><GroomingSecondaryActions actions={secondaryActions} disabled={Boolean(busy)} /></div>
           </div>
         </article>;
       })}</div>}
       {!loading && result.hasMore && <p role="status" className="border-t p-4 text-sm text-amber-900">Se muestran hasta 100 citas. Precisa el nombre en la búsqueda para ver las restantes.</p>}
     </section>
-    {newOpen && <NewAppointmentDialog initialDate={date} serviceCategory="grooming" onClose={() => setNewOpen(false)} onCreated={() => { setNewOpen(false); setRefresh((value) => value + 1); }} />}
+    {newOpen && access?.capabilities.schedule && <NewAppointmentDialog initialDate={date} serviceCategory="grooming" onClose={() => setNewOpen(false)} onCreated={() => { setNewOpen(false); setRefresh((value) => value + 1); }} />}
     {detailVisit && <AppointmentDetailDialog appointment={detailVisit} startInPriceEdit={priceEditing} onClose={() => setDetailVisit(null)} onUpdated={(updated: TodayAppointment) => { updateVisit({ ...detailVisit, ...updated }); setRefresh((value) => value + 1); }} />}
     {assignmentVisit && <GroomingAssignmentDialog visit={assignmentVisit} staff={staff} tenantId={tenantId} onClose={() => setAssignmentVisit(null)} onSaved={(updated) => { updateVisit(updated); setAssignmentVisit(null); setNotice(`Peluquero de ${updated.petName} actualizado.`); }} />}
-    {notesVisit && <GroomingNotesDialog key={notesVisit.id} visit={notesVisit} tenantId={tenantId} starting={Boolean(busy)} startError={actionError} onStart={notesVisit.status === "arrived" && groomingStage(notesVisit, today) !== "Por revisar" ? () => void advance(notesVisit, "in_progress") : undefined} onClose={() => setNotesVisit(null)} onSaved={(updated) => { updateVisit(updated); setNotice(`Notas de ${updated.petName} guardadas.`); }} />}
+    {notesVisit && <GroomingNotesDialog key={notesVisit.id} visit={notesVisit} tenantId={tenantId} starting={Boolean(busy)} startError={actionError} onStart={(access?.capabilities.administration || (access?.staffId && (!notesVisit.staffId || notesVisit.staffId === access.staffId))) && notesVisit.status === "arrived" && groomingStage(notesVisit, today) !== "Por revisar" ? () => void advance(notesVisit, "in_progress") : undefined} onClose={() => setNotesVisit(null)} onSaved={(updated) => { updateVisit(updated); setNotice(`Notas de ${updated.petName} guardadas.`); }} />}
     {confirm && <GroomingCloseDialog visit={confirm.visit} action={confirm.action} busy={Boolean(busy)} error={actionError} onClose={() => setConfirm(null)} onConfirm={() => void advance(confirm.visit, confirm.action)} onResolve={(field) => { const visit = confirm.visit; setConfirm(null); setActionError(null); if (field === "staff") setAssignmentVisit(visit); else if (field === "price") { setPriceEditing(true); setDetailVisit(visit); } else setNotesVisit(visit); }} />}
   </div>;
 }

@@ -26,6 +26,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ContactPagination } from "@/components/dashboard/contact-pagination";
+import { useDashboardAccess } from "./dashboard-access-provider";
 import { proxyUrl } from "@/lib/api";
 import {
   type DashboardPet,
@@ -76,6 +77,7 @@ export function PetsTable({
     return () => clearTimeout(t);
   }, [query]);
 
+  const access = useDashboardAccess();
   const tenant = useTenant();
   const requestId = useRef(0);
 
@@ -244,7 +246,7 @@ export function PetsTable({
             <EmptyState icon={<PawPrint className="h-7 w-7" />} title="No hay mascotas registradas" description="Agrega una mascota y vincúlala a su propietario desde Nueva mascota." />
           ) : (
             <>
-            <div className="space-y-3 md:hidden">{pets.map((pet) => <article key={pet.id} className="rounded-xl border p-4"><h3 className="font-semibold">{getPetEmoji(pet.type)} {pet.name}</h3><p className="text-sm text-muted-foreground">{formatPetType(pet.type)} · {pet.breed || "Raza sin registrar"}</p><p className="mt-2 text-sm">Propietario: {pet.owner.name || "Sin nombre"}</p><p className="text-sm text-muted-foreground">{formatPhone(pet.owner.phone)}</p><p className="mt-2 text-xs text-muted-foreground">{pet._count.medicalRecords} registros · {pet._count.appointments} citas</p><div className="mt-3 flex flex-wrap gap-2"><Button variant="outline" onClick={() => handleSelectPet(pet)}>Ver ficha</Button><Button variant="outline" onClick={() => handleSelectPet(pet, true)}>Editar</Button><Button variant="ghost" aria-label={`Eliminar mascota ${pet.name}`} disabled={deleting === pet.id} onClick={(e) => handleDeletePet(e, pet)}><Trash2 className="h-4 w-4" /></Button></div></article>)}</div>
+            <div className="space-y-3 md:hidden">{pets.map((pet) => <article key={pet.id} className="rounded-xl border p-4"><h3 className="font-semibold">{getPetEmoji(pet.type)} {pet.name}</h3><p className="text-sm text-muted-foreground">{formatPetType(pet.type)} · {pet.breed || "Raza sin registrar"}</p><p className="mt-2 text-sm">Propietario: {pet.owner.name || "Sin nombre"}</p><p className="text-sm text-muted-foreground">{formatPhone(pet.owner.phone)}</p><p className="mt-2 text-xs text-muted-foreground">{access?.capabilities.clinical ? `${pet._count.medicalRecords ?? 0} registros · ` : ""}{pet._count.appointments} citas</p><div className="mt-3 flex flex-wrap gap-2"><Button variant="outline" onClick={() => handleSelectPet(pet)}>Ver ficha</Button><Button variant="outline" onClick={() => handleSelectPet(pet, true)}>Editar</Button>{access?.capabilities.administration && <Button variant="ghost" aria-label={`Eliminar mascota ${pet.name}`} disabled={deleting === pet.id} onClick={(e) => handleDeletePet(e, pet)}><Trash2 className="h-4 w-4" /></Button>}</div></article>)}</div>
             <div className="hidden overflow-x-auto md:block">
             <Table>
               <TableHeader>
@@ -252,7 +254,7 @@ export function PetsTable({
                   <TableHead>Mascota</TableHead>
                   <TableHead>Especie</TableHead>
                   <TableHead>Dueño</TableHead>
-                  <TableHead>Registros</TableHead>
+                  {access?.capabilities.clinical && <TableHead>Registros</TableHead>}
                   <TableHead>Citas</TableHead>
                   <TableHead className="text-right">Expediente</TableHead>
                 </TableRow>
@@ -277,11 +279,11 @@ export function PetsTable({
                       <div className="font-medium">{pet.owner.name ?? "Sin nombre"}</div>
                       <div className="text-xs text-muted-foreground">{formatPhone(pet.owner.phone)}</div>
                     </TableCell>
-                    <TableCell>
+                    {access?.capabilities.clinical && <TableCell>
                       <Badge variant="outline">
                         {pet._count.medicalRecords}
                       </Badge>
-                    </TableCell>
+                    </TableCell>}
                     <TableCell>
                       <Badge variant="outline">
                         {pet._count.appointments}
@@ -303,14 +305,14 @@ export function PetsTable({
                         >
                           <Pencil className="h-4 w-4" /> Editar
                         </button>
-                        <button
+                        {access?.capabilities.administration && <button
                           title="Eliminar mascota"
                           disabled={deleting === pet.id}
                           onClick={(e) => handleDeletePet(e, pet)}
                           className="inline-flex h-11 w-11 items-center justify-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors disabled:opacity-50"
                         >
                           <Trash2 className="h-4 w-4" />
-                        </button>
+                        </button>}
                       </div>
                     </TableCell>
                   </TableRow>

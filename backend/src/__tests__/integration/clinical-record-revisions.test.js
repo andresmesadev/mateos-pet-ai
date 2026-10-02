@@ -1,4 +1,6 @@
 const express = require("express");
+// These adapter tests isolate business behavior; access policy has its own matrix.
+jest.mock("../../services/business-config.service", () => ({ ...jest.requireActual("../../services/business-config.service"), getActiveModules: async () => ["veterinary", "grooming", "retail"] }));
 const request = require("supertest");
 jest.mock("../../lib/prisma", () => ({
   medicalRecord: { findFirst: jest.fn(), update: jest.fn(), delete: jest.fn(), deleteMany: jest.fn() },

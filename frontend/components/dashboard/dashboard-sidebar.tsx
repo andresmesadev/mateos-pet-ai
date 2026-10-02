@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -23,8 +23,8 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { proxyUrl } from "@/lib/api";
-import { canVisitDashboard, homeForRole, ROLE_NAMES } from "@/lib/dashboard-access";
+import { useDashboardAccess } from "@/components/dashboard/dashboard-access-provider";
+import { homeForRole, ROLE_NAMES } from "@/lib/dashboard-access";
 
 // ── Estructura de navegación ──────────────────────────────────
 
@@ -103,28 +103,11 @@ function NavLink({
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { data: session } = useSession();
-  const [veterinaryEnabled, setVeterinaryEnabled] = useState<boolean | null>(null);
-  const [groomingEnabled, setGroomingEnabled] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch(proxyUrl("/api/dashboard/tenant/profile"), { cache: "no-store" })
-      .then((response) => response.ok ? response.json() : null)
-      .then((profile: { activeModules?: string[] } | null) => {
-        if (!cancelled && Array.isArray(profile?.activeModules)) {
-          setVeterinaryEnabled(profile.activeModules.includes("veterinary"));
-          setGroomingEnabled(profile.activeModules.includes("grooming"));
-        }
-      })
-      .catch(() => { /* Si el perfil no carga, se conserva el acceso a la sección. */ });
-    return () => { cancelled = true; };
-  }, []);
-
-  const teamRole = session?.user?.role ?? "admin";
-  const sections = SECTIONS.map((section) => ({
-    ...section,
-    items: section.items.filter((item) => canVisitDashboard(teamRole, item.href) && (item.href !== "/dashboard/consultas" || veterinaryEnabled !== false) && (item.href !== "/dashboard/peluqueria" || groomingEnabled !== false)),
-  })).filter((section) => section.items.length > 0);
+  const access = useDashboardAccess();
+  const teamRole = access?.role ?? session?.user?.role ?? "admin";
+  const sections = SECTIONS.map(section => ({ ...section,
+    items: section.items.filter(item => access?.navigation.includes(item.href)),
+  })).filter(section => section.items.length > 0);
   const userName = session?.user?.name ?? session?.user?.email ?? "Usuario";
   const role = session?.user?.isSuperAdmin ? "Super administrador" : ROLE_NAMES[teamRole];
   const initials = userName.slice(0, 2).toUpperCase();

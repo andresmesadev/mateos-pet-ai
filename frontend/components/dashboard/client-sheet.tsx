@@ -22,6 +22,7 @@ import { formatPetAge, groupClientAppointments } from "@/lib/contact-profile-uti
 import { ownerAgendaHref } from "@/lib/contact-navigation";
 import { PetMedicalSheet } from "@/components/dashboard/pet-medical-sheet";
 import { NewPetSheet } from "@/components/dashboard/new-pet-sheet";
+import { useDashboardAccess } from "@/components/dashboard/dashboard-access-provider";
 import { proxyUrl } from "@/lib/api";
 import { tenantQuery, useTenant } from "@/lib/use-tenant";
 import { useToast } from "@/components/ui/toast";
@@ -50,6 +51,7 @@ function clientPetToDashboardPet(pet: ClientPet, owner: { id: string; phone: str
     weight: pet.weight,
     sterilized: pet.sterilized,
     notes: pet.notes,
+    operationalAlerts: pet.operationalAlerts,
     owner,
     _count: pet._count,
   };
@@ -75,6 +77,7 @@ function ClientSheetSkeleton() {
 
 function ClientSheetContent({ clientId, initialEdit = false, onUpdated, onNavigate }: { clientId: string; initialEdit?: boolean; onUpdated?: () => void; onNavigate: () => void }) {
   const router = useRouter();
+  const access = useDashboardAccess();
   const tenant = useTenant();
   const { toast } = useToast();
   const [now, setNow] = useState(() => Date.now());
@@ -165,7 +168,7 @@ function ClientSheetContent({ clientId, initialEdit = false, onUpdated, onNaviga
       const res = await fetch(proxyUrl(`/api/dashboard/clients/${client.id}${tenantQuery(tenant)}`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editForm),
+        body: JSON.stringify(access?.capabilities.administration ? editForm : { ...editForm, notes: undefined }),
       });
       if (!res.ok) throw new Error("Error al guardar");
       const updated = await res.json();
@@ -219,7 +222,7 @@ function ClientSheetContent({ clientId, initialEdit = false, onUpdated, onNaviga
         </div></div>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
           <SavedChangesStatus dirty={dirty} saving={saving} savedAt={savedAt} />
-          <Button disabled={dirty || saving || client.pets.length === 0} onClick={() => { setAppointmentPetId(client.pets.length === 1 ? client.pets[0].id : undefined); setNewAppointment(true); }} className="gap-2"><CalendarPlus className="h-4 w-4" />Nueva cita</Button>
+          {access?.capabilities.schedule && <Button disabled={dirty || saving || client.pets.length === 0} onClick={() => { setAppointmentPetId(client.pets.length === 1 ? client.pets[0].id : undefined); setNewAppointment(true); }} className="gap-2"><CalendarPlus className="h-4 w-4" />Nueva cita</Button>}
         </div>
         {dirty && <p className="text-xs text-muted-foreground">Guarda o cancela los cambios antes de agendar.</p>}
       </DialogHeader>
@@ -272,7 +275,7 @@ function ClientSheetContent({ clientId, initialEdit = false, onUpdated, onNaviga
                 onChange={(e) => setEditForm((f) => ({ ...f, address: e.target.value }))}
               />
               </label>
-              <label className="block text-sm font-medium">Notas del propietario (opcional)
+              <label hidden={!access?.capabilities.administration} className="block text-sm font-medium">Notas del propietario (opcional)
               <Textarea
                 rows={4}
                 placeholder="Notas"
@@ -297,7 +300,7 @@ function ClientSheetContent({ clientId, initialEdit = false, onUpdated, onNaviga
                 <div><dt className="text-xs text-muted-foreground">Correo electrónico</dt><dd className="mt-1 break-words">{client.email || "Sin registrar"}</dd></div>
                 <div><dt className="text-xs text-muted-foreground">Dirección</dt><dd className="mt-1 break-words">{client.address || "Sin registrar"}</dd></div>
               </dl>
-              <div className="mt-4 border-t pt-4"><h4 className="font-semibold">Notas del propietario</h4><p className="mt-2 whitespace-pre-wrap break-words text-muted-foreground">{client.notes || "Todavía no hay notas del propietario."}</p></div>
+              <div hidden={!access?.capabilities.administration} className="mt-4 border-t pt-4"><h4 className="font-semibold">Notas del propietario</h4><p className="mt-2 whitespace-pre-wrap break-words text-muted-foreground">{client.notes || "Todavía no hay notas del propietario."}</p></div>
             </div>
           )}
         </section>
@@ -341,7 +344,7 @@ function ClientSheetContent({ clientId, initialEdit = false, onUpdated, onNaviga
                   >
                     Ver expediente
                   </Button>
-                  <Button size="sm" variant="outline" disabled={dirty || saving} onClick={() => { setAppointmentPetId(pet.id); setNewAppointment(true); }}>Nueva cita</Button></div>
+                  <Button size="sm" variant="outline" disabled={dirty || saving || !access?.capabilities.schedule} onClick={() => { setAppointmentPetId(pet.id); setNewAppointment(true); }}>Nueva cita</Button></div>
                 </li>
               ))}
             </ul>
@@ -367,7 +370,7 @@ function ClientSheetContent({ clientId, initialEdit = false, onUpdated, onNaviga
       </div>
 
       {/* Expediente de mascota inline */}
-      {newAppointment && <NewAppointmentDialog initialDate={new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" })} initialClientId={client.id} initialPetId={appointmentPetId} onClose={() => setNewAppointment(false)} onCreated={() => { setNewAppointment(false); setRefresh((value) => value + 1); onUpdated?.(); }} />}
+      {newAppointment && access?.capabilities.schedule && <NewAppointmentDialog initialDate={new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" })} initialClientId={client.id} initialPetId={appointmentPetId} onClose={() => setNewAppointment(false)} onCreated={() => { setNewAppointment(false); setRefresh((value) => value + 1); onUpdated?.(); }} />}
       <PetMedicalSheet
         pet={expedientePet}
         open={expedientePet !== null}

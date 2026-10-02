@@ -3,6 +3,7 @@ const router = express.Router();
 const prisma = require("../../lib/prisma");
 const { saveConsultationRecord, ClinicalRevisionError } = require("../../services/clinical-record-revision.service");
 const ERRORS = require("../../constants/errors");
+const { moduleAllowsAppointment, serviceModule, actorSnapshot } = require("../../services/dashboard-access.service");
 const {
   getBogotaYmd,
   bogotaDayStart,
@@ -64,7 +65,7 @@ const VETERINARY_APPOINTMENT_FILTER = {
 
 function mapForActor(req, row) {
   const mapped = mapAppointmentRow(row);
-  return req.actor?.type === "vet" ? { ...mapped, finalPrice: null, priceResolution: null } : mapped;
+  return (req.access ? !req.access.capabilities.cash && !req.access.capabilities.appointmentPrice : req.actor?.type === "vet") ? { ...mapped, hasResolvedPrice: mapped.finalPrice != null, finalPrice: null, priceResolution: null } : mapped;
 }
 
 async function resolveVetAppointment(id, tenantId) {
@@ -94,6 +95,11 @@ function validateVetAppointment(appt) {
   return null;
 }
 
+function visibleRows(req, rows) {
+  if (!req.access || req.access.capabilities.administration) return rows;
+  return rows.filter(row => moduleAllowsAppointment(req.access, row) &&
+    (!["vet", "groomer"].includes(req.access.role) || serviceModule(row) === (req.access.role === "vet" ? "veterinary" : "grooming")));
+}
 const MEDICAL_RECORD_INCLUDE = {
   staff: { select: { name: true } },
   createdByStaff: { select: { name: true } },
@@ -114,7 +120,7 @@ router.get("/appointments/today", async (req, res) => {
       include: APPOINTMENT_INCLUDE,
     });
 
-    res.json(rows.map(mapAppointmentRow));
+    res.json(visibleRows(req, rows).map(row => mapForActor(req, row)));
   } catch (error) {
     console.error("[Dashboard] Today appointments error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -140,7 +146,7 @@ router.get("/appointments/upcoming", async (req, res) => {
       include: APPOINTMENT_INCLUDE,
     });
 
-    res.json(rows.map(mapAppointmentRow));
+    res.json(visibleRows(req, rows).map(row => mapForActor(req, row)));
   } catch (error) {
     console.error("[Dashboard] Upcoming appointments error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -171,7 +177,7 @@ router.get("/appointments/month", async (req, res) => {
       include: APPOINTMENT_INCLUDE,
     });
 
-    res.json({ year, month, appointments: rows.map(mapAppointmentRow) });
+    res.json({ year, month, appointments: visibleRows(req, rows).map(row => mapForActor(req, row)) });
   } catch (error) {
     console.error("[Dashboard] Month appointments error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -216,7 +222,7 @@ router.get("/appointments/week", async (req, res) => {
       weekStart: weekStart.toISOString(),
       weekEnd: weekEnd.toISOString(),
       mondayYmd,
-      appointments: rows.map((row) => ({
+      appointments: visibleRows(req, rows).map((row) => ({
         ...mapForActor(req, row),
         hasMedicalRecord: Boolean(row.medicalRecord),
       })),
@@ -352,6 +358,7 @@ router.get("/appointments/available-slots", async (req, res) => {
       include: { category: { select: { name: true } } },
     });
     if (!service) return res.status(404).json({ error: "Servicio no encontrado en este establecimiento" });
+    if (req.access && !moduleAllowsAppointment(req.access, service)) return res.status(403).json({ error: "El módulo de este servicio está desactivado" });
     if (!service.requiresAppointment) return res.status(422).json({ error: "Este servicio no admite citas" });
     const bucket = { veterinary: "vet", grooming: "grooming" }[service.category?.name];
     if (!bucket) return res.status(422).json({ error: "Este servicio no admite reserva de horario" });
@@ -393,6 +400,7 @@ router.post("/appointments", async (req, res) => {
     if (!user || !pet || !service) {
       return res.status(404).json({ error: "Cliente, mascota o servicio no encontrado en este establecimiento" });
     }
+    if (req.access && !moduleAllowsAppointment(req.access, service)) return res.status(403).json({ error: "El módulo de este servicio está desactivado" });
     if (!service.requiresAppointment) {
       return res.status(422).json({ error: "Este servicio no admite citas" });
     }
@@ -508,7 +516,7 @@ router.patch("/appointments/:id/agreed-price", async (req, res) => {
 
     const updated = await prisma.appointment.update({
       where: { id: appointment.id },
-      data: { finalPrice: amount },
+      data: { finalPrice: amount, ...actorSnapshot(req.actor, "price") },
       include: APPOINTMENT_INCLUDE,
     });
     res.json(mapForActor(req, updated));
@@ -528,6 +536,9 @@ router.patch("/appointments/:id", async (req, res) => {
     const { id } = req.params;
     const { tenantId } = req.tenant;
     const { status, staffId, serviceId, finalPrice } = req.body ?? {};
+    if (Object.prototype.hasOwnProperty.call(req.body ?? {}, "date")) {
+      return res.status(422).json({ error: "Para reprogramar, cancela esta cita y reserva una nueva en un horario disponible" });
+    }
 
     // Ownership check
     const existing = await prisma.appointment.findFirst({
@@ -553,7 +564,7 @@ router.patch("/appointments/:id", async (req, res) => {
       if (["pending", "confirmed"].includes(existing.status) && ["confirmed", "arrived"].includes(status) && isArrivalWindowExpired(existing.date)) {
         return res.status(422).json({ error: "Pasaron más de 30 minutos sin registrar la llegada. La cita se marcará como no asistida." });
       }
-      if (req.actor?.type === "vet" && existing.status === "arrived" && status === "in_progress" && existing.date < bogotaDayStart(getBogotaYmd())) {
+      if (["vet", "groomer"].includes(req.actor?.type) && existing.status === "arrived" && status === "in_progress" && existing.date < bogotaDayStart(getBogotaYmd())) {
         return res.status(422).json({ error: "Esta llegada pertenece a un día anterior. Solicita al administrador que revise la cita." });
       }
       // Entregable Puente (Etapa 1): la transición a "completed" pasa
@@ -570,7 +581,7 @@ router.patch("/appointments/:id", async (req, res) => {
       }
       data.status = status;
       Object.assign(data, autoTimestamps(existing.status, status));
-      if (req.actor?.type === "vet" && status === "in_progress" && !existing.staffId) {
+      if (["vet", "groomer"].includes(req.actor?.type) && status === "in_progress" && !existing.staffId) {
         data.staffId = req.actor.staffId;
       }
     }
@@ -591,8 +602,10 @@ router.patch("/appointments/:id", async (req, res) => {
       if (serviceId) {
         const service = await prisma.service.findFirst({
           where: tenantId ? { id: serviceId, tenantId } : { id: serviceId },
+          include: { category: { select: { name: true } } },
         });
         if (!service) return res.status(404).json({ error: ERRORS.SERVICE_NOT_FOUND });
+        if (req.access && !moduleAllowsAppointment(req.access, { service })) return res.status(403).json({ error: "El área de ese servicio no está habilitada." });
       }
       data.serviceId = serviceId || null;
     }
@@ -608,6 +621,7 @@ router.patch("/appointments/:id", async (req, res) => {
         return res.status(400).json({ error: "El precio debe ser un número válido entre 0 y 99.999.999,99." });
       }
       data.finalPrice = finalPrice === null ? null : amount;
+      Object.assign(data, actorSnapshot(req.actor, "price"));
     }
 
     let updated;
@@ -620,7 +634,7 @@ router.patch("/appointments/:id", async (req, res) => {
       });
       if (advanced.count !== 1) return res.status(409).json({ error: "La cita cambió de estado o venció la tolerancia. Actualiza la agenda." });
       updated = await prisma.appointment.findUnique({ where: { id }, include: APPOINTMENT_INCLUDE });
-    } else if (req.actor?.type === "vet" && status === "in_progress" && !existing.staffId) {
+    } else if (["vet", "groomer"].includes(req.actor?.type) && status === "in_progress" && !existing.staffId) {
       const claim = await prisma.appointment.updateMany({
         where: { id, tenantId, staffId: null, status: existing.status },
         data,
@@ -689,10 +703,11 @@ router.put("/appointments/:id/medical-record", async (req, res) => {
 
     // Staff must belong to same tenant
     const attendingStaffId = req.actor?.type === "vet" ? req.actor.staffId : staffId;
+    const clinicalRoles = req.actor?.type === "admin" ? { in: ["vet", "admin"] } : "vet";
     let actorName = req.actor?.email ?? "Administrador";
     if (attendingStaffId) {
       const staffMember = await prisma.staff.findFirst({
-        where: tenantId ? { id: attendingStaffId, tenantId, role: "vet", active: true } : { id: attendingStaffId, role: "vet", active: true },
+        where: tenantId ? { id: attendingStaffId, tenantId, role: clinicalRoles, active: true } : { id: attendingStaffId, role: clinicalRoles, active: true },
       });
       if (!staffMember) {
         return res.status(404).json({ error: "Profesional no encontrado en este tenant" });
@@ -704,10 +719,11 @@ router.put("/appointments/:id/medical-record", async (req, res) => {
     // Su ficha se vincula por correo dentro del tenant; no necesita otra clave.
     // Si el correo no identifica exactamente a una persona, no atribuimos la
     // historia a un profesional de forma ambigua.
-    let authorStaffId = req.actor?.type === "vet" ? req.actor.staffId : null;
-    if (req.actor?.type === "admin" && req.actor.email) {
+    let authorStaffId = ["vet", "admin"].includes(req.actor?.type) ? req.actor.staffId ?? null : null;
+    if (req.actor?.type === "admin" && authorStaffId) actorName = req.actor.name ?? req.actor.email ?? "Administrador";
+    if (req.actor?.type === "admin" && !authorStaffId && req.actor.email) {
       const matches = await prisma.staff.findMany({
-        where: { tenantId: appt.tenantId, email: { equals: req.actor.email, mode: "insensitive" }, role: "vet", active: true },
+        where: { tenantId: appt.tenantId, email: { equals: req.actor.email, mode: "insensitive" }, role: { in: ["vet", "admin"] }, active: true },
         select: { id: true, name: true },
         take: 2,
       });

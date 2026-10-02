@@ -40,7 +40,7 @@ test.each(["vet","groomer","receptionist"])("%s no puede administrar usuarios, p
   for(const path of ["/transactions","/metrics","/staff/member/credential","/pets/p/prices/service"]){
     expect((await request(app).put(`/api/dashboard${path}`).set("test-role",role).send({})).status).toBe(403);
   }
-  expect((await request(app).get("/api/dashboard/transactions").set("test-role",role)).status).toBe(403);
+  expect((await request(app).get("/api/dashboard/transactions").set("test-role",role)).status).toBe(role === "receptionist" ? 200 : 403);
 });
 test.each(["groomer","receptionist"])("%s no puede extraer historia clínica por URL directa",async role=>{
   for(const path of ["/pets/p/records","/pets/p/timeline","/pets/p/report","/appointments/a/medical-record"]){

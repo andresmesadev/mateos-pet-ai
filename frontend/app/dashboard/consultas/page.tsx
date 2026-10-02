@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import { Stethoscope } from "lucide-react";
 
 import { auth } from "@/auth";
+import { getDashboardAccess } from "@/lib/dashboard-access-server";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { VetConsultationsView } from "@/components/dashboard/vet-consultations-view";
 import { apiUrl, makeServerHeaders } from "@/lib/api";
@@ -43,8 +44,9 @@ export default async function ConsultasPage({ searchParams }: PageProps) {
 
   if (!isPreview) {
     const session = await auth();
-    clinician = session?.user?.role === "vet";
-    clinicianStaffId = clinician ? session?.user?.staffId ?? null : null;
+    const access = await getDashboardAccess(tenant);
+    clinician = access.role === "vet";
+    clinicianStaffId = clinician ? access.staffId : null;
     const headers = makeServerHeaders(session, tenant);
     const appointmentsUrl = new URL(apiUrl("/api/dashboard/appointments/week"));
     if (date) appointmentsUrl.searchParams.set("date", date);

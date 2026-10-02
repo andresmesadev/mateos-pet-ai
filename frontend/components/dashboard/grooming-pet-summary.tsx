@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { formatColombiaDateTime } from "@/lib/appointments";
 import { type GroomingVisit } from "@/lib/grooming";
 
-type PetSummary = { breed: string | null; notes: string | null; owner: { name: string | null; phone: string } };
+type PetSummary = { breed: string | null; operationalAlerts: string | null; owner: { name: string | null; phone: string } };
 
 export function GroomingPetSummary({ visit, tenantId }: { visit: GroomingVisit; tenantId?: string }) {
   const [data, setData] = useState<{ pet: PetSummary | null; previous: GroomingVisit | null } | null>(null);
@@ -45,7 +45,7 @@ export function GroomingPetSummary({ visit, tenantId }: { visit: GroomingVisit; 
     <h3 className="font-semibold">Antes del baño o corte</h3>
     {error ? <div role="alert" className="text-sm text-amber-900">No se pudo cargar la ficha y la última nota. <Button size="sm" variant="outline" onClick={() => setRetry((value) => value + 1)}>Reintentar ficha</Button></div> : !data ? <p role="status" className="text-sm text-muted-foreground">Cargando ficha de la mascota…</p> : <>
       <dl className="grid gap-3 text-sm sm:grid-cols-2"><div><dt className="text-muted-foreground">Raza</dt><dd className="font-medium">{data.pet?.breed || "Sin registrar"}</dd></div><div><dt className="text-muted-foreground">Propietario</dt><dd className="font-medium">{data.pet?.owner.name || visit.clientName || "Sin registrar"}</dd><dd className="text-muted-foreground">{data.pet?.owner.phone}</dd></div></dl>
-      <div><p className="text-sm font-medium">Cuidados y observaciones de la ficha</p><p className="mt-1 whitespace-pre-wrap break-words text-sm text-muted-foreground">{data.pet?.notes || "No hay observaciones registradas."}</p></div>
+      <div><p className="text-sm font-medium">Cuidados y observaciones de la ficha</p><p className="mt-1 whitespace-pre-wrap break-words text-sm text-muted-foreground">{data.pet?.operationalAlerts || "No hay observaciones registradas."}</p></div>
       <div className="border-t pt-3"><p className="text-sm font-medium">Última nota anterior de peluquería</p>{data.previous ? <><p className="mt-1 text-xs text-muted-foreground">{formatColombiaDateTime(data.previous.date)} · {data.previous.serviceName ?? "Peluquería"}</p><p className="mt-2 whitespace-pre-wrap break-words text-sm">{data.previous.groomingNotes}</p></> : <p className="mt-1 text-sm text-muted-foreground">No hay notas de visitas anteriores.</p>}</div>
     </>}
   </section>;

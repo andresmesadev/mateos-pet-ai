@@ -33,6 +33,8 @@ const {
   CommissionInActiveSettlementError,
 } = require("../../contexts/staff/domain/errors");
 
+const { EXTRA_PERMISSIONS } = require("../../services/dashboard-access.service");
+
 const VALID_ROLES = ["vet", "groomer", "receptionist", "admin"];
 
 function mapStaffDomainError(res, error) {
@@ -72,9 +74,9 @@ router.get("/staff", async (req, res) => {
     const { tenantId } = req.tenant;
     if (req.actor?.type && req.actor.type !== "admin") {
       const clinicians = await prisma.staff.findMany({
-        where: { tenantId, role: "vet", active: true },
+        where: { tenantId, active: true },
         orderBy: { name: "asc" },
-        select: { id: true, name: true, role: true },
+        select: { id: true, name: true, role: true, active: true },
       });
       return res.json(clinicians);
     }
@@ -92,6 +94,22 @@ router.get("/staff", async (req, res) => {
 
 // La cuenta identifica al autor de la historia. Solo el administrador puede
 // provisionar, restablecer o revocar este acceso.
+router.patch("/staff/:id/access", async (req, res) => {
+  const permissions = req.body?.accessPermissions;
+  if (!Array.isArray(permissions) || permissions.some(p => !EXTRA_PERMISSIONS.includes(p))) {
+    return res.status(400).json({ error: "Permisos inválidos" });
+  }
+  try {
+    const staff = await prisma.staff.findFirst({ where: { id: req.params.id, tenantId: req.tenant.tenantId } });
+    if (!staff) return res.status(404).json({ error: "Miembro no encontrado" });
+    const updated = await prisma.staff.update({ where: { id: staff.id }, data: { accessPermissions: [...new Set(permissions)] } });
+    return res.json({ id: updated.id, accessPermissions: updated.accessPermissions });
+  } catch (error) {
+    console.error("[Access] Staff permissions:", error);
+    return res.status(500).json({ error: "No se pudieron guardar los permisos" });
+  }
+});
+
 router.put("/staff/:id/credential", async (req, res) => {
   try {
     const { tenantId } = req.tenant;

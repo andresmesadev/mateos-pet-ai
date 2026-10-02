@@ -67,6 +67,7 @@ model Staff {
   tenant    Tenant?  @relation(fields: [tenantId], references: [id])
   name      String
   role      String   // "vet" | "groomer" | "receptionist" | "admin"
+  accessPermissions String[] @default([]) // "cash" | "appointment_price"
   phone     String?
   email     String?
   active    Boolean  @default(true)
@@ -264,6 +265,7 @@ model Pet {
   weight     Float?
   sterilized            Boolean?
   notes                 String?
+  operationalAlerts     String? // Shared handling alerts; legacy clinical/free-form notes stay private
   defaultGroomingPrice  Decimal? @db.Decimal(10, 2)
 
   appointments   Appointment[]
@@ -538,6 +540,9 @@ model Appointment {
   staffId     String?
   staff       Staff?   @relation(fields: [staffId], references: [id])
   finalPrice  Decimal? @db.Decimal(10, 2)
+  priceActorId String?
+  priceActorName String?
+  priceActorRole String?
   startedAt   DateTime?
   endedAt     DateTime?
 
@@ -612,6 +617,9 @@ model Transaction {
 
   total         Decimal  @db.Decimal(10, 2)
   paymentMethod String   @default("cash")
+  recordedActorId String?
+  recordedActorName String?
+  recordedActorRole String?
   notes         String?
   paidAt        DateTime @default(now())
   createdAt     DateTime @default(now())
@@ -648,6 +656,7 @@ model TransactionItem {
   transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
 
   description   String
+  itemKind      String @default("legacy") // "service" | "product"; historical rows remain unclassified
   quantity      Int     @default(1)
   unitPrice     Decimal @db.Decimal(10, 2)
   total         Decimal @db.Decimal(10, 2)

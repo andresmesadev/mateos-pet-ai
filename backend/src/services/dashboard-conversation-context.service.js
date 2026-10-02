@@ -15,7 +15,7 @@ const map = (row) => row ? { id: row.id, date: row.date, status: row.status, pet
   petName: row.pet?.name || row.petName, serviceName: row.service?.name || row.serviceType,
   category: row.service?.category?.name || null, professional: row.staff?.name || null } : null;
 
-async function getConversationContext(conversationId, tenantId, role) {
+async function getConversationContext(conversationId, tenantId, role, access) {
   const anchor = await prisma.conversation.findFirst({ where: { id: conversationId, tenantId }, select: { userId: true } });
   if (!anchor) return null;
   const client = await prisma.user.findFirst({ where: { id: anchor.userId, tenantId }, select: {
@@ -23,7 +23,9 @@ async function getConversationContext(conversationId, tenantId, role) {
     pets: { orderBy: { name: "asc" }, select: { id: true, name: true, type: true, breed: true } },
   } });
   if (!client) return null;
-  const where = { tenantId, userId: client.id, AND: [categoryWhere(role)] };
+  const enabledCategories = access?.activeModules?.filter(module => ["veterinary", "grooming"].includes(module));
+  const areaFilter = enabledCategories ? { OR: enabledCategories.map(module => categoryWhere(module === "veterinary" ? "vet" : "groomer")) } : {};
+  const where = { tenantId, userId: client.id, AND: [categoryWhere(role), areaFilter] };
   const now = new Date();
   const [upcoming, active, last] = await Promise.all([
     prisma.appointment.findMany({ where: { ...where, date: { gte: now }, status: { in: ["pending", "confirmed", "arrived"] } }, select: appointmentSelect, orderBy: { date: "asc" }, take: 3 }),
@@ -31,8 +33,8 @@ async function getConversationContext(conversationId, tenantId, role) {
     prisma.appointment.findFirst({ where: { ...where, status: "completed", date: { lte: now } }, select: appointmentSelect, orderBy: { date: "desc" } }),
   ]);
   return { client, upcoming: upcoming.map(map), active: active.map(map), lastVisit: map(last), permissions: {
-    role, canViewClient: role === "admin", canViewClinical: ["admin", "vet"].includes(role),
-    canViewGrooming: ["admin", "groomer"].includes(role), canCreateAppointment: ["admin", "receptionist"].includes(role),
+    role, canViewClient: access ? access.capabilities.contacts : ["admin", "receptionist"].includes(role), canViewClinical: access ? access.capabilities.clinical : ["admin", "vet"].includes(role),
+    canViewGrooming: access ? access.capabilities.grooming : ["admin", "groomer"].includes(role), canCreateAppointment: access ? access.capabilities.schedule : ["admin", "receptionist"].includes(role),
   } };
 }
 module.exports = { getConversationContext, categoryWhere };

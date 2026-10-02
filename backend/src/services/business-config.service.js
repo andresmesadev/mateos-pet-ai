@@ -23,7 +23,7 @@ const getActiveModules = async (tenantId) => {
     where: { id: tenantId },
     select: { activeModules: true },
   });
-  return tenant?.activeModules?.length ? tenant.activeModules : DEFAULT_ACTIVE_MODULES;
+  return Array.isArray(tenant?.activeModules) ? tenant.activeModules : DEFAULT_ACTIVE_MODULES;
 };
 
 /**
@@ -59,12 +59,13 @@ const getBusinessHours = async (tenantId) => {
 
 const updateActiveModules = async (tenantId, modules) => {
   if (!tenantId) throw new Error("tenantId is required");
-  if (!Array.isArray(modules) || modules.some((m) => typeof m !== "string" || !m.trim())) {
-    throw new Error("modules must be a non-empty array of strings");
+  const { MODULES } = require("./dashboard-access.service");
+  if (!Array.isArray(modules) || !modules.length || modules.some((m) => !MODULES.includes(m))) {
+    throw new Error("Selecciona al menos un módulo válido: Veterinaria, Peluquería o Pet shop.");
   }
   return prisma.tenant.update({
     where: { id: tenantId },
-    data: { activeModules: modules },
+    data: { activeModules: [...new Set(modules)] },
     select: { id: true, activeModules: true },
   });
 };

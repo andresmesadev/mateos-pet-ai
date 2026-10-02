@@ -1,4 +1,6 @@
 const express = require("express");
+// These adapter tests isolate business behavior; access policy has its own matrix.
+jest.mock("../../services/business-config.service", () => ({ ...jest.requireActual("../../services/business-config.service"), getActiveModules: async () => ["veterinary", "grooming", "retail"] }));
 const request = require("supertest");
 
 jest.mock("../../lib/prisma", () => ({
@@ -267,7 +269,7 @@ describe("PUT /api/dashboard/appointments/:id/medical-record — staff isolation
 
     expect(response.status).toBe(200);
     expect(prisma.staff.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { tenantId: TENANT_A, email: { equals: "duena@example.com", mode: "insensitive" }, role: "vet", active: true },
+      where: { tenantId: TENANT_A, email: { equals: "duena@example.com", mode: "insensitive" }, role: { in: ["vet", "admin"] }, active: true },
       take: 2,
     }));
     expect(upsert).toHaveBeenCalledWith(expect.objectContaining({
@@ -275,6 +277,19 @@ describe("PUT /api/dashboard/appointments/:id/medical-record — staff isolation
       update: {},
     }));
   });
+});
+
+test("an administrator staff account can attend and is its own authenticated author", async () => {
+  prisma.appointment.findFirst.mockResolvedValue(VET_APPT);
+  prisma.staff.findFirst.mockResolvedValue({ id: "owner-admin", tenantId: TENANT_A, role: "admin", active: true });
+  const upsert = jest.fn().mockResolvedValue(MEDICAL_RECORD);
+  prisma.$transaction.mockImplementation(async (fn) => fn({ medicalRecord: { findUnique: jest.fn().mockResolvedValue(null), upsert }, pet: { update: jest.fn() } }));
+  const ownerApp = buildApp({ isSuperAdmin: false, tenantId: TENANT_A }, { type: "admin", staffId: "owner-admin", name: "Dueña", email: "duena@example.com" });
+  const response = await request(ownerApp).put("/api/dashboard/appointments/appt-1/medical-record").send({ staffId: "owner-admin", reason: "Revisión" });
+  expect(response.status).toBe(200);
+  expect(prisma.staff.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "owner-admin", tenantId: TENANT_A, role: { in: ["vet", "admin"] }, active: true } }));
+  expect(prisma.staff.findMany).not.toHaveBeenCalled();
+  expect(upsert).toHaveBeenCalledWith(expect.objectContaining({ create: expect.objectContaining({ staffId: "owner-admin", createdByStaffId: "owner-admin" }) }));
 });
 
 // ── PUT — weight handling ─────────────────────────────────────

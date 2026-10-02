@@ -646,6 +646,16 @@ Estas entidades son parte del modelo conceptual pero aún no existen como entida
 
 ---
 
+## Autorización por establecimiento y operación del equipo (2026-10-01)
+
+Reconciliación aprobada por el responsable del producto: el Establecimiento conserva su identidad como única unidad de aislamiento. Sus módulos activos usan el vocabulario cerrado Veterinaria (`veterinary`), Peluquería (`grooming`) y Pet shop (`retail`), en cualquiera de sus siete combinaciones no vacías. Desactivar un módulo conserva sus antecedentes y bloquea nuevas operaciones. Pet shop habilita la venta existente por descripción, cantidad y precio; no incorpora inventario ni una nueva entidad de catálogo.
+
+Staff conserva cuatro perfiles de acceso: administrador, recepción y caja, veterinario y peluquero. Sus habilitaciones adicionales de acceso (`cash`, `appointment_price`) son distintas de las capacidades de servicio. Recepción cobra por defecto. Un administrador puede atender con la misma identidad. La autorización efectiva se verifica en el servidor contra el Staff y los módulos vigentes, dentro de su Tenant; los profesionales escriben sus atenciones y pueden tomar una sin asignar.
+
+`Pet.operationalAlerts` contiene indicaciones de manejo compartidas con recepción y peluquería. No reinterpreta ni publica las notas clínicas existentes. Las nuevas operaciones de cobro y ajuste de precio conservan una instantánea de la identidad autenticada; no se atribuye autor a filas históricas sin evidencia. Los ítems de venta distinguen servicio, producto y legado, sin alterar la resolución única de precios ni las comisiones inmutables.
+
+Diseño funcional, casos de uso, arquitectura, persistencia y esquema físico: [Perfiles y módulos](team-business-access.md).
+
 ## Versiones y Mantenimiento
 
 Este documento es la fuente oficial de verdad sobre el modelo conceptual del negocio. Debe actualizarse antes de incorporar cualquier nueva entidad al sistema. Los cambios en este documento representan cambios en la arquitectura del producto, no solo en la implementación.

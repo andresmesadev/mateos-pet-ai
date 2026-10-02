@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 router.use(require("../middleware/allowVeterinaryDashboard").allowVeterinaryDashboard);
+router.use(require("../middleware/dashboard-operation-scope").dashboardOperationScope);
+router.use(require("./dashboard/access.routes"));
 
 router.use(require("./dashboard/tenant.routes"));
 router.use(require("./dashboard/appointments.routes"));

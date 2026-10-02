@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const prisma = require("../../lib/prisma");
+const { operationalPet } = require("../../services/dashboard-access.service");
+const operationalClient = c => ({ id: c.id, name: c.name, phone: c.phone, phoneAlt: c.phoneAlt ?? null, email: c.email ?? null, address: c.address ?? null, createdAt: c.createdAt, petsCount: c.petsCount ?? c.pets?.length ?? 0, appointmentsCount: c.appointmentsCount ?? c.appointments?.length ?? 0, lastActivityAt: c.lastActivityAt ?? c.createdAt, conversationsCount: c.conversationsCount ?? 0, latestConversationId: c.latestConversationId ?? null, pets: c.pets?.map(operationalPet), _count: c._count ? { pets: c._count.pets, appointments: c._count.appointments } : undefined, appointments: c.appointments?.map(a => ({ id: a.id, date: a.date, status: a.status, serviceType: a.serviceType, petName: a.petName, petType: a.petType, service: a.service ? { name: a.service.name } : null, pet: a.pet ? { id: a.pet.id, name: a.pet.name } : null })), conversations: [] });
 const ERRORS = require("../../constants/errors");
 const {
   listClients,
@@ -42,8 +44,8 @@ router.get("/clients", async (req, res) => {
     }
 
     const result = await listClients(tenantId, { page, limit, search });
-    if (req.actor?.type === "receptionist") {
-      return res.json({ ...result, data: result.data.map(({ id, name, phone }) => ({ id, name, phone })) });
+    if (req.actor?.type && req.actor.type !== "admin") {
+      return res.json({ ...result, data: result.data.map(operationalClient) });
     }
     res.json(result);
   } catch (error) {
@@ -419,6 +421,7 @@ router.post("/clients", async (req, res) => {
   try {
     const { tenantId } = req.tenant;
     const { name, phone, email, address, notes } = req.body ?? {};
+    if (req.access && !req.access.capabilities.administration && notes) return res.status(403).json({ error: "Tu perfil puede registrar datos de contacto y alertas de manejo de la mascota." });
 
     const cleanPhone = typeof phone === "string" ? phone.replace(/\s+/g, "").trim() : "";
     if (!cleanPhone) {
@@ -452,7 +455,8 @@ router.post("/clients", async (req, res) => {
 router.post("/clients/with-pets", async (req, res) => {
   try {
     const { tenantId } = req.tenant;
-    const { name, phone, phoneAlt, address, notes, pets } = req.body ?? {};
+    const { name, phone, phoneAlt, email, address, notes, pets } = req.body ?? {};
+    if (req.access && !req.access.capabilities.administration && notes) return res.status(403).json({ error: "Tu perfil puede registrar datos de contacto y alertas de manejo de la mascota." });
 
     const cleanPhone = typeof phone === "string" ? phone.replace(/\s+/g, "").trim() : "";
     const cleanPhoneAlt = typeof phoneAlt === "string" ? phoneAlt.replace(/\s+/g, "").trim() : "";
@@ -463,6 +467,7 @@ router.post("/clients/with-pets", async (req, res) => {
 
     const VALID_PET_TYPES = ["dog", "cat", "other"];
     const petsArr = Array.isArray(pets) ? pets : [];
+    if (req.access && !req.access.capabilities.administration && petsArr.some(p => p.notes || p.weight != null || p.defaultGroomingPrice != null)) return res.status(403).json({ error: "Tu perfil puede registrar mascotas con sus datos básicos." });
 
     for (let i = 0; i < petsArr.length; i++) {
       const p = petsArr[i];
@@ -483,6 +488,7 @@ router.post("/clients/with-pets", async (req, res) => {
           name: cleanName || null,
           address: address?.trim() || null,
           notes: notes?.trim() || null,
+          email: email?.trim() || null,
         },
         select: { id: true, name: true, phone: true },
       });
@@ -497,6 +503,7 @@ router.post("/clients/with-pets", async (req, res) => {
               gender: p.gender?.trim() || null,
               weight: p.weight != null ? Number(p.weight) : null,
               notes: p.notes?.trim() || null,
+              operationalAlerts: typeof p.operationalAlerts === "string" ? p.operationalAlerts.trim().slice(0, 2000) : null,
               tenantId: tenantId ?? null,
               ownerId: owner.id,
             },
@@ -539,10 +546,8 @@ router.get("/clients/:id", async (req, res) => {
       return res.status(404).json({ error: ERRORS.NOT_FOUND("Cliente") });
     }
 
-    if (req.actor?.type === "receptionist") {
-      // El selector de citas necesita identidad básica; nunca notas clínicas.
-      return res.json({ id: client.id, name: client.name, phone: client.phone,
-        pets: client.pets.map(({ id, name, type }) => ({ id, name, type })) });
+    if (req.actor?.type && req.actor.type !== "admin") {
+      return res.json(operationalClient(client));
     }
     res.json(client);
   } catch (error) {
@@ -566,8 +571,9 @@ router.patch("/clients/:id", async (req, res) => {
     if (!existing) return res.status(404).json({ error: ERRORS.NOT_FOUND("Cliente") });
 
     const { name, phone, phoneAlt, email, address, notes } = req.body ?? {};
+    if (req.access && !req.access.capabilities.administration && notes) return res.status(403).json({ error: "Tu perfil puede editar los datos de contacto." });
     const updated = await updateClient(id, { name, phone, phoneAlt, email, address, notes });
-    res.json({ id: updated.id, name: updated.name, phone: updated.phone, phoneAlt: updated.phoneAlt ?? null, email: updated.email, address: updated.address, notes: updated.notes });
+    res.json(req.access && !req.access.capabilities.administration ? operationalClient(updated) : { id: updated.id, name: updated.name, phone: updated.phone, phoneAlt: updated.phoneAlt ?? null, email: updated.email, address: updated.address, notes: updated.notes });
   } catch (error) {
     console.error("[Dashboard] Update client error:", error);
     if (error.code === "P2025") {

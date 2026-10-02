@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useDashboardAccess } from "./dashboard-access-provider";
 import { Calendar, MessageCircle, Search } from "lucide-react";
 import { useTenant } from "@/lib/use-tenant";
 import { proxyUrl } from "@/lib/api";
@@ -41,11 +42,12 @@ function useDebounce<T>(value: T, delay: number): T {
 
 export function DashboardTopbar() {
   const { data: session } = useSession();
+  const access = useDashboardAccess();
   const pathname = usePathname();
   const router = useRouter();
   const tenant = useTenant();
   const isHome = pathname === "/dashboard";
-  const isVet = session?.user?.role === "vet";
+  const isVet = access?.role === "vet";
 
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResults | null>(null);
@@ -135,7 +137,7 @@ export function DashboardTopbar() {
               Hola, {firstName}
             </h1>
             <p className="text-sm text-muted-foreground">
-              Este es el estado de tu negocio hoy.
+              {access?.capabilities.administration ? "Este es el estado de tu negocio hoy." : "Estas son las tareas de tu jornada."}
             </p>
           </>
         ) : (
@@ -146,7 +148,7 @@ export function DashboardTopbar() {
       </div>
 
       {/* Acciones */}
-      {session?.user?.role === "admin" && <div className="flex items-center gap-2 md:gap-3">
+      {access?.capabilities.contacts && <div className="flex items-center gap-2 md:gap-3">
         {/* Buscador con dropdown */}
         <div ref={containerRef} className="relative hidden sm:block">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -243,7 +245,7 @@ export function DashboardTopbar() {
         </Link>
 
         <Link
-          href="/dashboard/calendar"
+          href={access?.capabilities.agenda ? "/dashboard/calendar" : "/dashboard"}
           title="Agenda"
           className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-muted-foreground transition-colors hover:bg-slate-100 hover:text-foreground"
         >

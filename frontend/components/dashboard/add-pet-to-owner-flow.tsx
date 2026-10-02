@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
+import { useDashboardAccess } from "@/components/dashboard/dashboard-access-provider";
 import { proxyUrl } from "@/lib/api";
 import { useTenant } from "@/lib/use-tenant";
 import { formatPhone } from "@/lib/pets";
@@ -37,6 +38,7 @@ type Step = "search" | "found" | "not-found";
 export function AddPetToOwnerFlow({ open, onOpenChange, onCreated }: Props) {
   const { toast } = useToast();
   const tenant = useTenant();
+  const access = useDashboardAccess();
 
   const [step, setStep] = useState<Step>("search");
   const [phoneQuery, setPhoneQuery] = useState("");
@@ -117,7 +119,8 @@ export function AddPetToOwnerFlow({ open, onOpenChange, onCreated }: Props) {
           ownerPhone: owner.phone,
           ownerName: owner.name ?? undefined,
           breed: petBreed || undefined,
-          notes: petNotes || undefined,
+          notes: access?.capabilities.administration ? petNotes || undefined : undefined,
+          operationalAlerts: access?.capabilities.administration ? undefined : petNotes || undefined,
         }),
       });
       if (!res.ok) {
@@ -282,20 +285,19 @@ export function AddPetToOwnerFlow({ open, onOpenChange, onCreated }: Props) {
                     <div className="space-y-1.5">
                       <label htmlFor="apt-pet-weight" className="text-sm font-medium">Peso (kg)</label>
                       <Input
-                        id="apt-pet-weight"
+                        disabled={!access?.capabilities.administration || saving} id="apt-pet-weight"
                         type="number"
                         step="0.1"
                         min="0"
                         value={petWeight}
                         onChange={(e) => setPetWeight(e.target.value)}
                         placeholder="Ej. 12.5"
-                        disabled={saving}
                       />
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
-                    <label htmlFor="apt-pet-notes" className="text-sm font-medium">Notas</label>
+                    <label htmlFor="apt-pet-notes" className="text-sm font-medium">{access?.capabilities.administration ? "Notas" : "Alertas para el manejo"}</label>
                     <textarea
                       id="apt-pet-notes"
                       rows={2}

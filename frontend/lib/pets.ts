@@ -18,6 +18,7 @@ export type DashboardPet = {
   weight: number | null;
   sterilized: boolean | null;
   notes: string | null;
+  operationalAlerts?: string | null;
   owner: {
     id?: string;
     phone: string;

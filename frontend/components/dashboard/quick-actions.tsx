@@ -31,7 +31,7 @@ const SECONDARY_ACTIONS: Action[] = [
   { href: "/dashboard/pos?tab=historial", title: "Historial", subtitle: "Ver ingresos", icon: History, tint: "bg-slate-100 text-slate-700" },
 ];
 
-export function QuickActions({ tenant }: { tenant?: string }) {
+export function QuickActions({ tenant, schedule = true }: { tenant?: string; schedule?: boolean }) {
   return (
     <section aria-labelledby="quick-actions-heading" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-4 flex flex-wrap items-baseline gap-x-3">
@@ -39,7 +39,7 @@ export function QuickActions({ tenant }: { tenant?: string }) {
         <p className="text-sm text-muted-foreground">Las tareas más comunes, a un clic.</p>
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
-        {PRIMARY_ACTIONS.map((a) => {
+        {PRIMARY_ACTIONS.filter(a => schedule || !a.href.startsWith("/dashboard/calendar")).map((a) => {
           const Icon = a.icon;
           return (
             <Link

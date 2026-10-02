@@ -118,6 +118,7 @@ function mapTransaction(t) {
     appointmentId: t.appointmentId ?? null,
     total: Number(t.total),
     paymentMethod: t.paymentMethod,
+      recordedBy: t.recordedActorId ? { id: t.recordedActorId, name: t.recordedActorName, role: t.recordedActorRole } : null,
     notes: t.notes ?? null,
     paidAt: t.paidAt.toISOString(),
     createdAt: t.createdAt.toISOString(),
@@ -129,6 +130,7 @@ function mapTransaction(t) {
     items: (t.items ?? []).map((i) => ({
       id: i.id,
       description: i.description,
+        itemKind: i.itemKind ?? "legacy",
       quantity: i.quantity,
       unitPrice: Number(i.unitPrice),
       total: Number(i.total),

@@ -9,7 +9,7 @@ const {
  * paymentMethod y notes, NUNCA el monto (precio resuelto congelado).
  */
 function createSettleSystemChargeUseCase({ transactionRepository, eventPublisher }) {
-  return async function execute({ tenantId, appointmentId, paymentMethod, notes }) {
+  return async function execute({ tenantId, appointmentId, paymentMethod, notes, recordedBy }) {
     if (!appointmentId) {
       throw new InvalidTransactionOperationError("appointmentId es obligatorio.");
     }
@@ -22,7 +22,7 @@ function createSettleSystemChargeUseCase({ transactionRepository, eventPublisher
       throw new TransactionNotFoundError(`cobro de sistema de la cita ${appointmentId}`);
     }
 
-    const settled = await transactionRepository.settle(charge.id, { paymentMethod, notes });
+    const settled = await transactionRepository.settle(charge.id, { paymentMethod, notes, ...(recordedBy ? { recordedBy } : {}) });
 
     await eventPublisher.publish("CobroLiquidado", { transaction: settled });
 

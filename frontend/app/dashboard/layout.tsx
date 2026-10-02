@@ -4,6 +4,7 @@ import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
 import { DashboardTopbar } from "@/components/dashboard/dashboard-topbar";
 import { BreadcrumbNav } from "@/components/dashboard/breadcrumb-nav";
 import { ToastProvider } from "@/components/ui/toast";
+import { DashboardAccessProvider } from "@/components/dashboard/dashboard-access-provider";
 
 export default function DashboardLayout({
   children,
@@ -12,6 +13,7 @@ export default function DashboardLayout({
 }) {
   return (
     <ToastProvider>
+      <Suspense fallback={null}><DashboardAccessProvider>
       <div className="min-h-screen bg-[#f5f9f8] text-foreground">
 
         <DashboardSidebar />
@@ -28,6 +30,7 @@ export default function DashboardLayout({
           </main>
         </div>
       </div>
+      </DashboardAccessProvider></Suspense>
     </ToastProvider>
   );
 }

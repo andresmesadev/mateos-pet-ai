@@ -52,7 +52,7 @@ test("saves the price for this appointment and this pet/service through Services
     target: { type: "pet", petId: "pet-luna" },
     newPrice: 70000,
   });
-  expect(prisma.appointment.update).toHaveBeenCalledWith(expect.objectContaining({ data: { finalPrice: 70000 } }));
+  expect(prisma.appointment.update).toHaveBeenCalledWith(expect.objectContaining({ data: { finalPrice: 70000, priceActorId: null, priceActorName: null, priceActorRole: null } }));
   expect(response.body.finalPrice).toBe(70000);
 });
 

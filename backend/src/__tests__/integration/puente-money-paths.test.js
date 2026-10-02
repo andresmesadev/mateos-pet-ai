@@ -5,6 +5,8 @@
  * el resto de la cadena (rutas, casos de uso, adaptadores) es la real.
  */
 const express = require("express");
+// These adapter tests isolate business behavior; access policy has its own matrix.
+jest.mock("../../services/business-config.service", () => ({ ...jest.requireActual("../../services/business-config.service"), getActiveModules: async () => ["veterinary", "grooming", "retail"] }));
 const request = require("supertest");
 
 jest.mock("../../lib/prisma", () => {
@@ -199,7 +201,7 @@ describe("POS — guards y comandos sobre Transaction (ADR 007-D3)", () => {
       .send({ paymentMethod: "card" });
 
     expect(res.status).toBe(200);
-    expect(updateArgs.data).toEqual({ paymentMethod: "card" });
+    expect(updateArgs.data).toEqual({ paymentMethod: "card", recordedActorId: null, recordedActorName: null, recordedActorRole: null });
     expect(updateArgs.data.total).toBeUndefined();
   });
 

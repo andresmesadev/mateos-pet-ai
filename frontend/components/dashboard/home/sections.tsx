@@ -32,8 +32,8 @@ function DataUnavailable({ title, className = "" }: { title: string; className?:
   );
 }
 // ── Operación y resultado del administrador ───────────────────
-export async function MetricsSection({ headers, tenant }: { headers: Headers; tenant?: string }) {
-  const [metrics, appointments] = await Promise.all([fetchDailyMetrics(headers), fetchToday(headers)]);
+export async function MetricsSection({ headers, tenant, agenda = true }: { headers: Headers; tenant?: string; agenda?: boolean }) {
+  const [metrics, appointments] = await Promise.all([fetchDailyMetrics(headers), agenda ? fetchToday(headers) : Promise.resolve(null)]);
   if (!metrics && !appointments) return <DataUnavailable title="Indicadores no disponibles" />;
   return <DailyMetricsCards metrics={metrics} appointments={appointments} tenant={tenant} />;
 }

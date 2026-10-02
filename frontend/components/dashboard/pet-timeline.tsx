@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useId, useState } from "react";
 import { Eye, EyeOff, Pencil, Trash2 } from "lucide-react";
 
+import { useDashboardAccess } from "@/components/dashboard/dashboard-access-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -273,7 +274,8 @@ function TimelineEntry({
     item.reason || item.findings || item.diagnosis || item.treatment ||
     item.recommendations || item.weight != null || item.nextControlAt || item.detail;
   const isCancelled = item.kind === "cancelled" || item.kind === "no_show";
-  const isRecord = !!item.recordId && !item.appointmentId;
+  const access = useDashboardAccess();
+  const isRecord = Boolean(access?.capabilities.administration && access.capabilities.clinical && item.recordId && !item.appointmentId);
   useEffect(() => { onEditingChange(item.id, editing); return () => onEditingChange(item.id, false); }, [editing, item.id, onEditingChange]);
 
   async function handleDelete() {

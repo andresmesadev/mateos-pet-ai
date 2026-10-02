@@ -25,6 +25,7 @@ export type ClientPet = {
   weight: number | null;
   sterilized: boolean | null;
   notes: string | null;
+  operationalAlerts?: string | null;
   defaultGroomingPrice: number | null;
   _count: {
     medicalRecords: number;
@@ -49,6 +50,7 @@ export type ClientDetail = {
   email: string | null;
   address: string | null;
   notes: string | null;
+  operationalAlerts?: string | null;
   createdAt: string;
   pets: ClientPet[];
   appointments: ClientAppointment[];

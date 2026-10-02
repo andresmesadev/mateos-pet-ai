@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useDashboardAccess } from "@/components/dashboard/dashboard-access-provider";
 import { useRouter } from "next/navigation";
 import { X, Plus, Check, User, Tag } from "lucide-react";
 
@@ -20,6 +21,7 @@ type LineItem = {
   description: string;
   quantity: number;
   unitPrice: string;
+  itemKind?: "service" | "product";
 };
 
 type ClientResult = {
@@ -112,6 +114,7 @@ function ClientSearch({ onSelect }: { onSelect: (c: ClientResult | null) => void
 // ── Sale Form ─────────────────────────────────────────────────
 
 export function SaleForm() {
+  const access = useDashboardAccess();
   const router = useRouter();
   const [client, setClient] = useState<ClientResult | null>(null);
   const [petId, setPetId] = useState<string>("");
@@ -153,6 +156,7 @@ export function SaleForm() {
         notes: notes.trim() || null,
         items: validLines.map((l) => ({
           description: l.description.trim(),
+          itemKind: l.itemKind ?? (access?.capabilities.services ? "service" : "product"),
           quantity: l.quantity,
           unitPrice: parseFloat(l.unitPrice),
         })),
@@ -238,7 +242,7 @@ export function SaleForm() {
 
           {/* Ítems */}
           <section className="rounded-2xl border border-border bg-white p-5 shadow-sm">
-            <h3 className="mb-3 text-base font-semibold">Productos o servicios</h3>
+            <h3 className="mb-3 text-base font-semibold">{access?.capabilities.retail ? (access.capabilities.services ? "Productos o servicios" : "Productos") : "Servicios"}</h3>
             <div className="space-y-2">
               {/* Header */}
               <div className="hidden grid-cols-[minmax(0,1fr)_64px_112px_32px] gap-2 px-1 sm:grid">
@@ -251,9 +255,10 @@ export function SaleForm() {
               {lines.map((line, idx) => (
                 <div key={line.id} className="grid grid-cols-[64px_minmax(0,1fr)_32px] items-center gap-2 rounded-xl border border-border p-3 sm:grid-cols-[minmax(0,1fr)_64px_112px_32px] sm:rounded-none sm:border-0 sm:p-0">
                   <div className="relative col-span-3 sm:col-span-1">
+                    {access?.capabilities.services && access.capabilities.retail && <label className="mb-1 flex items-center gap-2 text-xs">Tipo de venta<select aria-label={`Tipo del ítem ${idx + 1}`} className="rounded border bg-white px-2 py-1" value={line.itemKind ?? "service"} onChange={event => setLine(line.id, "itemKind", event.target.value)}><option value="service">Servicio</option><option value="product">Producto</option></select></label>}
                     <Tag className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/50" />
                     <Input
-                      placeholder={idx === 0 ? "ej. Baño + corte" : "Descripción"}
+                      placeholder={idx === 0 ? access?.capabilities.services ? "Ej. Servicio adicional" : "Ej. Alimento para mascota" : "Descripción"}
                       aria-label={`Descripción del ítem ${idx + 1}`}
                       value={line.description}
                       onChange={(e) => setLine(line.id, "description", e.target.value)}
@@ -355,7 +360,7 @@ export function SaleForm() {
                 );
               })}
               {lines.every((l) => !l.description && !l.unitPrice) && (
-                <p className="text-sm text-muted-foreground">Agrega un producto o servicio para calcular el total.</p>
+                <p className="text-sm text-muted-foreground">Agrega un ítem para calcular el total.</p>
               )}
             </div>
 

@@ -27,6 +27,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ContactPagination } from "@/components/dashboard/contact-pagination";
+import { useDashboardAccess } from "./dashboard-access-provider";
 import { proxyUrl } from "@/lib/api";
 import {
   type DashboardClient,
@@ -45,6 +46,7 @@ function TableSkeleton() {
 }
 
 export function ClientsTable() {
+  const access = useDashboardAccess();
   const tenant = useTenant();
   const searchParams = useSearchParams();
   const [clients, setClients] = useState<DashboardClient[]>([]);
@@ -210,7 +212,7 @@ export function ClientsTable() {
             />
           ) : (
             <>
-            <div className="space-y-3 md:hidden">{clients.map((client) => <article key={client.id} className="rounded-xl border p-4"><h3 className="font-semibold">{client.name || "Cliente sin nombre"}</h3><p className="text-sm text-muted-foreground">{formatPhone(client.phone)}</p><p className="mt-2 text-sm">{client.petsCount} mascotas · {client.appointmentsCount} citas</p><p className="text-xs text-muted-foreground">Última actividad: {formatRelativeTime(client.lastActivityAt)}</p><div className="mt-3 flex flex-wrap gap-2"><Button variant="outline" onClick={() => handleOpenClient(client)}>Ver cliente</Button><Button variant="outline" onClick={() => handleOpenClient(client, true)}>Editar</Button><Button variant="ghost" aria-label={`Eliminar cliente ${client.name ?? client.phone}`} disabled={deleting === client.id} onClick={(e) => handleDelete(e, client.id, client.name ?? client.phone)}><Trash2 className="h-4 w-4" /></Button></div></article>)}</div>
+            <div className="space-y-3 md:hidden">{clients.map((client) => <article key={client.id} className="rounded-xl border p-4"><h3 className="font-semibold">{client.name || "Cliente sin nombre"}</h3><p className="text-sm text-muted-foreground">{formatPhone(client.phone)}</p><p className="mt-2 text-sm">{client.petsCount} mascotas · {client.appointmentsCount} citas</p><p className="text-xs text-muted-foreground">Última actividad: {formatRelativeTime(client.lastActivityAt)}</p><div className="mt-3 flex flex-wrap gap-2"><Button variant="outline" onClick={() => handleOpenClient(client)}>Ver cliente</Button><Button variant="outline" onClick={() => handleOpenClient(client, true)}>Editar</Button>{access?.capabilities.administration && <Button variant="ghost" aria-label={`Eliminar cliente ${client.name ?? client.phone}`} disabled={deleting === client.id} onClick={(e) => handleDelete(e, client.id, client.name ?? client.phone)}><Trash2 className="h-4 w-4" /></Button>}</div></article>)}</div>
             <div className="hidden overflow-x-auto md:block">
               <Table>
                 <TableHeader>
@@ -274,14 +276,14 @@ export function ClientsTable() {
                           >
                             <Pencil className="h-4 w-4" /> Editar
                           </button>
-                          <button
+                          {access?.capabilities.administration && <button
                             title="Eliminar cliente"
                             disabled={deleting === client.id}
                             onClick={(e) => handleDelete(e, client.id, client.name ?? client.phone)}
                             className="inline-flex h-11 w-11 items-center justify-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors disabled:opacity-50"
                           >
                             <Trash2 className="h-4 w-4" />
-                          </button>
+                          </button>}
                         </div>
                       </TableCell>
                     </TableRow>

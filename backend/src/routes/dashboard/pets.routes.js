@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const prisma = require("../../lib/prisma");
+const { operationalPet } = require("../../services/dashboard-access.service");
 const { updatePet } = require("../../services/pet.service");
 const { buildPetTimeline } = require("../../services/pet-timeline.service");
 const { changeServicePrice } = require("../../contexts/services");
@@ -133,7 +134,7 @@ router.get("/pets", async (req, res) => {
       }),
     ]);
 
-    const data = pets.map((pet) => ({
+    const data = pets.map((pet) => req.access && !req.access.capabilities.clinical && !req.access.capabilities.administration ? operationalPet(pet) : ({
       id: pet.id,
       name: pet.name,
       type: pet.type,
@@ -143,6 +144,7 @@ router.get("/pets", async (req, res) => {
       weight: pet.weight ?? null,
       sterilized: pet.sterilized ?? null,
       notes: pet.notes ?? null,
+      operationalAlerts: pet.operationalAlerts ?? null,
       owner: { phone: pet.owner.phone, name: pet.owner.name ?? null },
       _count: pet._count,
     }));
@@ -166,11 +168,12 @@ router.get("/pets/:id", async (req, res) => {
       },
     });
     if (!pet) return res.status(404).json({ error: "Pet not found" });
+    if (req.access && !req.access.capabilities.clinical && !req.access.capabilities.administration) return res.json(operationalPet(pet));
     res.json({
       id: pet.id, name: pet.name, type: pet.type, breed: pet.breed ?? null,
       gender: pet.gender ?? null, birthDate: pet.birthDate ?? null,
       weight: pet.weight ?? null, sterilized: pet.sterilized ?? null,
-      notes: pet.notes ?? null, owner: pet.owner, _count: pet._count,
+      notes: pet.notes ?? null, operationalAlerts: pet.operationalAlerts ?? null, owner: pet.owner, _count: pet._count,
     });
   } catch (error) {
     console.error("[Dashboard] Pet detail error:", error);
@@ -186,7 +189,8 @@ const VALID_PET_TYPES = ["dog", "cat", "other"];
 router.post("/pets", async (req, res) => {
   try {
     const { tenantId } = req.tenant;
-    const { name, type, ownerPhone, ownerName, breed, notes } = req.body ?? {};
+    const { name, type, ownerPhone, ownerName, breed, notes, operationalAlerts } = req.body ?? {};
+    if (req.access && !req.access.capabilities.administration && notes) return res.status(403).json({ error: "Registra las observaciones de manejo en Alertas operativas; las notas clínicas requieren un profesional." });
 
     const cleanName = typeof name === "string" ? name.trim() : "";
     const cleanType = typeof type === "string" ? type.trim().toLowerCase() : "";
@@ -226,6 +230,7 @@ router.post("/pets", async (req, res) => {
         ownerId: owner.id,
         breed: breed?.trim() || null,
         notes: notes?.trim() || null,
+        operationalAlerts: typeof operationalAlerts === "string" ? operationalAlerts.trim().slice(0, 2000) : null,
       },
       select: { id: true, name: true, type: true },
     });
@@ -564,7 +569,8 @@ router.patch("/pets/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const { tenantId } = req.tenant;
-    const { name, breed, gender, birthDate, weight, sterilized, notes } = req.body ?? {};
+    const { name, breed, gender, birthDate, weight, sterilized, notes, operationalAlerts } = req.body ?? {};
+    if (req.access && !req.access.capabilities.administration && Object.keys(req.body ?? {}).some(k => !["name", "breed", "gender", "birthDate", "operationalAlerts"].includes(k))) return res.status(403).json({ error: "Tu perfil puede editar los datos básicos y las alertas operativas." });
 
     // Fix post-auditoría de seguridad (2026-09-07, hallazgo F12): esta ruta
     // no verificaba ownership en absoluto (a diferencia de DELETE /pets/:id,
@@ -573,7 +579,9 @@ router.patch("/pets/:id", async (req, res) => {
     const existing = await prisma.pet.findFirst({ where: tenantId ? { id, tenantId } : { id } });
     if (!existing) return res.status(404).json({ error: "Pet not found" });
 
-    const updated = await updatePet(id, { name, breed, gender, birthDate, weight, sterilized, notes });
+    let updated = await updatePet(id, { name, breed, gender, birthDate, weight, sterilized, notes });
+    if (operationalAlerts !== undefined) updated = await prisma.pet.update({ where: { id }, data: { operationalAlerts: typeof operationalAlerts === "string" ? operationalAlerts.trim().slice(0, 2000) : null } });
+    if (req.access && !req.access.capabilities.administration) return res.json(operationalPet(updated));
     res.json({
       id: updated.id,
       breed: updated.breed,

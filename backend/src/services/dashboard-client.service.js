@@ -118,6 +118,7 @@ const getClientById = async (clientId, tenantId) => {
           weight: true,
           sterilized: true,
           notes: true,
+          operationalAlerts: true,
           defaultGroomingPrice: true,
           _count: { select: { medicalRecords: true, appointments: true } },
         },

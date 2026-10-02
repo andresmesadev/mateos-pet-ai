@@ -12,6 +12,7 @@ import {
 } from "@/lib/appointments";
 import { getPetEmoji } from "@/lib/pets";
 import { previewMonthAppointments } from "@/lib/calendar-preview";
+import { useDashboardAccess } from "@/components/dashboard/dashboard-access-provider";
 import { NewAppointmentDialog } from "@/components/dashboard/new-appointment-dialog";
 import { filterOwnerAppointments } from "@/lib/contact-navigation";
 
@@ -321,6 +322,7 @@ export function WeekCalendar({
   const [clock, setClock] = useState<ClockMode>("12h");
   const [selected, setSelected] = useState<TodayAppointment | null>(null);
   const [updatedAppointments, setUpdatedAppointments] = useState<Record<string, TodayAppointment>>({});
+  const access = useDashboardAccess();
   const [creating, setCreating] = useState(() => !preview && searchParams.get("new") === "1");
   const [createdVersion, setCreatedVersion] = useState(0);
 
@@ -527,7 +529,7 @@ export function WeekCalendar({
         setUpdatedAppointments((current) => ({ ...current, [updated.id]: updated }));
         router.refresh();
       }} />}
-      {creating && <NewAppointmentDialog initialClientId={owner?.id} initialDate={view === "month" ? `${monthDate.year}-${String(monthDate.month + 1).padStart(2, "0")}-01` : currentDay} onClose={closeCreate} onCreated={() => {
+      {creating && access?.capabilities.schedule && <NewAppointmentDialog initialClientId={owner?.id} initialDate={view === "month" ? `${monthDate.year}-${String(monthDate.month + 1).padStart(2, "0")}-01` : currentDay} onClose={closeCreate} onCreated={() => {
         closeCreate();
         setCreatedVersion((version) => version + 1);
         router.refresh();
@@ -555,7 +557,7 @@ export function WeekCalendar({
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <span className="text-base font-bold capitalize text-foreground sm:text-lg">{periodLabel}</span>
-            {!preview && <Button type="button" size="sm" onClick={() => setCreating(true)}>
+            {!preview && access?.capabilities.schedule && <Button type="button" size="sm" onClick={() => setCreating(true)}>
               <CalendarPlus className="mr-2 h-4 w-4" /> Nueva cita
             </Button>}
           </div>

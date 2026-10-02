@@ -1,7 +1,12 @@
 export type TeamRole = "admin" | "vet" | "groomer" | "receptionist";
-export const ROLE_NAMES: Record<TeamRole, string> = { admin: "Administrador", vet: "Veterinario/a", groomer: "Peluquero/a", receptionist: "Recepción" };
-export function homeForRole(role: TeamRole) { return role === "vet" ? "/dashboard/consultas" : role === "admin" ? "/dashboard" : "/dashboard/conversations"; }
+export const ROLE_NAMES: Record<TeamRole, string> = { admin: "Administrador", vet: "Veterinario/a", groomer: "Peluquero/a", receptionist: "Recepción y caja" };
+export type DashboardAccess = {
+  role: TeamRole; staffId: string | null; activeModules: string[]; accessPermissions: string[]; navigation: string[];
+  capabilities: { administration: boolean; finance: boolean; chat: boolean; contacts: boolean; agenda: boolean; schedule: boolean; clinical: boolean; grooming: boolean; cash: boolean; appointmentPrice: boolean; retail: boolean; services: boolean };
+};
+export function homeForRole(_role: TeamRole) { void _role; return "/dashboard"; }
 export function canVisitDashboard(role: TeamRole, path: string) {
   if (role === "admin") return true;
-  return path === "/dashboard/conversations" || (role === "vet" && path === "/dashboard/consultas");
+  // Coarse session gate only; live backend access is checked by proxy.ts.
+  return path.startsWith("/dashboard");
 }

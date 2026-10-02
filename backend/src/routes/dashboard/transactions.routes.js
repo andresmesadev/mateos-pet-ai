@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const prisma = require("../../lib/prisma");
+const { actorSnapshot } = require("../../services/dashboard-access.service");
 const { getBogotaYmd, bogotaDayStart, mapTransaction } = require("./shared");
 const { guardManualSaleLink, settleSystemCharge, voidManualSale } = require("../../contexts/finance");
 const {
@@ -30,6 +31,12 @@ const TRANSACTION_INCLUDE = {
   items: { orderBy: { id: "asc" } },
 };
 
+function operationalDayFilter(req) {
+  if (!req.access || req.access.capabilities.administration) return {};
+  const start = bogotaDayStart(getBogotaYmd());
+  return { paidAt: { gte: start, lt: new Date(start.getTime() + 86_400_000) } };
+}
+
 // POST /transactions — crear cobro
 router.post("/transactions", async (req, res) => {
   try {
@@ -45,11 +52,15 @@ router.post("/transactions", async (req, res) => {
 
     // Validate items
     for (const item of items) {
+      const kind = item.itemKind ?? (req.access?.capabilities.services === false ? "product" : "service");
+      if (!["service", "product"].includes(kind)) return res.status(400).json({ error: "Selecciona producto o servicio." });
+      if (req.access && (kind === "product" ? !req.access.capabilities.retail : !req.access.capabilities.services)) return res.status(403).json({ error: "Ese tipo de venta no está habilitado en el negocio." });
       if (!item.description?.trim()) return res.status(400).json({ error: "Cada ítem debe tener descripción" });
-      if (typeof item.unitPrice !== "number" || item.unitPrice < 0) return res.status(400).json({ error: "unitPrice inválido" });
+      if (typeof item.unitPrice !== "number" || !Number.isFinite(item.unitPrice) || item.unitPrice < 0 || item.unitPrice > 99999999.99 || Math.abs(item.unitPrice * 100 - Math.round(item.unitPrice * 100)) > 0.000001) return res.status(400).json({ error: "Precio inválido." });
       const qty = item.quantity ?? 1;
       if (!Number.isInteger(qty) || qty < 1) return res.status(400).json({ error: "quantity debe ser entero positivo" });
     }
+    if (req.access && !req.access.capabilities.administration && paidAt) return res.status(403).json({ error: "La fecha de cobro se registra automáticamente." });
 
     // Tenant-check userId if provided
     if (userId) {
@@ -58,8 +69,12 @@ router.post("/transactions", async (req, res) => {
     }
 
     // Tenant-check appointmentId if provided
+    if (petId) {
+      const pet = await prisma.pet.findFirst({ where: { id: petId, ...(tenantId ? { tenantId } : {}), ...(userId ? { ownerId: userId } : {}) }, select: { id: true } });
+      if (!pet) return res.status(404).json({ error: "Mascota no encontrada para ese propietario." });
+    }
     if (appointmentId) {
-      const appt = await prisma.appointment.findFirst({ where: { id: appointmentId, ...(tenantId ? { tenantId } : {}) }, select: { id: true } });
+      const appt = await prisma.appointment.findFirst({ where: { id: appointmentId, ...(tenantId ? { tenantId } : {}), ...(userId ? { userId } : {}), ...(petId ? { petId } : {}) }, select: { id: true } });
       if (!appt) return res.status(404).json({ error: "Cita no encontrada" });
 
       // ADR 007-D3(b): una venta vinculada a una cita representa EXTRAS de la
@@ -70,13 +85,15 @@ router.post("/transactions", async (req, res) => {
     const computedItems = items.map((item) => {
       const qty = item.quantity ?? 1;
       const unitPrice = Number(item.unitPrice);
-      return { description: item.description.trim(), quantity: qty, unitPrice, total: qty * unitPrice };
+      return { description: item.description.trim(), itemKind: item.itemKind ?? (req.access?.capabilities.services === false ? "product" : "service"), quantity: qty, unitPrice, total: qty * unitPrice };
     });
     const total = computedItems.reduce((s, i) => s + i.total, 0);
+    if (!Number.isFinite(total) || total > 99999999.99) return res.status(400).json({ error: "El total supera el importe permitido." });
 
     const tx = await prisma.transaction.create({
       data: {
         tenantId: tenantId ?? null,
+        ...actorSnapshot(req.actor, "recorded"),
         userId: userId ?? null,
         petId: petId ?? null,
         appointmentId: appointmentId ?? null,
@@ -109,7 +126,7 @@ router.post("/transactions/:id/settle", async (req, res) => {
     }
 
     const target = await prisma.transaction.findFirst({
-      where: { id: req.params.id, ...(tenantId ? { tenantId } : {}) },
+      where: { id: req.params.id, ...(tenantId ? { tenantId } : {}), ...operationalDayFilter(req) },
       select: { appointmentId: true, origin: true },
     });
     if (!target) return res.status(404).json({ error: "Not found" });
@@ -122,6 +139,7 @@ router.post("/transactions/:id/settle", async (req, res) => {
       appointmentId: target.appointmentId,
       paymentMethod,
       notes,
+      recordedBy: { id: req.actor?.staffId ? `staff:${req.actor.staffId}` : req.actor?.email ? `admin:${req.actor.email}` : null, name: req.actor?.name ?? null, role: req.actor?.type ?? null },
     });
 
     const full = await prisma.transaction.findUnique({ where: { id: transaction.id }, include: TRANSACTION_INCLUDE });
@@ -156,10 +174,15 @@ router.get("/transactions", async (req, res) => {
     const { tenantId } = req.tenant;
     const tenantFilter = tenantId ? { tenantId } : {};
     const { from, to } = req.query;
+    if (req.access && !req.access.capabilities.administration && ((from && from !== getBogotaYmd()) || (to && to !== getBogotaYmd()))) return res.status(403).json({ error: "Tu acceso permite consultar la caja de hoy." });
 
     const dateFilter = {};
     if (from) dateFilter.gte = bogotaDayStart(from);
     if (to) dateFilter.lt = new Date(bogotaDayStart(to).getTime() + 86_400_000);
+    if (req.access && !req.access.capabilities.administration) {
+      dateFilter.gte = bogotaDayStart(getBogotaYmd());
+      dateFilter.lt = new Date(dateFilter.gte.getTime() + 86_400_000);
+    }
 
     const rows = await prisma.transaction.findMany({
       where: {
@@ -186,7 +209,7 @@ router.get("/transactions/:id", async (req, res) => {
     const tenantFilter = tenantId ? { tenantId } : {};
 
     const tx = await prisma.transaction.findFirst({
-      where: { id, ...tenantFilter },
+      where: { id, ...tenantFilter, ...operationalDayFilter(req) },
       include: TRANSACTION_INCLUDE,
     });
     if (!tx) return res.status(404).json({ error: "Not found" });

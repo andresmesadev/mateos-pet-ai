@@ -179,7 +179,7 @@ describe("resolveTenant middleware", () => {
     const next = jest.fn();
     await resolveTenant(req, res, next);
     expect(next).toHaveBeenCalled();
-    expect(req.actor).toEqual({ type: "vet", staffId: "vet-1", name: "Dra. Lina" });
+    expect(req.actor).toEqual({ type: "vet", staffId: "vet-1", name: "Dra. Lina", accessPermissions: [] });
     expect(prisma.staffCredential.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: {
       staffId: "vet-1", active: true, sessionVersion: 3,
       staff: { tenantId: "tenant-abc", active: true, role: { in: ["vet", "groomer", "receptionist", "admin"] } },

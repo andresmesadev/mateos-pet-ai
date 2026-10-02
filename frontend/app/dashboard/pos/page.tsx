@@ -9,6 +9,8 @@ import { ExpenseForm } from "@/components/dashboard/pos/expense-form";
 import { CashboxView } from "@/components/dashboard/pos/cashbox-view";
 import { RevenueHistory } from "@/components/dashboard/pos/revenue-history";
 import { ReportsView } from "@/components/dashboard/reports-view";
+import { OperationalCash } from "@/components/dashboard/pos/operational-cash";
+import { getDashboardAccess } from "@/lib/dashboard-access-server";
 
 type PageProps = {
   searchParams: Promise<{
@@ -38,11 +40,12 @@ function LoadingSkeleton() {
 export default async function PosPage({ searchParams }: PageProps) {
   await connection();
   const { tab: rawTab, date, period, tenant } = await searchParams;
-  const tab: PosTab = isValidTab(rawTab) ? rawTab : "venta";
+  const access = await getDashboardAccess(tenant);
+  const tab: PosTab = isValidTab(rawTab) && (access.capabilities.finance || ["venta", "caja"].includes(rawTab)) ? rawTab : "venta";
 
   const tabTitles: Record<PosTab, { title: string; description: string }> = {
-    venta:     { title: "Nueva venta",     description: "Registra el cobro de un servicio o producto." },
-    caja:      { title: "Caja del día",    description: "Revisa los ingresos, egresos y el saldo de la jornada." },
+    venta:     { title: "Nueva venta",     description: access.capabilities.retail ? "Registra el cobro de los productos y servicios habilitados." : "Registra el cobro de un servicio." },
+    caja:      { title: "Caja del día",    description: access.capabilities.finance ? "Revisa los ingresos, egresos y el saldo de la jornada." : "Consulta los cobros registrados y los servicios por revisar hoy." },
     egreso:    { title: "Registrar egreso", description: "Anota un gasto operativo." },
     historial: { title: "Historial de ventas", description: "Consulta los cobros de meses anteriores." },
     reportes:  { title: "Reportes",       description: "Revisa ingresos, citas y servicios." },
@@ -54,7 +57,7 @@ export default async function PosPage({ searchParams }: PageProps) {
     <div className="mx-auto max-w-[1500px]">
       <PageHeader
         title="Caja y ventas"
-        description="Registra movimientos y consulta el estado de tu negocio."
+        description={access.capabilities.finance ? "Registra movimientos y consulta el estado de tu negocio." : "Registra cobros y revisa los movimientos de tu jornada."}
         icon={Wallet}
         tint="bg-teal-100 text-teal-700"
       />
@@ -78,7 +81,7 @@ export default async function PosPage({ searchParams }: PageProps) {
 
       {tab === "caja" && (
         <Suspense fallback={<LoadingSkeleton />}>
-          <CashboxView date={date} tenant={tenant} />
+          {access.capabilities.finance ? <CashboxView date={date} tenant={tenant} /> : <OperationalCash />}
         </Suspense>
       )}
 

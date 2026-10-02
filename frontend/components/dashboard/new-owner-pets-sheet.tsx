@@ -14,6 +14,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
+import { useDashboardAccess } from "@/components/dashboard/dashboard-access-provider";
 import { proxyUrl } from "@/lib/api";
 import { useTenant, tenantQuery } from "@/lib/use-tenant";
 
@@ -48,6 +49,7 @@ const TEXTAREA_CLASS =
 export function NewOwnerPetsSheet({ open, onOpenChange, onCreated }: Props) {
   const { toast } = useToast();
   const tenant = useTenant();
+  const access = useDashboardAccess();
 
   const [ownerName, setOwnerName] = useState("");
   const [phone, setPhone] = useState("");
@@ -92,13 +94,14 @@ export function NewOwnerPetsSheet({ open, onOpenChange, onCreated }: Props) {
           body: JSON.stringify({
             name: ownerName, phone,
             phoneAlt: phoneAlt || null,
-            email: email || null, address, notes,
+            email: email || null, address, notes: access?.capabilities.administration ? notes : undefined,
             pets: pets.map(({ name, type, breed, gender, weight, notes: petNotes }) => ({
               name, type,
               breed: breed || null,
               gender: gender || null,
-              weight: weight ? parseFloat(weight) : null,
-              notes: petNotes || null,
+              weight: access?.capabilities.administration && weight ? parseFloat(weight) : null,
+              notes: access?.capabilities.administration ? petNotes || null : null,
+              operationalAlerts: access?.capabilities.administration ? undefined : petNotes || null,
             })),
           }),
         }
@@ -167,8 +170,8 @@ export function NewOwnerPetsSheet({ open, onOpenChange, onCreated }: Props) {
                     <Input id="op-address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="opcional" disabled={saving} />
                   </div>
                 </div>
-                <div className="space-y-1.5">
-                  <label htmlFor="op-notes" className="text-xs font-medium text-muted-foreground">Notas</label>
+                <div className="space-y-1.5" hidden={!access?.capabilities.administration}>
+                  <label htmlFor="op-notes" className="text-xs font-medium text-muted-foreground">Notas del propietario</label>
                   <textarea id="op-notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Observaciones opcionales" disabled={saving} className={TEXTAREA_CLASS} />
                 </div>
               </div>
@@ -221,13 +224,13 @@ export function NewOwnerPetsSheet({ open, onOpenChange, onCreated }: Props) {
                         </select>
                       </div>
                       <div className="space-y-1.5">
-                        <label htmlFor={`pet-weight-${pet.uid}`} className="text-xs font-medium text-muted-foreground">Peso (kg)</label>
-                        <Input id={`pet-weight-${pet.uid}`} type="number" step="0.1" min="0" value={pet.weight} onChange={(e) => updatePet(pet.uid, "weight", e.target.value)} placeholder="ej. 12.5" disabled={saving} />
+                        <label htmlFor={`pet-weight-${pet.uid}`} className="text-xs font-medium text-muted-foreground">Peso (kg) · Profesional</label>
+                        <Input id={`pet-weight-${pet.uid}`} type="number" step="0.1" min="0" disabled={!access?.capabilities.administration || saving} value={pet.weight} onChange={(e) => updatePet(pet.uid, "weight", e.target.value)} placeholder="ej. 12.5" />
                       </div>
                     </div>
 
                     <div className="space-y-1.5">
-                      <label htmlFor={`pet-notes-${pet.uid}`} className="text-xs font-medium text-muted-foreground">Notas</label>
+                      <label htmlFor={`pet-notes-${pet.uid}`} className="text-xs font-medium text-muted-foreground">{access?.capabilities.administration ? "Notas" : "Alertas para el manejo"}</label>
                       <textarea id={`pet-notes-${pet.uid}`} rows={2} value={pet.notes} onChange={(e) => updatePet(pet.uid, "notes", e.target.value)} placeholder="Alergias, comportamiento… (opcional)" disabled={saving} className={TEXTAREA_CLASS} />
                     </div>
                   </div>
