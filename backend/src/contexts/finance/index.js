@@ -72,8 +72,12 @@ const getFinancialPeriod = createGetFinancialPeriodUseCase({ financialPeriodRepo
 const settleSystemCharge = createSettleSystemChargeUseCase({ transactionRepository, eventPublisher });
 const guardManualSaleLink = createGuardManualSaleLinkUseCase({ transactionRepository, completedAppointmentsReader });
 const voidManualSale = createVoidManualSaleUseCase({ transactionRepository, dailyCloseRepository, eventPublisher });
+const { createRegisterManualSaleUseCase } = require('./application/use-cases/pos/register-manual-sale.usecase');
+const { PrismaPosReferencesReader } = require('./infrastructure/persistence/prisma-pos-references.reader');
+const registerManualSale = createRegisterManualSaleUseCase({ transactionRepository, referencesReader: new PrismaPosReferencesReader(), guardManualSaleLink, dailyCloseRepository });
 
 module.exports = {
+  registerManualSale,
   registerExpense,
   voidExpense,
   recordChargeOnAppointmentCompleted,

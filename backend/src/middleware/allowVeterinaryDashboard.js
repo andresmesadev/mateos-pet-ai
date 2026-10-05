@@ -15,7 +15,8 @@ const CLINICAL = [
   ["POST", /^\/pets\/[^/]+\/next-actions$/], ["PATCH", /^\/next-actions\/[^/]+$/],
 ];
 const CASH = [
-  ["GET", /^\/cash\/operational$/], ["GET", /^\/transactions(\/[^/]+)?$/],
+  ["GET", /^\/pos\/operations\/[^/]+$/],
+  ["GET", /^\/cash\/(operational|context|catalog)$/], ["GET", /^\/transactions(\/[^/]+)?$/],
   ["POST", /^\/transactions$/], ["POST", /^\/transactions\/[^/]+\/settle$/],
 ];
 const CONTACT_READ = [["GET", /^\/clients(\/[^/]+)?$/], ["GET", /^\/pets(\/[^/]+)?$/], ["GET", /^\/services$/]];
@@ -36,6 +37,13 @@ async function allowVeterinaryDashboard(req, res, next) {
     const admin = c.administration;
     const deny = (message = "No tienes permiso para esta acción.") => res.status(403).json({ error: message });
     if (match(req, [["GET", /^\/(access|workspace|tenant\/profile)$/]])) return next();
+    if (req.path.startsWith('/inventory/')) {
+      if (req.method === 'GET' && req.path === '/inventory/context') return c.inventory_read ? next() : deny();
+      if (req.method === 'GET' && /^\/inventory\/products(?:\/[^/]+)?$/.test(req.path)) return c.inventory_read ? next() : deny();
+      if (req.method === 'POST' && req.path === '/inventory/consumptions') return c.inventory_consume ? next() : deny();
+      if (req.method === 'GET' && /^\/inventory\/operations\/[^/]+$/.test(req.path)) return c.inventory_read ? next() : deny();
+      return c.inventory_manage ? next() : deny();
+    }
     if (match(req, CHAT)) return c.chat ? next() : deny();
     if (match(req, CLINICAL)) {
       if (admin && req.method === "GET") return next(); // Archived history survives module deactivation.

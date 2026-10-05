@@ -21,7 +21,7 @@ type Action = {
 
 const PRIMARY_ACTIONS: Action[] = [
   { href: "/dashboard/calendar?new=1", title: "Nueva cita", subtitle: "Agendar manualmente", icon: CalendarPlus, tint: "bg-teal-50 text-teal-700" },
-  { href: "/dashboard/pos?tab=venta", title: "Nueva venta", subtitle: "Registrar cobro", icon: ShoppingCart, tint: "bg-teal-50 text-teal-700" },
+  { href: "/dashboard/pos?tab=venta", title: "Cobrar", subtitle: "Registrar cobro", icon: ShoppingCart, tint: "bg-teal-50 text-teal-700" },
   { href: "/dashboard/contacto?new=cliente", title: "Nuevo cliente", subtitle: "Registrar cliente", icon: UserPlus, tint: "bg-sky-50 text-sky-700" },
 ];
 

@@ -548,6 +548,10 @@ Revisar los ADRs y los informes de fase. Si el problema ya fue resuelto o diferi
 
 ---
 
+### Reconciliación aprobada: Inventario (2026-10-02)
+
+El responsable del producto solicitó expresamente productos e insumos con existencias para integrar el POS y las áreas operativas. El [ADR 015](decisions/015-inventario-productos-insumos.md) justifica promover esta capacidad antes diferida: sustituye el control manual y evita ventas o consumos sin saldo. Se modeló primero en el Contexto 13 y se aprobaron definición funcional, casos de uso, arquitectura, persistencia y esquema físico antes de implementar. Esta ampliación no reabre fases cerradas ni declara una fase futura; conserva Tenant como aislamiento, resolución única de precios y comisiones inmutables. La versión 2.42.0 está implementada localmente; [evidencia y límites de publicación](history/ENTREGABLE_INVENTARIO_COMPLETION_REPORT.md).
+
 ## 7. Cómo Tomar Decisiones
 
 El orden correcto para decidir sobre cualquier aspecto del producto es siempre de mayor a menor abstracción. Nunca al revés.

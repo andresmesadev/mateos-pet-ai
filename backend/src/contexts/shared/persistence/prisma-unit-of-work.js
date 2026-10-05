@@ -7,8 +7,8 @@ const prisma = require("../../../lib/prisma");
  * usan `ctx.tx ?? prisma`.
  */
 class PrismaUnitOfWork {
-  async run(fn) {
-    return prisma.$transaction((tx) => fn({ tx }));
+  async run(fn, options) {
+    return prisma.$transaction((tx) => fn({ tx }), options);
   }
 }
 

@@ -11,6 +11,24 @@ function buildUseCase({ dailyCloses = [] } = {}) {
 }
 
 describe("RegisterExpenseUseCase", () => {
+  test.each([NaN, Infinity, -Infinity, 999999999, 100000000, 1.001, 0.001, 0.000000001, 1.000000001])("rechaza un monto fuera de Decimal(10,2): %s", async amount => {
+    const { execute, expenseRepository, eventPublisher } = buildUseCase();
+    await expect(execute({ tenantId: "t1", amount, responsible: "Ana" })).rejects.toBeInstanceOf(InvalidExpenseAttributesError);
+    expect(eventPublisher.events).toHaveLength(0);
+    expect(await expenseRepository.listByDateRange("t1", new Date("2000-01-01"), new Date("2100-01-01"))).toHaveLength(0);
+  });
+
+  test.each([0.29, 12500.50, 99999999.99])("conserva un importe válido sin redondearlo: %s", async amount => {
+    const { execute } = buildUseCase();
+    const { expense } = await execute({ tenantId: "t1", amount, responsible: "Ana" });
+    expect(expense.amount).toBe(amount);
+  });
+
+  test("rechaza una fecha inválida y responsable que no es texto", async () => {
+    const { execute } = buildUseCase();
+    await expect(execute({ tenantId: "t1", amount: 100, responsible: "Ana", date: "incorrecta" })).rejects.toBeInstanceOf(InvalidExpenseAttributesError);
+    await expect(execute({ tenantId: "t1", amount: 100, responsible: {} })).rejects.toBeInstanceOf(InvalidExpenseAttributesError);
+  });
   test("registra un gasto activo y emite GastoRegistrado", async () => {
     const { execute, eventPublisher } = buildUseCase();
     const { expense } = await execute({ tenantId: "t1", amount: 5000, category: "supplies", responsible: "Ana", date: "2026-07-01" });

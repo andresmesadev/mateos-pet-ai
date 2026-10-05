@@ -16,8 +16,8 @@ class PrismaCompletedAppointmentsReader {
     });
   }
 
-  async findById(tenantId, appointmentId) {
-    return prisma.appointment.findFirst({
+  async findById(tenantId, appointmentId, ctx) {
+    return (ctx?.tx ?? prisma).appointment.findFirst({
       where: { id: appointmentId, ...(tenantId ? { tenantId } : {}) },
       select: { id: true, status: true },
     });

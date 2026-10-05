@@ -31,10 +31,15 @@ class PrismaTransactionRepository extends TransactionRepositoryPort {
     return prisma.transaction.findUnique({ where: { id: transactionId } });
   }
 
-  async findActiveByAppointment(appointmentId, origin) {
-    return prisma.transaction.findFirst({
+  async findActiveByAppointment(appointmentId, origin, ctx) {
+    return (ctx?.tx ?? prisma).transaction.findFirst({
       where: { appointmentId, origin, status: "active" },
     });
+  }
+
+  async createManualSale(data, ctx) {
+    if (!ctx?.tx) throw new Error("Manual sale requires a transaction");
+    return ctx.tx.transaction.create({ data, include: { items: true } });
   }
 
   // ADR 007-D3(a): el POS liquida el cobro de sistema — nunca su monto.

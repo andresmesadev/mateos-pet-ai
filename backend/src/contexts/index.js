@@ -112,8 +112,15 @@ const dispatcherWithCertification = {
 };
 
 const agenda = buildAgendaContext({ unitOfWork, eventPublisher: dispatcherWithCertification });
+const { buildInventoryContext } = require('./inventory');
+const { CertifyingDomainEventPublisher } = require('./shared/events/certifying-domain-event-publisher');
+const { buildConfirmPosSale } = require('../application/workflows/pos/confirm-pos-sale');
+const inventory = buildInventoryContext({ unitOfWork, eventPublisher: new CertifyingDomainEventPublisher({ registerDomainEvent: events.registerDomainEvent, originContext: 'Inventario' }) });
+const confirmPosSale = buildConfirmPosSale({ inventory: inventory.commands, finance, repository: inventory.repository, accessReader: inventory.accessReader, unitOfWork });
 
 module.exports = {
+  inventory,
+  confirmPosSale,
   dispatcher,
   completeAppointment: agenda.completeAppointment,
   events,

@@ -21,6 +21,7 @@ import { getPetEmoji, NEXT_ACTION_TYPES, type PetNextAction } from "@/lib/pets";
 import { VetPatientContext } from "@/components/dashboard/vet-patient-context";
 import { VetRecordRevisions } from "@/components/dashboard/vet-record-revisions";
 import { tenantQuery, useTenant } from "@/lib/use-tenant";
+import { ConsumptionButton } from "@/components/dashboard/inventory/consumption-button";
 
 type VetRecord = {
   reason: string;
@@ -414,6 +415,7 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved, previ
             )}
 
             {appointment.petId && <VetPatientContext petId={appointment.petId} appointmentId={appointment.id} preview={preview} />}
+            {!preview && !readOnly && ["in_progress", "completed"].includes(appointment.status) && <ConsumptionButton area="veterinary" appointmentId={appointment.id} />}
 
             {loading ? (
               <div className="py-12 text-center text-sm text-muted-foreground">Cargando historia de esta consulta…</div>

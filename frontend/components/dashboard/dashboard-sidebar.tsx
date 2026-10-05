@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { signOut } from "next-auth/react";
+import { clearSaleDrafts } from "@/lib/pos-draft";
 import {
   Home,
   Calendar,
@@ -19,6 +20,7 @@ import {
   PawPrint,
   Stethoscope,
   Scissors,
+  Package,
   type LucideIcon,
 } from "lucide-react";
 
@@ -46,7 +48,8 @@ const SECTIONS: NavSection[] = [
   {
     heading: "Gestión",
     items: [
-      { href: "/dashboard/pos", label: "Caja y ventas", icon: Wallet, alsoActiveOn: ["/dashboard/revenue"] },
+      { href: "/dashboard/pos", label: "Punto de venta", icon: Wallet, alsoActiveOn: ["/dashboard/revenue"] },
+      { href: "/dashboard/inventory", label: "Inventario", icon: Package },
       { href: "/dashboard/recuperacion", label: "Recuperación", icon: HeartPulse, alsoActiveOn: ["/dashboard/churn", "/dashboard/opportunities", "/dashboard/reactivation"] },
       { href: "/dashboard/settings", label: "Administración", icon: Settings, alsoActiveOn: ["/dashboard/services", "/dashboard/staff", "/dashboard/billing", "/dashboard/admin"] },
     ],
@@ -159,7 +162,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         </div>
         <button
           type="button"
-          onClick={() => signOut({ callbackUrl: "/login" })}
+          onClick={() => { try { clearSaleDrafts(sessionStorage); } catch { /* Sign-out remains available if storage is blocked. */ } void signOut({ callbackUrl: "/login" }); }}
           aria-label="Cerrar sesión"
           className="rounded-lg p-1.5 text-sidebar-foreground/40 transition-colors hover:bg-black/[0.06] hover:text-sidebar-foreground"
         >

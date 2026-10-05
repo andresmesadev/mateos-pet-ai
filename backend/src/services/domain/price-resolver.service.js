@@ -95,4 +95,10 @@ function resolveAppointmentPrice(appointment) {
   });
 }
 
-module.exports = { resolvePrice, resolveAppointmentPrice, PRICE_SOURCES };
+function resolveProductPrice({ productBasePrice = null } = {}) {
+  const price = productBasePrice == null ? null : Number(productBasePrice);
+  return Number.isFinite(price) && price > 0
+    ? { finalPrice: price, source: "product_base_price" }
+    : { finalPrice: null, source: PRICE_SOURCES.UNRESOLVED };
+}
+module.exports = { resolvePrice, resolveAppointmentPrice, resolveProductPrice, PRICE_SOURCES };

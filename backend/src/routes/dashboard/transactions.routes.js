@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const prisma = require("../../lib/prisma");
-const { actorSnapshot } = require("../../services/dashboard-access.service");
+const { HistoryQueryError, readHistoryQuery, readFinancialHistoryPage } = require("./financial-history-page");
 const { getBogotaYmd, bogotaDayStart, mapTransaction } = require("./shared");
 const { guardManualSaleLink, settleSystemCharge, voidManualSale } = require("../../contexts/finance");
 const {
@@ -28,7 +28,7 @@ const TRANSACTION_INCLUDE = {
   user: { select: { id: true, name: true, phone: true } },
   pet:  { select: { id: true, name: true, type: true } },
   appointment: { select: { id: true, serviceType: true, date: true } },
-  items: { orderBy: { id: "asc" } },
+  items: { orderBy: { id: "asc" }, include: { inventoryReturn: true } },
 };
 
 function operationalDayFilter(req) {
@@ -37,81 +37,18 @@ function operationalDayFilter(req) {
   return { paidAt: { gte: start, lt: new Date(start.getTime() + 86_400_000) } };
 }
 
-// POST /transactions — crear cobro
+// POST /transactions — el workflow confirma cobro e inventario en una transacción.
 router.post("/transactions", async (req, res) => {
   try {
-    const { tenantId } = req.tenant;
-    const { userId, petId, appointmentId, paymentMethod, notes, paidAt, items } = req.body ?? {};
-
-    if (!Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ error: "items es requerido (al menos uno)" });
-    }
-    if (paymentMethod && !VALID_PAYMENT_METHODS.includes(paymentMethod)) {
-      return res.status(400).json({ error: `paymentMethod inválido. Valores: ${VALID_PAYMENT_METHODS.join(", ")}` });
-    }
-
-    // Validate items
-    for (const item of items) {
-      const kind = item.itemKind ?? (req.access?.capabilities.services === false ? "product" : "service");
-      if (!["service", "product"].includes(kind)) return res.status(400).json({ error: "Selecciona producto o servicio." });
-      if (req.access && (kind === "product" ? !req.access.capabilities.retail : !req.access.capabilities.services)) return res.status(403).json({ error: "Ese tipo de venta no está habilitado en el negocio." });
-      if (!item.description?.trim()) return res.status(400).json({ error: "Cada ítem debe tener descripción" });
-      if (typeof item.unitPrice !== "number" || !Number.isFinite(item.unitPrice) || item.unitPrice < 0 || item.unitPrice > 99999999.99 || Math.abs(item.unitPrice * 100 - Math.round(item.unitPrice * 100)) > 0.000001) return res.status(400).json({ error: "Precio inválido." });
-      const qty = item.quantity ?? 1;
-      if (!Number.isInteger(qty) || qty < 1) return res.status(400).json({ error: "quantity debe ser entero positivo" });
-    }
-    if (req.access && !req.access.capabilities.administration && paidAt) return res.status(403).json({ error: "La fecha de cobro se registra automáticamente." });
-
-    // Tenant-check userId if provided
-    if (userId) {
-      const user = await prisma.user.findFirst({ where: { id: userId, ...(tenantId ? { tenantId } : {}) }, select: { id: true } });
-      if (!user) return res.status(404).json({ error: "Cliente no encontrado" });
-    }
-
-    // Tenant-check appointmentId if provided
-    if (petId) {
-      const pet = await prisma.pet.findFirst({ where: { id: petId, ...(tenantId ? { tenantId } : {}), ...(userId ? { ownerId: userId } : {}) }, select: { id: true } });
-      if (!pet) return res.status(404).json({ error: "Mascota no encontrada para ese propietario." });
-    }
-    if (appointmentId) {
-      const appt = await prisma.appointment.findFirst({ where: { id: appointmentId, ...(tenantId ? { tenantId } : {}), ...(userId ? { userId } : {}), ...(petId ? { petId } : {}) }, select: { id: true } });
-      if (!appt) return res.status(404).json({ error: "Cita no encontrada" });
-
-      // ADR 007-D3(b): una venta vinculada a una cita representa EXTRAS de la
-      // visita, nunca el servicio — exige cita completada con cobro de sistema.
-      await guardManualSaleLink({ tenantId, appointmentId });
-    }
-
-    const computedItems = items.map((item) => {
-      const qty = item.quantity ?? 1;
-      const unitPrice = Number(item.unitPrice);
-      return { description: item.description.trim(), itemKind: item.itemKind ?? (req.access?.capabilities.services === false ? "product" : "service"), quantity: qty, unitPrice, total: qty * unitPrice };
-    });
-    const total = computedItems.reduce((s, i) => s + i.total, 0);
-    if (!Number.isFinite(total) || total > 99999999.99) return res.status(400).json({ error: "El total supera el importe permitido." });
-
-    const tx = await prisma.transaction.create({
-      data: {
-        tenantId: tenantId ?? null,
-        ...actorSnapshot(req.actor, "recorded"),
-        userId: userId ?? null,
-        petId: petId ?? null,
-        appointmentId: appointmentId ?? null,
-        total,
-        paymentMethod: paymentMethod ?? "cash",
-        notes: notes?.trim() || null,
-        paidAt: paidAt ? new Date(paidAt) : new Date(),
-        items: { create: computedItems },
-      },
-      include: TRANSACTION_INCLUDE,
-    });
-
-    res.status(201).json(mapTransaction(tx));
+    const { confirmPosSale } = require("../../contexts");
+    const response = await confirmPosSale({ tenantId: req.tenant.tenantId, actor: req.actor,
+      operationKey: req.get("Idempotency-Key"), command: req.body ?? {} });
+    res.status(response.replayed ? 200 : 201).json({ ...mapTransaction(response.transaction), operationId: response.operationId ?? null, replayed: response.replayed ?? false });
   } catch (error) {
+    if (error.status && error.code) return res.status(error.status).json({ error: error.message, code: error.code });
     if (mapTransactionDomainError(res, error)) return;
-    console.error("[Dashboard] Create transaction error:", error);
-    if (error.code === "P2002") return res.status(409).json({ error: "Esta cita ya tiene un cobro registrado" });
-    res.status(500).json({ error: "Internal server error" });
+    console.error("[Dashboard] Confirm sale error:", error.message);
+    res.status(503).json({ error: "No se pudo comprobar el resultado del cobro. Consulta la operación antes de repetirla.", code: "RESULT_UNCERTAIN" });
   }
 });
 
@@ -174,6 +111,13 @@ router.get("/transactions", async (req, res) => {
     const { tenantId } = req.tenant;
     const tenantFilter = tenantId ? { tenantId } : {};
     const { from, to } = req.query;
+    if (req.query.pagination !== undefined) {
+      const query = readHistoryQuery(req.query, "transactions");
+      if (req.access && !req.access.capabilities.administration && (query.from !== getBogotaYmd() || query.to !== getBogotaYmd())) {
+        return res.status(403).json({ error: "Solo puedes consultar cobros de hoy." });
+      }
+      return res.json(await readFinancialHistoryPage(prisma, "transactions", tenantId, query, TRANSACTION_INCLUDE, mapTransaction));
+    }
     if (req.access && !req.access.capabilities.administration && ((from && from !== getBogotaYmd()) || (to && to !== getBogotaYmd()))) return res.status(403).json({ error: "Tu acceso permite consultar la caja de hoy." });
 
     const dateFilter = {};
@@ -196,6 +140,7 @@ router.get("/transactions", async (req, res) => {
 
     res.json(rows.map(mapTransaction));
   } catch (error) {
+    if (error instanceof HistoryQueryError) return res.status(400).json({ error: error.message });
     console.error("[Dashboard] List transactions error:", error);
     res.status(500).json({ error: "Internal server error" });
   }

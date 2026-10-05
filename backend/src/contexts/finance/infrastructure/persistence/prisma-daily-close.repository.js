@@ -12,8 +12,8 @@ function isUniqueDateViolation(err) {
 }
 
 class PrismaDailyCloseRepository extends DailyCloseRepositoryPort {
-  async findByDate(tenantId, date) {
-    return prisma.dailyClose.findFirst({
+  async findByDate(tenantId, date, ctx) {
+    return (ctx?.tx ?? prisma).dailyClose.findFirst({
       where: { ...(tenantId ? { tenantId } : {}), date },
     });
   }

@@ -76,6 +76,13 @@ async function handler(
     headers["X-Admin-Name"] = session.user.name || "Administrador";
   }
   if (viewAllTenants) headers["X-View-All-Tenants"] = "true";
+  const operationKey = req.headers.get("Idempotency-Key");
+  if (operationKey !== null) {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(operationKey)) {
+      return NextResponse.json({ error: "La clave de operación no es válida.", code: "OPERATION_KEY_REQUIRED" }, { status: 400 });
+    }
+    headers["Idempotency-Key"] = operationKey.toLowerCase();
+  }
 
   const body =
     req.method !== "GET" && req.method !== "DELETE"

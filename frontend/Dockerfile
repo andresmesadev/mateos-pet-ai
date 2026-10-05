@@ -10,6 +10,7 @@ RUN npm ci
 
 COPY . .
 RUN npm run build
+RUN npm prune --omit=dev --ignore-scripts
 
 ENV PORT=3001
 ENV NODE_ENV=production

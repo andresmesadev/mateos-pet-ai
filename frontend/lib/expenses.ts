@@ -9,7 +9,7 @@ export type ExpenseCategory =
 
 export const EXPENSE_CATEGORY_LABELS: Record<ExpenseCategory, string> = {
   supplies:  "Insumos",
-  utilities: "Servicios",
+  utilities: "Servicios públicos",
   rent:      "Arriendo",
   salary:    "Nómina",
   equipment: "Equipos",

@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const prisma = require("../../lib/prisma");
+const { HistoryQueryError, readHistoryQuery, readFinancialHistoryPage } = require("./financial-history-page");
 const { getBogotaYmd, bogotaDayStart } = require("./shared");
 const { registerExpense, voidExpense } = require("../../contexts/finance");
 const {
@@ -51,7 +52,8 @@ router.post("/expenses", async (req, res) => {
     const { tenantId } = req.tenant;
     const { category, description, amount, paymentMethod, notes, date, responsible } = req.body ?? {};
 
-    if (!description?.trim()) return res.status(400).json({ error: "description es requerido" });
+    if (typeof description !== "string" || !description.trim()) return res.status(400).json({ error: "Agrega una descripción del gasto." });
+    if (notes !== undefined && notes !== null && typeof notes !== "string") return res.status(400).json({ error: "Las notas deben ser texto." });
     if (paymentMethod && !VALID_PAYMENT_METHODS.includes(paymentMethod)) {
       return res.status(400).json({ error: "paymentMethod inválido" });
     }
@@ -81,6 +83,8 @@ router.post("/expenses/:id/void", async (req, res) => {
     const { tenantId } = req.tenant;
     const { reason } = req.body ?? {};
 
+    if (typeof reason !== "string" || !reason.trim()) return res.status(400).json({ error: "Indica el motivo de la anulación." });
+
     const { expense } = await voidExpense({ tenantId, expenseId: req.params.id, reason });
 
     res.json(mapExpense(expense));
@@ -91,12 +95,29 @@ router.post("/expenses/:id/void", async (req, res) => {
   }
 });
 
+// Administrative read: check the persisted result without repeating a command.
+router.get("/expenses/:id", async (req, res) => {
+  try {
+    const { tenantId } = req.tenant;
+    if (!tenantId) return res.status(400).json({ error: "Se requiere un establecimiento." });
+    const expense = await prisma.expense.findFirst({ where: { id: req.params.id, tenantId } });
+    if (!expense) return res.status(404).json({ error: "No se encontró el egreso." });
+    return res.json(mapExpense(expense));
+  } catch {
+    return res.status(500).json({ error: "No se pudo consultar el egreso." });
+  }
+});
+
 // GET /expenses?from=YYYY-MM-DD&to=YYYY-MM-DD — contrato preservado; status aditivo.
 router.get("/expenses", async (req, res) => {
   try {
     const { tenantId } = req.tenant;
     const tenantFilter = tenantId ? { tenantId } : {};
     const { from, to } = req.query;
+    if (req.query.pagination !== undefined) {
+      const query = readHistoryQuery(req.query, "expenses");
+      return res.json(await readFinancialHistoryPage(prisma, "expenses", tenantId, query, null, mapExpense));
+    }
 
     const dateFilter = {};
     if (from) dateFilter.gte = bogotaDayStart(from);
@@ -113,6 +134,7 @@ router.get("/expenses", async (req, res) => {
 
     res.json(rows.map(mapExpense));
   } catch (error) {
+    if (error instanceof HistoryQueryError) return res.status(400).json({ error: error.message });
     console.error("[Dashboard] List expenses error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
@@ -197,6 +219,7 @@ router.get("/metrics/cashbox", async (req, res) => {
       })),
       expenses: expenses.map((e) => ({
         id: e.id,
+        responsible: e.responsible ?? null,
         category: e.category,
         description: e.description,
         amount: Number(e.amount),

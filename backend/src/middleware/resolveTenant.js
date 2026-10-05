@@ -129,7 +129,7 @@ async function checkActiveAndContinue(req, res, next) {
       select: { staffId: true, staff: { select: { role: true, name: true, accessPermissions: true } } },
     });
     if (!credential) return res.status(403).json({ error: "Acceso del profesional no disponible" });
-    req.actor = { type: credential.staff.role, staffId: credential.staffId, name: credential.staff.name, accessPermissions: credential.staff.accessPermissions ?? [] };
+    req.actor = { type: credential.staff.role, staffId: credential.staffId, sessionVersion, name: credential.staff.name, accessPermissions: credential.staff.accessPermissions ?? [] };
   } else {
     req.actor = { type: "admin", email: typeof req.headers["x-admin-email"] === "string" ? req.headers["x-admin-email"].trim().toLowerCase() : null, name: req.headers["x-admin-name"] || "Administrador" };
   }

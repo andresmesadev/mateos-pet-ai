@@ -11,6 +11,7 @@ const request = require("supertest");
 
 jest.mock("../../lib/prisma", () => {
   const client = {
+    tenant: { findUnique: jest.fn() },
     appointment: { findFirst: jest.fn(), findUnique: jest.fn(), findMany: jest.fn(), update: jest.fn() },
     expense: { create: jest.fn(), findUnique: jest.fn(), findMany: jest.fn(), update: jest.fn() },
     transaction: { create: jest.fn(), findFirst: jest.fn(), findUnique: jest.fn(), findMany: jest.fn(), update: jest.fn() },
@@ -37,13 +38,18 @@ function buildApp() {
   app.use(express.json());
   app.use((req, _res, next) => {
     req.tenant = { isSuperAdmin: false, tenantId: TENANT };
+    req.actor = { type: "admin", email: "test@example.invalid", name: "Administrador" };
     next();
   });
   app.use("/api/dashboard", dashboardRoutes);
   return app;
 }
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  prisma.tenant.findUnique.mockResolvedValue({ active: true, activeModules: ["veterinary", "grooming", "retail"] });
+  prisma.dailyClose.findFirst.mockResolvedValue(null);
+});
 
 describe("POST /expenses — Registrar Gasto por caso de uso", () => {
   test("registra con responsible y sin cierre del día", async () => {
@@ -171,6 +177,8 @@ describe("POS — guards y comandos sobre Transaction (ADR 007-D3)", () => {
       voidedAt: null, voidReason: null, user: null, pet: null, appointment: null, items: [],
       notes: null, ...data, items: [],
     }));
+    const savedSale = { id: "tx-2", createdAt: new Date(), paidAt: new Date(), status: "active", origin: "manual_pos_sale", total: 5000, paymentMethod: "cash", items: [], user: null, pet: null, appointment: null };
+    prisma.transaction.findFirst.mockImplementation(async ({ where }) => where.id ? savedSale : { id: "tx-sys", tenantId: TENANT, origin: "system_appointment_completed", status: "active" });
 
     const res = await request(buildApp())
       .post("/api/dashboard/transactions")
@@ -201,7 +209,7 @@ describe("POS — guards y comandos sobre Transaction (ADR 007-D3)", () => {
       .send({ paymentMethod: "card" });
 
     expect(res.status).toBe(200);
-    expect(updateArgs.data).toEqual({ paymentMethod: "card", recordedActorId: null, recordedActorName: null, recordedActorRole: null });
+    expect(updateArgs.data).toEqual({ paymentMethod: "card", recordedActorId: "admin:test@example.invalid", recordedActorName: "Administrador", recordedActorRole: "admin" });
     expect(updateArgs.data.total).toBeUndefined();
   });
 

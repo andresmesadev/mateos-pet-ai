@@ -40,7 +40,7 @@ La plataforma opera sobre dos dominios claramente separados:
 
 Presente en **todos** los tipos de negocio. No puede desactivarse.
 
-Incluye: Negocio, Clientes, Mascotas, Agenda, Servicios, Staff, Finanzas, Automatizaciones.
+Incluye: Negocio, Clientes, Mascotas, Agenda, Servicios, Staff, Finanzas, Automatizaciones e Inventario de productos e insumos (incorporación conceptual aprobada el 2026-10-02; diseño e implementación pendientes).
 
 Una peluquería canina opera completamente dentro de este dominio.
 
@@ -528,7 +528,33 @@ Dar identidad, inmutabilidad y trazabilidad de negocio al hecho de que "algo ocu
 
 ---
 
+### 13. Contexto: Inventario de productos e insumos
+
+**Incorporación conceptual solicitada y aceptada el 2026-10-02.** Inventario deja de ser únicamente una capacidad diferida porque el responsable del producto requiere existencias y catálogo para medicamentos, mercancía de Pet shop e insumos. Estado: cinco etapas aprobadas e implementación local en 2.42.0. Ver [informe de implementación](../history/ENTREGABLE_INVENTARIO_COMPLETION_REPORT.md); publicación y VPS pendientes. Ver [ADR 015](../decisions/015-inventario-productos-insumos.md), [diseño de Inventario](inventory-workspace.md), [arquitectura aprobada](inventory-technical-design.md), [persistencia aprobada](inventory-persistence-model.md) y [esquema físico aprobado](inventory-physical-schema.md).
+
+**Objetivo**
+Conocer y mantener trazabilidad de la mercancía física del Establecimiento, tanto para vender como para utilizar al prestar servicios.
+
+**Entidades conceptuales**
+- **Producto de Inventario** — Artículo físico con identidad, categoría, presentación, usos, costo y precio cuando se vende. Es la concreción de `InventoryItem`; se persiste como `InventoryProduct`.
+- **Lote** — Identificación de unidades de un producto y de su vencimiento cuando se requiera trazabilidad.
+- **Movimiento de Inventario** — Hecho físico con producto, cantidad, origen, fecha, responsable y motivo. Comprende entrada, salida por venta, consumo, ajuste y devolución; su corrección conserva el antecedente mediante otro movimiento.
+- **Existencias y disponibilidad** — Cantidades físicas y cantidades habilitadas para salida. No son sinónimos cuando una mercancía está vencida o no es apta.
+
+**Responsabilidades y límites**
+- Gestionar catálogo, existencias, lotes y alertas del mismo Tenant.
+- Distinguir producto físico de servicio prestado. Registrar un baño o consulta no consume automáticamente mercancía ni genera otro cobro.
+- Distinguir anulación financiera de devolución física. Finanzas conserva su autoridad sobre dinero y cierres; Inventario sobre mercancía.
+- Mantener datos independientes del canal, de la IA y de la historia clínica. Las autorizaciones y reglas concretas de módulos, unidades y lotes, arquitectura y persistencia están aprobadas; el esquema físico requiere aprobación antes de implementar.
+
+**Relaciones conceptuales**
+Negocio y Staff aportan establecimiento, módulos e identidad autorizada. La capa de aplicación coordina venta y stock con Finanzas mediante la unidad de trabajo aprobada en la Etapa 3, sin trasladar reglas de stock a las rutas HTTP ni crear otro bounded context POS. Una atención puede aportar una referencia de consumo, sin que Inventario lea o escriba historia clínica. El modelo de persistencia de Etapa 4 está aprobado; el esquema físico de Etapa 5 fue aprobado y está implementado localmente.
+
+---
+
 ## Mapa de Contextos
+
+El mapa histórico siguiente conserva las relaciones de los contextos construidos anteriormente. Para el Contexto 13, la arquitectura aprobada define coordinación desde la capa de aplicación hacia Inventario y Finanzas mediante contratos y una unidad de trabajo compartida. El diagrama de [Etapa 3](inventory-technical-design.md) documenta esas dependencias; su integración ejecutable se verificó localmente en 2.42.0.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -636,7 +662,7 @@ Estas entidades son parte del modelo conceptual pero aún no existen como entida
 - `EscalationTicket` — Escalación como entidad del OS
 - `Commission` — Comisión por servicio como entidad (hoy se calcula mentalmente)
 - `DayClose` — Cierre del día como entidad generada automáticamente
-- `InventoryItem` — Insumos y stock básico
+- `InventoryItem` — Productos e insumos con existencias. Alcance funcional base aceptado e implementado localmente el 2026-10-02, Contexto 13; publicación y VPS pendientes.
 
 **Dominio Clínico:**
 - `ClinicalRecord` — Historia clínica como entidad raíz
@@ -655,6 +681,10 @@ Staff conserva cuatro perfiles de acceso: administrador, recepción y caja, vete
 `Pet.operationalAlerts` contiene indicaciones de manejo compartidas con recepción y peluquería. No reinterpreta ni publica las notas clínicas existentes. Las nuevas operaciones de cobro y ajuste de precio conservan una instantánea de la identidad autenticada; no se atribuye autor a filas históricas sin evidencia. Los ítems de venta distinguen servicio, producto y legado, sin alterar la resolución única de precios ni las comisiones inmutables.
 
 Diseño funcional, casos de uso, arquitectura, persistencia y esquema físico: [Perfiles y módulos](team-business-access.md).
+
+### Evolución explícita del alcance de Pet shop (2026-10-02)
+
+La exclusión de inventario en la reconciliación del 2026-10-01 describe el alcance aprobado entonces. El responsable del producto aprobó posteriormente las cinco etapas de diseño de Inventario; el ADR 015 promueve esa capacidad diferida con evidencia de la nueva necesidad. El Contexto 13 está implementado y verificado localmente en la versión 2.42.0. Pet shop habilita la venta del catálogo; Veterinaria y Peluquería habilitan el uso de insumos con permiso independiente `inventory_consume`. La publicación y migración de la VPS siguen pendientes. Evidencia: [informe de implementación](../history/ENTREGABLE_INVENTARIO_COMPLETION_REPORT.md).
 
 ## Versiones y Mantenimiento
 

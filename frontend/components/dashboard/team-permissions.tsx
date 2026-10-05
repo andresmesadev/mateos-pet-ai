@@ -19,6 +19,7 @@ export function TeamPermissions({ member, onSaved }: { member: { id: string; rol
     finally { setBusy(false); }
   }
   const options = [{ id: "cash", label: "Caja operativa", detail: "Cobrar y revisar movimientos de hoy; sin egresos, comisiones ni reportes generales." }, { id: "appointment_price", label: "Ajustar precio de una cita", detail: "Solo citas abiertas; las tarifas del catálogo y de futuras visitas siguen a cargo del administrador." }];
+  if (["vet", "groomer"].includes(member.role)) options.push({ id: "inventory_consume", label: "Registrar insumos utilizados", detail: "Descontar unidades de su área en una atención o con un motivo. No permite modificar costos, precios, entradas ni ajustes." });
   return <fieldset className="mt-4 space-y-3 rounded-xl border bg-slate-50 p-4"><legend className="px-2 text-sm font-semibold">Permisos adicionales</legend>
     {options.map(option => { const implicit = member.role === "receptionist" && option.id === "cash"; return <label key={option.id} className="flex items-start gap-3 text-sm">
       <input className="mt-1 accent-teal-700" type="checkbox" checked={implicit || selected.includes(option.id)} disabled={busy || implicit} onChange={event => setSelected(values => event.target.checked ? [...values, option.id] : values.filter(value => value !== option.id))} />

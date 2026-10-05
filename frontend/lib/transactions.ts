@@ -15,6 +15,12 @@ export const PAYMENT_METHOD_ICONS: Record<PaymentMethod, string> = {
 };
 
 export type TransactionItem = {
+  productId?: string | null;
+  productCode?: string | null;
+  presentation?: string | null;
+  priceVersion?: number | null;
+  priceSource?: string | null;
+  inventoryReturn?: { id: string; disposition: "restock" | "discard"; quantity: number; recordedAt: string } | null;
   id: string;
   description: string;
   itemKind?: "product" | "service" | "legacy";
@@ -33,6 +39,10 @@ export type Transaction = {
   petName: string | null;
   petType: string | null;
   appointmentId: string | null;
+  origin?: "manual_pos_sale" | "system_appointment_completed" | "legacy";
+  status?: "active" | "voided";
+  voidedAt?: string | null;
+  voidReason?: string | null;
   total: number;
   paymentMethod: PaymentMethod;
   recordedBy?: { id: string; name: string | null; role: string | null } | null;

@@ -12,12 +12,12 @@ const { InvalidTransactionOperationError } = require("../../../domain/errors");
  * adaptador debe consultar antes de crear una venta vinculada.
  */
 function createGuardManualSaleLinkUseCase({ transactionRepository, completedAppointmentsReader }) {
-  return async function execute({ tenantId, appointmentId }) {
+  return async function execute({ tenantId, appointmentId }, ctx) {
     if (!appointmentId) {
       return { allowed: true }; // venta de mostrador sin cita — sin restricciones nuevas
     }
 
-    const appointment = await completedAppointmentsReader.findById(tenantId ?? null, appointmentId);
+    const appointment = await completedAppointmentsReader.findById(tenantId ?? null, appointmentId, ctx);
     if (!appointment) {
       throw new InvalidTransactionOperationError(`La cita "${appointmentId}" no existe.`);
     }
@@ -30,7 +30,8 @@ function createGuardManualSaleLinkUseCase({ transactionRepository, completedAppo
 
     const systemCharge = await transactionRepository.findActiveByAppointment(
       appointmentId,
-      "system_appointment_completed"
+      "system_appointment_completed",
+      ctx
     );
     // Entregable 6.4 (Fase 6) — mismo chequeo de propiedad de tenant ya
     // aplicado en los casos de uso hermanos de este mismo módulo

@@ -131,6 +131,10 @@ npm run dev -- -p 3001
 
 Abre `http://localhost:3001/dashboard`.
 
+El comando de desarrollo utiliza Webpack. Si Windows bloquea el compilador nativo SWC, Next.js puede continuar con WebAssembly; la advertencia de bloqueo puede aparecer sin impedir el arranque. La configuración está en `frontend/next.config.mjs` y calcula la raíz con `import.meta.url`.
+
+Para comprobar la compilación local en ese entorno Windows, utiliza `npm run build -- --webpack` desde `frontend/`. El comando de compilación de producción sigue siendo `npm run build`.
+
 > El dashboard consume `http://localhost:3000/api/dashboard/stats`. Mantén el backend corriendo.
 
 ---

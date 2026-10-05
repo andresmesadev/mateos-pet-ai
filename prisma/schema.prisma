@@ -8,6 +8,156 @@ datasource db {
   extensions = [vector]
 }
 
+model InventoryProduct {
+  id              String @id @default(cuid())
+  tenantId        String
+  tenant          Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  name            String @db.VarChar(160)
+  category        String @db.VarChar(80)
+  internalCode    String @db.VarChar(64)
+  internalCodeKey String @db.VarChar(64)
+  barcode         String? @db.VarChar(80)
+  presentation    String @db.VarChar(80)
+  uses            String[]
+  referenceCost   Decimal @db.Decimal(10, 2)
+  salePrice       Decimal? @db.Decimal(10, 2)
+  stockMinimum    Int @default(0)
+  lotPolicy       String @db.VarChar(16)
+  active          Boolean @default(true)
+  metadataVersion Int @default(1)
+  priceVersion    Int @default(1)
+  stockRevision   Int @default(0)
+  createdAt       DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @db.Timestamptz(3)
+  lots            InventoryLot[]
+  items           TransactionItem[]
+  operations      InventoryOperation[]
+
+  @@unique([tenantId, id], map: "InventoryProduct_tenant_id_key")
+  @@unique([tenantId, internalCodeKey], map: "InventoryProduct_code_key")
+  @@unique([tenantId, barcode], map: "InventoryProduct_barcode_key")
+  @@index([tenantId, active, name], map: "InventoryProduct_catalog_idx")
+}
+
+model InventoryLot {
+  id              String @id @default(cuid())
+  tenantId        String
+  productId       String
+  product         InventoryProduct @relation(fields: [tenantId, productId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  groupKind       String @db.VarChar(16)
+  commercialCode  String? @db.VarChar(80)
+  commercialKey   String? @db.VarChar(80)
+  expiresOn       DateTime? @db.Date
+  balancePhysical Int @default(0)
+  firstReceivedAt DateTime @db.Timestamptz(3)
+  createdAt       DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @db.Timestamptz(3)
+  movements       InventoryMovement[]
+
+  @@unique([tenantId, productId, id], map: "InventoryLot_identity_key")
+  @@unique([tenantId, productId, commercialKey], map: "InventoryLot_commercial_key")
+  // Un agrupador untracked por producto: índice PARCIAL en SQL, no en Prisma.
+  @@index([tenantId, productId, expiresOn, firstReceivedAt, id], map: "InventoryLot_selection_idx")
+}
+
+model InventoryOperation {
+  id                String @id @default(cuid())
+  tenantId          String
+  tenant            Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  principalKey      String @db.VarChar(256)
+  kind              String @db.VarChar(40)
+  requestKey        String @db.Uuid
+  contractVersion   Int
+  payloadHash       String @db.Char(64)
+  actorId           String @db.VarChar(256)
+  actorName         String @db.VarChar(160)
+  actorRole         String @db.VarChar(32)
+  confirmedAt       DateTime @db.Timestamptz(3)
+  resultKind        String @db.VarChar(16)
+  resultProductId   String?
+  resultSaleId      String?
+  sourceOperationId String?
+  resultEvidence    Json?
+  product           InventoryProduct? @relation(fields: [tenantId, resultProductId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  sale              Transaction? @relation(fields: [tenantId, resultSaleId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  sourceOperation   InventoryOperation? @relation("InventoryCorrection", fields: [tenantId, sourceOperationId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  corrections       InventoryOperation[] @relation("InventoryCorrection")
+  movements         InventoryMovement[]
+  returns           InventoryReturnLine[]
+
+  @@unique([tenantId, id], map: "InventoryOperation_tenant_id_key")
+  @@unique([tenantId, principalKey, kind, requestKey], map: "InventoryOperation_request_key")
+  @@unique([tenantId, resultSaleId], map: "InventoryOperation_sale_key")
+  @@index([tenantId, confirmedAt, id], map: "InventoryOperation_history_idx")
+}
+
+model InventoryMovement {
+  id                       String @id @default(cuid())
+  tenantId                 String
+  operationId              String
+  operation                InventoryOperation @relation(fields: [tenantId, operationId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  productId                String
+  lotId                    String
+  lot                      InventoryLot @relation(fields: [tenantId, productId, lotId], references: [tenantId, productId, id], onDelete: Restrict, onUpdate: Restrict)
+  ordinal                  Int
+  kind                     String @db.VarChar(32)
+  quantity                 Int
+  stockDelta               Int
+  balanceBefore            Int
+  balanceAfter             Int
+  occurredAt               DateTime @db.Timestamptz(3)
+  reason                   String? @db.VarChar(1000)
+  actorId                  String @db.VarChar(256)
+  actorName                String @db.VarChar(160)
+  actorRole                String @db.VarChar(32)
+  productNameSnapshot      String @db.VarChar(160)
+  productCodeSnapshot      String @db.VarChar(64)
+  presentationSnapshot     String @db.VarChar(80)
+  lotCodeSnapshot          String? @db.VarChar(80)
+  expiresOnSnapshot        DateTime? @db.Date
+  entryUnitCost            Decimal? @db.Decimal(10, 2)
+  transactionId            String?
+  transactionItemId        String?
+  saleItem                 TransactionItem? @relation(fields: [tenantId, transactionId, transactionItemId, productId], references: [tenantId, transactionId, id, productId], onDelete: Restrict, onUpdate: Restrict)
+  area                     String? @db.VarChar(16)
+  appointmentId            String?
+  appointment              Appointment? @relation(fields: [tenantId, appointmentId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  sourceMovementId         String?
+  sourceMovement           InventoryMovement? @relation("InventoryCompensation", fields: [tenantId, sourceMovementId, productId, lotId], references: [tenantId, id, productId, lotId], onDelete: Restrict, onUpdate: Restrict)
+  compensations            InventoryMovement[] @relation("InventoryCompensation")
+  returnLineId             String?
+  returnLine               InventoryReturnLine? @relation(fields: [tenantId, returnLineId, transactionId, transactionItemId, productId], references: [tenantId, id, transactionId, transactionItemId, productId], onDelete: Restrict, onUpdate: Restrict)
+  countedQuantity          Int?
+  expectedStockRevision    Int?
+
+  @@unique([tenantId, id, productId, lotId], map: "InventoryMovement_source_key")
+  @@unique([tenantId, operationId, ordinal], map: "InventoryMovement_ordinal_key")
+  @@index([tenantId, productId, occurredAt, id], map: "InventoryMovement_product_history_idx")
+  @@index([tenantId, sourceMovementId], map: "InventoryMovement_compensation_idx")
+  @@index([tenantId, transactionItemId], map: "InventoryMovement_sale_item_idx")
+  @@index([tenantId, returnLineId], map: "InventoryMovement_return_idx")
+}
+
+model InventoryReturnLine {
+  id                String @id @default(cuid())
+  tenantId          String
+  operationId       String
+  operation         InventoryOperation @relation(fields: [tenantId, operationId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  transactionId     String
+  transactionItemId String @unique(map: "InventoryReturnLine_once_key")
+  productId         String
+  saleItem          TransactionItem @relation(fields: [tenantId, transactionId, transactionItemId, productId], references: [tenantId, transactionId, id, productId], onDelete: Restrict, onUpdate: Restrict)
+  quantity          Int
+  disposition       String @db.VarChar(16)
+  reason            String @db.VarChar(1000)
+  recordedAt        DateTime @db.Timestamptz(3)
+  movements         InventoryMovement[]
+
+  @@unique([tenantId, id, transactionId, transactionItemId, productId], map: "InventoryReturnLine_identity_key")
+  @@unique([tenantId, transactionId, transactionItemId, productId], map: "InventoryReturnLine_item_identity_key")
+  @@index([tenantId, transactionId], map: "InventoryReturnLine_sale_idx")
+}
+
 model Tenant {
   id        String   @id @default(cuid())
   name      String
@@ -45,6 +195,8 @@ model Tenant {
   staff         Staff[]
   nextActions   PetNextAction[]
   transactions  Transaction[]
+  inventoryProducts InventoryProduct[]
+  inventoryOperations InventoryOperation[]
   expenses      Expense[]
   commissions   Commission[]
   settlements   Settlement[]
@@ -67,7 +219,7 @@ model Staff {
   tenant    Tenant?  @relation(fields: [tenantId], references: [id])
   name      String
   role      String   // "vet" | "groomer" | "receptionist" | "admin"
-  accessPermissions String[] @default([]) // "cash" | "appointment_price"
+  accessPermissions String[] @default([]) // "cash" | "appointment_price" | "inventory_consume"
   phone     String?
   email     String?
   active    Boolean  @default(true)
@@ -514,6 +666,8 @@ model KnowledgeChunk {
 }
 
 model Appointment {
+  inventoryMovements InventoryMovement[]
+  @@unique([tenantId, id], map: "Appointment_inventory_tenant_id_key")
   id          String   @id @default(cuid())
   userId      String
   user        User @relation(fields: [userId], references: [id])
@@ -640,6 +794,9 @@ model Transaction {
   replacedBy            Transaction[] @relation("TransactionReplacement")
 
   items         TransactionItem[]
+  inventoryItems TransactionItem[] @relation("InventoryItemParent")
+  inventoryOperations InventoryOperation[]
+  @@unique([tenantId, id], map: "Transaction_inventory_tenant_id_key")
 
   // listTransactions y /metrics/revenue (tenantId + rango de paidAt)
   @@index([tenantId, paidAt])
@@ -660,6 +817,17 @@ model TransactionItem {
   quantity      Int     @default(1)
   unitPrice     Decimal @db.Decimal(10, 2)
   total         Decimal @db.Decimal(10, 2)
+  tenantId             String?
+  productId            String?
+  productCodeSnapshot  String?
+  presentationSnapshot String?
+  priceSourceSnapshot  String?
+  priceVersionSnapshot Int?
+  inventoryParent      Transaction? @relation("InventoryItemParent", fields: [tenantId, transactionId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  inventoryProduct     InventoryProduct? @relation(fields: [tenantId, productId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  inventoryMovements   InventoryMovement[]
+  inventoryReturn      InventoryReturnLine?
+  @@unique([tenantId, transactionId, id, productId], map: "TransactionItem_inventory_identity_key")
 
   // mapeo de items por transacción (revenue byItem)
   @@index([transactionId])

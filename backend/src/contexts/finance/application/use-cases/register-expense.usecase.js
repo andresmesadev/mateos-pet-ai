@@ -26,17 +26,18 @@ function createRegisterExpenseUseCase({ expenseRepository, dailyCloseRepository,
     if (!tenantId) {
       throw new MissingTenantError();
     }
-    if (typeof amount !== "number" || amount <= 0) {
-      throw new InvalidExpenseAttributesError("el monto debe ser un número positivo.");
+    if (typeof amount !== "number" || !Number.isFinite(amount) || amount < 0.01 || amount > 99999999.99 || Number(amount.toFixed(2)) !== amount) {
+      throw new InvalidExpenseAttributesError("el monto debe ser positivo, hasta 99.999.999,99 y con máximo dos decimales.");
     }
     if (category && !VALID_CATEGORIES.includes(category)) {
       throw new InvalidExpenseAttributesError(`categoría "${category}" no reconocida.`);
     }
-    if (!responsible || !responsible.trim()) {
+    if (typeof responsible !== "string" || !responsible.trim()) {
       throw new InvalidExpenseAttributesError("responsible es obligatorio.");
     }
 
     const expenseDate = date ? new Date(date) : new Date();
+    if (!Number.isFinite(expenseDate.getTime())) throw new InvalidExpenseAttributesError("la fecha del gasto no es válida.");
     const ymd = civilDateKey(expenseDate);
 
     const existingClose = await dailyCloseRepository.findByDate(tenantId, civilDateLabel(ymd));

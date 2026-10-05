@@ -111,3 +111,9 @@ jobs:
 
       - name: Lint frontend
         run: cd frontend && npm run lint
+
+      - name: Verify POS and dashboard helpers
+        run: node --test scripts/*.test.cjs
+
+      - name: Build frontend
+        run: npm --prefix frontend run build

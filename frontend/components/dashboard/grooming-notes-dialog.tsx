@@ -9,6 +9,7 @@ import { proxyUrl } from "@/lib/api";
 import { formatColombiaDateTime, formatStatus } from "@/lib/appointments";
 import { type GroomingVisit } from "@/lib/grooming";
 import { GroomingPetSummary } from "@/components/dashboard/grooming-pet-summary";
+import { ConsumptionButton } from "@/components/dashboard/inventory/consumption-button";
 
 export function GroomingNotesDialog({ visit, tenantId, onClose, onSaved, onStart, starting = false, startError }: {
   visit: GroomingVisit; tenantId?: string; onClose: () => void; onSaved: (visit: GroomingVisit) => void;
@@ -89,6 +90,7 @@ export function GroomingNotesDialog({ visit, tenantId, onClose, onSaved, onStart
         </DialogHeader>
         <div className="space-y-6 overflow-y-auto px-6 py-6 sm:px-8">
           <GroomingPetSummary visit={visit} tenantId={tenantId} />
+          {canWrite && ["in_progress", "completed"].includes(visit.status) && <ConsumptionButton area="grooming" appointmentId={visit.id} />}
           <div role="status" className="rounded-xl bg-amber-50 p-4 text-sm leading-relaxed text-amber-950">{canWrite ? "Escribe o pega aquí tus notas sobre el baño, corte, productos y cuidados. Después pulsa Guardar cambios." : !visit.petId ? "Solo lectura: vincula una mascota a esta cita desde Agenda para poder guardar notas." : `Solo lectura: esta cita figura como «${formatStatus(visit.status)}». Puedes seleccionar y copiar las notas existentes. Para registrar un baño o corte, abre la cita en la que sí se prestó el servicio.`}</div>
           <div className="space-y-2">
             <label htmlFor="grooming-notes" className="text-sm font-semibold">Notas de esta visita</label>

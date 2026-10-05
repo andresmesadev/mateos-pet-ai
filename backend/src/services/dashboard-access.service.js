@@ -1,5 +1,5 @@
 const MODULES = ["veterinary", "grooming", "retail"];
-const EXTRA_PERMISSIONS = ["cash", "appointment_price"];
+const EXTRA_PERMISSIONS = ["cash", "appointment_price", "inventory_consume"];
 const ROLES = ["admin", "vet", "groomer", "receptionist"];
 
 function effectiveAccess(actor, modules) {
@@ -12,6 +12,7 @@ function effectiveAccess(actor, modules) {
   const clinical = activeModules.includes("veterinary") && (admin || role === "vet");
   const grooming = activeModules.includes("grooming") && (admin || role === "groomer");
   const cash = known && (admin || role === "receptionist" || extras.includes("cash"));
+  const inventoryConsume = (clinical || grooming) && (admin || extras.includes("inventory_consume"));
   const capabilities = {
     administration: admin, finance: admin, chat: known,
     contacts: admin || role === "receptionist",
@@ -21,6 +22,9 @@ function effectiveAccess(actor, modules) {
     appointmentPrice: services && (admin || extras.includes("appointment_price")),
     retail: activeModules.includes("retail"),
     services,
+    inventory_read: admin || (cash && activeModules.includes("retail")) || inventoryConsume,
+    inventory_manage: admin,
+    inventory_consume: inventoryConsume,
   };
   const navigation = ["/dashboard"];
   if (capabilities.agenda) navigation.push("/dashboard/calendar");
@@ -29,6 +33,7 @@ function effectiveAccess(actor, modules) {
   if (capabilities.contacts) navigation.push("/dashboard/contacto", "/dashboard/clients", "/dashboard/pets");
   if (known) navigation.push("/dashboard/conversations");
   if (cash) navigation.push("/dashboard/pos");
+  if (capabilities.inventory_read) navigation.push("/dashboard/inventory");
   if (admin) navigation.push("/dashboard/settings", "/dashboard/staff", "/dashboard/services", "/dashboard/billing", "/dashboard/recuperacion", "/dashboard/churn", "/dashboard/opportunities", "/dashboard/reactivation", "/dashboard/revenue", "/dashboard/reports", "/dashboard/admin/tenants-overview");
   return { role, staffId: actor?.staffId ?? null, activeModules, accessPermissions: extras, capabilities, navigation: known ? navigation : [] };
 }
