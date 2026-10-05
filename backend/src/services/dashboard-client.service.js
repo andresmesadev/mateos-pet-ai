@@ -173,72 +173,9 @@ const getClientById = async (clientId, tenantId) => {
   };
 };
 
-// Clientes de peluquería cuya última visita fue hace más de 60 días.
-// Carga en batches de 500 para no agotar la memoria con bases de datos grandes.
-const INACTIVE_BATCH = 500;
-const INACTIVE_MAX = 1000;
-
-const listInactiveClients = async (tenantId) => {
-  const cutoff = new Date(Date.now() - 60 * 86_400_000);
-  const tenantFilter = tenantId ? { tenantId } : {};
-
-  const users = await prisma.user.findMany({
-    where: {
-      ...tenantFilter,
-      pets: { some: { medicalRecords: { some: { type: "grooming" } } } },
-    },
-    include: {
-      pets: {
-        select: {
-          name: true,
-          type: true,
-          medicalRecords: {
-            where: { type: "grooming" },
-            orderBy: { date: "desc" },
-            take: 1,
-            select: { date: true },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-      },
-    },
-    take: INACTIVE_BATCH,
-  });
-
-  const result = [];
-  for (const u of users) {
-    const groomingDates = u.pets
-      .flatMap((p) => p.medicalRecords.map((r) => r.date))
-      .filter(Boolean)
-      .map((d) => new Date(d));
-    const lastGrooming = groomingDates.length
-      ? new Date(Math.max(...groomingDates.map((d) => d.getTime())))
-      : null;
-
-    // Solo inactivos: última visita de grooming anterior al cutoff (60 días)
-    if (lastGrooming && lastGrooming >= cutoff) continue;
-
-    result.push({
-      id: u.id,
-      phone: u.phone,
-      name: u.name ?? null,
-      pets: u.pets.slice(0, 3).map(({ name, type }) => ({ name, type })),
-      lastVisitDate: lastGrooming ? lastGrooming.toISOString() : null,
-    });
-
-    if (result.length >= INACTIVE_MAX) break;
-  }
-
-  // Ordenar: menos inactivo primero (última visita más reciente = mayor fecha)
-  result.sort((a, b) => {
-    if (!a.lastVisitDate && !b.lastVisitDate) return 0;
-    if (!a.lastVisitDate) return 1;
-    if (!b.lastVisitDate) return -1;
-    return new Date(b.lastVisitDate).getTime() - new Date(a.lastVisitDate).getTime();
-  });
-
-  return result;
-};
+// Preserve the old array response for consumers without pagination parameters.
+const { listInactiveClientsPage } = require('./dashboard-inactive-clients.service');
+const listInactiveClients = async tenantId => (await listInactiveClientsPage(tenantId, { limit: 500 })).data;
 
 const updateClient = async (id, { name, phone, phoneAlt, email, address, notes }) => {
   return prisma.user.update({
@@ -259,4 +196,5 @@ module.exports = {
   getClientById,
   updateClient,
   listInactiveClients,
+  listInactiveClientsPage,
 };

@@ -13,7 +13,7 @@ const PATH_LABELS: Record<string, string> = {
   conversations: "WhatsApp",
   pos: "Punto de venta",
   inventory: "Inventario",
-  recuperacion: "Recuperación",
+  recuperacion: "Seguimiento de clientes",
   revenue: "Ingresos",
   settings: "Configuración",
   clients: "Clientes",

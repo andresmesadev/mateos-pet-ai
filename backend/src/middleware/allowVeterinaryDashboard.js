@@ -47,6 +47,8 @@ async function allowVeterinaryDashboard(req, res, next) {
     if (match(req, CHAT)) return c.chat ? next() : deny();
     if (match(req, CLINICAL)) {
       if (admin && req.method === "GET") return next(); // Archived history survives module deactivation.
+      // PetNextAction is shared by veterinary and grooming followups, not a clinical record.
+      if (admin && req.method === "PATCH" && /^\/next-actions\/[^/]+$/.test(req.path) && (c.clinical || c.grooming)) return next();
       return c.clinical ? next() : deny("Veterinaria no está habilitada para tu cuenta.");
     }
     if (match(req, GROOMING)) {

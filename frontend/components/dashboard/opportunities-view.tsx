@@ -1,259 +1,84 @@
-﻿"use client";
-
-import { useState } from "react";
-import { PartyPopper } from "lucide-react";
-
-import { Badge } from "@/components/ui/badge";
+"use client";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { EmptyState } from "@/components/dashboard/empty-state";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { CustomerFollowupActions } from "@/components/dashboard/customer-followup-actions";
+import { useDashboardAccess } from "@/components/dashboard/dashboard-access-provider";
 import { proxyUrl } from "@/lib/api";
 import { getPetEmoji, NEXT_ACTION_TYPES } from "@/lib/pets";
-import { type OpportunitiesData } from "@/app/dashboard/opportunities/page";
+import { useTenant } from "@/lib/use-tenant";
+import { followupDate, followupTiming, type OpportunitiesData, type FollowupEntry } from "@/lib/customer-followup";
 
-// ── helpers ──────────────────────────────────────────────────
-
-function whatsappUrl(phone: string, message: string): string {
-  const digits = phone.replace(/\D/g, "");
-  const e164 = digits.startsWith("57") ? digits : `57${digits}`;
-  return `https://wa.me/${e164}?text=${encodeURIComponent(message)}`;
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("es-CO", {
-    timeZone: "America/Bogota",
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-// ── Action row ────────────────────────────────────────────────
-
-type ActionEntry = {
-  actionId: string;
-  petId: string;
-  petName: string;
-  petType: string;
-  ownerName: string | null;
-  ownerPhone: string | null;
-  dueAt: string;
-  notes: string | null;
-  isOverdue: boolean;
-};
-
-function actionWhatsApp(entry: ActionEntry, typeLabel: string): string {
-  const pet = entry.petName;
-  const owner = entry.ownerName ?? "cliente";
-  return `Hola ${owner}, te recordamos que ${pet} tiene pendiente un ${typeLabel.toLowerCase()}. ¿Cuándo te queda bien?`;
-}
-
-function ActionRow({
-  entry,
-  typeLabel,
-  onDismiss,
-}: {
-  entry: ActionEntry;
-  typeLabel: string;
-  onDismiss: (id: string) => void;
-}) {
-  const [dismissing, setDismissing] = useState(false);
-
-  async function handleDismiss() {
-    setDismissing(true);
+function FollowupRow({ entry, onUpdated }: { entry: FollowupEntry; onUpdated: () => void }) {
+  const tenant = useTenant();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<"done" | "dismissed" | null>(null);
+  async function update() {
+    if (!confirm) return;
+    setBusy(true); setError(null);
     try {
-      await fetch(proxyUrl(`/api/dashboard/medical-records/${entry.actionId}/dismiss`), {
-        method: "PATCH",
+      const path = entry.source === "action" ? `next-actions/${encodeURIComponent(entry.actionId)}` : `medical-records/${encodeURIComponent(entry.actionId)}/dismiss`;
+      const res = await fetch(proxyUrl(`/api/dashboard/${path}${tenant ? `?tenantId=${encodeURIComponent(tenant)}` : ""}`), {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        ...(entry.source === "action" ? { body: JSON.stringify({ status: confirm }) } : {}),
       });
-      onDismiss(entry.actionId);
-    } catch {
-      setDismissing(false);
-    }
+      if (!res.ok) { const payload = await res.json().catch(() => null); throw new Error(payload?.error ?? "No se pudo guardar el cambio. El pendiente se conserva."); }
+      setConfirm(null); onUpdated();
+    } catch (err) { setError(err instanceof Error ? err.message : "No se pudo guardar el cambio."); }
+    finally { setBusy(false); }
   }
-
-  return (
-    <li className={`flex flex-wrap items-center gap-3 py-3 text-sm border-l-2 pl-3 -ml-px transition-colors hover:bg-muted/30 ${entry.isOverdue ? "border-l-red-500/60" : "border-l-transparent"}`}>
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted/60 text-base">
-        {getPetEmoji(entry.petType)}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-medium">{entry.petName}</span>
-          {entry.ownerName && (
-            <span className="text-muted-foreground text-xs">· {entry.ownerName}</span>
-          )}
-          {entry.isOverdue && (
-            <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] font-medium text-red-700">Vencido</span>
-          )}
-        </div>
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
-          <span className={`text-xs ${entry.isOverdue ? "text-red-700 font-medium" : "text-muted-foreground"}`}>
-            {formatDate(entry.dueAt)}
-          </span>
-          {entry.notes && (
-            <span className="text-xs text-muted-foreground">· {entry.notes}</span>
-          )}
-        </div>
-      </div>
-      <div className="flex gap-1.5 shrink-0">
-        {entry.ownerPhone && (
-          <Button asChild size="sm" variant="outline" className="h-7 px-2.5 text-xs gap-1.5 text-green-700 border-green-200 hover:bg-green-50 dark:text-green-700 dark:border-green-900 dark:hover:bg-green-950">
-            <a
-              href={whatsappUrl(entry.ownerPhone, actionWhatsApp(entry, typeLabel))}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              💬 WhatsApp
-            </a>
-          </Button>
-        )}
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-7 px-2 text-xs text-muted-foreground"
-          disabled={dismissing}
-          onClick={handleDismiss}
-        >
-          Descartar
-        </Button>
-      </div>
-    </li>
-  );
-}
-
-// ── Bulk send state ───────────────────────────────────────────
-
-type BulkState = "idle" | "sending" | "done" | "error";
-
-// ── Section per action type ───────────────────────────────────
-
-function ActionSection({
-  type,
-  entries: initial,
-}: {
-  type: string;
-  entries: ActionEntry[];
-}) {
-  const [entries, setEntries] = useState(initial);
-  const [bulkState, setBulkState] = useState<BulkState>("idle");
-  const [bulkResult, setBulkResult] = useState<{ sent: number; noPhone: number } | null>(null);
-
-  const meta = NEXT_ACTION_TYPES.find((t) => t.value === type);
-  const icon = meta?.icon ?? "📋";
-  const label = meta?.label ?? type;
-
-  const overdueCount = entries.filter((e) => e.isOverdue).length;
-  const withPhone = entries.filter((e) => e.ownerPhone).length;
-
-  async function handleBulkSend() {
-    if (!window.confirm(`¿Enviar recordatorio WhatsApp a ${withPhone} contacto${withPhone === 1 ? "" : "s"} con acciones de tipo "${label}"?`)) return;
-    setBulkState("sending");
-    setBulkResult(null);
-    try {
-      const res = await fetch(proxyUrl("/api/dashboard/campaigns/next-actions"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error ?? "Error al enviar");
-      setBulkResult({ sent: data.sent, noPhone: data.noPhone });
-      setBulkState("done");
-    } catch {
-      setBulkState("error");
-    }
-  }
-
-  if (entries.length === 0) return null;
-
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 flex-wrap text-base">
-          <span className="flex items-center gap-2">
-            {icon} {label}
-            <Badge variant="outline" className="ml-1">
-              {entries.length}
-            </Badge>
-            {overdueCount > 0 && (
-              <Badge className="border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-700">
-                {overdueCount} vencida{overdueCount === 1 ? "" : "s"}
-              </Badge>
-            )}
-          </span>
-          <span className="ml-auto flex items-center gap-2">
-            {bulkState === "done" && bulkResult && (
-              <span className="text-xs font-normal text-green-700 dark:text-green-700">
-                ✓ {bulkResult.sent} enviado{bulkResult.sent === 1 ? "" : "s"}
-                {bulkResult.noPhone > 0 && `, ${bulkResult.noPhone} sin teléfono`}
-              </span>
-            )}
-            {bulkState === "error" && (
-              <span className="text-xs font-normal text-destructive">Error al enviar</span>
-            )}
-            {withPhone > 0 && bulkState !== "done" && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 px-2.5 text-xs gap-1"
-                disabled={bulkState === "sending"}
-                onClick={handleBulkSend}
-              >
-                {bulkState === "sending" ? "Enviando…" : `📤 Enviar a todos (${withPhone})`}
-              </Button>
-            )}
-          </span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ul className="divide-y">
-          {entries.map((e) => (
-            <ActionRow
-              key={e.actionId}
-              entry={e}
-              typeLabel={label}
-              onDismiss={(id) => setEntries((prev) => prev.filter((x) => x.actionId !== id))}
-            />
-          ))}
-        </ul>
-      </CardContent>
-    </Card>
-  );
-}
-
-// ── Main view ─────────────────────────────────────────────────
-
-const TYPE_ORDER = ["control", "vaccine", "treatment", "exam", "grooming", "other"];
-
-export function OpportunitiesView({ data }: { data: OpportunitiesData }) {
-  const shown = Object.values(data.byType).reduce((s, arr) => s + arr.length, 0);
-  const total = data.total ?? shown;
-
-  if (total === 0) {
-    return (
-      <EmptyState
-        icon={<PartyPopper className="h-7 w-7" />}
-        title="Sin acciones pendientes"
-        description="El agente no ha detectado recordatorios pendientes todavía."
-      />
-    );
-  }
-
-  const orderedTypes = [
-    ...TYPE_ORDER.filter((t) => data.byType[t]?.length),
-    ...Object.keys(data.byType).filter((t) => !TYPE_ORDER.includes(t) && data.byType[t]?.length),
-  ];
-
-  return (
-    <div className="space-y-4">
-      {total > shown && (
-        <p className="text-xs text-muted-foreground">
-          Mostrando las <strong>{shown}</strong> acciones más urgentes de <strong>{total}</strong> en total.
-        </p>
-      )}
-      {orderedTypes.map((type) => (
-        <ActionSection key={type} type={type} entries={data.byType[type] ?? []} />
-      ))}
+  const label = entry.type === "grooming" ? "Peluquería" : NEXT_ACTION_TYPES.find(t => t.value === entry.type)?.label ?? entry.type;
+  return <li className="space-y-4 p-5 sm:p-6">
+    <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="flex min-w-0 flex-1 gap-3"><span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-xl">{getPetEmoji(entry.petType)}</span><div className="min-w-0 space-y-1">
+        <div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold">{entry.petName}</h3><Badge variant="outline">{label}</Badge>{followupTiming(entry.dayOffset) && <Badge className={entry.dayOffset! <= 0 ? "border-amber-200 bg-amber-50 text-amber-900" : "border-teal-200 bg-teal-50 text-teal-900"}>{followupTiming(entry.dayOffset)}</Badge>}</div>
+        <p className="text-sm text-muted-foreground">{entry.ownerName ?? "Propietario sin nombre"} · {followupDate(entry.dueAt)}</p>
+        {entry.notes && <p className="break-words whitespace-pre-wrap text-sm">{entry.notes}</p>}
+        {entry.reminderSentAt && <p className="text-xs text-muted-foreground">Último recordatorio: {followupDate(entry.reminderSentAt)}</p>}
+        {entry.source === "record" && <p className="text-xs text-muted-foreground">Pendiente de un registro anterior. Ocultarlo no lo marca como realizado.</p>}
+      </div></div>
+      <div className="flex flex-wrap gap-2">{entry.source === "action" && <Button size="sm" disabled={busy} onClick={() => setConfirm("done")}>Marcar realizado</Button>}<Button variant="outline" size="sm" disabled={busy} onClick={() => setConfirm("dismissed")}>{entry.source === "action" ? "Descartar" : "Ocultar pendiente"}</Button></div>
     </div>
-  );
+    <CustomerFollowupActions ownerId={entry.ownerId} petId={entry.petId} conversationId={entry.conversationId} category={entry.type === "grooming" ? "grooming" : ["control", "vaccine", "exam", "treatment"].includes(entry.type) ? "veterinary" : undefined} />
+    {confirm && <div className="rounded-xl border bg-muted/30 p-4"><p className="mb-3 text-sm">{confirm === "done" ? "Confirma que esta acción ya se realizó. Agendar una cita no completa este pendiente." : "¿Retirar este pendiente de la lista? El historial de la mascota se conserva."}</p><div className="flex gap-2"><Button size="sm" onClick={update} disabled={busy}>{busy ? "Guardando…" : "Confirmar"}</Button><Button size="sm" variant="outline" onClick={() => setConfirm(null)} disabled={busy}>Volver</Button></div></div>}
+    {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+  </li>;
+}
+
+export function OpportunitiesView({ data }: { data: OpportunitiesData | null }) {
+  const tenant = useTenant(); const router = useRouter(); const access = useDashboardAccess();
+  const [search, setSearch] = useState(""); const [type, setType] = useState(""); const [period, setPeriod] = useState("all"); const [page, setPage] = useState(1);
+  const [revision, setRevision] = useState(0);
+  const [result, setResult] = useState<{ key: string; data: OpportunitiesData | null; error: string | null } | null>(null);
+  const params = new URLSearchParams({ page: String(page), search, type, period });
+  if (tenant) params.set("tenantId", tenant);
+  const query = params.toString(); const key = `${query}|${revision}`;
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(proxyUrl(`/api/dashboard/opportunities?${query}`), { cache: "no-store", signal: controller.signal });
+        if (!res.ok) throw new Error("No se pudieron cargar los pendientes.");
+        setResult({ key, data: await res.json(), error: null });
+      } catch (err) { if (!controller.signal.aborted) setResult({ key, data: null, error: err instanceof Error ? err.message : "No se pudieron cargar los pendientes." }); }
+    }, 250);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [query, key]);
+  const initial = revision === 0 && page === 1 && !search && !type && period === "all";
+  const current = result?.key === key ? result.data : initial ? data : null;
+  const error = result?.key === key ? result.error : null;
+  const entries = current ? Object.values(current.byType).flat().sort((a, b) => a.dueAt.localeCompare(b.dueAt)) : [];
+  const types = NEXT_ACTION_TYPES.filter(t => t.value === "other" || (t.value === "grooming" ? access?.activeModules.includes("grooming") : access?.activeModules.includes("veterinary"))).map(t => t.value === "grooming" ? { ...t, label: "Peluquería" } : t);
+  function updated() { setRevision(r => r + 1); router.refresh(); }
+  return <section className="overflow-hidden rounded-2xl border bg-white shadow-sm">
+    <div className="space-y-4 border-b p-5 sm:p-6"><div><h2 className="text-xl font-semibold">Pendientes del expediente</h2><p className="mt-1 text-sm text-muted-foreground">Controles, cuidados y próximas visitas registrados para cada mascota. Fechas de Bogotá.</p></div>
+      <div className="flex flex-wrap items-end gap-3"><label className="min-w-0 flex-1 space-y-1 text-sm font-medium">Buscar mascota o propietario<Input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} placeholder="Nombre de la mascota o del propietario" /></label><label className="space-y-1 text-sm font-medium">Tipo de pendiente<select className="block h-11 max-w-full rounded-xl border bg-white px-3" value={type} onChange={e => { setType(e.target.value); setPage(1); }}><option value="">Todos los tipos</option>{types.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}</select></label><Button variant="outline" onClick={updated}>Actualizar</Button></div>
+      <div className="flex flex-wrap gap-2" aria-label="Filtrar pendientes por fecha">{([["all", "Todos"], ["past", "Fechas pasadas"], ["today", "Hoy"], ["next7", "Próximos 7 días"]] as const).map(([value, label]) => <Button key={value} variant={period === value ? "default" : "outline"} aria-pressed={period === value} onClick={() => { setPeriod(value); setPage(1); }}>{label}{current?.periodCounts ? ` · ${current.periodCounts[value]}` : ""}</Button>)}</div>
+      <p className="text-xs text-muted-foreground">Hoy corresponde al día de Bogotá. Próximos 7 días abarca desde mañana; las cantidades respetan la búsqueda y el tipo elegido.</p>
+    </div>
+    {error ? <div role="alert" className="space-y-3 p-6 text-amber-900"><p>{error}</p><Button variant="outline" onClick={updated}>Reintentar</Button></div> : !current ? <p role="status" className="p-8 text-muted-foreground">Consultando pendientes…</p> : entries.length ? <><ul className="divide-y">{entries.map(e => <FollowupRow key={`${e.source}:${e.actionId}`} entry={e} onUpdated={updated} />)}</ul><div className="flex flex-wrap items-center justify-between gap-3 border-t p-5"><p className="text-sm text-muted-foreground">{current.total} pendientes · Página {current.page} de {Math.max(1, current.totalPages)}</p><div className="flex gap-2"><Button variant="outline" disabled={current.page <= 1} onClick={() => setPage(current.page - 1)}>Anterior</Button><Button variant="outline" disabled={current.page >= current.totalPages} onClick={() => setPage(current.page + 1)}>Siguiente</Button></div></div></> : <div className="p-10 text-center"><h3 className="font-semibold">No hay pendientes en esta vista</h3><p className="mt-2 text-sm text-muted-foreground">{search || type || period !== "all" ? "Prueba con otros filtros." : access?.activeModules.some(m => ["grooming", "veterinary"].includes(m)) ? "Las próximas acciones que registres en el expediente aparecerán aquí." : "Activa un módulo de atención para gestionar los seguimientos de visitas."}</p></div>}
+  </section>;
 }

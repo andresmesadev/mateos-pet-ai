@@ -1,17 +1,21 @@
 // Mejora post-Fase 8 (2026-09-08): plantilla pre-aprobada de Meta para
 // reabrir la ventana de 24h con clientes inactivos ("Reactivar" en el
-// dashboard, componentes/dashboard/reactivation-campaign.tsx, hoy manda
-// texto libre y falla en silencio con clientes de más de 24h sin escribir).
+// dashboard). El adaptador dashboard-reactivation.service.js reutiliza
+// esta plantilla para contactos fuera de la ventana de atención.
 //
 // Nombre e idioma NO están hardcodeados a propósito: la plantilla todavía
 // está en aprobación en Meta Business Suite al momento de escribir esto.
 // Se leen de env — conectar la plantilla aprobada es poner
 // WHATSAPP_TEMPLATE_REACTIVACION_NAME / _LANG en el .env, sin tocar código.
 // Mientras no estén configuradas, isReactivationTemplateConfigured() es
-// false y el llamador decide el fallback (hoy: ninguno la invoca todavía —
-// deliberado, ver el commit de este cambio).
+// false y el dashboard bloquea el envío hasta completar la configuración.
 const { sendTemplateMessage } = require("../contexts/communication");
 const logger = require("../lib/logger");
+
+function renderReactivationTemplate(clientName) {
+  const name = String(clientName || "").trim() || "cliente";
+  return `Hola ${name} 👋 Somos Mateos Pet. Hace tiempo no vemos a tu mascota por acá y queríamos saludarte. Si quieres agendar una cita o tienes alguna pregunta, escríbenos por aquí 🐾`;
+}
 
 const isReactivationTemplateConfigured = () => {
   return Boolean(
@@ -36,7 +40,7 @@ const sendReactivationTemplate = async ({ tenantId, userId, phone, clientName, c
   }
 
   const name = String(clientName || "").trim() || "cliente";
-  const renderedContent = `Hola ${name} 👋 Somos Mateos Pet. Hace tiempo no vemos a tu mascota por acá y queríamos saludarte. Si quieres agendar una cita o tienes alguna pregunta, escríbenos por aquí 🐾`;
+  const renderedContent = renderReactivationTemplate(name);
 
   try {
     await sendTemplateMessage({
@@ -61,6 +65,7 @@ const sendReactivationTemplate = async ({ tenantId, userId, phone, clientName, c
 };
 
 module.exports = {
+  renderReactivationTemplate,
   isReactivationTemplateConfigured,
   sendReactivationTemplate,
 };

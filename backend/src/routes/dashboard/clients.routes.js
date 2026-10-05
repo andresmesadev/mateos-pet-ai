@@ -9,10 +9,10 @@ const {
   getClientById,
   updateClient,
   listInactiveClients,
+  listInactiveClientsPage,
 } = require("../../services/dashboard-client.service");
-// Entregable 3.1 — Comunicación: todo envío pasa exclusivamente por Enviar Mensaje.
-const { sendMessage } = require("../../contexts/communication");
 const { sendNextActionReminders } = require("../../services/next-action.service");
+const { reactivationContext, sendReactivationCampaign } = require("../../services/dashboard-reactivation.service");
 
 router.get("/clients", async (req, res) => {
   try {
@@ -528,9 +528,12 @@ router.post("/clients/with-pets", async (req, res) => {
 router.get("/clients/inactive", async (req, res) => {
   try {
     const { tenantId } = req.tenant;
-    const clients = await listInactiveClients(tenantId);
+    const clients = req.query.page !== undefined
+      ? await listInactiveClientsPage(tenantId, req.query)
+      : await listInactiveClients(tenantId);
     res.json(clients);
   } catch (error) {
+    if (error.status === 400) return res.status(400).json({ error: error.message });
     console.error("[Dashboard] Inactive clients error:", error);
     res.status(500).json({ error: ERRORS.INTERNAL });
   }
@@ -583,62 +586,18 @@ router.patch("/clients/:id", async (req, res) => {
   }
 });
 
+router.get("/campaigns/reactivation/context", (req, res) => {
+  if (!req.access.activeModules.includes("grooming")) return res.status(403).json({ error: "La reactivación por frecuencia corresponde al módulo de peluquería." });
+  res.json(reactivationContext());
+});
+
 router.post("/campaigns/reactivation", async (req, res) => {
   try {
-    const { clientIds, message } = req.body ?? {};
-
-    if (!Array.isArray(clientIds) || clientIds.length === 0) {
-      return res.status(400).json({ error: "clientIds es requerido" });
-    }
-
-    if (clientIds.length > 500) {
-      return res.status(400).json({ error: "Máximo 500 clientes por campaña" });
-    }
-
-    if (!message || typeof message !== "string" || !message.trim()) {
-      return res.status(400).json({ error: "message es requerido" });
-    }
-
-    const { tenantId } = req.tenant;
-    const users = await prisma.user.findMany({
-      where: {
-        id: { in: clientIds },
-        ...(tenantId ? { tenantId } : {}),
-      },
-      select: { id: true, phone: true, name: true },
-    });
-
-    let sent = 0;
-    let failed = 0;
-    let noPhone = 0;
-
-    const now = new Date();
-    for (const user of users) {
-      const phone = user.phone ?? "";
-      if (!phone || phone.toUpperCase().startsWith("NOPHONE")) {
-        noPhone++;
-        continue;
-      }
-      const text = message.replace(/\{nombre\}/g, user.name ?? "cliente");
-      try {
-        await sendMessage({
-          tenantId: tenantId ?? null,
-          userId: user.id,
-          phone,
-          content: text,
-          origin: "sistema",
-        });
-        sent++;
-        await prisma.user.update({ where: { id: user.id }, data: { lastReminderSentAt: now } });
-      } catch (error) {
-        failed++;
-      }
-    }
-
-    res.json({ sent, failed, noPhone, total: users.length });
+    if (!req.access.activeModules.includes("grooming")) return res.status(403).json({ error: "Peluquería no está habilitada." });
+    res.json(await sendReactivationCampaign(req.tenant.tenantId, req.body?.clientIds));
   } catch (error) {
     console.error("[Dashboard] Reactivation campaign error:", error);
-    res.status(500).json({ error: ERRORS.INTERNAL });
+    res.status(error.status || 500).json({ error: error.status ? error.message : ERRORS.INTERNAL });
   }
 });
 

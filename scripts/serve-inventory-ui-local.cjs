@@ -38,6 +38,7 @@ async function main() {
   prisma=require('../backend/src/lib/prisma');
   const tenant=await prisma.tenant.create({data:{name:'Inventario · prueba temporal',slug:name,phone:name,activeModules:['retail','veterinary','grooming']}});
   process.env.SINGLE_TENANT_ID=tenant.id;
+  const followupFixture = process.argv.includes('--seed-followups') ? await require('./followup-ui-fixture.cjs')(prisma, tenant) : null;
   const seedReports = process.argv.includes('--seed-reports');
   const seedPagination = process.argv.includes('--seed-pagination');
   const seedHistory = seedReports || process.argv.includes('--seed-history');
@@ -136,6 +137,7 @@ async function main() {
   }
   const express=require(path.join(root,'backend/node_modules/express'));
   const app=express();app.use(express.json());
+  if (followupFixture) app.use(followupFixture.intercept);
   // Test-only transport fault, after an actual private sale has committed.
   app.use((req,res,next)=>{
     if(seedReports && req.method==='GET' && req.path===failReportPath) {
@@ -180,6 +182,7 @@ async function main() {
       commandQueue=commandQueue.then(async()=>{
         const command=s.trim();
         if(command==='stop') {resolve();return;}
+        if(followupFixture && command.startsWith('followup-')) { await followupFixture.command(command); console.log('Private command applied: ' + command); return; }
         if(!seedPos) return;
         if(seedReports && ['fail-report-summary-once', 'fail-report-breakdown-once'].includes(command)) { failReportPath='/api/dashboard/reports/'+(command.includes('summary')?'summary':'breakdown'); console.log('Next private report section read will return 503.'); return; }
         if(command==='drop-sale-response') {dropSaleResponse=true;console.log('Next confirmed private sale response will be dropped.');return;}

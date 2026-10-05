@@ -1,123 +1,31 @@
-﻿"use client";
-
+"use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { OpportunitiesView } from "@/components/dashboard/opportunities-view";
 import { ReactivationCampaign } from "@/components/dashboard/reactivation-campaign";
 import { ChurnView } from "@/components/dashboard/churn-view";
-import { type RecuperacionData } from "@/app/dashboard/recuperacion/page";
+import { RecoveryCard } from "@/components/dashboard/recovery-card";
+import type { RecuperacionData } from "@/app/dashboard/recuperacion/page";
+const TAB_STYLE = "min-h-11 px-4 data-active:bg-teal-700 data-active:text-white data-active:hover:text-white";
 
-type Tab = "oportunidades" | "reactivar" | "churn";
-
-type Props = {
-  data: RecuperacionData;
-  initialTab: Tab;
-  oppCount: number;
-  inactiveCount: number;
-  churnCount: number;
-};
-
-export function RecuperacionView({ data, initialTab, oppCount, inactiveCount, churnCount }: Props) {
-  const [tab, setTab] = useState<Tab>(initialTab);
-
-  const churnHigh = data.churn.filter((c) => c.riskLevel === "high").length;
-  const churnMed  = data.churn.filter((c) => c.riskLevel === "medium").length;
-  const churnLow  = data.churn.filter((c) => c.riskLevel === "low").length;
-
-  const TABS: { id: Tab; label: string; count: number; dot?: "blue" | "orange" | "red" }[] = [
-    { id: "oportunidades", label: "Oportunidades", count: oppCount, dot: "blue" },
-    { id: "reactivar",     label: "Reactivar",     count: inactiveCount, dot: "orange" },
-    { id: "churn",         label: "Riesgo de abandono", count: churnCount, dot: "red" },
-  ];
-
-  const DOT_COLOR: Record<string, string> = {
-    blue:   "bg-blue-500",
-    orange: "bg-orange-500",
-    red:    "bg-red-500",
-  };
-
-  return (
-    <div className="space-y-4">
-      {/* Tab bar */}
-      <div role="tablist" aria-label="Vistas de recuperación" className="flex w-fit max-w-full flex-wrap gap-1 rounded-xl border border-border bg-white p-1">
-        {TABS.map(({ id, label, count, dot }) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={tab === id}
-            onClick={() => setTab(id)}
-            className={`flex min-h-10 items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors
-              ${tab === id
-                ? "bg-teal-700 text-white"
-                : "text-muted-foreground hover:text-foreground"}`}
-          >
-            {dot && (
-              <span className={`inline-block w-2 h-2 rounded-full ${DOT_COLOR[dot]}`} />
-            )}
-            {label}
-            {count > 0 && (
-              <span className={`ml-0.5 rounded-full px-1.5 py-0.5 text-xs font-semibold
-                ${tab === id ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"}`}>
-                {count}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab content */}
-      {tab === "oportunidades" && (
-        <OpportunitiesView data={data.opportunities} />
-      )}
-
-      {tab === "reactivar" && (
-        <ReactivationCampaign clients={data.inactive} />
-      )}
-
-      {tab === "churn" && (
-        <>
-          {/* Resumen churn dentro del tab */}
-          <div className="flex gap-3 flex-wrap">
-            <div className="flex items-center gap-3 rounded-xl border-t-2 border-t-red-500/60 border border-red-500/20 bg-red-500/5 px-4 py-3 min-w-[110px]">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/15 shrink-0">
-                <span className="text-xs font-bold text-red-700">!</span>
-              </div>
-              <div>
-                <p className="text-2xl font-bold tabular-nums text-red-800 leading-none">{churnHigh}</p>
-                <p className="text-xs text-red-500 mt-0.5">Riesgo alto</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 rounded-xl border-t-2 border-t-amber-500/60 border border-amber-500/20 bg-amber-500/5 px-4 py-3 min-w-[110px]">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/15 shrink-0">
-                <span className="text-xs font-bold text-amber-700">~</span>
-              </div>
-              <div>
-                <p className="text-2xl font-bold tabular-nums text-amber-800 leading-none">{churnMed}</p>
-                <p className="text-xs text-amber-500 mt-0.5">Riesgo medio</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 rounded-xl border-t-2 border-t-yellow-500/60 border border-yellow-500/20 bg-yellow-500/5 px-4 py-3 min-w-[110px]">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-500/15 shrink-0">
-                <span className="text-xs font-bold text-yellow-700">↓</span>
-              </div>
-              <div>
-                <p className="text-2xl font-bold tabular-nums text-yellow-800 leading-none">{churnLow}</p>
-                <p className="text-xs text-yellow-500 mt-0.5">Riesgo bajo</p>
-              </div>
-            </div>
-          </div>
-
-          {data.churn.length === 0 ? (
-            <div className="rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground">
-              No hay clientes con riesgo de abandono todavía.
-              <br />
-              Se necesitan al menos 2 citas completadas por cliente para calcular el riesgo.
-            </div>
-          ) : (
-            <ChurnView clients={data.churn} />
-          )}
-        </>
-      )}
-    </div>
-  );
+export function RecuperacionView({ data, grooming, initialTab }: { data: RecuperacionData; grooming: boolean; initialTab: string }) {
+  const router = useRouter();
+  const [frequency, setFrequency] = useState(initialTab === "churn");
+  function unavailable(label: string) { return <div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-6"><h2 className="font-semibold">No se pudo cargar {label}</h2><p className="my-2 text-sm">Intenta de nuevo para consultar los datos del establecimiento.</p><Button variant="outline" onClick={() => router.refresh()}>Reintentar</Button></div>; }
+  return <Tabs defaultValue={grooming && ["reactivar", "churn"].includes(initialTab) ? "clientes" : initialTab === "resultados" ? "resultados" : "pendientes"} className="gap-5">
+    <TabsList aria-label="Seguimiento de clientes" className="h-auto max-w-full flex-wrap justify-start gap-1 border bg-white p-1 group-data-horizontal/tabs:h-auto">
+      <TabsTrigger value="pendientes" className={TAB_STYLE}>Pendientes{data.opportunities ? ` · ${data.opportunities.total}` : ""}</TabsTrigger>
+      {grooming && <TabsTrigger value="clientes" className={TAB_STYLE}>Clientes por contactar</TabsTrigger>}
+      <TabsTrigger value="resultados" className={TAB_STYLE}>Resultados</TabsTrigger>
+    </TabsList>
+    <TabsContent value="pendientes"><OpportunitiesView data={data.opportunities} /></TabsContent>
+    {grooming && <TabsContent value="clientes" className="space-y-5">
+      <div><h2 className="text-xl font-semibold">Continuidad de peluquería</h2><p className="mt-1 text-sm text-muted-foreground">Revisa las visitas registradas antes de contactar. Estos criterios no indican el estado de salud de la mascota.</p></div>
+      <div className="flex flex-wrap gap-2"><Button variant={frequency ? "outline" : "default"} aria-pressed={!frequency} onClick={() => setFrequency(false)}>Sin visita en más de 60 días</Button><Button variant={frequency ? "default" : "outline"} aria-pressed={frequency} onClick={() => setFrequency(true)}>Según frecuencia habitual</Button></div>
+      {frequency ? data.churn ? <ChurnView clients={data.churn} /> : unavailable("la frecuencia de visitas") : data.inactive ? <ReactivationCampaign initialData={data.inactive} /> : unavailable("los clientes por contactar")}
+    </TabsContent>}
+    <TabsContent value="resultados" className="space-y-4"><Button variant="outline" onClick={() => router.refresh()}>Actualizar resultados</Button>{data.metrics ? <RecoveryCard metrics={data.metrics} grooming={grooming} /> : unavailable("los resultados")}</TabsContent>
+  </Tabs>;
 }

@@ -52,8 +52,8 @@ export function ClientsTable() {
   const [clients, setClients] = useState<DashboardClient[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(() => searchParams.get("client"));
+  const [sheetOpen, setSheetOpen] = useState(() => Boolean(searchParams.get("client")));
   const [initialEdit, setInitialEdit] = useState(false);
   const [newOpen, setNewOpen] = useState(() => searchParams.get("new") === "cliente");
   const [version, setVersion] = useState(0);

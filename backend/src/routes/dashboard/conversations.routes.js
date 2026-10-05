@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const prisma = require("../../lib/prisma");
+const { readFollowups } = require("../../services/dashboard-followup.service");
 const {
   listConversations,
   getConversationMessages,
@@ -200,68 +201,11 @@ router.post("/conversations/:id/send", async (req, res) => {
 });
 
 // ── Bandeja de oportunidades ──────────────────────────────────────────────────
-// Usa MedicalRecord.nextControlAt como fuente de recordatorios pendientes.
+// Read the expediente actions and non-duplicated legacy follow-ups.
 router.get("/opportunities", async (req, res) => {
   try {
     const { tenantId } = req.tenant;
-    const now = new Date();
-    // Ventana: vencidos en los últimos 180 días + próximos 60 días
-    const windowStart = new Date(now.getTime() - 180 * 86_400_000);
-    const windowEnd = new Date(now.getTime() + 60 * 86_400_000);
-
-    const tenantWhere = tenantId
-      ? { pet: { owner: { tenantId } } }
-      : {};
-
-    const recordWhere = {
-      ...tenantWhere,
-      nextControlAt: { gte: windowStart, lte: windowEnd },
-    };
-
-    const [total, records] = await Promise.all([
-      prisma.medicalRecord.count({ where: recordWhere }),
-      prisma.medicalRecord.findMany({
-        where: recordWhere,
-        orderBy: { nextControlAt: "asc" },
-        take: 50,
-        select: {
-          id: true,
-          type: true,
-          title: true,
-          nextControlAt: true,
-          reminderSent: true,
-          pet: {
-            select: {
-              id: true,
-              name: true,
-              type: true,
-              owner: { select: { id: true, name: true, phone: true } },
-            },
-          },
-        },
-      }),
-    ]);
-
-    const byType = {};
-    for (const r of records) {
-      const entry = {
-        actionId: r.id,
-        petId: r.pet.id,
-        petName: r.pet.name,
-        petType: r.pet.type,
-        ownerId: r.pet.owner?.id ?? null,
-        ownerName: r.pet.owner?.name ?? null,
-        ownerPhone: r.pet.owner?.phone ?? null,
-        dueAt: r.nextControlAt,
-        notes: r.title,
-        isOverdue: r.nextControlAt < now,
-      };
-      const key = r.type || "other";
-      if (!byType[key]) byType[key] = [];
-      byType[key].push(entry);
-    }
-
-    res.json({ byType, total });
+    res.json(await readFollowups(tenantId, req.access.activeModules, req.query));
   } catch (error) {
     console.error("[Dashboard] Opportunities error:", error);
     res.status(500).json({ error: "Internal server error" });
