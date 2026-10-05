@@ -1,8 +1,8 @@
-# Inventario de productos e insumos — implementación local
+# Inventario de productos e insumos — implementación y publicación
 
 Fecha: 2026-10-02. Versión del backend: **2.42.0**.
 
-Estado: implementación local validada. **Commit, push, tag y despliegue/migración de la VPS pendientes.** Este informe no declara una nueva fase ni reabre las fases cerradas.
+Estado: implementación validada y publicada en GitHub y en la VPS el **2026-10-05**, versión **2.42.0**. Las dos migraciones de Inventario se aplicaron correctamente en producción. Evidencia de publicación y comprobaciones: [RELEASE_2_42_0_VPS_20261005.md](RELEASE_2_42_0_VPS_20261005.md). Este informe no declara una nueva fase ni reabre las fases cerradas.
 
 ## Alcance y aprobaciones
 
@@ -77,4 +77,4 @@ El recorrido detectó que el diálogo de devolución desaparecía al terminar la
 
 Permanecen fuera del alcance aprobado: fracciones/conversiones de envases, compras y proveedores completos, valoración contable, reservas de stock, depósitos, traslados entre establecimientos, devoluciones parciales de ventas activas con reembolso y restricciones formales por receta. El comprobante es interno, no factura electrónica; anular/recibir mercancía no ejecuta reembolsos bancarios.
 
-La versión local está lista para revisión en `/dashboard/inventory`. Este cierre de implementación no certifica sincronización de GitHub ni de la VPS: publicar y aplicar allí la migración requiere el paso de despliegue correspondiente.
+La versión está disponible en `/dashboard/inventory`, tanto localmente como en producción. El despliegue del 2026-10-05 certificó la sincronización del código publicado y la aplicación de las migraciones; las comprobaciones en la VPS fueron de lectura y no crearon ventas ni movimientos de prueba en la base real.
