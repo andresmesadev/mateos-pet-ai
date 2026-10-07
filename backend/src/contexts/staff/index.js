@@ -40,6 +40,7 @@ const settlementRepository = new PrismaSettlementRepository();
 const serviceExistenceReader = new PrismaServiceExistenceReader();
 const serviceCategoryReader = new PrismaServiceCategoryReader();
 const businessConfigReader = new PrismaBusinessConfigReader();
+const { createCorrectAbsenceUseCase } = require('./application/use-cases/correct-absence.usecase');
 const eventPublisher = new StaffDomainEventsPublisher({ registerDomainEvent: events.registerDomainEvent });
 
 const registerStaff = createRegisterStaffUseCase({ staffRepository, eventPublisher });
@@ -72,6 +73,7 @@ const resolveStaffAvailability = createResolveStaffAvailabilityUseCase({
   staffCapabilityRepository,
   availabilityRepository,
   serviceExistenceReader,
+  serviceCategoryReader,
 });
 const listActiveStaff = createListActiveStaffUseCase({ staffRepository, staffCapabilityRepository });
 const listSettlements = createListSettlementsUseCase({ settlementRepository });
@@ -89,6 +91,30 @@ const voidCommission = createVoidCommissionUseCase({
 });
 
 module.exports = {
+  // Casos existentes sobre el cliente transaccional de la operación de Agenda.
+  availabilityCommands(db, publisher) {
+    const deps = {
+      staffRepository: { findById: id => db.staff.findUnique({ where: { id } }) },
+      availabilityRepository: {
+        findById: id => db.staffAvailability.findUnique({ where: { id } }),
+        voidCurrent: (id, data) => db.staffAvailability.updateMany({ where: { id, voidedAt: null }, data }),
+        listByStaff: staffId => db.staffAvailability.findMany({ where: { staffId } }),
+        listBaseScheduleByStaff: staffId => db.staffAvailability.findMany({ where: { staffId, type: 'base_schedule' } }),
+        create: data => db.staffAvailability.create({ data }),
+      },
+      eventPublisher: publisher,
+    };
+    return { updateAvailability: createUpdateAvailabilityUseCase(deps), recordUnplannedAbsence: createRecordUnplannedAbsenceUseCase(deps), correctAbsence: createCorrectAbsenceUseCase(deps) };
+  },
+  capabilitiesCommand(db, publisher, tenantId) {
+    return createManageStaffCapabilitiesUseCase({
+      staffRepository: { findById: id => db.staff.findUnique({ where: { id } }) },
+      staffCapabilityRepository: new PrismaStaffCapabilityRepository(db),
+      serviceExistenceReader: { exists: async id => Boolean(await db.service.findFirst({ where: { id, tenantId } })) },
+      eventPublisher: publisher,
+    });
+  },
+  publishAvailabilityEvent: (name, payload) => eventPublisher.publish(name, payload),
   voidCommission,
   registerStaff,
   updateStaff,

@@ -85,7 +85,7 @@ async function handler(
   }
 
   const body =
-    req.method !== "GET" && req.method !== "DELETE"
+    req.method !== "GET" && req.method !== "HEAD"
       ? await req.text()
       : undefined;
 

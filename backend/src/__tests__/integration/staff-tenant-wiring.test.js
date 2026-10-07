@@ -8,6 +8,8 @@
  */
 const express = require("express");
 const request = require("supertest");
+jest.mock('../../services/staff-scheduling.service', () => ({ changeAvailability: jest.fn(), saveServiceScope: jest.fn(), withStaffLock: (_id, run) => run() }));
+const { changeAvailability, saveServiceScope } = require('../../services/staff-scheduling.service');
 
 jest.mock("../../contexts/staff", () => ({
   registerStaff: jest.fn(),
@@ -46,38 +48,38 @@ beforeEach(() => jest.clearAllMocks());
 
 describe("Entregable 6.3 — tenantId propagado en rutas antes desprotegidas", () => {
   test("PUT /staff/:id/availability propaga tenantId", async () => {
-    updateAvailability.mockResolvedValue({ availability: { id: "a-1" } });
+    changeAvailability.mockResolvedValue({ availability: { id: "a-1" } });
 
     await request(buildApp())
       .put("/api/dashboard/staff/s-1/availability")
       .send({ type: "base_schedule", schedule: { weekday: 1, startTime: "08:00", endTime: "17:00" } });
 
-    expect(updateAvailability).toHaveBeenCalledWith(
-      expect.objectContaining({ staffId: "s-1", tenantId: TENANT_ID })
+    expect(changeAvailability).toHaveBeenCalledWith(
+      's-1', TENANT_ID, expect.objectContaining({ type: 'base_schedule' })
     );
   });
 
   test("POST /staff/:id/absences propaga tenantId", async () => {
-    recordUnplannedAbsence.mockResolvedValue({ availability: { id: "a-2" } });
+    changeAvailability.mockResolvedValue({ availability: { id: "a-2" } });
 
     await request(buildApp())
       .post("/api/dashboard/staff/s-1/absences")
       .send({ startAt: "2026-07-10T08:00:00Z", endAt: "2026-07-10T12:00:00Z" });
 
-    expect(recordUnplannedAbsence).toHaveBeenCalledWith(
-      expect.objectContaining({ staffId: "s-1", tenantId: TENANT_ID })
+    expect(changeAvailability).toHaveBeenCalledWith(
+      's-1', TENANT_ID, expect.objectContaining({ type: 'unplanned_absence' })
     );
   });
 
   test("PUT /staff/:id/capabilities propaga tenantId", async () => {
-    manageStaffCapabilities.mockResolvedValue({ capabilities: [], added: [], removed: [] });
+    saveServiceScope.mockResolvedValue({ capabilities: [], added: [], removed: [] });
 
     await request(buildApp())
       .put("/api/dashboard/staff/s-1/capabilities")
       .send({ serviceIds: ["svc-1"] });
 
-    expect(manageStaffCapabilities).toHaveBeenCalledWith(
-      expect.objectContaining({ staffId: "s-1", tenantId: TENANT_ID })
+    expect(saveServiceScope).toHaveBeenCalledWith(
+      's-1', TENANT_ID, { scope: 'selected', serviceIds: ['svc-1'] }
     );
   });
 });

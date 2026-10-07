@@ -19,9 +19,8 @@ function timeToMinutes(hhmm) {
  * @param {Array} baseScheduleRows - filas StaffAvailability con type = "base_schedule"
  */
 function isWithinBaseSchedule(baseScheduleRows, weekday, startTime, endTime) {
-  const day = baseScheduleRows.find((row) => row.weekday === weekday);
-  if (!day) return false;
-  return timeToMinutes(day.startTime) <= timeToMinutes(startTime) && timeToMinutes(endTime) <= timeToMinutes(day.endTime);
+  return baseScheduleRows.some(day => day.weekday === weekday &&
+    timeToMinutes(day.startTime) <= timeToMinutes(startTime) && timeToMinutes(endTime) <= timeToMinutes(day.endTime));
 }
 
 /**
@@ -32,6 +31,7 @@ function hasAbsenceOverlap(absenceRows, rangeStart, rangeEnd) {
   const start = new Date(rangeStart).getTime();
   const end = new Date(rangeEnd).getTime();
   return absenceRows.some((row) => {
+    if (row.voidedAt) return false;
     const absenceStart = new Date(row.startAt).getTime();
     const absenceEnd = new Date(row.endAt).getTime();
     return start < absenceEnd && absenceStart < end;

@@ -113,7 +113,56 @@ jobs:
         run: cd frontend && npm run lint
 
       - name: Verify POS and dashboard helpers
-        run: node --test scripts/*.test.cjs
+        run: |
+          mapfile -t helper_tests < <(find scripts -maxdepth 1 -name '*.test.cjs' ! -name '*-postgres.test.cjs' | sort)
+          node --test "${helper_tests[@]}"
 
       - name: Build frontend
         run: npm --prefix frontend run build
+
+  administration-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.6-pg18-bookworm
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: mateos_dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d mateos_dev"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mateos_dev
+      OPENAI_API_KEY: test
+      WHATSAPP_VERIFY_TOKEN: test
+      WHATSAPP_PHONE_NUMBER_ID: test
+      WHATSAPP_ACCESS_TOKEN: test
+      WHATSAPP_APP_SECRET: test
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+            frontend/package-lock.json
+      - name: Install test dependencies
+        run: |
+          npm ci
+          npm --prefix backend ci
+          npm --prefix frontend ci
+      - name: Generate Prisma clients and apply migrations
+        run: |
+          npx prisma generate
+          (cd backend && npx prisma generate --schema ../prisma/schema.prisma)
+          npx prisma migrate deploy
+      - name: Verify administration against isolated PostgreSQL
+        run: node --test scripts/*-postgres.test.cjs

@@ -46,6 +46,13 @@ const getDecimalHourInTimezone = (date) => {
   return getHourInTimezone(d) + parseInt(formatInTimeZone(d, TIMEZONE, "m"), 10) / 60;
 };
 
+/** Hora local válida, con precisión de minutos y sin fracciones de segundo. */
+const isMinutePrecisionHour = (value) => {
+  const hour = Number(value);
+  return Number.isFinite(hour) && hour >= 0 && hour < 24 &&
+    Math.abs(hour * 60 - Math.round(hour * 60)) < 1e-7;
+};
+
 /**
  * Día de semana JS (0=domingo … 6=sábado) para un dateKey calendario en Bogotá.
  * @param {string} dateKey
@@ -103,7 +110,7 @@ const zonedDateTimeToUtc = (dateKey, hour, minute = 0, second = 0, ms = 0) => {
   }
 
   const hourStr = String(Math.floor(h)).padStart(2, "0");
-  const minuteStr = String(Math.floor((h % 1) * 60 + minute)).padStart(2, "0");
+  const minuteStr = String(Math.round((h % 1) * 60 + minute)).padStart(2, "0");
   const secondStr = String(Math.floor(second)).padStart(2, "0");
   const msStr = String(Math.floor(ms)).padStart(3, "0");
 
@@ -166,6 +173,7 @@ module.exports = {
   toDateKey,
   getHourInTimezone,
   getDecimalHourInTimezone,
+  isMinutePrecisionHour,
   getDayOfWeekFromKey,
   getZonedYearMonthDay,
   dateKeyFromParts,

@@ -16,10 +16,16 @@ const {
   buildAbandonedBookingReminderMessage,
   sendAbandonedBookingReminder,
   markAbandonedBookingReminderSent,
+  buildReminderMessage,
 } = require("../../services/reminder.service");
 const { STEPS } = require("../../services/conversation.service");
 
 beforeEach(() => jest.clearAllMocks());
+
+test("el recordatorio de cita conserva la hora y los minutos de Bogotá", () => {
+  const message = buildReminderMessage({ date: new Date("2026-10-06T15:30:00Z"), petName: "Prueba", serviceType: "grooming" });
+  expect(message).toContain("10:30 AM");
+});
 
 describe("getAbandonedBookingConversations", () => {
   test("exige tenantId (mismo criterio tenant-blind que el resto del archivo)", async () => {

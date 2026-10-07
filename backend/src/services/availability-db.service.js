@@ -175,7 +175,7 @@ const isSlotAvailableWithConfig = async ({ dateKey, hour, serviceType, businessH
       return false;
     }
 
-    if (!Number.isInteger(h) && h + 1 > resolveHourWindow(type, key, businessHours, exception).endHourExclusive) {
+    if (h + 1 > resolveHourWindow(type, key, businessHours, exception).endHourExclusive) {
       return false;
     }
 
@@ -196,9 +196,11 @@ const isSlotAvailableWithConfig = async ({ dateKey, hour, serviceType, businessH
     // Grooming: regla de orden consecutivo — no se puede saltar un slot
     if (type === SERVICE_TYPES.GROOMING) {
       const { startHour } = resolveHourWindow(type, key, businessHours, exception);
+      // Los turnos de una hora empiezan en la apertura configurada, incluso a y media.
+      if (Math.abs((h - startHour) - Math.round(h - startHour)) > 1e-7) return false;
       if (startHour !== null && h > startHour) {
         for (let prev = startHour; prev < h; prev++) {
-          if (!booked.has(prev)) {
+          if (![...booked].some(bookedHour => Math.abs(bookedHour - prev) < 1e-7)) {
             console.log(`[AvailabilityDB] Grooming slot ${h}h bloqueado — slot ${prev}h sin ocupar (regla consecutiva)`);
             return false;
           }
@@ -254,7 +256,7 @@ const listAvailableSlotsForDate = async ({ dateKey, serviceType, tenantId, refer
   const step = type === SERVICE_TYPES.VET ? 0.5 : 1;
   const slots = [];
 
-  for (let h = Math.ceil(startHour / step) * step; h + 1 <= endHourExclusive && h < 24; h += step) {
+  for (let h = startHour; h + 1 <= endHourExclusive && h < 24; h += step) {
     if (await isSlotAvailableWithConfig({
       dateKey: key, hour: h, serviceType: type, businessHours, exception,
       referenceDate, tenantId, bookedHours,
@@ -295,7 +297,7 @@ const findNextAvailableGroomingSlot = async (options = {}) => {
 
       const { startHour, endHourExclusive } = resolveHourWindow(SERVICE_TYPES.GROOMING, cursor, businessHours, exception);
 
-      for (let h = startHour; h < endHourExclusive; h += 1) {
+      for (let h = startHour; h + 1 <= endHourExclusive; h += 1) {
         const available = await isSlotAvailableWithConfig({
           dateKey: cursor,
           hour: h,
@@ -373,11 +375,11 @@ const suggestAvailableVetSlots = async ({
     const suggestions = [];
     const { startHour, endHourExclusive } = resolveHourWindow(SERVICE_TYPES.VET, key, businessHours, exception);
 
-    for (let h = startHour; h < endHourExclusive; h += 1) {
+    for (let h = startHour; h + 1 <= endHourExclusive; h += 1) {
       if (Number.isFinite(requested) && h === requested) {
         continue;
       }
-      if (booked.has(h)) {
+      if ([...booked].some(bookedHour => Math.abs(bookedHour - h) < 1)) {
         continue;
       }
       if (!isWithinBusinessHours(SERVICE_TYPES.VET, h, key, businessHours, exception)) {

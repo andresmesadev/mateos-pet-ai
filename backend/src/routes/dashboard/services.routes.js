@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const prisma = require("../../lib/prisma");
+const { deleteRetiredService } = require("../../contexts/services");
+const { ServiceDeletionBlockedError } = require("../../contexts/services/domain/errors/service-deletion-blocked.error");
 // Entregable Puente: este adaptador delega en los casos de uso del contexto
 // Servicios (2.1) y absorbe la traducción category (nombre) ↔ categoryId que
 // vivía en service.service.js, sin cambiar el contrato hacia el frontend.
@@ -34,6 +36,7 @@ async function resolveCategoryId(tenantId, categoryName) {
 }
 
 function mapServiceDomainError(res, error) {
+  if (error instanceof ServiceDeletionBlockedError) return res.status(409).json({ error: error.message });
   if (error instanceof InvalidServiceAttributesError || error instanceof InvalidPriceError) {
     return res.status(400).json({ error: error.message });
   }
@@ -199,6 +202,17 @@ router.patch("/services/:id", async (req, res) => {
     console.error("[Dashboard] Update service error:", error);
     if (error.code === "P2025") return res.status(404).json({ error: "Service not found" });
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.delete("/services/:id/permanent", async (req, res) => {
+  try {
+    await deleteRetiredService({ tenantId: req.tenant.tenantId, serviceId: req.params.id, confirmName: req.body?.confirmName });
+    return res.status(204).end();
+  } catch (error) {
+    if (mapServiceDomainError(res, error)) return;
+    console.error("[Dashboard] Permanent service deletion error:", error);
+    return res.status(500).json({ error: "No se pudo eliminar el servicio. Intenta de nuevo." });
   }
 });
 

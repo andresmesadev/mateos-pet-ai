@@ -46,6 +46,32 @@ beforeEach(() => {
   prisma.appointment.findMany.mockResolvedValue([]);
 });
 
+describe("horarios con minutos sin cambiar la capacidad de un turno", () => {
+  const referenceDate = new Date("2026-01-07T12:00:00Z");
+  const options = { dateKey: THURSDAY, tenantId: "t-1", referenceDate };
+  beforeEach(() => prisma.tenant.findUnique.mockResolvedValue({ businessHours: { thu: { active: true, open: "10:30", close: "15:10" } } }));
+
+  test("lista turnos desde la apertura exacta y exige que quepan antes del cierre", async () => {
+    await expect(listAvailableSlotsForDate({ ...options, serviceType: "vet" })).resolves.toEqual([10.5, 11, 11.5, 12, 12.5, 13, 13.5, 14]);
+    await expect(listAvailableSlotsForDate({ ...options, serviceType: "grooming" })).resolves.toEqual([10.5]);
+    await expect(isSlotAvailable({ ...options, serviceType: "vet", hour: 14.5 })).resolves.toBe(false);
+    await expect(suggestAvailableVetSlots({ ...options })).resolves.toEqual({ dateKey: THURSDAY, hours: [10.5, 11.5, 12.5] });
+  });
+
+  test("peluquería conserva orden y separación de una hora desde las 10:30", async () => {
+    await expect(isSlotAvailable({ ...options, serviceType: "grooming", hour: 11.5 })).resolves.toBe(false);
+    prisma.appointment.findMany.mockResolvedValue([{ id: "minutes", date: new Date("2026-01-08T15:30:00Z"), serviceType: "grooming", status: "confirmed" }]);
+    await expect(isSlotAvailable({ ...options, serviceType: "grooming", hour: 11.5 })).resolves.toBe(true);
+    await expect(isSlotAvailable({ ...options, serviceType: "grooming", hour: 11.75 })).resolves.toBe(false);
+  });
+
+  test("respeta aperturas a las 10:20 también en sugerencias", async () => {
+    prisma.tenant.findUnique.mockResolvedValue({ businessHours: { thu: { active: true, open: "10:20", close: "15:10" } } });
+    const first = 10 + 20 / 60;
+    await expect(findNextAvailableGroomingSlot({ tenantId: "t-1", referenceDate: new Date("2026-01-08T12:00:00Z") })).resolves.toEqual({ date: THURSDAY, hour: first });
+  });
+});
+
 describe("isSlotAvailable — comportamiento legado (sin tenantId)", () => {
   test("hora dentro del horario legado vet (11am-5pm) sin citas previas está disponible", async () => {
     const available = await isSlotAvailable({ dateKey: THURSDAY, hour: 12, serviceType: "vet" });

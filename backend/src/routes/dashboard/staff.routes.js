@@ -1,6 +1,9 @@
 const express = require("express");
 const router = express.Router();
 const prisma = require("../../lib/prisma");
+const { staffEditorError } = require("../../services/staff-editor-validation.service");
+const { withStaffLock, assignmentReason, saveWeeklySchedule, changeAvailability, staffReview, correctAbsence, readServiceScope, saveServiceScope } = require('../../services/staff-scheduling.service');
+const { buildAppointmentDateTime } = require('../../services/appointment.service');
 const { normalizeEmail, validPassword, hashPassword } = require("../../services/staff-credential.service");
 // Entregable Puente: este adaptador delega en los casos de uso del contexto
 // Staff (2.2) — el roster deja de gestionarse vía staff.service.js legacy.
@@ -9,9 +12,6 @@ const {
   updateStaff,
   deactivateStaff,
   reactivateStaff,
-  updateAvailability,
-  manageStaffCapabilities,
-  recordUnplannedAbsence,
   generateSettlement,
   listSettlements,
   voidCommission,
@@ -69,6 +69,19 @@ function mapStaffDomainError(res, error) {
   return null;
 }
 
+function staffEditorRow(row) {
+  const { availabilities, ...member } = row;
+  const base = availabilities?.filter(a => a.type === 'base_schedule') ?? [];
+  if (!base.length) return member;
+  const days = ['sun','mon','tue','wed','thu','fri','sat'];
+  member.availability = {};
+  for (const window of base) {
+    const key = days[window.weekday], prior = member.availability[key];
+    const windows = [...(prior?.windows ?? []), {open:window.startTime,close:window.endTime}].sort((a,b)=>a.open.localeCompare(b.open));
+    member.availability[key] = { active:true, open:windows[0].open, close:windows[windows.length-1].close, windows };
+  }
+  return member;
+}
 router.get("/staff", async (req, res) => {
   try {
     const { tenantId } = req.tenant;
@@ -83,9 +96,9 @@ router.get("/staff", async (req, res) => {
     const rows = await prisma.staff.findMany({
       where: tenantId ? { tenantId } : {},
       orderBy: [{ role: "asc" }, { name: "asc" }],
-      include: { credential: { select: { email: true, active: true } } },
+      include: { credential: { select: { email: true, active: true } }, availabilities: { where: { type: 'base_schedule' } } },
     });
-    res.json(rows);
+    res.json(rows.map(staffEditorRow));
   } catch (error) {
     console.error("[Dashboard] Staff error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -165,6 +178,9 @@ router.post("/staff", async (req, res) => {
     const { tenantId } = req.tenant;
     const { name, role, phone, email } = req.body ?? {};
 
+    const invalid = staffEditorError(req.body ?? {});
+    if (invalid) return res.status(400).json({ error: invalid });
+
     if (!name || typeof name !== "string" || !name.trim()) {
       return res.status(400).json({ error: "name es requerido" });
     }
@@ -191,30 +207,36 @@ router.post("/staff", async (req, res) => {
 router.get("/staff/available", async (req, res) => {
   try {
     const { tenantId } = req.tenant;
-    const { date, time } = req.query;
+    const { date, time, serviceId, appointmentId, serviceType } = req.query;
 
     if (!date || !time) return res.status(400).json({ error: "date y time son requeridos" });
 
-    const DOW_MAP = ["sun","mon","tue","wed","thu","fri","sat"];
-    const dayKey = DOW_MAP[new Date(`${date}T12:00:00Z`).getUTCDay()];
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time) ||
+        Number.isNaN(new Date(`${date}T12:00:00Z`).getTime()) || new Date(`${date}T12:00:00Z`).toISOString().slice(0, 10) !== date) return res.status(400).json({ error: 'Fecha y hora no válidas.' });
+    const service = serviceId ? await prisma.service.findFirst({ where: { id: String(serviceId), tenantId }, include: { category: true } }) : null;
+    if (serviceId && !service) return res.status(404).json({ error: 'Servicio no encontrado.' });
 
     const allStaff = await prisma.staff.findMany({
       where: { ...(tenantId ? { tenantId } : {}), active: true },
       select: { id: true, name: true, role: true, availability: true },
     });
 
-    const available = allStaff.filter((s) => {
-      if (!s.availability) return true; // no restrictions = always available
-      const day = s.availability[dayKey];
-      if (!day || !day.active) return false;
-      return time >= day.open && time < day.close;
-    });
+    const at = buildAppointmentDateTime(date, Number(time.slice(0, 2)) + Number(time.slice(3)) / 60);
+    const available = [];
+    for (const staff of allStaff) {
+      if (!await assignmentReason(prisma, { staffId: staff.id, tenantId, date: at, service, serviceType, appointmentId: appointmentId ? String(appointmentId) : undefined })) available.push(staff);
+    }
 
     res.json(available.map((s) => ({ id: s.id, name: s.name, role: s.role })));
   } catch (error) {
     console.error("[Dashboard] Staff available error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
+});
+
+router.get('/staff/:id/availability-review', async (req, res) => {
+  try { res.json(await staffReview(req.params.id, req.tenant.tenantId)); }
+  catch (error) { res.status(error.status || 503).json({ error: error.status ? error.message : 'No se pudo cargar la disponibilidad.' }); }
 });
 
 router.patch("/staff/:id", async (req, res) => {
@@ -229,38 +251,43 @@ router.patch("/staff/:id", async (req, res) => {
     });
     if (!existing) return res.status(404).json({ error: "Staff not found" });
 
+    // Validar todo antes del primer comando para no guardar parcialmente
+    // atributos cuando el mismo envío contiene un horario inválido.
+    const invalid = staffEditorError(req.body ?? {});
+    if (invalid) return res.status(400).json({ error: invalid });
+
     if (role !== undefined && !VALID_ROLES.includes(role)) {
       return res.status(400).json({ error: `role debe ser uno de: ${VALID_ROLES.join(", ")}` });
     }
 
     // Atributos del roster — caso de uso Actualizar Staff (2.2).
     if (name !== undefined || role !== undefined || phone !== undefined || email !== undefined) {
-      await updateStaff({
+      await withStaffLock(id, () => updateStaff({
         staffId: id,
         tenantId,
         ...(name !== undefined ? { name: String(name).trim() } : {}),
         ...(role !== undefined ? { role } : {}),
         ...(phone !== undefined ? { phone: phone?.trim() || null } : {}),
         ...(email !== undefined ? { email: email?.trim() || null } : {}),
-      });
+      }));
     }
 
     // Activación/desactivación — casos de uso propios (2.2).
     if (active === false && existing.active) {
-      await deactivateStaff({ staffId: id, tenantId });
+      await withStaffLock(id, () => deactivateStaff({ staffId: id, tenantId }));
     } else if (active === true && !existing.active) {
-      await reactivateStaff({ staffId: id, tenantId });
+      await withStaffLock(id, () => reactivateStaff({ staffId: id, tenantId }));
     }
 
-    // Disponibilidad semanal JSON: campo legado de Fase 1 (ADR 003 — convive
-    // sin sincronización con StaffAvailability). Passthrough del adaptador.
+    // ADR 011: semana + franjas estructuradas sincronizadas, ausencias conservadas.
     if (availability !== undefined) {
-      await prisma.staff.update({ where: { id }, data: { availability } });
+      await saveWeeklySchedule(id, tenantId, availability);
     }
 
-    const updated = await prisma.staff.findUnique({ where: { id } });
-    res.json(updated);
+    const updated = await prisma.staff.findUnique({ where: { id }, include: { availabilities: { where: { type: 'base_schedule' } } } });
+    res.json(staffEditorRow(updated));
   } catch (error) {
+    if (error.code === 'STAFF_UNAVAILABLE') return res.status(error.status).json({ error: error.message });
     if (mapStaffDomainError(res, error)) return;
     console.error("[Dashboard] Update staff error:", error);
     if (error.code === "P2025") return res.status(404).json({ error: "Staff not found" });
@@ -280,7 +307,7 @@ router.delete("/staff/:id", async (req, res) => {
     if (!existing) return res.status(404).json({ error: "Staff not found" });
 
     // Regla de dominio 2.2: el roster no borra — desactiva (mismo 204 hacia fuera).
-    await deactivateStaff({ staffId: id, tenantId });
+    await withStaffLock(id, () => deactivateStaff({ staffId: id, tenantId }));
     res.status(204).end();
   } catch (error) {
     if (mapStaffDomainError(res, error)) return;
@@ -297,9 +324,10 @@ router.put("/staff/:id/availability", async (req, res) => {
   try {
     const { tenantId } = req.tenant;
     const { type, schedule, range } = req.body ?? {};
-    const { availability } = await updateAvailability({ staffId: req.params.id, type, schedule, range, tenantId });
+    const { availability } = await changeAvailability(req.params.id, tenantId, { type, schedule, range });
     res.json({ availability });
   } catch (error) {
+    if (error.code === 'STAFF_UNAVAILABLE') return res.status(error.status).json({ error: error.message });
     if (mapStaffDomainError(res, error)) return;
     console.error("[Dashboard] Update availability error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -310,10 +338,12 @@ router.put("/staff/:id/availability", async (req, res) => {
 router.post("/staff/:id/absences", async (req, res) => {
   try {
     const { tenantId } = req.tenant;
-    const { startAt, endAt, reason } = req.body ?? {};
-    const { availability } = await recordUnplannedAbsence({ staffId: req.params.id, startAt, endAt, reason, tenantId });
+    const { startAt, endAt, reason, type = 'unplanned_absence' } = req.body ?? {};
+    if (!['planned_absence', 'unplanned_absence'].includes(type) || (reason != null && (typeof reason !== 'string' || reason.length > 1000))) return res.status(400).json({ error: 'Tipo o motivo de ausencia no válido.' });
+    const { availability } = await changeAvailability(req.params.id, tenantId, { type, range: { startAt, endAt, reason } });
     res.status(201).json({ availability });
   } catch (error) {
+    if (error.code === 'STAFF_UNAVAILABLE') return res.status(error.status).json({ error: error.message });
     if (mapStaffDomainError(res, error)) return;
     console.error("[Dashboard] Record absence error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -325,12 +355,38 @@ router.put("/staff/:id/capabilities", async (req, res) => {
   try {
     const { tenantId } = req.tenant;
     const { serviceIds } = req.body ?? {};
-    const result = await manageStaffCapabilities({ staffId: req.params.id, serviceIds, tenantId });
+    const result = await saveServiceScope(req.params.id, tenantId, { scope:'selected', serviceIds });
     res.json(result);
   } catch (error) {
+    if (error.code === 'STAFF_UNAVAILABLE') return res.status(error.status).json({ error: error.message });
     if (mapStaffDomainError(res, error)) return;
     console.error("[Dashboard] Manage capabilities error:", error);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post('/staff/:id/absences/:absenceId/change', async (req,res) => {
+  try {
+    const { action,changeReason,range } = req.body ?? {};
+    const result=await correctAbsence(req.params.id,req.tenant.tenantId,{absenceId:req.params.absenceId,action,changeReason,range,author:req.actor?.name || req.actor?.email || 'Administrador'});
+    return res.json(result);
+  } catch(error) {
+    if (error.code === 'ABSENCE_NOT_FOUND') return res.status(404).json({error:error.message});
+    if (error.code === 'ABSENCE_CONFLICT') return res.status(409).json({error:error.message});
+    if (mapStaffDomainError(res,error)) return;
+    return res.status(500).json({error:'No se pudo guardar la corrección de la ausencia.'});
+  }
+});
+router.get('/staff/:id/services', async(req,res)=>{
+  try { return res.json(await readServiceScope(req.params.id,req.tenant.tenantId)); }
+  catch(error) { return res.status(error.status || 503).json({error:error.status ? error.message : 'No se pudieron consultar los servicios del integrante.'}); }
+});
+router.put('/staff/:id/services',async(req,res)=>{
+  try { const {scope,serviceIds}=req.body ?? {};return res.json(await saveServiceScope(req.params.id,req.tenant.tenantId,{scope,serviceIds})); }
+  catch(error) {
+    if(error.code==='STAFF_UNAVAILABLE')return res.status(error.status).json({error:error.message});
+    if(mapStaffDomainError(res,error))return;
+    return res.status(503).json({error:'No se pudieron guardar los servicios del integrante.'});
   }
 });
 

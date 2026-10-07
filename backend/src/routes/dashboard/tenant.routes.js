@@ -83,7 +83,7 @@ router.get("/tenant/profile", async (req, res) => {
     const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
       select: {
-        id: true, name: true, slug: true, phone: true, email: true,
+        id: true, name: true, slug: true, phone: true, contactPhone: true, email: true,
         description: true, address: true, logoUrl: true, businessHours: true,
         plan: true, active: true, createdAt: true,
         activeModules: true, commissionSplitRate: true,
@@ -105,10 +105,40 @@ router.put("/tenant/profile", async (req, res) => {
     const tenantId = resolveTenantId(req);
     if (!tenantId) return res.status(403).json({ error: "Forbidden" });
 
-    const { name, email, description, address, logoUrl, businessHours } = req.body ?? {};
+    const { name, phone, contactPhone, email, description, address, logoUrl, businessHours } = req.body ?? {};
+
+    // Tenant.phone is also used to resolve inbound WhatsApp by phoneNumberId.
+    // It cannot be treated as an editable business contact number here.
+    if (phone !== undefined) {
+      return res.status(400).json({ error: "El identificador del canal de WhatsApp no se modifica desde Datos del negocio." });
+    }
+    let normalizedContactPhone;
+    if (contactPhone !== undefined) {
+      if (contactPhone === null || (typeof contactPhone === "string" && !contactPhone.trim())) {
+        normalizedContactPhone = null;
+      } else {
+        if (typeof contactPhone !== "string" || contactPhone.length > 40 || !/^\+?[0-9\s().-]+$/.test(contactPhone.trim())) {
+          return res.status(400).json({ error: "Escribe un teléfono de contacto válido: entre 7 y 15 dígitos, con código de país si corresponde." });
+        }
+        normalizedContactPhone = contactPhone.trim().replace(/[\s().-]/g, "");
+        if (!/^\+?[0-9]{7,15}$/.test(normalizedContactPhone)) {
+          return res.status(400).json({ error: "El teléfono de contacto debe tener entre 7 y 15 dígitos." });
+        }
+      }
+    }
+    for (const [key, value, limit] of [["name", name, 160], ["email", email, 254], ["description", description, 2000], ["address", address, 500]]) {
+      if (value === undefined || (value === null && key !== "name")) continue;
+      if (typeof value !== "string" || value.trim().length > limit || (key === "name" && !value.trim())) {
+        return res.status(400).json({ error: `Revisa el campo ${key === "name" ? "nombre del negocio" : key === "email" ? "correo electrónico" : key === "address" ? "dirección" : "descripción"}.` });
+      }
+    }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      return res.status(400).json({ error: "Escribe un correo electrónico válido." });
+    }
 
     const data = {};
     if (name !== undefined) data.name = String(name).trim();
+    if (contactPhone !== undefined) data.contactPhone = normalizedContactPhone;
     if (email !== undefined) data.email = email?.trim() || null;
     if (description !== undefined) data.description = description?.trim() || null;
     if (address !== undefined) data.address = address?.trim() || null;
@@ -125,7 +155,7 @@ router.put("/tenant/profile", async (req, res) => {
       where: { id: tenantId },
       data,
       select: {
-        id: true, name: true, slug: true, phone: true, email: true,
+        id: true, name: true, slug: true, phone: true, contactPhone: true, email: true,
         description: true, address: true, logoUrl: true, businessHours: true,
         plan: true, active: true,
       },

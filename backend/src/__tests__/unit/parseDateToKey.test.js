@@ -1,4 +1,14 @@
-const { parseDateToKey, parseTimeToHour, extractExplicitSchedulingTerms } = require("../../services/scheduling.service");
+const { parseDateToKey, parseTimeToHour, formatHourAmPm, extractExplicitSchedulingTerms } = require("../../services/scheduling.service");
+
+test("la conversación conserva minutos escritos y rechaza horas inválidas", () => {
+  expect(parseTimeToHour("10:30 am")).toBe(10.5);
+  expect(parseTimeToHour("2:15 pm")).toBe(14.25);
+  expect(parseTimeToHour("10:20")).toBe(10 + 20 / 60);
+  expect(parseTimeToHour("10:75 am")).toBeNull();
+  expect(parseTimeToHour("24:30")).toBeNull();
+  expect(formatHourAmPm(10.5)).toBe("10:30am");
+  expect(formatHourAmPm(14.25)).toBe("2:15pm");
+});
 const {
   isBusinessDay,
   addOneDay,

@@ -16,7 +16,7 @@ function createRecordUnplannedAbsenceUseCase({ staffRepository, availabilityRepo
     if (!staff || (tenantId && staff.tenantId !== tenantId)) {
       throw new StaffNotFoundError(staffId);
     }
-    if (!startAt || !endAt || new Date(startAt) >= new Date(endAt)) {
+    if (!startAt || !endAt || !Number.isFinite(new Date(startAt).getTime()) || !Number.isFinite(new Date(endAt).getTime()) || new Date(startAt) >= new Date(endAt)) {
       throw new InvalidAvailabilityRangeError("La ausencia imprevista requiere startAt y endAt, con startAt < endAt.");
     }
 

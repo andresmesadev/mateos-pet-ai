@@ -18,6 +18,7 @@ export type TenantProfile = {
   name: string;
   slug: string;
   phone: string;
+  contactPhone: string | null;
   email: string | null;
   description: string | null;
   address: string | null;
@@ -38,11 +39,11 @@ export type ServiceRow = {
 };
 
 type PageProps = {
-  searchParams: Promise<{ tenant?: string }>;
+  searchParams: Promise<{ tenant?: string; tab?: string }>;
 };
 
 export default async function SettingsPage({ searchParams }: PageProps) {
-  const { tenant } = await searchParams;
+  const { tenant, tab } = await searchParams;
   const session = await auth();
   const headers = makeServerHeaders(session, tenant);
 
@@ -74,7 +75,7 @@ export default async function SettingsPage({ searchParams }: PageProps) {
         tint="bg-slate-100 text-slate-700"
       />
       {profile && services ? (
-        <SettingsTabs profile={profile} services={services} />
+        <SettingsTabs key={profile.id} profile={profile} services={services} initialTab={tab} />
       ) : (
         <div role="alert" className="max-w-2xl rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-950">
           <h2 className="font-semibold">No se pudo cargar la administración</h2>

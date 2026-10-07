@@ -1,532 +1,110 @@
 "use client";
-
-import { useEffect, useState } from "react";
-import { TeamPermissions } from "@/components/dashboard/team-permissions";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
-
+import { CalendarClock, KeyRound, Pencil, Plus, RefreshCw, Search, ShieldCheck, UserRound } from "lucide-react";
+import type { TenantProfile } from "@/app/dashboard/settings/page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { proxyUrl } from "@/lib/api";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
-import { useTenant } from "@/lib/use-tenant";
+import { TeamPermissions } from "@/components/dashboard/team-permissions";
+import { TeamServicesEditor } from "@/components/dashboard/team-services-editor";
+import { TeamAvailability } from "@/components/dashboard/team-availability";
+import { MemberEditor, StaffAccessEditor, StaffScheduleEditor, teamRequest } from "@/components/dashboard/team-member-editor";
+import { TEAM_ROLES, teamText, type StaffMember } from "@/lib/team-editor";
+import { proxyUrl } from "@/lib/api";
+import { tenantQuery, useTenant } from "@/lib/use-tenant";
 
-type DaySlot = { open: string; close: string; active: boolean };
-type Availability = Record<string, DaySlot>;
-
-type StaffMember = {
-  id: string;
-  tenantId: string | null;
-  name: string;
-  role: string;
-  accessPermissions?: string[];
-  phone: string | null;
-  email: string | null;
-  active: boolean;
-  availability: Availability | null;
-  credential?: { email: string; active: boolean } | null;
-};
-
-const ROLES = [
-  { value: "vet", label: "Veterinario/a" },
-  { value: "groomer", label: "Peluquero/a" },
-  { value: "receptionist", label: "Recepción y caja" },
-  { value: "admin", label: "Administrador" },
-];
-
-const DAYS = [
-  { key: "mon", label: "Lun" },
-  { key: "tue", label: "Mar" },
-  { key: "wed", label: "Mié" },
-  { key: "thu", label: "Jue" },
-  { key: "fri", label: "Vie" },
-  { key: "sat", label: "Sáb" },
-  { key: "sun", label: "Dom" },
-];
-
-const DEFAULT_SLOT: DaySlot = { open: "08:00", close: "18:00", active: true };
-
-function buildDefaultAvailability(): Availability {
-  const base: Availability = {};
-  for (const { key } of DAYS) base[key] = { ...DEFAULT_SLOT };
-  base.sun = { ...DEFAULT_SLOT, active: false };
-  return base;
-}
-
-// ── Availability panel ────────────────────────────────────────
-
-function AvailabilityPanel({ staffId, initial, onSaved }: {
-  staffId: string;
-  initial: Availability | null;
-  onSaved: (av: Availability) => void;
-}) {
-  const { toast } = useToast();
-  const [av, setAv] = useState<Availability>(() => initial ?? buildDefaultAvailability());
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-
-  function setDay(key: string, field: keyof DaySlot, value: string | boolean) {
-    setSaved(false);
-    setAv((prev) => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
-  }
-
-  async function handleSave() {
-    setSaving(true);
-    setSaved(false);
-    try {
-      const res = await fetch(proxyUrl(`/api/dashboard/staff/${staffId}`), {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ availability: av }),
-      });
-      if (!res.ok) throw new Error();
-      setSaved(true);
-      onSaved(av);
-    } catch {
-      toast("No se pudo guardar el horario. Intenta de nuevo.", "error");
-    } finally { setSaving(false); }
-  }
-
-  return (
-    <div className="mt-3 rounded-lg border bg-muted/20 p-3 space-y-2">
-      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Disponibilidad semanal</p>
-      <div className="space-y-1.5">
-        {DAYS.map(({ key, label }) => {
-          const day = av[key] ?? { ...DEFAULT_SLOT, active: false };
-          return (
-            <div key={key} className="grid grid-cols-[40px_80px_auto_auto] gap-2 items-center">
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="checkbox"
-                  checked={day.active}
-                  onChange={(e) => setDay(key, "active", e.target.checked)}
-                  className="h-3.5 w-3.5 rounded border-input"
-                />
-                <span className={`text-xs ${day.active ? "font-medium" : "text-muted-foreground"}`}>{label}</span>
-              </div>
-              <input
-                type="time"
-                value={day.open}
-                disabled={!day.active}
-                onChange={(e) => setDay(key, "open", e.target.value)}
-                className="h-7 w-full rounded border border-input bg-background px-2 text-xs disabled:opacity-40"
-              />
-              <input
-                type="time"
-                value={day.close}
-                disabled={!day.active}
-                onChange={(e) => setDay(key, "close", e.target.value)}
-                className="h-7 w-full rounded border border-input bg-background px-2 text-xs disabled:opacity-40"
-              />
-              {!day.active && <span className="text-xs text-muted-foreground">Cerrado</span>}
-            </div>
-          );
-        })}
-      </div>
-      <div className="flex items-center gap-3 pt-1">
-        <Button size="sm" onClick={handleSave} disabled={saving} className="h-7 text-xs px-3">
-          {saving ? "Guardando…" : "Guardar horario"}
-        </Button>
-        {saved && <span className="text-xs text-green-600">Guardado</span>}
-      </div>
-    </div>
-  );
-}
-
-const ROLE_LABELS: Record<string, string> = {
-  vet: "Veterinario/a",
-  groomer: "Peluquero/a",
-  receptionist: "Recepción y caja",
-  admin: "Administrador",
-};
-
-type NewForm = { name: string; role: string; phone: string; email: string };
-type EditForm = { name: string; role: string; phone: string; email: string };
-
-const EMPTY_FORM: NewForm = { name: "", role: "vet", phone: "", email: "" };
-
-export function StaffManager() {
-  const { data: session } = useSession();
-  const tenant = useTenant();
-  const { toast } = useToast();
-  const [members, setMembers] = useState<StaffMember[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showNew, setShowNew] = useState(false);
-  const [newForm, setNewForm] = useState<NewForm>(EMPTY_FORM);
-  const [saving, setSaving] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<EditForm | null>(null);
-  const [availabilityOpenId, setAvailabilityOpenId] = useState<string | null>(null);
-  const [accessOpenId, setAccessOpenId] = useState<string | null>(null);
-  const [accessEmail, setAccessEmail] = useState("");
-  const [accessPassword, setAccessPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-
-  async function fetchStaff() {
-    const res = await fetch(proxyUrl("/api/dashboard/staff"), {
-      cache: "no-store",
-    });
-    const data = await res.json();
-    return Array.isArray(data) ? (data as StaffMember[]) : [];
-  }
-
-  async function reload() {
-    try {
-      setMembers(await fetchStaff());
-    } catch {
-      setMembers([]);
-    }
-  }
-
+type Panel = { kind: "new" } | { kind: "edit" | "schedule" | "access" | "permissions" | "availability" | "services"; member: StaffMember };
+type Confirmation = { kind: "close" } | { kind: "active" | "revoke"; member: StaffMember };
+type Props = { profile?: TenantProfile | null; onDirtyChange?: (dirty: boolean) => void; onSavingChange?: (saving: boolean) => void };
+export function StaffManager({ profile, onDirtyChange, onSavingChange }: Props) {
+  const { data: session } = useSession(), tenant = useTenant(), { toast } = useToast();
+  const [members, setMembers] = useState<StaffMember[]>([]), [loading, setLoading] = useState(true), [loadError, setLoadError] = useState("");
+  const [query, setQuery] = useState(""), [role, setRole] = useState("all"), [status, setStatus] = useState("active");
+  const [panel, setPanel] = useState<Panel | null>(null), [confirmation, setConfirmation] = useState<Confirmation | null>(null);
+  const [dirty, setDirty] = useState(false), [saving, setSaving] = useState(false), [canSaveSchedule, setCanSaveSchedule] = useState(false), [actionError, setActionError] = useState("");
+  const actionLock = useRef(false), signals = { onDirtyChange: useCallback((value: boolean) => setDirty(value), []), onSavingChange: useCallback((value: boolean) => setSaving(value), []), onCanSaveChange: useCallback((value: boolean) => setCanSaveSchedule(value), []) };
+  const [reloadKey, setReloadKey] = useState(0);
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      if (!cancelled) setLoading(true);
-      try {
-        const data = await fetchStaff();
-        if (!cancelled) setMembers(data);
-      } catch {
-        if (!cancelled) setMembers([]);
-      } finally {
-        if (!cancelled) setLoading(false);
+    const controller = new AbortController();
+    void Promise.resolve().then(() => {
+      if (controller.signal.aborted) return null;
+      setLoading(true); setLoadError("");
+      return fetch(proxyUrl("/api/dashboard/staff" + tenantQuery(tenant)), { cache: "no-store", signal: controller.signal });
+    }).then(async response => {
+      if (!response || controller.signal.aborted) return;
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !Array.isArray(data)) throw new Error("No se pudo cargar el equipo. Revisa la conexión y vuelve a intentar.");
+      if (!controller.signal.aborted) setMembers(data);
+    }).catch(cause => { if (!controller.signal.aborted) setLoadError(cause instanceof Error ? cause.message : "No se pudo cargar el equipo."); }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [tenant, reloadKey]);
+  useEffect(() => { onDirtyChange?.(dirty); return () => onDirtyChange?.(false); }, [dirty, onDirtyChange]);
+  useEffect(() => { onSavingChange?.(saving); return () => onSavingChange?.(false); }, [saving, onSavingChange]);
+  const adminEmail = session?.user?.role === "admin" ? session.user.email?.trim().toLowerCase() : null;
+  const usesAdminAccess = (m: StaffMember) => Boolean(adminEmail && m.email?.trim().toLowerCase() === adminEmail);
+  const accessLabel = (m: StaffMember) => usesAdminAccess(m) ? (m.active ? "Usa tu cuenta administradora" : "Ficha inactiva · tu cuenta administradora sigue activa") : !m.active ? "Ingreso bloqueado · integrante inactivo" : m.credential?.active ? "Acceso habilitado" : "Sin acceso individual";
+  const visible = members.filter(m => (status === "all" || m.active === (status === "active")) && (role === "all" || m.role === role) && teamText([m.name, m.email, m.phone, m.credential?.email].filter(Boolean).join(" ")).includes(teamText(query)));
+  const counts = { active: members.filter(m => m.active).length, inactive: members.filter(m => !m.active).length, all: members.length };
+  const title = !panel ? "" : panel.kind === "new" ? "Nuevo integrante" : ({ edit: "Ficha", schedule: "Horario", access: "Acceso", permissions: "Perfil y permisos", availability: "Ausencias y citas", services: "Servicios que atiende" })[panel.kind] + " de " + panel.member.name;
+  function close() { if (saving) return; if (dirty) setConfirmation({ kind: "close" }); else { setPanel(null); setDirty(false); } }
+  function saved(member: StaffMember) {
+    setMembers(prev => prev.some(m => m.id === member.id) ? prev.map(m => m.id === member.id ? { ...m, ...member } : m) : [...prev, member]);
+    setDirty(false); setPanel((panel?.kind === "schedule" || panel?.kind === "services") ? { kind: "availability", member } : null); toast("Cambios del equipo guardados.", "success");
+  }
+  async function confirmAction() {
+    if (!confirmation || confirmation.kind === "close" || actionLock.current) return;
+    const current = confirmation; actionLock.current = true; setSaving(true); setActionError("");
+    try {
+      if (current.kind === "active") {
+        const result = await teamRequest("/api/dashboard/staff/" + current.member.id, tenant, "PATCH", { active: !current.member.active });
+        if (!result?.id) throw new Error("No se confirmó el cambio de estado.");
+        setMembers(prev => prev.map(m => m.id === result.id ? { ...m, ...result } : m));
+        if (current.member.active) setPanel({ kind: "availability", member: { ...current.member, ...result } });
+      } else {
+        await teamRequest(`/api/dashboard/staff/${current.member.id}/credential`, tenant, "DELETE");
+        setMembers(prev => prev.map(m => m.id === current.member.id ? { ...m, credential: m.credential ? { ...m.credential, active: false } : null } : m));
+        setPanel(null); setDirty(false);
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [tenant]);
-
-  async function handleCreate() {
-    if (!newForm.name.trim()) return;
-    setSaving(true);
-    setError(null);
-    try {
-      const res = await fetch(proxyUrl("/api/dashboard/staff"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: newForm.name.trim(),
-          role: newForm.role,
-          phone: newForm.phone.trim() || null,
-          email: newForm.email.trim() || null,
-        }),
-      });
-      if (!res.ok) {
-        const payload = await res.json().catch(() => null);
-        throw new Error(payload?.error ?? "Error al crear");
-      }
-      setNewForm(EMPTY_FORM);
-      setShowNew(false);
-      await reload();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error");
-    } finally {
-      setSaving(false);
-    }
+      setConfirmation(null); toast(current.kind === "revoke" ? "Acceso revocado." : "Estado del integrante actualizado.", "success");
+    } catch (cause) { setActionError(cause instanceof Error ? cause.message : "No se pudo completar la acción."); }
+    finally { actionLock.current = false; setSaving(false); }
   }
-
-  function startEdit(m: StaffMember) {
-    setEditingId(m.id);
-    setEditForm({
-      name: m.name,
-      role: m.role,
-      phone: m.phone ?? "",
-      email: m.email ?? "",
-    });
-  }
-
-  async function handleSaveEdit(id: string) {
-    if (!editForm) return;
-    setSaving(true);
-    setError(null);
-    try {
-      const res = await fetch(proxyUrl(`/api/dashboard/staff/${id}`), {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: editForm.name.trim(),
-          role: editForm.role,
-          phone: editForm.phone.trim() || null,
-          email: editForm.email.trim() || null,
-        }),
-      });
-      if (!res.ok) throw new Error("Error al guardar");
-      setEditingId(null);
-      setEditForm(null);
-      await reload();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function handleToggleActive(m: StaffMember) {
-    try {
-      const res = await fetch(proxyUrl(`/api/dashboard/staff/${m.id}`), {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ active: !m.active }),
-      });
-      if (!res.ok) throw new Error();
-      await reload();
-    } catch {
-      toast(`No se pudo ${m.active ? "desactivar" : "activar"} a ${m.name}`, "error");
-    }
-  }
-
-  function openAccess(member: StaffMember) {
-    setAccessOpenId(accessOpenId === member.id ? null : member.id);
-    setAccessEmail(member.credential?.email ?? member.email ?? "");
-    setAccessPassword("");
-    setError(null);
-  }
-
-  async function saveAccess(member: StaffMember) {
-    if (!accessEmail.trim() || accessPassword.length < 12) {
-      setError("Escribe el correo del integrante y una contraseña de al menos 12 caracteres.");
-      return;
-    }
-    setSaving(true);
-    setError(null);
-    try {
-      const response = await fetch(proxyUrl(`/api/dashboard/staff/${member.id}/credential`), {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: accessEmail.trim(), password: accessPassword }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error ?? "No se pudo guardar el acceso.");
-      setAccessPassword("");
-      setAccessOpenId(null);
-      await reload();
-      toast(`Acceso actualizado para ${member.name}.`, "success");
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "No se pudo guardar el acceso.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function revokeAccess(member: StaffMember) {
-    if (!window.confirm(`¿Revocar el acceso de ${member.name}? Tendrá que volver a recibir una contraseña para entrar.`)) return;
-    setSaving(true);
-    setError(null);
-    try {
-      const response = await fetch(proxyUrl(`/api/dashboard/staff/${member.id}/credential`), { method: "DELETE" });
-      if (!response.ok) throw new Error("No se pudo revocar el acceso.");
-      await reload();
-      setAccessOpenId(null);
-      toast(`Acceso revocado para ${member.name}.`, "success");
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "No se pudo revocar el acceso.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const grouped = ROLES.map((r) => ({
-    ...r,
-    items: members.filter((m) => m.role === r.value),
-  }));
-  const adminEmail = session?.user?.role === "admin" ? session?.user?.email?.trim().toLowerCase() : null;
-  const usesAdminAccess = (member: StaffMember) => Boolean(adminEmail && member.email?.trim().toLowerCase() === adminEmail);
-
-  return (
-    <div className="space-y-6">
-      <p className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-950">El administrador puede gestionar el negocio y atender con la misma cuenta. Para identificarlo en la historia clínica, su ficha del equipo debe tener el correo de esa cuenta. Recepción incluye Caja; puedes habilitar cobros y ajustes de precio a otros profesionales sin cambiar su perfil.</p>
-      {error && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-          {error}
-        </div>
-      )}
-
-      {/* Formulario nuevo miembro */}
-      {showNew ? (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Nuevo miembro del equipo</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Input
-              placeholder="Nombre completo"
-              value={newForm.name}
-              onChange={(e) => setNewForm((f) => ({ ...f, name: e.target.value }))}
-            />
-            <select
-              value={newForm.role}
-              onChange={(e) => setNewForm((f) => ({ ...f, role: e.target.value }))}
-              className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              {ROLES.map((r) => (
-                <option key={r.value} value={r.value}>{r.label}</option>
-              ))}
-            </select>
-            <div className="flex gap-3">
-              <Input
-                placeholder="Teléfono (opcional)"
-                value={newForm.phone}
-                onChange={(e) => setNewForm((f) => ({ ...f, phone: e.target.value }))}
-              />
-              <Input
-                type="email"
-                placeholder="Email (opcional)"
-                value={newForm.email}
-                onChange={(e) => setNewForm((f) => ({ ...f, email: e.target.value }))}
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button size="sm" onClick={handleCreate} disabled={saving || !newForm.name.trim()}>
-                {saving ? "Guardando…" : "Crear"}
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => { setShowNew(false); setNewForm(EMPTY_FORM); }}>
-                Cancelar
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="flex justify-end">
-          <Button size="sm" onClick={() => setShowNew(true)}>+ Nuevo miembro</Button>
-        </div>
-      )}
-
-      {/* Lista por rol */}
-      {loading ? (
-        <div className="py-10 text-center text-sm text-muted-foreground">Cargando…</div>
-      ) : (
-        grouped.map((group) => (
-          <Card key={group.value}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">{group.label}</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              {group.items.length === 0 ? (
-                <p className="px-4 py-3 text-sm text-muted-foreground">
-                  Sin miembros en este rol.
-                </p>
-              ) : (
-                <ul className="divide-y">
-                  {group.items.map((m) => (
-                    <li key={m.id} className="px-4 py-3">
-                      {editingId === m.id && editForm ? (
-                        <div className="space-y-2">
-                          <Input
-                            value={editForm.name}
-                            onChange={(e) => setEditForm((f) => f ? { ...f, name: e.target.value } : f)}
-                          />
-                          <select
-                            value={editForm.role}
-                            onChange={(e) => setEditForm((f) => f ? { ...f, role: e.target.value } : f)}
-                            className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                          >
-                            {ROLES.map((r) => (
-                              <option key={r.value} value={r.value}>{r.label}</option>
-                            ))}
-                          </select>
-                          <div className="flex gap-3">
-                            <Input
-                              placeholder="Teléfono"
-                              value={editForm.phone}
-                              onChange={(e) => setEditForm((f) => f ? { ...f, phone: e.target.value } : f)}
-                            />
-                            <Input
-                              type="email"
-                              placeholder="Email"
-                              value={editForm.email}
-                              onChange={(e) => setEditForm((f) => f ? { ...f, email: e.target.value } : f)}
-                            />
-                          </div>
-                          <div className="flex gap-2">
-                            <Button size="sm" onClick={() => handleSaveEdit(m.id)} disabled={saving}>
-                              {saving ? "Guardando…" : "Guardar"}
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={() => { setEditingId(null); setEditForm(null); }}>
-                              Cancelar
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div>
-                          <div className="flex items-center gap-3">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className={`font-medium ${!m.active ? "text-muted-foreground line-through" : ""}`}>
-                                  {m.name}
-                                </span>
-                                <Badge variant="secondary" className="text-xs">
-                                  {ROLE_LABELS[m.role] ?? m.role}
-                                </Badge>
-                              </div>
-                              <div className="mt-0.5 flex gap-3 text-sm text-muted-foreground">
-                                {m.phone && <span>{m.phone}</span>}
-                                {m.email && <span>{m.email}</span>}
-                              </div>
-                              <p className="mt-1 text-xs text-teal-800">{usesAdminAccess(m) ? "Tu cuenta administradora también permite atender y responder" : m.credential?.active ? `Acceso activo: ${m.credential.email}` : "Sin acceso individual"}</p>
-                            </div>
-                            <div className="flex items-center gap-1 shrink-0">
-                              {!usesAdminAccess(m) && <Button size="sm" variant="ghost" onClick={() => openAccess(m)}>{accessOpenId === m.id ? "Cerrar acceso" : "Acceso"}</Button>}
-                              <Button size="sm" variant="ghost" onClick={() => startEdit(m)}>
-                                Editar
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="text-muted-foreground"
-                                onClick={() => setAvailabilityOpenId(availabilityOpenId === m.id ? null : m.id)}
-                              >
-                                {availabilityOpenId === m.id ? "Cerrar horario" : "Horario"}
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className={m.active ? "text-muted-foreground" : "text-green-600"}
-                                onClick={() => handleToggleActive(m)}
-                              >
-                                {m.active ? "Desactivar" : "Activar"}
-                              </Button>
-                            </div>
-                          </div>
-                          <TeamPermissions key={m.id + (m.accessPermissions ?? []).join(",")} member={m} onSaved={reload} />
-                          {availabilityOpenId === m.id && (
-                            <AvailabilityPanel
-                              staffId={m.id}
-                              initial={m.availability}
-                              onSaved={(av) => setMembers((prev) => prev.map((s) => s.id === m.id ? { ...s, availability: av } : s))}
-                            />
-                          )}
-                          {accessOpenId === m.id && (
-                            <div className="mt-3 space-y-3 rounded-xl border border-teal-200 bg-teal-50/50 p-4">
-                              <div>
-                                <p className="text-sm font-semibold text-teal-950">Cuenta individual de {m.name}</p>
-                                <p className="mt-1 text-xs text-teal-900">{m.role === "vet" ? "Consultas veterinarias y WhatsApp con acceso clínico." : m.role === "groomer" ? "WhatsApp, citas y notas de peluquería. Sin acceso clínico ni financiero." : m.role === "receptionist" ? "Agenda, clientes, WhatsApp y Caja operativa. Sin edición clínica ni reportes financieros generales." : "Acceso administrativo completo. Asigna este perfil solo a responsables autorizados."} Los mensajes guardarán el nombre de quien respondió.</p>
-                              </div>
-                              <div className="grid gap-3 sm:grid-cols-2">
-                                <label className="space-y-1 text-xs font-semibold text-slate-700">Correo de ingreso<Input type="email" autoComplete="off" value={accessEmail} onChange={(event) => setAccessEmail(event.target.value)} /></label>
-                                <label className="space-y-1 text-xs font-semibold text-slate-700">{m.credential?.active ? "Nueva contraseña" : "Contraseña inicial"}<Input type="password" autoComplete="new-password" minLength={12} value={accessPassword} onChange={(event) => setAccessPassword(event.target.value)} placeholder="Mínimo 12 caracteres" /></label>
-                              </div>
-                              <div className="flex flex-wrap gap-2">
-                                <Button size="sm" disabled={saving || !m.active || accessPassword.length < 12} onClick={() => void saveAccess(m)}>{saving ? "Guardando…" : m.credential?.active ? "Cambiar acceso" : "Habilitar acceso"}</Button>
-                                {m.credential?.active && <Button size="sm" variant="outline" disabled={saving} onClick={() => void revokeAccess(m)}>Revocar acceso</Button>}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-        ))
-      )}
-    </div>
-  );
+  return <section className="space-y-5" aria-label="Gestión del equipo">
+    <header className="flex flex-wrap items-start justify-between gap-4"><div><h2 className="text-xl font-bold">Tu equipo</h2><p className="mt-1 text-sm text-muted-foreground">Organiza a tus integrantes y revisa cómo pueden trabajar en el establecimiento.</p></div><div className="flex flex-wrap gap-2"><Button variant="outline" disabled={loading || saving || !!panel} onClick={() => setReloadKey(key => key + 1)}><RefreshCw aria-hidden="true" />Actualizar</Button><Button disabled={loading || !!loadError || saving || !!panel} onClick={() => setPanel({ kind: "new" })}><Plus aria-hidden="true" />Nuevo integrante</Button></div></header>
+    <div className="rounded-xl border bg-muted/30 p-4 text-sm"><p className="font-semibold">Una cuenta también puede administrar y atender</p><p className="mt-1 text-muted-foreground">Vincula el correo de tu cuenta administradora a tu ficha para identificarte en las atenciones. Recepción incluye Caja; los demás profesionales pueden recibir permisos adicionales.</p></div>
+    <div className="space-y-4 rounded-2xl border bg-card p-4 sm:p-5"><div className="grid gap-4 sm:grid-cols-[1fr_220px]"><label className="space-y-1.5 text-sm font-semibold">Buscar integrante<div className="relative"><Search aria-hidden="true" className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input className="pl-10" placeholder="Nombre, correo o teléfono" value={query} onChange={e => setQuery(e.target.value)} /></div></label><label className="space-y-1.5 text-sm font-semibold">Perfil del equipo<select value={role} onChange={e => setRole(e.target.value)} className="h-11 w-full rounded-xl border border-input bg-background px-3 font-normal"><option value="all">Todos los perfiles</option>{TEAM_ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}</select></label></div><div role="group" aria-label="Estado del equipo" className="flex flex-wrap gap-2">{[{ key: "active", label: "Activos" }, { key: "inactive", label: "Inactivos" }, { key: "all", label: "Todo el equipo" }].map(filter => <Button key={filter.key} variant={status === filter.key ? "default" : "outline"} aria-pressed={status === filter.key} disabled={loading || !!loadError} onClick={() => setStatus(filter.key)}>{filter.label} {counts[filter.key as keyof typeof counts]}</Button>)}</div></div>
+    {loadError ? <div role="alert" className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950"><p className="font-semibold">No se pudo cargar el equipo</p><p>{loadError}</p><Button variant="outline" onClick={() => setReloadKey(key => key + 1)}>Reintentar</Button></div> : loading ? <p role="status" className="p-6 text-sm text-muted-foreground">Cargando equipo…</p> : visible.length === 0 ? <div className="rounded-2xl border bg-card p-8 text-center"><UserRound aria-hidden="true" className="mx-auto mb-3 h-7 w-7 text-primary" /><h3 className="font-semibold">{members.length ? "Sin integrantes con estos filtros" : "Agrega a tu primer integrante"}</h3><p className="mt-2 text-sm text-muted-foreground">{members.length ? "Prueba otro nombre, perfil o estado." : "Crea su ficha y configura el perfil, el horario y el acceso que necesita."}</p>{members.length > 0 && <Button className="mt-4" variant="outline" onClick={() => { setQuery(""); setRole("all"); setStatus("all"); }}>Limpiar filtros</Button>}</div> : TEAM_ROLES.map(group => {
+      const items = visible.filter(m => m.role === group.value); if (!items.length) return null;
+      return <section key={group.value} className="overflow-hidden rounded-2xl border bg-card" aria-label={group.label}><header className="flex flex-wrap items-center justify-between gap-2 border-b p-4 sm:px-5"><h3 className="font-semibold">{group.label}</h3><span className="text-sm text-muted-foreground">{items.length} {items.length === 1 ? "integrante" : "integrantes"}</span></header><ul className="divide-y">{items.map(member => {
+        const area = member.role === "vet" ? "veterinary" : member.role === "groomer" ? "grooming" : null, areaOff = !!area && !!profile && !profile.activeModules?.includes(area);
+        return <li key={member.id} className="space-y-4 p-4 sm:px-5"><div className="flex items-start gap-3"><span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 font-semibold text-primary" aria-hidden="true">{member.name.trim().split(/\s+/).slice(0,2).map(part => part[0]).join("")}</span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h4 className="break-words font-semibold">{member.name}</h4>{!member.active && <Badge variant="secondary">Inactivo</Badge>}{areaOff && <Badge variant="secondary">Área deshabilitada</Badge>}</div><p className="mt-1 break-all text-sm text-muted-foreground">{member.email || "Sin correo de contacto"}{member.phone ? ` · ${member.phone}` : ""}</p><p className="mt-1 break-all text-sm text-primary">{accessLabel(member)}{member.active && member.credential?.active && !usesAdminAccess(member) ? `: ${member.credential.email}` : ""}</p><p className="mt-1 text-xs text-muted-foreground">{member.availability ? "Horario semanal personalizado" : "Sin restricción semanal individual"}</p></div></div><div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" onClick={() => setPanel({ kind: "edit", member })}><Pencil aria-hidden="true" />Editar ficha</Button><Button variant="outline" size="sm" onClick={() => setPanel({ kind: "permissions", member })}><ShieldCheck aria-hidden="true" />Perfil y permisos</Button>{["vet", "groomer", "admin"].includes(member.role) && <Button variant="outline" size="sm" onClick={() => setPanel({ kind: "services", member })}>Servicios que atiende</Button>}<Button variant="outline" size="sm" onClick={() => setPanel({ kind: "schedule", member })}><CalendarClock aria-hidden="true" />Horario</Button><Button variant="outline" size="sm" onClick={() => setPanel({ kind: "availability", member })}><CalendarClock aria-hidden="true" />Ausencias y citas</Button>{!usesAdminAccess(member) && <Button variant="outline" size="sm" onClick={() => setPanel({ kind: "access", member })}><KeyRound aria-hidden="true" />Acceso</Button>}<Button variant="ghost" size="sm" disabled={saving} onClick={() => { setActionError(""); setConfirmation({ kind: "active", member }); }}>{member.active ? "Desactivar" : "Activar"}</Button></div></li>;
+      })}</ul></section>;
+    })}
+    <Dialog open={panel !== null} onOpenChange={open => { if (!open) close(); }}><DialogContent className="flex max-h-[90dvh] w-[calc(100%-2rem)] max-w-3xl flex-col overflow-hidden" showClose={!saving}><DialogHeader className="pr-14"><DialogTitle>{title}</DialogTitle><DialogDescription>{panel?.kind === "new" ? "Crea la ficha antes de habilitar una cuenta de ingreso." : "Los cambios se aplican al integrante de este establecimiento."}</DialogDescription></DialogHeader><div className="overflow-y-auto p-5 sm:p-6">
+      {panel?.kind === "new" && <MemberEditor key="new" {...signals} onSaved={saved} />}
+      {panel?.kind === "services" && <TeamServicesEditor key={panel.member.id + "services"} {...signals} member={panel.member} onSaved={saved} />}
+      {panel?.kind === "availability" && <TeamAvailability key={panel.member.id} {...signals} member={panel.member} />}
+      {panel?.kind === "schedule" && <div className="mb-5"><TeamAvailability key={`preview-${panel.member.id}`} member={panel.member} preview /></div>}
+      {panel?.kind === "edit" && <MemberEditor key={panel.member.id + "edit"} {...signals} member={panel.member} onSaved={saved} />}
+      {panel?.kind === "schedule" && <StaffScheduleEditor key={panel.member.id + "schedule"} {...signals} member={panel.member} businessHours={profile?.businessHours} onSaved={saved} />}
+      {panel?.kind === "access" && <StaffAccessEditor key={panel.member.id + "access"} {...signals} member={panel.member} onSaved={saved} onRevoke={() => { setActionError(""); setConfirmation({ kind: "revoke", member: panel.member }); }} />}
+      {panel?.kind === "permissions" && <div className="space-y-4"><p className="text-sm text-muted-foreground">{TEAM_ROLES.find(r => r.value === panel.member.role)?.description}</p><p className="text-sm">Áreas habilitadas: {(profile?.activeModules ?? []).map(module => ({ veterinary: "Veterinaria", grooming: "Peluquería", retail: "Tienda" })[module as "veterinary" | "grooming" | "retail"]).join(", ") || "Sin áreas operativas"}.</p><TeamPermissions key={panel.member.id} {...signals} member={panel.member} activeModules={profile?.activeModules} onSaved={async permissions => { saved({ ...panel.member, accessPermissions: permissions }); }} /></div>}
+    </div><DialogFooter className="flex-wrap"><p role="status" className="mr-auto text-xs text-muted-foreground">{saving ? "Guardando…" : dirty ? "Tienes cambios sin guardar." : ""}</p><Button variant="outline" disabled={saving} onClick={close}>Cerrar</Button>{panel?.kind === "schedule" && <Button type="submit" form={`staff-schedule-${panel.member.id}`} disabled={saving || !canSaveSchedule}>{saving ? "Guardando…" : "Guardar horario"}</Button>}</DialogFooter></DialogContent></Dialog>
+    <Dialog open={confirmation !== null} onOpenChange={open => { if (!open && !saving) setConfirmation(null); }}>
+      <DialogContent className="w-[calc(100%-2rem)] max-w-md" showClose={!saving}>
+        <DialogHeader>
+          <DialogTitle>{confirmation?.kind === "close" ? "Cambios sin guardar" : confirmation?.kind === "revoke" ? "Revocar acceso" : confirmation?.member.active ? "Desactivar integrante" : confirmation ? "Activar integrante" : "Confirmar acción"}</DialogTitle>
+          <DialogDescription>{confirmation?.kind === "close" ? "Puedes volver a editar o descartar este borrador." : confirmation?.kind === "revoke" ? `Se bloqueará el ingreso individual de ${confirmation.member.name}. Su ficha y su historial se conservan.` : confirmation?.member.active ? `${confirmation.member.name} dejará de aparecer como integrante activo. Sus citas y registros se conservan. ${usesAdminAccess(confirmation.member) ? "Tu cuenta administradora conserva su acceso." : "Su ingreso individual quedará bloqueado."}` : confirmation ? `Se activará a ${confirmation.member.name}. Si conserva una cuenta habilitada podrá volver a ingresar.` : ""}</DialogDescription>
+        </DialogHeader>
+        {actionError && <p role="alert" className="px-6 text-sm text-red-800">{actionError}</p>}
+        <DialogFooter className="flex-wrap">
+          <Button variant="outline" disabled={saving} onClick={() => setConfirmation(null)}>{confirmation?.kind === "close" ? "Seguir editando" : "Cancelar"}</Button>
+          <Button variant={confirmation?.kind === "close" || confirmation?.kind === "revoke" || (confirmation?.kind === "active" && confirmation.member.active) ? "destructive" : "default"} disabled={saving} onClick={() => { if (confirmation?.kind === "close") { setConfirmation(null); setPanel(null); setDirty(false); } else void confirmAction(); }}>{saving ? "Guardando…" : confirmation?.kind === "close" ? "Descartar cambios" : confirmation?.kind === "revoke" ? "Revocar acceso" : confirmation?.member.active ? "Desactivar integrante" : "Activar integrante"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  </section>;
 }

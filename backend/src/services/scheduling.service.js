@@ -59,10 +59,10 @@ const detectHumanEscalation = (text) => {
 const formatHourAmPm = (hour) => {
   const h = Number(hour);
   if (!Number.isFinite(h)) return String(hour);
-  if (h === 0) return "12am";
-  if (h < 12) return `${h}am`;
-  if (h === 12) return "12pm";
-  return `${h - 12}pm`;
+  const minutes = Math.round(h * 60);
+  const wholeHour = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return `${wholeHour % 12 || 12}${remainder ? ":" + String(remainder).padStart(2, "0") : ""}${wholeHour < 12 ? "am" : "pm"}`;
 };
 
 const formatRelativeDayLabel = (dateKey, referenceDate = new Date()) => {
@@ -300,18 +300,21 @@ const parseTimeToHour = (timeText) => {
   );
   if (withMeridiem) {
     let h = parseInt(withMeridiem[1], 10);
+    const minutes = Number(withMeridiem[2] ?? 0);
+    if (h < 1 || h > 12 || minutes > 59) return null;
     const mer = withMeridiem[3].replace(/\./g, "");
     if (mer.startsWith("p")) {
       if (h !== 12) h += 12;
     } else if (mer.startsWith("a")) {
       if (h === 12) h = 0;
     }
-    return h;
+    return h + minutes / 60;
   }
 
   const hm = s.match(/^(\d{1,2}):(\d{2})$/);
   if (hm) {
-    return parseInt(hm[1], 10);
+    const hours = Number(hm[1]), minutes = Number(hm[2]);
+    return hours < 24 && minutes < 60 ? hours + minutes / 60 : null;
   }
 
   const digits = s.match(/(\d{1,2})/);

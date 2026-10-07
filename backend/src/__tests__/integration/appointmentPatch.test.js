@@ -6,11 +6,13 @@ const request = require("supertest");
 // Mock prisma before requiring routes
 jest.mock("../../lib/prisma", () => {
   const client = {
+    $queryRaw: jest.fn().mockResolvedValue([]),
     appointment: {
       findFirst: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
       updateMany: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
     },
     staff: {
       findFirst: jest.fn(),
@@ -62,6 +64,8 @@ const BASE_APPT = {
   petName: "Luna",
   petType: "dog",
   serviceType: "vet",
+  serviceId: null,
+  staffId: null,
   date: new Date("2099-06-17T14:00:00Z"),
   finalPrice: null,
   startedAt: null,
@@ -318,7 +322,7 @@ describe("PATCH /api/dashboard/appointments/:id — staff/service tenant isolati
   });
 
   test("accepts staffId that belongs to same tenant", async () => {
-    prisma.staff.findFirst.mockResolvedValue({ id: "staff-1", tenantId: TENANT_A, name: "Dr. Mesa" });
+    prisma.staff.findFirst.mockResolvedValue({ id: "staff-1", tenantId: TENANT_A, name: "Dr. Mesa", role: "vet", active: true, availability: null, availabilities: [], capabilities: [] });
 
     const app = buildApp({ isSuperAdmin: false, tenantId: TENANT_A });
     const res = await request(app)
@@ -383,17 +387,18 @@ describe("PATCH /api/dashboard/appointments/:id — price resolver contract", ()
       basePrice: 60000,
     });
     let capturedData;
-    prisma.appointment.update.mockImplementation(async ({ data }) => {
+    prisma.appointment.updateMany.mockImplementation(async ({ data }) => {
       capturedData = data;
-      return { ...BASE_APPT, ...data };
+      return { count: 1 };
     });
 
     const app = buildApp({ isSuperAdmin: false, tenantId: TENANT_A });
-    await request(app)
+    const response = await request(app)
       .patch("/api/dashboard/appointments/appt-1")
       .send({ serviceId: "svc-1" }); // no explicit finalPrice
 
     // finalPrice must NOT be auto-populated; price-resolver resolves it from basePrice at display time
+    expect(response.status).toBe(200);
     expect(capturedData.finalPrice).toBeUndefined();
   });
 

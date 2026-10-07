@@ -15,6 +15,7 @@ const { PrismaBusinessConfigReader } = require("./infrastructure/persistence/pri
 const { PrismaTargetExistenceReader } = require("./infrastructure/persistence/prisma-target-existence.reader");
 const { ServiceDomainEventsPublisher } = require("./infrastructure/events/service-domain-events.publisher");
 const events = require("../events");
+const { createDeleteRetiredServiceUseCase } = require("./application/use-cases/delete-retired-service.usecase");
 
 const {
   createCreateServiceUseCase,
@@ -27,6 +28,7 @@ const {
 } = require("./application/use-cases");
 
 const serviceRepository = new PrismaServiceRepository();
+const deleteRetiredService = createDeleteRetiredServiceUseCase({ serviceRepository });
 const priceRuleRepository = new PrismaPriceRuleRepository();
 const serviceCategoryReader = new PrismaServiceCategoryReader();
 const businessConfigReader = new PrismaBusinessConfigReader();
@@ -42,6 +44,7 @@ const listAvailableServices = createListAvailableServicesUseCase({ serviceReposi
 const getServiceCategory = createGetServiceCategoryUseCase({ serviceRepository, serviceCategoryReader });
 
 module.exports = {
+  deleteRetiredService,
   createService,
   updateService,
   deactivateService,

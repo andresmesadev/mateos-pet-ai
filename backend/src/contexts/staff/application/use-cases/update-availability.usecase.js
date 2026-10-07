@@ -23,7 +23,8 @@ function createUpdateAvailabilityUseCase({ staffRepository, availabilityReposito
 
     if (type === "base_schedule") {
       const { weekday, startTime, endTime } = schedule || {};
-      if (weekday == null || !startTime || !endTime || startTime >= endTime) {
+      if (!Number.isInteger(weekday) || weekday < 0 || weekday > 6 ||
+          !/^([01]\d|2[0-3]):[0-5]\d$/.test(startTime ?? '') || !/^([01]\d|2[0-3]):[0-5]\d$/.test(endTime ?? '') || startTime >= endTime) {
         throw new InvalidAvailabilityRangeError("El horario base requiere weekday, startTime y endTime, con startTime < endTime.");
       }
       const existing = await availabilityRepository.listBaseScheduleByStaff(staffId);
@@ -33,7 +34,7 @@ function createUpdateAvailabilityUseCase({ staffRepository, availabilityReposito
       availability = await availabilityRepository.create({ staffId, type: "base_schedule", weekday, startTime, endTime });
     } else if (type === "planned_absence") {
       const { startAt, endAt, reason } = range || {};
-      if (!startAt || !endAt || new Date(startAt) >= new Date(endAt)) {
+      if (!startAt || !endAt || !Number.isFinite(new Date(startAt).getTime()) || !Number.isFinite(new Date(endAt).getTime()) || new Date(startAt) >= new Date(endAt)) {
         throw new InvalidAvailabilityRangeError("La ausencia programada requiere startAt y endAt, con startAt < endAt.");
       }
       availability = await availabilityRepository.create({

@@ -28,7 +28,8 @@ export function DashboardAccessProvider({ children }: { children: React.ReactNod
     refreshIfActive();
     const timer = setInterval(refreshIfActive, 30000);
     window.addEventListener("focus", refreshIfActive);
-    return () => { active = false; invalidate(); setAccess(null); clearInterval(timer); window.removeEventListener("focus", refreshIfActive); };
+    window.addEventListener("mateos-business-config-updated", refreshIfActive);
+    return () => { active = false; invalidate(); setAccess(null); clearInterval(timer); window.removeEventListener("focus", refreshIfActive); window.removeEventListener("mateos-business-config-updated", refreshIfActive); };
   }, [refresh, invalidate]);
   if (!access) return <div className="m-8 rounded-2xl border bg-white p-6" role="status">{failed ? <><p>No se pudieron comprobar tus permisos.</p><button className="mt-3 rounded-lg bg-teal-700 px-4 py-2 text-white" onClick={() => void refresh()}>Reintentar</button></> : "Preparando tu espacio de trabajo…"}</div>;
   return <AccessContext.Provider value={access}>{children}</AccessContext.Provider>;

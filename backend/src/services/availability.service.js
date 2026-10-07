@@ -42,9 +42,9 @@ const GROOMING_LAST_START_HOUR = 16;
 const DAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 
 const parseHourFromTimeString = (value) => {
-  if (typeof value !== "string") return null;
-  const h = parseInt(value.split(":")[0], 10);
-  return Number.isFinite(h) ? h : null;
+  if (typeof value !== "string" || !/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) return null;
+  const [hours, minutes] = value.split(":").map(Number);
+  return hours + minutes / 60;
 };
 
 const resolveExceptionWindow = (exception) => {
@@ -166,7 +166,7 @@ const isBusinessDay = (date, businessHours, serviceType, exception) => {
  * (`dateKey` + `businessHours`), o dentro del horario legado por tipo de
  * servicio si no hay configuración utilizable para ese día.
  * @param {"vet"|"grooming"} serviceType
- * @param {number} hour Entero 0–23
+ * @param {number} hour Hora decimal (10.5 = 10:30)
  * @param {string} [dateKey] día evaluado — sin él, se ignora cualquier
  *   configuración y se aplica siempre el comportamiento legado.
  * @param {object|null|undefined} [businessHours] `Tenant.businessHours`
@@ -174,7 +174,7 @@ const isBusinessDay = (date, businessHours, serviceType, exception) => {
  */
 const isWithinBusinessHours = (serviceType, hour, dateKey, businessHours, exception) => {
   const h = Number(hour);
-  if (!Number.isFinite(h) || h < 0 || h > 23) {
+  if (!Number.isFinite(h) || h < 0 || h >= 24) {
     console.log(
       `[availability] isWithinBusinessHours: hora inválida (${hour}) → false`
     );

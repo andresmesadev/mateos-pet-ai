@@ -1,9 +1,6 @@
-const { isStaffAvailable } = require("../../domain/rules/availability-resolution.rules");
+const { staffWindowReason } = require("../../domain/rules/staff-window.rules");
 const { ReferencedServiceNotFoundError } = require("../../domain/errors");
-
-function toHHmm(date) {
-  return `${String(date.getUTCHours()).padStart(2, "0")}:${String(date.getUTCMinutes()).padStart(2, "0")}`;
-}
+const { compatibleRole, canProvideService } = require('../../domain/rules/service-scope.rules');
 
 /**
  * ResolveStaffAvailabilityUseCase — Resolución.
@@ -22,28 +19,32 @@ function createResolveStaffAvailabilityUseCase({
   staffCapabilityRepository,
   availabilityRepository,
   serviceExistenceReader,
+  serviceCategoryReader,
 }) {
-  return async function execute({ serviceId, rangeStart, rangeEnd, tenantId }) {
+  return async function execute({ serviceId, rangeStart, rangeEnd, tenantId, timeZone = 'UTC' }) {
     const exists = await serviceExistenceReader.exists(serviceId);
     if (!exists) {
       throw new ReferencedServiceNotFoundError(serviceId);
     }
 
     const capableStaff = await staffCapabilityRepository.listActiveByService(serviceId);
-
-    const start = new Date(rangeStart);
-    const weekday = start.getUTCDay();
-    const startTime = toHHmm(start);
-    const endTime = toHHmm(new Date(rangeEnd));
+    const candidates = new Set(capableStaff.map(c => c.staffId));
+    const category = serviceCategoryReader ? await serviceCategoryReader.getCategoryForService(serviceId) : null;
+    if (category && tenantId) {
+      const roster = await staffRepository.listActive({ tenantId });
+      for (const staff of roster) if (staff.serviceScope === 'role' && compatibleRole(staff, category.name)) candidates.add(staff.id);
+    }
 
     const availableStaff = [];
-    for (const capability of capableStaff) {
-      const staff = await staffRepository.findById(capability.staffId);
+    for (const staffId of candidates) {
+      const staff = await staffRepository.findById(staffId);
       if (!staff || !staff.active) continue;
       if (tenantId && staff.tenantId !== tenantId) continue;
+      if (category && !compatibleRole(staff, category.name)) continue;
+      if (!canProvideService(staff, capableStaff.filter(c=>c.staffId===staff.id), serviceId)) continue;
 
       const availabilityRows = await availabilityRepository.listByStaff(staff.id);
-      if (isStaffAvailable(availabilityRows, { weekday, startTime, endTime, rangeStart, rangeEnd })) {
+      if (!staffWindowReason(staff, availabilityRows, rangeStart, rangeEnd, timeZone)) {
         availableStaff.push(staff);
       }
     }

@@ -16,6 +16,7 @@ const {
   zonedDateTimeToUtc,
   dayBoundsInTimezone,
   getDecimalHourInTimezone,
+  isMinutePrecisionHour,
   formatSlotForUser,
   formatInTimeZone,
 } = require("../lib/timezone");
@@ -56,7 +57,7 @@ const buildAppointmentDateTime = (dateKey, hour) => {
   const key = String(dateKey || "").trim();
   const h = Number(hour);
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(key) || !Number.isFinite(h) || h < 0 || h > 23.5 || !Number.isInteger(h * 2)) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(key) || !isMinutePrecisionHour(h)) {
     throw new Error("Invalid dateKey or hour for appointment");
   }
 
@@ -265,7 +266,7 @@ const createAppointment = async (data) => {
   const {
     userId, tenantId = null, petName, petType, serviceType, date, status = "confirmed",
     address = null, groomingBreed = null, groomingSize = null,
-    petId: selectedPetId = null, serviceId = null,
+    petId: selectedPetId = null, serviceId = null, staffId = null,
   } = data || {};
 
   if (!userId || !petName || !petType || !serviceType || !date) {
@@ -317,6 +318,7 @@ const createAppointment = async (data) => {
     };
     if (tenantId) appointmentData.tenantId = String(tenantId);
     if (serviceId) appointmentData.serviceId = String(serviceId);
+    if (staffId) appointmentData.staffId = String(staffId);
     if (address) appointmentData.address = String(address).trim();
     if (groomingBreed) appointmentData.groomingBreed = String(groomingBreed).trim();
     if (groomingSize) appointmentData.groomingSize = String(groomingSize).trim();
@@ -332,6 +334,12 @@ const createAppointment = async (data) => {
         const slotMs = 60 * 60 * 1000;
         appointment = await prisma.$transaction(async (tx) => {
           await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey})::bigint)::text AS locked`;
+          if (staffId) {
+            const { lockStaff, assertStaffAssignment } = require('./staff-scheduling.service');
+            await lockStaff(tx, staffId);
+            const service = serviceId ? await tx.service.findFirst({ where: { id: serviceId, tenantId }, include: { category: true } }) : null;
+            await assertStaffAssignment(tx, { staffId, tenantId, date: appointmentData.date, service, serviceType });
+          }
           const conflict = await tx.appointment.findFirst({
             where: {
               tenantId: appointmentData.tenantId,

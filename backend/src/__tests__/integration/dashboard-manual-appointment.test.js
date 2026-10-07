@@ -90,13 +90,21 @@ test("acepta una consulta veterinaria a y media sin perder los minutos", async (
   expect(buildAppointmentDateTime).toHaveBeenCalledWith(body.dateKey, 10.5);
 });
 
-test("peluquería conserva el turno de hora completa", async () => {
+test("peluquería permite un turno a y media validado por disponibilidad", async () => {
   prisma.service.findFirst.mockResolvedValue({
     id: "svc-1", active: true, requiresAppointment: true, category: { name: "grooming" },
   });
   const response = await request(appFor()).post("/api/dashboard/appointments").send({ ...body, hour: 10.5 });
-  expect(response.status).toBe(422);
-  expect(isSlotAvailable).not.toHaveBeenCalled();
+  expect(response.status).toBe(201);
+  expect(isSlotAvailable).toHaveBeenCalledWith({ dateKey: body.dateKey, hour: 10.5, serviceType: "grooming", tenantId: "tenant-a" });
+  expect(buildAppointmentDateTime).toHaveBeenCalledWith(body.dateKey, 10.5);
+});
+
+test("conserva minutos arbitrarios sin aceptar fracciones de segundo", async () => {
+  const hour = 10 + 20 / 60;
+  expect((await request(appFor()).post("/api/dashboard/appointments").send({ ...body, hour })).status).toBe(201);
+  expect(buildAppointmentDateTime).toHaveBeenCalledWith(body.dateKey, hour);
+  expect((await request(appFor()).post("/api/dashboard/appointments").send({ ...body, hour: 10.001 })).status).toBe(400);
 });
 
 test("lista solo los horarios del servicio activo en el tenant autenticado", async () => {

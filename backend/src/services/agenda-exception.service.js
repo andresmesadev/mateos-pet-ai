@@ -3,8 +3,9 @@ const prisma = require("../lib/prisma");
 const {
   dateKeyFromParts,
   dayBoundsInTimezone,
-  getHourInTimezone,
+  getDecimalHourInTimezone,
 } = require("../lib/timezone");
+const { resolveHourWindow } = require("./availability.service");
 
 const EXCEPTION_SCOPES = Object.freeze({ ALL: "all", VET: "vet", GROOMING: "grooming" });
 const EXCEPTION_MODES = Object.freeze({ CLOSED: "closed", OPEN: "open" });
@@ -58,8 +59,12 @@ function validateAgendaException(input) {
 }
 
 const rangeWhere = (startDate, endDate) => ({
-  startDate: { lte: endDate ?? MAX_DATE_KEY },
-  OR: [{ endDate: null }, { endDate: { gte: startDate } }],
+  startDate: { lte: endDate ?? startDate },
+  // A missing end date means one day, not an indefinitely open interval.
+  OR: [
+    { endDate: { gte: startDate } },
+    { endDate: null, startDate: { gte: startDate } },
+  ],
 });
 
 async function withScopeLock(tx, tenantId, scope) {
@@ -130,12 +135,11 @@ async function getAffectedAppointments(tenantId, exception) {
     },
     orderBy: { date: "asc" },
   });
-  const openHour = exception.open ? Number(exception.open.slice(0, 2)) : null;
-  const closeHour = exception.close ? Number(exception.close.slice(0, 2)) : null;
+  const { startHour: openHour, endHourExclusive: closeHour } = resolveHourWindow("vet", exception.startDate, null, exception);
   return appointments.filter((appointment) => {
     if (exception.scope !== EXCEPTION_SCOPES.ALL && appointmentScope(appointment) !== exception.scope) return false;
     if (exception.mode === EXCEPTION_MODES.CLOSED) return true;
-    const hour = getHourInTimezone(appointment.date);
+    const hour = getDecimalHourInTimezone(appointment.date);
     return hour < openHour || hour >= closeHour;
   }).map(({ availabilityBucket, ...appointment }) => appointment);
 }

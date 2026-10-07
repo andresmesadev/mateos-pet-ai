@@ -1,9 +1,15 @@
 const express = require("express");
 const request = require("supertest");
 
-jest.mock("../../lib/prisma", () => ({
-  appointment: { findFirst: jest.fn(), updateMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
-}));
+jest.mock("../../lib/prisma", () => {
+  const client = {
+    $queryRaw: jest.fn().mockResolvedValue([]),
+    staff: { findFirst: jest.fn() },
+    appointment: { findFirst: jest.fn(), updateMany: jest.fn(), findUnique: jest.fn(), update: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
+  };
+  client.$transaction = jest.fn(async run => run(client));
+  return client;
+});
 
 const prisma = require("../../lib/prisma");
 const appointmentsRoutes = require("../../routes/dashboard/appointments.routes");
@@ -27,7 +33,10 @@ const appointment = {
   startedAt: null, endedAt: null,
 };
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  prisma.staff.findFirst.mockResolvedValue({ id: "vet-1", tenantId: "tenant-a", role: "vet", active: true, availability: null, availabilities: [], capabilities: [] });
+});
 
 test("starting an unassigned consultation claims it atomically for the authenticated veterinarian", async () => {
   prisma.appointment.findFirst.mockResolvedValueOnce(appointment).mockResolvedValueOnce(appointment);
@@ -39,7 +48,7 @@ test("starting an unassigned consultation claims it atomically for the authentic
   expect(response.status).toBe(200);
   expect(response.body).toMatchObject({ status: "in_progress", staffId: "vet-1", finalPrice: null });
   expect(prisma.appointment.updateMany).toHaveBeenCalledWith(expect.objectContaining({
-    where: { id: "appointment-1", tenantId: "tenant-a", staffId: null, status: "arrived" },
+    where: { id: "appointment-1", tenantId: "tenant-a", staffId: null, status: "arrived", serviceId: null, date: appointment.date },
     data: expect.objectContaining({ status: "in_progress", staffId: "vet-1" }),
   }));
   expect(prisma.appointment.update).not.toHaveBeenCalled();

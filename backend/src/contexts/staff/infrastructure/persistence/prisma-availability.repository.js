@@ -2,6 +2,8 @@ const prisma = require("../../../../lib/prisma");
 const { AvailabilityRepositoryPort } = require("../../application/ports/availability-repository.port");
 
 class PrismaAvailabilityRepository extends AvailabilityRepositoryPort {
+  async findById(id) { return prisma.staffAvailability.findUnique({where:{id}}); }
+  async voidCurrent(id,data) { return prisma.staffAvailability.updateMany({where:{id,voidedAt:null},data}); }
   async listByStaff(staffId) {
     return prisma.staffAvailability.findMany({ where: { staffId } });
   }

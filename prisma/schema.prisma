@@ -175,6 +175,7 @@ model Tenant {
   planExpiresAt        DateTime?
 
   // Perfil del negocio (TAREA 18)
+  contactPhone  String? @db.VarChar(16) // Contacto editable; phone identifica el canal de WhatsApp.
   description   String?
   address       String?
   logoUrl       String?
@@ -220,11 +221,12 @@ model Staff {
   name      String
   role      String   // "vet" | "groomer" | "receptionist" | "admin"
   accessPermissions String[] @default([]) // "cash" | "appointment_price" | "inventory_consume"
+  serviceScope String @default("auto") // "auto" (legado) | "role" | "selected"
   phone     String?
   email     String?
   active    Boolean  @default(true)
   // Disponibilidad semanal (legado, Fase 1 — ver ADR 003): { mon: { open: "08:00", close: "18:00", active: true }, ... }
-  // Convive con StaffAvailability sin sincronización continua; no se elimina ni se modifica en este entregable.
+  // El editor sincroniza las franjas semanales con StaffAvailability bajo lock (ADRs 011/018).
   availability Json?
   generatesCommission Boolean @default(true)
   createdAt DateTime @default(now())
@@ -269,6 +271,13 @@ model StaffAvailability {
   startAt   DateTime? // solo ausencias (programada o imprevista)
   endAt     DateTime? // solo ausencias
   reason    String?   // solo ausencias
+
+  voidedAt   DateTime?
+  voidReason String?
+  voidedBy   String?
+  replacesId String? @unique
+  replaces   StaffAvailability? @relation("AvailabilityCorrection", fields: [replacesId], references: [id], onDelete: Restrict)
+  replacement StaffAvailability? @relation("AvailabilityCorrection")
 
   createdAt DateTime @default(now())
 

@@ -62,6 +62,7 @@ async function allowVeterinaryDashboard(req, res, next) {
     if (match(req, CONTACT_WRITE)) return c.contacts ? next() : deny();
     if (match(req, AGENDA_READ)) return c.agenda ? next() : deny();
     if (match(req, [["GET", /^\/staff$/]])) return c.agenda ? next() : deny();
+    if (match(req, [["GET", /^\/staff\/available$/]])) return (c.schedule || c.grooming || c.clinical) ? next() : deny();
     if (req.method === "PATCH" && /^\/appointments\/[^/]+$/.test(req.path)) {
       const keys = Object.keys(req.body ?? {});
       if (keys.length === 1 && keys[0] === "finalPrice") return c.appointmentPrice ? next() : deny("No tienes permiso para ajustar el precio.");

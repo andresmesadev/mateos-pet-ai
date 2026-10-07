@@ -8,6 +8,10 @@
  * Implementación real: infrastructure/persistence/prisma-service.repository.js
  */
 class ServiceRepositoryPort {
+  /** Eliminación atómica: únicamente servicio retirado, confirmado y sin referencias. */
+  async deleteRetiredIfUnused(_input) {
+    throw new Error("ServiceRepositoryPort.deleteRetiredIfUnused no implementado");
+  }
   /** @returns {Promise<Object|null>} */
   async findById(_serviceId) {
     throw new Error("ServiceRepositoryPort.findById no implementado");

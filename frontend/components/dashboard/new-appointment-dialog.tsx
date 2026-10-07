@@ -17,6 +17,7 @@ import { formatPetType } from "@/lib/pets";
 import { useTenant, tenantQuery } from "@/lib/use-tenant";
 import { useToast } from "@/components/ui/toast";
 import { ProtectedDialog, useDialogEditGuard } from "@/components/dashboard/protected-dialog";
+import { slotTimeLabel as hourLabel } from "@/lib/slot-time";
 
 type Client = { id: string; name: string | null; phone: string };
 type Pet = { id: string; name: string; type: string };
@@ -27,10 +28,6 @@ type Service = {
   active: boolean;
   requiresAppointment: boolean;
 };
-
-function hourLabel(hour: number) {
-  return `${String(Math.floor(hour)).padStart(2, "0")}:${Number.isInteger(hour) ? "00" : "30"}`;
-}
 
 type NewAppointmentProps = {
   initialDate: string;
@@ -57,6 +54,9 @@ function NewAppointmentContent({
   const access = useDashboardAccess();
   const [services, setServices] = useState<Service[]>([]);
   const [serviceId, setServiceId] = useState("");
+  const [staffId, setStaffId] = useState("");
+  const [professionals, setProfessionals] = useState<{ id: string; name: string; role: string; active: boolean }[]>([]);
+  const [staffError, setStaffError] = useState("");
   const [dateKey, setDateKey] = useState(initialDate);
   const [hour, setHour] = useState("");
   const [slotVersion, setSlotVersion] = useState(0);
@@ -65,13 +65,22 @@ function NewAppointmentContent({
   const [loadingServices, setLoadingServices] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const slotKey = `${tenant ?? ""}:${serviceId}:${dateKey}:${slotVersion}`;
+  const slotKey = `${tenant ?? ""}:${serviceId}:${staffId}:${dateKey}:${slotVersion}`;
   const currentSlots = slotResult?.key === slotKey ? slotResult : null;
   const availableHours = currentSlots?.slots ?? [];
   const loadingSlots = Boolean(serviceId && dateKey && !currentSlots);
   const dirty = Boolean(serviceId || hour || dateKey !== initialDate ||
     (petId && petId !== initialPetId) || query !== initialQuery);
   const discard = useDialogEditGuard(dirty, saving);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch(proxyUrl(`/api/dashboard/staff${tenantQuery(tenant)}`), { cache: "no-store", signal: controller.signal }).then(async res => {
+      if (!res.ok) throw new Error("No se pudo cargar el equipo. Puedes reservar sin asignar y revisarlo después.");
+      return res.json();
+    }).then(rows => { if (!controller.signal.aborted) { setProfessionals(rows); setStaffError(""); } }).catch(cause => { if (!controller.signal.aborted) setStaffError(cause instanceof Error ? cause.message : "No se pudo cargar el equipo."); });
+    return () => controller.abort();
+  }, [tenant]);
 
   useEffect(() => {
     if (!initialClientId && !initialPetId) return;
@@ -147,7 +156,7 @@ function NewAppointmentContent({
   useEffect(() => {
     if (!serviceId || !dateKey) return;
     const controller = new AbortController();
-    const params = new URLSearchParams({ serviceId, dateKey });
+    const params = new URLSearchParams({ serviceId, dateKey, ...(staffId ? { staffId } : {}) });
     const tenantSuffix = tenantQuery(tenant).replace("?", "&");
     void fetch(proxyUrl(`/api/dashboard/appointments/available-slots?${params}${tenantSuffix}`), {
       cache: "no-store", signal: controller.signal,
@@ -168,7 +177,7 @@ function NewAppointmentContent({
         });
       });
     return () => controller.abort();
-  }, [serviceId, dateKey, tenant, slotVersion, slotKey]);
+  }, [serviceId, staffId, dateKey, tenant, slotVersion, slotKey]);
 
   async function selectClient(selected: Client) {
     setClient(selected);
@@ -206,7 +215,7 @@ function NewAppointmentContent({
       const res = await fetch(proxyUrl(`/api/dashboard/appointments${tenantQuery(tenant)}`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: client.id, petId, serviceId, dateKey, hour: Number(hour) }),
+        body: JSON.stringify({ userId: client.id, petId, serviceId, dateKey, hour: Number(hour), ...(staffId ? { staffId } : {}) }),
       });
       if (!res.ok) {
         const payload = await res.json().catch(() => ({})) as { error?: string };
@@ -270,11 +279,20 @@ function NewAppointmentContent({
             </div>
             <div className="space-y-1.5">
               <label htmlFor="appointment-service" className="text-sm font-semibold">Servicio</label>
-              <select id="appointment-service" className={fieldClass} value={serviceId} onChange={(event) => { setServiceId(event.target.value); setHour(""); }} disabled={loadingServices} required>
+              <select id="appointment-service" className={fieldClass} value={serviceId} onChange={(event) => { setServiceId(event.target.value); setStaffId(""); setHour(""); }} disabled={loadingServices} required>
                 <option value="">{loadingServices ? "Cargando servicios…" : "Selecciona un servicio"}</option>
                 {services.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}
               </select>
               {!loadingServices && services.length === 0 && <p className="text-xs text-amber-700">No hay servicios con cita activos.</p>}
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="appointment-professional" className="text-sm font-semibold">Profesional responsable <span className="font-normal text-muted-foreground">(opcional)</span></label>
+              <select id="appointment-professional" value={staffId} className={fieldClass} disabled={!serviceId} onChange={event => { setStaffId(event.target.value); setHour(""); }}>
+                <option value="">Sin asignar · revisar después</option>
+                {professionals.filter(s => s.active && [services.find(service => service.id === serviceId)?.category === "grooming" ? "groomer" : "vet", "admin"].includes(s.role)).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+              <p className="text-xs text-muted-foreground">Al elegir un profesional se muestran sus turnos compatibles con el servicio, sus ausencias y las demás atenciones.</p>
+              {staffError && <p className="text-xs text-amber-800">{staffError}</p>}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">

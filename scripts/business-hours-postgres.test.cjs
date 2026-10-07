@@ -1,0 +1,115 @@
+const path = require("node:path");
+const fs = require("node:fs");
+const vm = require("node:vm");
+const assert = require("node:assert/strict");
+const { test } = require("node:test");
+const { randomUUID } = require("node:crypto");
+const ts = require("../frontend/node_modules/typescript");
+require("../backend/node_modules/dotenv").config({ path: path.join(__dirname, "../backend/.env"), quiet: true });
+const prisma = require("../backend/src/lib/prisma");
+const express = require("../backend/node_modules/express");
+const request = require("../backend/node_modules/supertest");
+const availability = require("../backend/src/services/availability.service");
+const { getAgendaExceptionForDate } = require("../backend/src/services/agenda-exception.service");
+const editor = { exports: {} };
+vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname, "../frontend/lib/business-hours-editor.ts"), "utf8"), {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+}).outputText, editor);
+const plain = value => JSON.parse(JSON.stringify(value));
+
+test("horarios: herencia, validación y copia conservan días cerrados", () => {
+  const e = editor.exports;
+  const empty = e.readHoursDraft(null);
+  assert.deepEqual(plain(e.hoursPayload(empty)), {});
+  assert.equal(e.displayedDay("sun", empty.general).active, false);
+  assert.equal(e.displayedDay("mon", empty.general).open, "11:00");
+  const draft = e.readHoursDraft({ mon: { active: true, open: "09:00", close: "18:00" }, wed: { active: false, open: "11:00", close: "17:00" }, services: { vet: { tue: { active: true, open: "10:00", close: "16:00" } } } });
+  assert.equal(e.displayedDay("mon", draft.services.vet, draft.general).open, "09:00");
+  assert.equal(e.displayedDay("tue", draft.services.vet, draft.general).open, "10:00");
+  const copied = e.copyMondayToOpenDays(draft.general);
+  assert.equal(copied.wed.active, false);
+  assert.equal(copied.sun, undefined);
+  assert.equal(copied.tue.open, "09:00");
+  assert.deepEqual(plain(e.hoursErrors(draft)), {});
+  for (const [open, close] of [["", "18:00"], ["18:00", "09:00"], ["09:60", "18:00"]]) assert(e.hoursErrors({ general: { mon: { active: true, open, close } }, services: {} })["general-mon"]);
+  assert.deepEqual(plain(e.hoursErrors({ general: { mon: { active: true, open: "09:30", close: "18:20" } }, services: {} })), {});
+  assert.equal(e.hoursSignature(JSON.parse(e.hoursSignature(draft))), e.hoursSignature(draft));
+  console.log("PASS: horarios vacíos no materializan valores; herencia, deshacer, copia, días cerrados y validación comprobados.");
+});
+
+test("PostgreSQL y rutas reales: guardar horarios, resolver disponibilidad y conservar citas", async () => {
+  const db = new URL(process.env.DATABASE_URL);
+  assert(["localhost", "127.0.0.1", "[::1]"].includes(db.hostname) && db.pathname === "/mateos_dev", "Requires local mateos_dev");
+  const ids = [randomUUID(), randomUUID()];
+  const created = [];
+  const app = express(); app.use(express.json());
+  app.use((req, _res, next) => { req.tenant = { tenantId: ids[0], isSuperAdmin: false }; req.actor = { type: "admin", role: "admin" }; next(); });
+  app.use("/api/dashboard", require("../backend/src/middleware/allowVeterinaryDashboard").allowVeterinaryDashboard);
+  app.use("/api/dashboard", require("../backend/src/routes/dashboard/tenant.routes"));
+  app.use("/api/dashboard", require("../backend/src/routes/dashboard/agenda-exceptions.routes"));
+  try {
+    for (const id of ids) { await prisma.tenant.create({ data: { id, slug: "hours-fixture-" + id, name: "Disposable hours verification", phone: "hours-" + id, activeModules: ["veterinary", "grooming"] } }); created.push(id); }
+    const owner = await prisma.user.create({ data: { tenantId: ids[0], name: "Fixture owner", phone: "000000009958" } });
+    const history = await prisma.appointment.create({ data: { tenantId: ids[0], userId: owner.id, petName: "Fixture pet", petType: "dog", serviceType: "vet", date: new Date("2026-10-06T14:00:00Z"), status: "confirmed" } });
+    const payload = { tue: { active: true, open: "09:00", close: "18:00" }, wed: { active: false, open: "11:00", close: "17:00" }, services: { grooming: { tue: { active: true, open: "10:00", close: "16:00" } } } };
+    const response = await request(app).put("/api/dashboard/tenant/profile").send({ businessHours: payload, tenantId: ids[1] });
+    assert.equal(response.status, 200); assert.deepEqual(response.body.businessHours, payload);
+    assert.equal((await prisma.tenant.findUniqueOrThrow({ where: { id: ids[1] } })).businessHours, null);
+    const stored = (await prisma.tenant.findUniqueOrThrow({ where: { id: ids[0] } })).businessHours;
+    assert.deepEqual(stored, payload);
+    const minutePayload = { ...payload, tue: { active: true, open: "10:20", close: "15:10" }, services: { grooming: { tue: { active: true, open: "10:30", close: "15:00" } } } };
+    const minutes = await request(app).put("/api/dashboard/tenant/profile").send({ businessHours: minutePayload });
+    assert.equal(minutes.status, 200); assert.deepEqual(minutes.body.businessHours, minutePayload);
+    const { listAvailableSlotsForDate } = require("../backend/src/services/availability-db.service");
+    const { buildAppointmentDateTime } = require("../backend/src/services/appointment.service");
+    const options = { tenantId: ids[0], dateKey: "2026-10-06", referenceDate: new Date("2026-10-05T12:00:00Z") };
+    assert.deepEqual(await listAvailableSlotsForDate({ ...options, serviceType: "grooming" }), [10.5]);
+    assert.equal((await listAvailableSlotsForDate({ ...options, serviceType: "vet" }))[0], 10 + 20 / 60);
+    assert.equal(buildAppointmentDateTime(options.dateKey, 10 + 20 / 60).toISOString(), "2026-10-06T15:20:00.000Z");
+    assert.equal(buildAppointmentDateTime(options.dateKey, 10.5).toISOString(), "2026-10-06T15:30:00.000Z");
+    assert.equal((await request(app).put("/api/dashboard/tenant/profile").send({ businessHours: payload })).status, 200);
+    console.log("PASS: PostgreSQL conserva 10:20/10:30; disponibilidad y construcción real de citas conservan sus minutos.");
+    assert.equal(availability.isWithinBusinessHours("vet", 9, "2026-10-06", stored), true);
+    assert.equal(availability.isWithinBusinessHours("vet", 18, "2026-10-06", stored), false);
+    assert.equal(availability.isWithinBusinessHours("grooming", 9, "2026-10-06", stored), false);
+    assert.equal(availability.isWithinBusinessHours("grooming", 10, "2026-10-06", stored), true);
+    assert.equal(availability.isBusinessDay("2026-10-07", stored, "vet"), false);
+    assert.equal(availability.isBusinessDay("2026-10-11", stored, "vet"), false);
+    assert.equal(availability.isBusinessDay("2026-10-12", stored, "vet"), false);
+    assert.equal((await request(app).put("/api/dashboard/tenant/profile").send({ businessHours: { tue: { active: true, open: "18:00", close: "09:00" } } })).status, 400);
+    const close = { scope: "all", mode: "closed", startDate: "2026-10-06", endDate: null };
+    const preview = await request(app).post("/api/dashboard/agenda-exceptions/preview").send(close);
+    assert.equal(preview.status, 200); assert.equal(preview.body.affectedAppointments[0].id, history.id);
+    assert.equal(await prisma.agendaException.count({ where: { tenantId: ids[0] } }), 0);
+    const special = await request(app).post("/api/dashboard/agenda-exceptions").send(close);
+    assert.equal(special.status, 201);
+    const effective = await getAgendaExceptionForDate(ids[0], "2026-10-06", "vet");
+    assert.equal(effective.id, special.body.exception.id);
+    assert.equal(availability.isBusinessDay("2026-10-06", stored, "vet", effective), false);
+    assert.equal(await getAgendaExceptionForDate(ids[0], "2026-10-05", "vet"), null);
+    assert.equal(await getAgendaExceptionForDate(ids[0], "2026-10-07", "vet"), null, "One-day exceptions must end on their start date");
+    assert.equal(await getAgendaExceptionForDate(ids[1], "2026-10-06", "vet"), null);
+    assert.equal((await request(app).post("/api/dashboard/agenda-exceptions").send(close)).status, 409);
+    const nextDay = await request(app).post("/api/dashboard/agenda-exceptions").send({ ...close, startDate: "2026-10-07", endDate: "2026-10-08" });
+    assert.equal(nextDay.status, 201, "Adjacent exception must not overlap the previous single day");
+    assert.equal((await getAgendaExceptionForDate(ids[0], "2026-10-08", "vet")).id, nextDay.body.exception.id);
+    assert.equal(await getAgendaExceptionForDate(ids[0], "2026-10-09", "vet"), null);
+    const opening = await request(app).post("/api/dashboard/agenda-exceptions").send({ scope: "grooming", mode: "open", startDate: "2026-10-06", open: "12:00", close: "15:00" });
+    assert.equal(opening.status, 201);
+    const areaException = await getAgendaExceptionForDate(ids[0], "2026-10-06", "grooming");
+    assert.equal(availability.isWithinBusinessHours("grooming", 12, "2026-10-06", stored, areaException), true);
+    assert.equal(availability.isWithinBusinessHours("grooming", 15, "2026-10-06", stored, areaException), false);
+    assert.equal((await request(app).patch("/api/dashboard/agenda-exceptions/" + opening.body.exception.id).send({ scope: "grooming", mode: "open", startDate: "2026-10-06", open: "13:00", close: "16:00" })).status, 200);
+    const foreign = await prisma.agendaException.create({ data: { tenantId: ids[1], scope: "all", mode: "closed", startDate: "2026-10-10" } });
+    assert.equal((await request(app).delete("/api/dashboard/agenda-exceptions/" + foreign.id)).status, 404);
+    assert.equal((await request(app).delete("/api/dashboard/agenda-exceptions/" + opening.body.exception.id)).status, 204);
+    assert.deepEqual(await prisma.appointment.findUniqueOrThrow({ where: { id: history.id } }), history);
+    console.log("PASS: guardar/leer horarios, límites, herencia por área, festivos, preview, fecha única/rango, edición, eliminación, aislamiento e historial en PostgreSQL real.");
+  } finally {
+    await prisma.agendaException.deleteMany({ where: { tenantId: { in: created } } });
+    await prisma.appointment.deleteMany({ where: { tenantId: { in: created } } });
+    await prisma.user.deleteMany({ where: { tenantId: { in: created } } });
+    await prisma.tenant.deleteMany({ where: { id: { in: created } } });
+    await prisma.$disconnect();
+  }
+});

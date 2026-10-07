@@ -66,6 +66,7 @@ Representar la identidad y configuración del establecimiento que opera la plata
 **Entidades principales**
 
 - **Establecimiento** — La entidad central. Tiene nombre, tipo (clínica veterinaria, centro veterinario, peluquería canina, peluquería felina), configuración regional (zona horaria, moneda, país) y módulos activos.
+- **Contacto del establecimiento** — Puede incluir un teléfono de contacto opcional y editable. Es parte de su identidad, independiente del identificador técnico del canal de WhatsApp; actualizarlo no cambia la recepción de mensajes (aclaración aprobada, 2026-10-06).
 - **Módulo** — Una capacidad del sistema que el establecimiento puede activar o desactivar. Cada módulo activo habilita contextos adicionales.
 - **Configuración del Negocio** — Los parámetros operativos del establecimiento: horarios generales y por tipo de servicio, días hábiles, duración estándar de los servicios, reglas de split de comisiones, mensajes de bienvenida.
 
@@ -238,6 +239,7 @@ Definir el catálogo de lo que el establecimiento ofrece, a qué precio y bajo q
 
 **Responsabilidades**
 - Mantener el catálogo actualizado de servicios disponibles
+- Agrupar el catálogo por categoría. Retirar un servicio conserva sus referencias; por petición de Administración (2026-10-06), un servicio retirado sin citas, reglas de precio ni capacidades de personal puede eliminarse definitivamente con confirmación explícita. Nunca se elimina en cascada ni se borra su auditoría. Ver `service-catalog-retirement-cleanup-20261006.md`.
 - Resolver el precio correcto para una combinación de servicio + mascota + cliente
 - Proveer la duración de cada servicio para el cálculo de disponibilidad en Agenda
 
@@ -268,9 +270,11 @@ Gestionar el equipo humano del establecimiento: quiénes son, qué hacen, cuánd
 
 - **Miembro del Staff** — Una persona que trabaja en el establecimiento. Tiene nombre, rol (veterinario, peluquero, recepcionista, administrador), horario de trabajo, y si genera comisiones.
 - **Disponibilidad del Staff** — Cuándo está disponible para atender. Considera su horario base, ausencias programadas y ausencias imprevistas.
+  - Ampliación de Administración aceptada el 2026-10-07 (ADR 018): una jornada puede tener varias franjas diarias. Una ausencia se puede anular con motivo y autor autenticado, conservando sus datos originales; corregirla anula el original y crea un reemplazo vinculado, en una operación atómica. Solo ausencias vigentes afectan la disponibilidad.
 - **Comisión** — El registro de lo que genera un miembro del staff por cada servicio prestado. Se calcula automáticamente según las reglas del negocio cuando una cita es completada.
 - **Liquidación** — El resumen de comisiones en un período determinado. Es la entidad que reemplaza el cálculo manual del split.
 - **Capacidad del Staff** — Qué servicios está habilitado a prestar un miembro del staff. No todo peluquero presta todos los servicios de grooming, ni todo veterinario presta todos los servicios clínicos; esta entidad hace explícita esa relación en vez de asumirla. Es la base sobre la que se apoyarán capacidades futuras: asignación inteligente de citas, planificación de disponibilidad por capacidad, y la actuación de Empleados Digitales que necesiten saber a quién pueden asignar una tarea.
+  - ADR 018: el operador elige entre servicios compatibles con el perfil y selección específica. Una selección vacía impide asignar servicios. El modo de compatibilidad anterior se conserva hasta que el operador configure expresamente esta opción. Las capacidades no conceden permisos de acceso al aplicativo; los servicios deben pertenecer al mismo establecimiento y área compatible.
 
 **Responsabilidades**
 - Mantener el roster del equipo y su disponibilidad

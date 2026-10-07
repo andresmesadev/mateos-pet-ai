@@ -24,7 +24,7 @@ const {
 
   dayBoundsInTimezone,
 
-  getHourInTimezone,
+  getDecimalHourInTimezone,
 
   formatSlotForUser,
 
@@ -495,7 +495,7 @@ const buildReminderMessage = (appointment) => {
 
   const dateKey = toDateKey(instant);
 
-  const hour = getHourInTimezone(instant);
+  const hour = getDecimalHourInTimezone(instant);
 
   const dateTimeLabel = formatSlotForUser(dateKey, hour);
 
