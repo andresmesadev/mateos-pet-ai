@@ -157,7 +157,7 @@ La evidencia visual del recorrido de Equipo y accesos, incluidos formularios en 
 
 ## Publicación preparada
 
-**Versionado evaluado:** corresponde un incremento menor a **2.44.0**, por las capacidades funcionales nuevas de Administración. El código continúa declarando 2.43.0 hasta preparar la publicación. Antes del commit de release se actualizarán versión y lockfile del backend y la documentación de publicación; el endpoint de salud utiliza esa versión. El tag, si se crea, deberá coincidir.
+**Versionado evaluado y aplicado:** incremento menor a **2.44.0**, por las capacidades funcionales nuevas de Administración. Backend, lockfile y endpoint de salud coinciden. Publicación y verificaciones de la VPS documentadas en el [informe de release](RELEASE_2_44_0_VPS_20261007.md).
 
 Migraciones incluidas en el conjunto, ya aplicadas localmente:
 
@@ -165,10 +165,6 @@ Migraciones incluidas en el conjunto, ya aplicadas localmente:
 2. `20261006224500_fix_agenda_exception_patterns`: corrige las expresiones regulares de las restricciones de excepciones; conserva sus registros.
 3. `20261007170000_staff_absence_correction_service_scope`: alcance de servicios, metadatos de anulación, vínculo de reemplazo y restricciones; conserva el comportamiento anterior mediante el valor predeterminado `auto`.
 
-Pasos de publicación pendientes:
+Publicación completada: versión, commit, push, CI aprobado, respaldo cifrado verificado, despliegue y tres migraciones aplicadas. Se certificaron salud 2.44.0, sesión real de administrador y lecturas autenticadas de las cinco secciones y agenda. Los guardados y permisos por perfil están verificados en PostgreSQL local y CI; no se modificó configuración de clientes reales ni se certificó login de todos los empleados en producción.
 
-1. Preparar versión y commit del conjunto revisado, seguido del push.
-2. Respaldar PostgreSQL en la VPS y desplegar, aplicando las migraciones con el proceso existente.
-3. Confirmar salud y versión; verificar acceso del administrador, lectura y guardado de las cinco secciones, disponibilidad de la agenda y restricciones por perfil en la VPS.
-
-**No quedan hallazgos funcionales bloqueantes conocidos en el alcance local revisado.** Administración podrá declararse publicada después de completar y documentar la verificación de producción.
+**No quedan hallazgos funcionales bloqueantes conocidos en el alcance revisado.** Administración está publicada; evidencia y límites en el [informe de release](RELEASE_2_44_0_VPS_20261007.md).
