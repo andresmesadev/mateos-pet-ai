@@ -36,6 +36,7 @@
     "node": ">=24 <25"
   },
   "overrides": {
+    "sharp": "^0.35.5",
     "exceljs": {
       "uuid": "^11.1.1"
     }

@@ -165,4 +165,6 @@ jobs:
           (cd backend && npx prisma generate --schema ../prisma/schema.prisma)
           npx prisma migrate deploy
       - name: Verify administration against isolated PostgreSQL
-        run: node --test scripts/*-postgres.test.cjs
+        run: |
+          node backend/src/scripts/seed-event-types.js
+          node --test scripts/*-postgres.test.cjs
