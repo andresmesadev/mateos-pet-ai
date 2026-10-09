@@ -27,7 +27,7 @@ test("catálogo real: editar precio base, conservar tarifa por mascota e histori
   // Execute the actual Next handler with a test identity and an actual loopback backend.
   // This covers the authenticated adapter boundary, not just direct Express calls.
   const proxyContext = {
-    exports: {}, URL, console, fetch,
+    exports: {}, URL, console, fetch, AbortSignal,
     process: { env: { API_URL: `http://127.0.0.1:${server.address().port}`, INTERNAL_API_SECRET: "fixture-only-token" } },
     require: name => name === "@/auth" ? { auth: async () => ({ user: { tenantId: ids[0], isSuperAdmin: false } }) } : require("../frontend/node_modules/next/server"),
   };

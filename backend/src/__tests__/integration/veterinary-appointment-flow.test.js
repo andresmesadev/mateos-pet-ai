@@ -13,6 +13,7 @@ jest.mock("../../lib/prisma", () => {
 
 const prisma = require("../../lib/prisma");
 const appointmentsRoutes = require("../../routes/dashboard/appointments.routes");
+const { getBogotaYmd } = require("../../routes/dashboard/shared");
 
 const app = express();
 app.use(express.json());
@@ -35,6 +36,8 @@ const appointment = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // A 60-minute fixture must stay within its Colombia day, even when CI runs near midnight.
+  appointment.date = new Date(getBogotaYmd() + "T12:00:00-05:00");
   prisma.staff.findFirst.mockResolvedValue({ id: "vet-1", tenantId: "tenant-a", role: "vet", active: true, availability: null, availabilities: [], capabilities: [] });
 });
 
