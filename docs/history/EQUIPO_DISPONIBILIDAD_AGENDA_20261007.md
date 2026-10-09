@@ -20,7 +20,7 @@ Las citas sin profesional siguen permitidas. Al asignarlas posteriormente, se ve
 
 ## Integración y límites del alcance
 
-Se reutilizan StaffAvailability y los casos de uso existentes de Staff; no se agrega un modelo ni una migración para estos ajustes. La decisión está documentada en [ADR 011](C:/Users/andre/Desktop/Proyectos/mateos-pet-ai/docs/decisions/011-equipo-disponibilidad-agenda.md).
+Se reutilizan StaffAvailability y los casos de uso existentes de Staff; no se agrega un modelo ni una migración para estos ajustes. La decisión está documentada en [ADR 011](../decisions/011-equipo-disponibilidad-agenda.md).
 
 Las franjas estructuradas son la fuente de verdad cuando existen. El JSON semanal anterior es el respaldo cuando no hay franjas. Guardar una semana sincroniza ambas representaciones y conserva las ausencias; restablecer elimina solamente la restricción semanal individual. Una semana vacía significa todos los días cerrados; sin restricción individual, el flujo de reserva sigue comprobando el horario del establecimiento.
 
@@ -122,15 +122,15 @@ Se utilizó un establecimiento temporal y datos ficticios en PostgreSQL local, c
 
 ### Ausencia y reserva afectada
 
-![Ausencia guardada y cita afectada](C:/Users/andre/Desktop/Proyectos/mateos-pet-ai/docs/history/EQUIPO_AUSENCIA_CITA_AFECTADA_20261006.png)
+![Ausencia guardada y cita afectada](EQUIPO_AUSENCIA_CITA_AFECTADA_20261006.png)
 
 ### Reasignación completada
 
-![Cita reasignada y revisión sin pendientes](C:/Users/andre/Desktop/Proyectos/mateos-pet-ai/docs/history/EQUIPO_CITA_REASIGNADA_20261007.png)
+![Cita reasignada y revisión sin pendientes](EQUIPO_CITA_REASIGNADA_20261007.png)
 
 ### Vista móvil
 
-![Panel de ausencias en pantalla móvil](C:/Users/andre/Desktop/Proyectos/mateos-pet-ai/docs/history/EQUIPO_AUSENCIAS_MOVIL_20261007.png)
+![Panel de ausencias en pantalla móvil](EQUIPO_AUSENCIAS_MOVIL_20261007.png)
 
 ## Limpieza y entrega
 

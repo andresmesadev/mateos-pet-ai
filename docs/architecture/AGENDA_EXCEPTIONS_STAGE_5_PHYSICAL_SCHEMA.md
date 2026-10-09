@@ -1,6 +1,8 @@
 # Excepciones de Agenda — Etapa 5: Esquema físico
 
-**Estado:** diseño completo, listo para aprobación de implementación  
+**Estado actual (revisión documental 2026-10-08):** diseño aprobado e implementado; [cierre técnico](../history/AGENDA_EXCEPTIONS_COMPLETION_REPORT.md). Las formulaciones en futuro conservan el diseño original.
+
+**Estado al redactar la etapa:** diseño completo, listo para aprobación de implementación
 **Precondiciones:** Etapas 1 a 4 aprobadas el 2026-09-17.
 
 ## Cambio Prisma

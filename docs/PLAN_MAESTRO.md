@@ -507,7 +507,7 @@ Los diez entregables del roadmap interno (7.1 → 7.10) completos, la decisión 
 ---
 
 ### FASE 8 — Calidad del Motor Conversacional
-**Estado:** 🚧 En curso. Declarada el 2026-09-02, tras el ADR 010.
+**Estado:** roadmap interno 8.1 → 8.3 completado, con extensión 8.4 también completada. Declarada el 2026-09-02, tras el ADR 010. Esta aclaración documental distingue el cierre de entregables de un cierre formal de fase; no declara una fase nueva.
 **Origen:** informe comparativo externo (`Mateos Pet AI vs. Sancho Agent IA`, 2026-09-01), que auditó memoria/estado/flujo del motor conversacional y encontró carencias funcionales reales, verificadas contra el código antes de aceptarse.
 
 **Objetivo estratégico**
@@ -550,7 +550,7 @@ Revisar los ADRs y los informes de fase. Si el problema ya fue resuelto o diferi
 
 ### Reconciliación aprobada: Inventario (2026-10-02)
 
-El responsable del producto solicitó expresamente productos e insumos con existencias para integrar el POS y las áreas operativas. El [ADR 015](decisions/015-inventario-productos-insumos.md) justifica promover esta capacidad antes diferida: sustituye el control manual y evita ventas o consumos sin saldo. Se modeló primero en el Contexto 13 y se aprobaron definición funcional, casos de uso, arquitectura, persistencia y esquema físico antes de implementar. Esta ampliación no reabre fases cerradas ni declara una fase futura; conserva Tenant como aislamiento, resolución única de precios y comisiones inmutables. La versión 2.42.0 está implementada localmente; [evidencia y límites de publicación](history/ENTREGABLE_INVENTARIO_COMPLETION_REPORT.md).
+El responsable del producto solicitó expresamente productos e insumos con existencias para integrar el POS y las áreas operativas. El [ADR 015](decisions/015-inventario-productos-insumos.md) justifica promover esta capacidad antes diferida: sustituye el control manual y evita ventas o consumos sin saldo. Se modeló primero en el Contexto 13 y se aprobaron definición funcional, casos de uso, arquitectura, persistencia y esquema físico antes de implementar. Esta ampliación no reabre fases cerradas ni declara una fase futura; conserva Tenant como aislamiento, resolución única de precios y comisiones inmutables. La implementación 2.42.0 y su migración fueron [publicadas y verificadas en la VPS](history/RELEASE_2_42_0_VPS_20261005.md); los ajustes posteriores se publicaron en [2.43.0](history/RELEASE_2_43_0_VPS_20261005.md). [Diseño, implementación y límites](history/ENTREGABLE_INVENTARIO_COMPLETION_REPORT.md).
 
 ## 7. Cómo Tomar Decisiones
 
@@ -606,7 +606,7 @@ Este documento existe porque el objetivo no es desarrollar funcionalidades. El o
 
 La diferencia entre un producto que crece bien y uno que acumula deuda hasta volverse inmanejable no está en la velocidad de construcción. Está en la claridad con la que se define qué se construye, en qué orden y por qué.
 
-Cada fase de este plan tiene un nombre y un propósito porque cada fase resuelve un problema específico que habilita la siguiente. La Fase 1 estableció que el dominio es soberano. La Fase 2 completará ese dominio. La Fase 3 le dará inteligencia especializada. La Fase 4 lo hará comercialmente escalable. La Fase 5 lo convertirá en una infraestructura operacional confiable.
+Cada fase de este plan tiene un nombre y un propósito porque cada fase resuelve un problema específico que habilita la siguiente. La Fase 1 estableció que el dominio es soberano. La Fase 2 completó la capa de casos de uso del dominio operativo. La Fase 3 incorporó inteligencia especializada. La Fase 4 habilitó la operación comercial. La Fase 5 consolidó la infraestructura operacional reactiva. Los cierres y límites de cada fase se documentan en su sección e informes.
 
 Quien lea este documento dentro de diez años debería poder entender exactamente qué producto decidimos construir y por qué. Que el negocio tiene prioridad sobre la tecnología. Que el dato pertenece al negocio. Que los canales son reemplazables. Que los empleados digitales trabajan para el dominio.
 

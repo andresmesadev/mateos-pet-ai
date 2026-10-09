@@ -40,7 +40,7 @@ La plataforma opera sobre dos dominios claramente separados:
 
 Presente en **todos** los tipos de negocio. No puede desactivarse.
 
-Incluye: Negocio, Clientes, Mascotas, Agenda, Servicios, Staff, Finanzas, Automatizaciones e Inventario de productos e insumos (incorporación conceptual aprobada el 2026-10-02; diseño e implementación pendientes).
+Incluye: Negocio, Clientes, Mascotas, Agenda, Servicios, Staff, Finanzas, Automatizaciones e Inventario de productos e insumos (incorporación conceptual y cinco etapas aprobadas el 2026-10-02; implementación verificada en 2.42.0, ver Contexto 13 y su evidencia de publicación).
 
 Una peluquería canina opera completamente dentro de este dominio.
 
@@ -239,7 +239,7 @@ Definir el catálogo de lo que el establecimiento ofrece, a qué precio y bajo q
 
 **Responsabilidades**
 - Mantener el catálogo actualizado de servicios disponibles
-- Agrupar el catálogo por categoría. Retirar un servicio conserva sus referencias; por petición de Administración (2026-10-06), un servicio retirado sin citas, reglas de precio ni capacidades de personal puede eliminarse definitivamente con confirmación explícita. Nunca se elimina en cascada ni se borra su auditoría. Ver `service-catalog-retirement-cleanup-20261006.md`.
+- Agrupar el catálogo por categoría. Retirar un servicio conserva sus referencias; por petición de Administración (2026-10-06), un servicio retirado sin citas, reglas de precio ni capacidades de personal puede eliminarse definitivamente con confirmación explícita. Nunca se elimina en cascada ni se borra su auditoría. Ver `../history/designs/service-catalog-retirement-cleanup-20261006.md`.
 - Resolver el precio correcto para una combinación de servicio + mascota + cliente
 - Proveer la duración de cada servicio para el cálculo de disponibilidad en Agenda
 
@@ -534,7 +534,7 @@ Dar identidad, inmutabilidad y trazabilidad de negocio al hecho de que "algo ocu
 
 ### 13. Contexto: Inventario de productos e insumos
 
-**Incorporación conceptual solicitada y aceptada el 2026-10-02.** Inventario deja de ser únicamente una capacidad diferida porque el responsable del producto requiere existencias y catálogo para medicamentos, mercancía de Pet shop e insumos. Estado: cinco etapas aprobadas e implementación local en 2.42.0. Ver [informe de implementación](../history/ENTREGABLE_INVENTARIO_COMPLETION_REPORT.md); publicación y VPS pendientes. Ver [ADR 015](../decisions/015-inventario-productos-insumos.md), [diseño de Inventario](inventory-workspace.md), [arquitectura aprobada](inventory-technical-design.md), [persistencia aprobada](inventory-persistence-model.md) y [esquema físico aprobado](inventory-physical-schema.md).
+**Incorporación conceptual solicitada y aceptada el 2026-10-02.** Inventario deja de ser únicamente una capacidad diferida porque el responsable del producto requiere existencias y catálogo para medicamentos, mercancía de Pet shop e insumos. Estado: cinco etapas aprobadas e implementación local en 2.42.0. Ver [informe de implementación](../history/ENTREGABLE_INVENTARIO_COMPLETION_REPORT.md); publicación 2.42.0 y migraciones de Inventario certificadas el 2026-10-05 en el [informe VPS](../history/RELEASE_2_42_0_VPS_20261005.md). Los ajustes posteriores de Inventario se publicaron en [2.43.0](../history/RELEASE_2_43_0_VPS_20261005.md). Ver [ADR 015](../decisions/015-inventario-productos-insumos.md), [diseño de Inventario](inventory-workspace.md), [arquitectura aprobada](inventory-technical-design.md), [persistencia aprobada](inventory-persistence-model.md) y [esquema físico aprobado](inventory-physical-schema.md).
 
 **Objetivo**
 Conocer y mantener trazabilidad de la mercancía física del Establecimiento, tanto para vender como para utilizar al prestar servicios.
@@ -688,7 +688,7 @@ Diseño funcional, casos de uso, arquitectura, persistencia y esquema físico: [
 
 ### Evolución explícita del alcance de Pet shop (2026-10-02)
 
-La exclusión de inventario en la reconciliación del 2026-10-01 describe el alcance aprobado entonces. El responsable del producto aprobó posteriormente las cinco etapas de diseño de Inventario; el ADR 015 promueve esa capacidad diferida con evidencia de la nueva necesidad. El Contexto 13 está implementado y verificado localmente en la versión 2.42.0. Pet shop habilita la venta del catálogo; Veterinaria y Peluquería habilitan el uso de insumos con permiso independiente `inventory_consume`. La publicación y migración de la VPS siguen pendientes. Evidencia: [informe de implementación](../history/ENTREGABLE_INVENTARIO_COMPLETION_REPORT.md).
+La exclusión de inventario en la reconciliación del 2026-10-01 describe el alcance aprobado entonces. El responsable del producto aprobó posteriormente las cinco etapas de diseño de Inventario; el ADR 015 promueve esa capacidad diferida con evidencia de la nueva necesidad. El Contexto 13 está implementado y verificado localmente en la versión 2.42.0. Pet shop habilita la venta del catálogo; Veterinaria y Peluquería habilitan el uso de insumos con permiso independiente `inventory_consume`. Las migraciones y publicación están certificadas en [release 2.42.0](../history/RELEASE_2_42_0_VPS_20261005.md), con ajustes posteriores en [2.43.0](../history/RELEASE_2_43_0_VPS_20261005.md). El estado actual se reconcilió el 2026-10-07; los informes de implementación conservan su fecha histórica. Evidencia: [informe de implementación](../history/ENTREGABLE_INVENTARIO_COMPLETION_REPORT.md).
 
 ## Versiones y Mantenimiento
 

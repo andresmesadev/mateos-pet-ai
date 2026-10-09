@@ -35,7 +35,7 @@ export function ReportsView({ initial }: { initial?: ReportSelection }) {
   return <div className="space-y-6">
     <section aria-label="Período de reportes" className="rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-5">
-        <div><h2 className="text-2xl font-semibold">Reportes del negocio</h2><p className="mt-1 text-sm text-muted-foreground">Consulta los resultados de tu establecimiento. Importes en COP y fechas de Bogotá.</p></div>
+        <div><h2 className="text-2xl font-semibold">Reportes del negocio</h2><p className="mt-1 text-sm text-muted-foreground">Consulta los resultados de tu establecimiento. Importes en COP y fechas en hora de Colombia.</p></div>
         <div role="group" aria-label="Tipo de período" className="flex gap-1 rounded-xl bg-muted p-1">
           {(["week", "month", "year"] as const).map(value => <Button key={value} variant={period === value ? "default" : "ghost"} aria-pressed={period === value} onClick={() => { setPeriod(value); setOffset(0); }}>{ { week: "Semana", month: "Mes", year: "Año" }[value]}</Button>)}
         </div>

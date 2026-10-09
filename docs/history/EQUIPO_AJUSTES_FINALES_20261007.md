@@ -107,19 +107,19 @@ Exit code: 0
 
 ### Ausencias conservadas tras corregir y anular
 
-![Ausencias corregidas y anuladas](C:/Users/andre/Desktop/Proyectos/mateos-pet-ai/docs/history/equipo-ausencias-20261007.png)
+![Ausencias corregidas y anuladas](equipo-ausencias-20261007.png)
 
 ### Selección explícita de servicios
 
 Captura del formulario con Consulta seleccionada; el guardado posterior confirmó cero citas afectadas.
 
-![Servicios que atiende](C:/Users/andre/Desktop/Proyectos/mateos-pet-ai/docs/history/equipo-servicios-20261007.png)
+![Servicios que atiende](equipo-servicios-20261007.png)
 
 ### Dos franjas de atención conservadas
 
-![Horario con descanso](C:/Users/andre/Desktop/Proyectos/mateos-pet-ai/docs/history/equipo-franjas-20261007.png)
+![Horario con descanso](equipo-franjas-20261007.png)
 
-![Horario en móvil](C:/Users/andre/Desktop/Proyectos/mateos-pet-ai/docs/history/equipo-franjas-movil-20261007.png)
+![Horario en móvil](equipo-franjas-movil-20261007.png)
 
 ## Publicación
 

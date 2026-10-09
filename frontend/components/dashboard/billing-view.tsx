@@ -1,5 +1,7 @@
 ﻿"use client";
 
+import { useActionConfirmation } from "@/components/dashboard/action-confirmation";
+
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -160,6 +162,7 @@ function PlanCard({
 // ── Main view ─────────────────────────────────────────────────
 
 export function BillingView({ status }: { status: BillingStatus | null }) {
+  const { confirm, confirmation } = useActionConfirmation();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -210,7 +213,7 @@ export function BillingView({ status }: { status: BillingStatus | null }) {
   }
 
   async function handleCancel() {
-    if (!window.confirm("¿Seguro que deseas cancelar tu suscripción? Perderás acceso a las funciones de tu plan actual.")) {
+    if (!await confirm("¿Seguro que deseas cancelar tu suscripción? Perderás acceso a las funciones de tu plan actual.")) {
       return;
     }
     setLoading(true);
@@ -233,6 +236,7 @@ export function BillingView({ status }: { status: BillingStatus | null }) {
 
   return (
     <div className="space-y-8 max-w-3xl">
+      {confirmation}
       {/* Estado actual */}
       {status && (
         <Card>

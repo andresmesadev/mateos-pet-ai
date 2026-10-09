@@ -49,7 +49,7 @@ export function ExpenseHistory({ reportDetail }: { reportDetail?: ReportDetail }
   const activeTotal = data?.summary.activeTotal ?? 0;
 
   return <section aria-label="Consultar gastos" className="overflow-hidden rounded-2xl border bg-white">
-    <header className="border-b p-5 sm:p-6"><h3 className="flex items-center gap-2 font-semibold"><History className="h-5 w-5 text-primary" />Consulta de gastos</h3><p className="mt-1 text-sm text-muted-foreground">Revisa gastos anteriores y el motivo de sus anulaciones. Fechas y horas de Bogotá.</p></header>
+    <header className="border-b p-5 sm:p-6"><h3 className="flex items-center gap-2 font-semibold"><History className="h-5 w-5 text-primary" />Consulta de gastos</h3><p className="mt-1 text-sm text-muted-foreground">Revisa gastos anteriores y el motivo de sus anulaciones. Fechas y horas de Colombia.</p></header>
     <div className="space-y-4 border-b p-5 sm:p-6">
       <form noValidate onSubmit={consult} className="flex flex-wrap items-end gap-3">
         <div className="min-w-0 flex-1"><label htmlFor="expense-history-from" className="mb-2 block text-sm font-medium">Desde</label><Input id="expense-history-from" type="date" max={lastAllowed} value={from} onChange={event => setFrom(event.target.value)} /></div>

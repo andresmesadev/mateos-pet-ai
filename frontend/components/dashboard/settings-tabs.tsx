@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { BusinessModules } from "@/components/dashboard/business-modules";
 import { StaffManager } from "@/components/dashboard/staff-manager";
 import { ContactsImporter } from "@/components/dashboard/contacts-importer";
+import { SetupGuide } from "@/components/dashboard/setup-guide";
 import { GeneralInfoSection, LocationServicesSection, ScheduleSection } from "@/components/dashboard/settings-view";
 import { type ServiceRow, type TenantProfile } from "@/app/dashboard/settings/page";
 
@@ -80,8 +81,10 @@ export function SettingsTabs({ profile, services, initialTab }: Props) {
   useEffect(() => {
     const previousUrl = window.location.href;
     const onPopState = () => {
-      if ((dirty || saving) && (saving || !window.confirm(`Hay cambios sin guardar en ${sectionName}. ¿Salir y descartarlos?`))) {
+      if (dirty || saving) {
+        const destination = window.location.href;
         window.history.pushState(null, "", previousUrl);
+        if (!saving) setPending({ href: destination });
         return;
       }
       if (window.location.pathname === "/dashboard/settings") {
@@ -95,6 +98,7 @@ export function SettingsTabs({ profile, services, initialTab }: Props) {
 
   return (
     <div className="space-y-6">
+      <SetupGuide profile={profile} services={services} onSelect={select} />
       <div className="rounded-2xl border border-border bg-card p-1.5 shadow-sm">
         <div role="tablist" aria-label="Secciones de Administración" className="flex flex-wrap gap-1">
           {TABS.map(({ id, label, icon: Icon }) => (

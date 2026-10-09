@@ -236,17 +236,17 @@ export default function OnboardingPage() {
         <div className="mb-10 text-center">
           <h1 className="text-3xl font-bold tracking-tight">Mateos Pet AI</h1>
           <p className="mt-2 text-muted-foreground">
-            Registra tu veterinaria y empieza en minutos
+            Registra tu establecimiento y empieza en minutos
           </p>
         </div>
 
         <StepIndicator current={step} total={3} />
 
-        {/* ── Paso 1: Datos de la veterinaria ── */}
+        {/* ── Paso 1: Datos del negocio ── */}
         {step === 1 && (
           <Card>
             <CardHeader>
-              <CardTitle>Datos de la veterinaria</CardTitle>
+              <CardTitle>Datos del negocio</CardTitle>
               <CardDescription>
                 El nombre y slug identifican tu cuenta en la plataforma
               </CardDescription>
@@ -254,10 +254,10 @@ export default function OnboardingPage() {
             <CardContent className="space-y-4">
               <div className="space-y-1">
                 <label className="text-sm font-medium">
-                  Nombre de la veterinaria
+                  Nombre del negocio
                 </label>
                 <Input
-                  placeholder="Ej: Clínica Veterinaria San Lucas"
+                  placeholder="Ej. Centro veterinario, peluquería o pet shop"
                   value={form.name}
                   onChange={handleNameChange}
                   autoFocus
@@ -340,7 +340,7 @@ export default function OnboardingPage() {
                 <label className="text-sm font-medium">Email de contacto</label>
                 <Input
                   type="email"
-                  placeholder="contacto@tuveterinaria.com"
+                  placeholder="contacto@tunegocio.com"
                   value={form.email}
                   onChange={set("email")}
                 />

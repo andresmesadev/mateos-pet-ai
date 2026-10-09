@@ -96,7 +96,7 @@ export default async function CalendarPage({ searchParams }: PageProps) {
     <div>
       <PageHeader
         title="Agenda"
-        description="Consulta las citas por día, semana, mes o profesional. Horarios en Bogotá."
+        description="Consulta las citas por día, semana, mes o profesional. Horarios expresados en hora de Colombia."
         icon={Calendar}
         tint="bg-teal-100 text-teal-700"
       />

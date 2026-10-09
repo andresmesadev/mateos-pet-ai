@@ -22,7 +22,7 @@ export function readInventoryPending(raw: string | null): PendingInventoryOperat
   if (!raw || raw.length > 1000000) return [];
   try { const list: unknown = JSON.parse(raw); return Array.isArray(list) ? list.filter((p): p is PendingInventoryOperation => p && /^[a-f0-9-]{36}$/i.test(p.key) && typeof p.kind === "string" && typeof p.path === "string" && /^\/api\/dashboard\/(inventory\/|transactions\/)/.test(p.path) && ["POST", "PATCH"].includes(p.method) && typeof p.body === "string" && p.body.length <= 100000 && typeof p.label === "string" && Number.isFinite(p.createdAt)) : []; } catch { return []; }
 }
-export function useInventoryOperation(onConfirmed?: () => void | Promise<void>) {
+export function useInventoryOperation(onConfirmed?: (operation: PendingInventoryOperation) => void | Promise<void>, onPrepared?: (operation: PendingInventoryOperation) => void) {
   const tenant = useTenant();
   const [scope, setScope] = useState<string | null>(null), [pending, setPending] = useState<PendingInventoryOperation[]>([]);
   const [busy, setBusy] = useState(false), [message, setMessage] = useState("");
@@ -64,7 +64,7 @@ export function useInventoryOperation(onConfirmed?: () => void | Promise<void>) 
       }
       store(storedPending(scope).filter(x => x.key !== p.key));
       setMessage("Operación guardada. Las existencias están actualizadas.");
-      try { await onConfirmed?.(); } catch { setMessage("Operación guardada. Actualiza la vista para consultar las existencias."); }
+      try { await onConfirmed?.(p); } catch { setMessage("Operación guardada. Actualiza la vista para consultar las existencias."); }
       return true;
     } catch (e) {
       if (definitive) store(storedPending(scope).filter(x => x.key !== p.key));
@@ -78,6 +78,7 @@ export function useInventoryOperation(onConfirmed?: () => void | Promise<void>) 
     if (existing.length) { setPending(existing); setMessage("Resuelve primero la operación pendiente: consulta su resultado o reinténtala."); return false; }
     const p = { key:crypto.randomUUID(), kind, path, method, body:JSON.stringify(body), label, createdAt:Date.now() };
     try { store([p]); } catch { setMessage("No se pudo conservar la clave en el navegador. Habilita el almacenamiento antes de guardar."); return false; }
+    onPrepared?.(p);
     // The new request is durably saved before any network mutation.
     return request(p, false);
   }

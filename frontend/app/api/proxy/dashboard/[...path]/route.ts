@@ -59,7 +59,7 @@ async function handler(
     `${BACKEND_URL}/api/dashboard/${path.join("/")}`
   );
   req.nextUrl.searchParams.forEach((value, key) => {
-    if (key !== "tenantId" && key !== "viewAllTenants") backendUrl.searchParams.set(key, value);
+    if (key !== "tenantId" && key !== "viewAllTenants") backendUrl.searchParams.append(key, value);
   });
 
   const headers: Record<string, string> = {
@@ -90,15 +90,18 @@ async function handler(
       : undefined;
 
   let response: Response;
+  let text: string;
   try {
     response = await fetch(backendUrl.toString(), {
       method: req.method,
       headers,
       body,
+      signal: AbortSignal.any([req.signal, AbortSignal.timeout(15_000)]),
     });
+    text = [204, 205, 304].includes(response.status) ? "" : await response.text();
   } catch {
     return NextResponse.json(
-      { error: "El servidor de datos no está disponible. Intenta de nuevo." },
+      { error: req.method === "GET" ? "El servidor de datos no está disponible. Intenta de nuevo." : "No se pudo comprobar el resultado. Consulta los datos guardados antes de repetir la operación.", code: req.method === "GET" ? "READ_UNAVAILABLE" : "RESULT_UNCERTAIN" },
       { status: 503 }
     );
   }
@@ -107,7 +110,6 @@ async function handler(
     return new NextResponse(null, { status: response.status });
   }
 
-  const text = await response.text();
   return new NextResponse(text, {
     status: response.status,
     headers: {

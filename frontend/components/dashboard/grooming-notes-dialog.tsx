@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CaseSummary } from "@/components/dashboard/case-summary";
 import { Scissors } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -86,9 +87,10 @@ export function GroomingNotesDialog({ visit, tenantId, onClose, onSaved, onStart
       <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl" showClose={!saving && !starting}>
         <DialogHeader className="border-b px-6 py-5 sm:px-8">
           <div className="flex items-center gap-3 pr-7"><span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800"><Scissors className="size-5" /></span><DialogTitle className="text-xl">Notas de la atención de {visit.petName}</DialogTitle></div>
-          <DialogDescription className="pt-2">{visit.clientName ?? "Propietario sin nombre"} · {visit.serviceName ?? "Baño o corte"} · {formatColombiaDateTime(visit.date)}</DialogDescription>
+          <DialogDescription className="pt-2">Registro del baño o corte y cuidados para próximas visitas.</DialogDescription>
         </DialogHeader>
         <div className="space-y-6 overflow-y-auto px-6 py-6 sm:px-8">
+          <CaseSummary appointment={current} showPrice />
           <GroomingPetSummary visit={visit} tenantId={tenantId} />
           {canWrite && ["in_progress", "completed"].includes(visit.status) && <ConsumptionButton area="grooming" appointmentId={visit.id} />}
           <div role="status" className="rounded-xl bg-amber-50 p-4 text-sm leading-relaxed text-amber-950">{canWrite ? "Escribe o pega aquí tus notas sobre el baño, corte, productos y cuidados. Después pulsa Guardar cambios." : !visit.petId ? "Solo lectura: vincula una mascota a esta cita desde Agenda para poder guardar notas." : `Solo lectura: esta cita figura como «${formatStatus(visit.status)}». Puedes seleccionar y copiar las notas existentes. Para registrar un baño o corte, abre la cita en la que sí se prestó el servicio.`}</div>

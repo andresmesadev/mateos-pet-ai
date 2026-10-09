@@ -34,7 +34,9 @@ const TRANSACTION_INCLUDE = {
 function operationalDayFilter(req) {
   if (!req.access || req.access.capabilities.administration) return {};
   const start = bogotaDayStart(getBogotaYmd());
-  return { paidAt: { gte: start, lt: new Date(start.getTime() + 86_400_000) } };
+  // Cash operators can locate and verify a service charge after the day changes.
+  // Historical manual sales and administrative reports keep their existing gates.
+  return { OR: [{ paidAt: { gte: start, lt: new Date(start.getTime() + 86_400_000) } }, { origin: "system_appointment_completed" }] };
 }
 
 // POST /transactions — el workflow confirma cobro e inventario en una transacción.

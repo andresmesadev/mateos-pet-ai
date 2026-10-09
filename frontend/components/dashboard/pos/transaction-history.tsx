@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Loader2, ReceiptText, Search, Ban } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useDashboardAccess } from "@/components/dashboard/dashboard-access-provider";
@@ -12,6 +12,7 @@ import { formatPosMoney } from "@/lib/pos-checkout";
 import { canVoidSale, validHistoryRange, initialHistoryRange, historyQuickRange, inventoryReturnProgress, isHistoryTransaction, transactionNeedsReview, HISTORY_ORIGIN_LABELS, type HistoryOrigin, type HistoryQuickPeriod } from "@/lib/pos-history";
 import { ReceiptDialog } from "./sale-receipt";
 import { VoidSaleDialog } from "./void-sale-dialog";
+import { ReviewPaymentDialog, type PaymentAttempt } from "./review-payment-dialog";
 import { InventoryReturnButton } from "@/components/dashboard/inventory/return-button";
 import { type ReportDetail } from "@/lib/pos-reports";
 import { ReportDetailContext } from "./report-detail-context";
@@ -39,7 +40,11 @@ export function TransactionHistory({ period, reportDetail }: { period: string; r
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [receipt, setReceipt] = useState<Transaction | null>(null);
+  const voidTrigger = useRef<HTMLButtonElement | null>(null);
   const [voiding, setVoiding] = useState<Transaction | null>(null);
+  const [reviewing, setReviewing] = useState<Transaction | null>(null);
+  const reviewTrigger = useRef<HTMLButtonElement | null>(null);
+  const [uncertainPayments, setUncertainPayments] = useState<Record<string, PaymentAttempt>>({});
   const [uncertainSales, setUncertainSales] = useState<Set<string>>(() => new Set());
   const [notice, setNotice] = useState("");
   const params = new URLSearchParams({ ...range, pagination: "1", page: String(page), pageSize: String(pageSize), search: query, method, status, origin });
@@ -72,7 +77,7 @@ export function TransactionHistory({ period, reportDetail }: { period: string; r
           <Button type="submit">Consultar fechas</Button>
         </form>
         {rangeError && <p role="alert" className="text-sm text-destructive">{rangeError}</p>}
-        <label className="block text-sm font-medium">Buscar operación<span className="relative mt-2 block"><Search aria-hidden className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" /><Input type="search" className="pl-9" placeholder="Cliente, mascota, artículo, quien registró o referencia" value={query} onChange={event => { setQuery(event.target.value); setPage(1); }} /></span></label>
+        <label className="block text-sm font-medium">Buscar operación<span className="relative mt-2 block"><Search aria-hidden className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" /><Input id="history-search" type="search" className="pl-9" placeholder="Cliente, mascota, artículo, quien registró o referencia" value={query} onChange={event => { setQuery(event.target.value); setPage(1); }} /></span></label>
         <div className="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto]">
           <label className="min-w-0 text-sm font-medium">Origen<select className={selectClass} value={origin} onChange={event => { setOrigin(event.target.value as HistoryOrigin); setPage(1); }}><option value="all">Todos los orígenes</option>{Object.entries(HISTORY_ORIGIN_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
           <label className="min-w-0 text-sm font-medium">Método de pago<select className={selectClass} value={method} onChange={event => { setMethod(event.target.value as typeof method); setPage(1); }}><option value="all">Todos los métodos</option><option value="review">Por revisar</option>{Object.entries(PAYMENT_METHOD_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
@@ -109,7 +114,8 @@ export function TransactionHistory({ period, reportDetail }: { period: string; r
               </div>
               <div className="flex flex-wrap items-center justify-between gap-3 xl:block xl:text-right"><p className={`text-xl font-bold tabular-nums ${transaction.status === "voided" ? "text-muted-foreground line-through" : "text-primary"}`}>{formatPosMoney(transaction.total)}</p><div className="flex flex-wrap gap-2 xl:mt-3 xl:justify-end">
                 <Button variant="outline" onClick={() => setReceipt(transaction)}><ReceiptText aria-hidden className="mr-2 h-4 w-4" />Comprobante</Button>
-                {canVoidSale(transaction, !!access?.capabilities.finance) && <Button variant="ghost" className="text-destructive" onClick={() => setVoiding(transaction)}><Ban aria-hidden className="mr-2 h-4 w-4" />Anular</Button>}
+                {review && transaction.status === "active" && access?.capabilities.cash && <Button onClick={event => { reviewTrigger.current = event.currentTarget; setReviewing(transaction); }}>Revisar pago</Button>}
+                {canVoidSale(transaction, !!access?.capabilities.finance) && <Button variant="ghost" className="text-destructive" onClick={event => { voidTrigger.current = event.currentTarget; setVoiding(transaction); }}><Ban aria-hidden className="mr-2 h-4 w-4" />Anular</Button>}
                 <InventoryReturnButton transaction={transaction} onSaved={async () => { setNotice("Devolución registrada. Puedes consultar las unidades recibidas en esta venta y en Inventario."); setRevision(value => value + 1); router.refresh(); }} />
               </div></div>
             </div>
@@ -117,9 +123,10 @@ export function TransactionHistory({ period, reportDetail }: { period: string; r
         })}</ul>
         {data && <HistoryPages data={data} onPage={setPage} onSize={size => { setPageSize(size); setPage(1); }} />}
       </>}
-      <p className="border-t px-5 py-4 text-xs text-muted-foreground">Los cobros de citas completadas se revisan en Caja diaria. Anular una venta no realiza un reembolso bancario ni repone mercancía: registra su recepción por separado.</p>
+      <p className="border-t px-5 py-4 text-xs text-muted-foreground">Puedes revisar el método de los cobros de citas aquí o en Caja diaria, incluidos días anteriores. Anular una venta no realiza un reembolso bancario ni repone mercancía: registra su recepción por separado.</p>
     </section>
     <ReceiptDialog transaction={receipt} onClose={() => setReceipt(null)} />
-    {voiding && <VoidSaleDialog key={voiding.id} transaction={voiding} initiallyUncertain={uncertainSales.has(voiding.id)} onUncertainChange={value => setUncertainSales(previous => { const next = new Set(previous); if (value) next.add(voiding.id); else next.delete(voiding.id); return next; })} onClose={() => setVoiding(null)} onConfirmed={() => { setRevision(value => value + 1); setNotice("Venta anulada. El registro original y el motivo se conservan."); router.refresh(); }} />}
+    {reviewing && <ReviewPaymentDialog key={reviewing.id} transaction={reviewing} initialAttempt={uncertainPayments[reviewing.id]} onUncertainChange={attempt => setUncertainPayments(previous => { const next = { ...previous }; if (attempt) next[reviewing.id] = attempt; else delete next[reviewing.id]; return next; })} onClose={() => setReviewing(null)} onReturnFocus={() => { if (reviewTrigger.current?.isConnected && !reviewTrigger.current.disabled) reviewTrigger.current.focus(); else document.getElementById("history-search")?.focus(); }} onSaved={() => { setReviewing(null); setRevision(value => value + 1); setNotice("Método de pago confirmado. El importe del servicio se conserva."); router.refresh(); }} />}
+    {voiding && <VoidSaleDialog key={voiding.id} transaction={voiding} initiallyUncertain={uncertainSales.has(voiding.id)} onUncertainChange={value => setUncertainSales(previous => { const next = new Set(previous); if (value) next.add(voiding.id); else next.delete(voiding.id); return next; })} onClose={() => setVoiding(null)} onReturnFocus={() => { if (voidTrigger.current?.isConnected && !voidTrigger.current.disabled) voidTrigger.current.focus(); else document.getElementById("history-search")?.focus(); }} onConfirmed={() => { setRevision(value => value + 1); setNotice("Venta anulada. El registro original y el motivo se conservan."); router.refresh(); }} />}
   </>;
 }

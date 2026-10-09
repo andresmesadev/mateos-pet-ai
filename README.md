@@ -18,6 +18,8 @@ Si vas a desarrollar una funcionalidad, proponer una mejora o utilizar una IA pa
 
 Estos documentos definen el rumbo del producto. Cualquier propuesta que los contradiga debe justificarse explícitamente antes de aceptarse.
 
+Para consultar guías, contratos, decisiones y antecedentes, utiliza el [índice de documentación](docs/README.md). El [estado actual](docs/ESTADO_ACTUAL.md) distingue la última publicación comprobada de los cambios locales pendientes.
+
 ---
 
 ## Requisitos

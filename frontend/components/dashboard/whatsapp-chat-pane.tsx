@@ -14,12 +14,15 @@ import { tenantQuery } from "@/lib/use-tenant";
 import { type ConversationDetail, type ConversationMessage, formatPhone } from "@/lib/conversations";
 import { matchingMessageIds, messageAuthorLabel, messageDay, mergeThreadMessages } from "@/lib/whatsapp-workspace";
 import { cn } from "@/lib/utils";
+import { useActionConfirmation } from "./action-confirmation";
 import { useToast } from "@/components/ui/toast";
 
 type Props = {
   conversationId: string;
   tenant: string | null;
   drafts: Record<string, string>;
+  recoveredDrafts: Record<string, boolean>;
+  storageFailed: boolean;
   busyThreads: Record<string, boolean>;
   onDraft: (key: string, text: string, expected?: string) => void;
   onBusy: (key: string, busy: boolean) => void;
@@ -27,8 +30,9 @@ type Props = {
   onChanged: () => void;
 };
 
-export function WhatsAppChatPane({ conversationId, tenant, drafts, busyThreads, onDraft, onBusy, onBack, onChanged }: Props) {
+export function WhatsAppChatPane({ conversationId, tenant, drafts, recoveredDrafts, storageFailed, busyThreads, onDraft, onBusy, onBack, onChanged }: Props) {
   const { toast } = useToast();
+  const { confirm, confirmation } = useActionConfirmation();
   const [detail, setDetail] = useState<ConversationDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -60,7 +64,7 @@ export function WhatsAppChatPane({ conversationId, tenant, drafts, busyThreads, 
   const conversation = detail?.conversation;
   const canSend = detail?.viewer?.isMine === true;
   const draftKey = conversation ? `${conversation.tenantId ?? tenant ?? "current"}:${conversation.userId}` : "";
-  const text = drafts[draftKey] ?? "";
+  const text = conversation && !loading && !loadError ? drafts[draftKey] ?? "" : "";
   const sending = busyThreads[draftKey] ?? false;
   const matches = matchingMessageIds(detail?.messages ?? [], messageQuery);
   const activeMatch = matches[matchIndex % Math.max(1, matches.length)];
@@ -201,6 +205,7 @@ export function WhatsAppChatPane({ conversationId, tenant, drafts, busyThreads, 
   const messages = detail?.messages ?? [];
   const displayName = conversation?.name || formatPhone(conversation?.phone ?? null);
   return <div className="flex h-full min-w-0">
+    {confirmation}
     <div className="relative flex min-w-0 flex-1 flex-col">
     <header className="shrink-0 border-b border-[#d9dfdc] bg-[#f0f2f5] px-2 py-2 sm:px-4">
       <div className="flex items-center gap-2"><Button variant="ghost" size="icon" className="size-11 shrink-0 rounded-full md:hidden" aria-label="Volver a conversaciones" onClick={onBack}><ArrowLeft className="size-5" /></Button><div aria-hidden className="hidden size-10 shrink-0 items-center justify-center rounded-full bg-[#dfeae6] text-[#406259] sm:flex"><UserRound className="size-5" /></div><div className="min-w-0 flex-1"><h2 className="truncate text-sm font-semibold" title={displayName}>{loading && !detail ? "Cargando conversación…" : displayName}</h2>{conversation && <p className={cn("mt-0.5 text-xs", conversation.requires_human_attention ? "text-amber-800" : "text-[#54656f]")}>{conversation.assignment ? `Atiende ${conversation.assignment.name}` : conversation.requires_human_attention ? "Equipo pendiente · IA pausada" : conversation.status === "cerrada" ? "Conversación cerrada" : "Responde el asistente IA"}</p>}</div><Button variant="ghost" size="icon" className="size-11 shrink-0 rounded-full" aria-label="Buscar en el chat" aria-expanded={searchOpen} disabled={!conversation || Boolean(loadError)} onClick={()=>setSearchOpen(value=>!value)}><Search className="size-5" /></Button><Button ref={panelButton} variant="ghost" size="icon" className={cn("size-11 shrink-0 rounded-full",panelOpen&&"bg-[#d9fdd3]")} aria-label="Cliente y mascotas" title="Cliente y mascotas" aria-expanded={panelOpen} disabled={!conversation || Boolean(loadError)} onClick={()=>setPanelOpen(value=>!value)}><UserRound className="size-5" /></Button>{detail?.viewer?.canCreateAppointment && <Button variant="ghost" size="icon" className="size-11 shrink-0 rounded-full" aria-label="Nueva cita" title="Nueva cita" disabled={!conversation || Boolean(loadError)} onClick={()=>{setAppointmentPetId(undefined);setAppointmentOpen(true);}}><CalendarPlus className="size-5" /></Button>}</div>
@@ -223,8 +228,9 @@ export function WhatsAppChatPane({ conversationId, tenant, drafts, busyThreads, 
     <footer className="shrink-0 space-y-2 border-t border-[#d9dfdc] bg-[#f0f2f5] px-2 py-2 sm:px-4">
       {sendError && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{sendError} Puedes volver a pulsar Enviar; el texto no se ha borrado.</p>}
       <label htmlFor="whatsapp-reply" className="sr-only">Respuesta al cliente</label>
+      {text.trim() && <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-[#54656f]"><span role="status">{storageFailed ? "El navegador no pudo conservar el borrador al salir." : recoveredDrafts[draftKey] ? "Borrador recuperado" : "Borrador guardado en esta pestaña"}</span><Button variant="ghost" size="sm" disabled={sending} onClick={async () => { if (await confirm({ title: "Descartar borrador", description: "Se quitará el texto no enviado de esta conversación.", confirmLabel: "Descartar", destructive: true })) onDraft(draftKey, ""); }}>Descartar borrador</Button></div>}
       <div className="flex items-end gap-1.5"><Button variant="ghost" size="icon" className="size-11 shrink-0 rounded-full" aria-label="Insertar emoji" disabled={!conversation || sending || loading || resolving || Boolean(loadError)} onClick={()=>{emojiSelection.current={start:inputRef.current?.selectionStart??text.length,end:inputRef.current?.selectionEnd??text.length};setEmojiOpen(true);}}><Smile className="size-5" /></Button><textarea id="whatsapp-reply" ref={inputRef} rows={1} maxLength={4096} placeholder="Escribe un mensaje" aria-describedby="whatsapp-draft-help" value={text} disabled={!conversation || sending || loading || resolving || Boolean(loadError)} onChange={(event) => { onDraft(draftKey, event.target.value); setSendError(null); }} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }} className="max-h-32 min-h-11 min-w-0 flex-1 resize-none rounded-2xl border border-transparent bg-white px-4 py-3 text-sm focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-60" /><Button className="size-11 shrink-0 rounded-full bg-[#008069] p-0 text-white hover:bg-[#006c59]" aria-label={sending ? "Enviando mensaje" : "Enviar mensaje"} title="Enviar mensaje" disabled={!conversation || !canSend || !text.trim() || sending || resolving || loading || Boolean(loadError)} onClick={() => void send()}><Send className="size-5" /></Button></div>
-      <p id="whatsapp-draft-help" className="px-1 text-[10px] leading-relaxed text-[#54656f]">{canSend ? "Responderás con tu nombre. Enter envía · Shift + Enter agrega una línea." : "Puedes preparar un borrador; toma la conversación para enviarlo."} El borrador se conserva durante esta visita.</p>
+      <p id="whatsapp-draft-help" className="px-1 text-[10px] leading-relaxed text-[#54656f]">{canSend ? "Responderás con tu nombre. Enter envía · Shift + Enter agrega una línea." : "Puedes preparar un borrador; toma la conversación para enviarlo."} El borrador caduca tras 2 horas sin editarlo. No se envía automáticamente.</p>
     </footer>
     </div>
     {conversation && panelOpen && <WhatsAppClientPanel conversationId={conversation.id} clientId={conversation.userId} tenant={tenant} onClose={closePanel} onProfile={()=>{setPanelOpen(false);setClientOpen(true);}} onAppointment={petId=>{setPanelOpen(false);setAppointmentPetId(petId);setAppointmentOpen(true);}} />}

@@ -55,7 +55,7 @@ export function StaffScheduleEditor({ member, businessHours, onSaved, ...signals
     catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo guardar el horario."); }
     finally { lock.current = false; setBusy(false); }
   }
-  return <form id={`staff-schedule-${member.id}`} onSubmit={save} className="space-y-5"><div className="space-y-2 text-sm text-muted-foreground"><p>Horario semanal individual, en hora de Bogotá. Las citas existentes se conservan.</p><p>Agenda comprueba este horario y las ausencias al asignar un profesional. Después de guardar se abrirá la revisión de citas afectadas.</p></div><fieldset disabled={busy} className="space-y-4">
+  return <form id={`staff-schedule-${member.id}`} onSubmit={save} className="space-y-5"><div className="space-y-2 text-sm text-muted-foreground"><p>Horario semanal individual, en hora de Colombia. Las citas existentes se conservan.</p><p>Agenda comprueba este horario y las ausencias al asignar un profesional. Después de guardar se abrirá la revisión de citas afectadas.</p></div><fieldset disabled={busy} className="space-y-4">
     <label className="flex items-center gap-3 text-sm font-semibold"><input type="checkbox" checked={av !== null} onChange={e => setAv(e.target.checked ? suggestedStaffWeek(businessHours, member.role) : null)} className="h-4 w-4 accent-teal-700" />Personalizar horario del integrante</label>
     {av === null ? <p className="rounded-xl border bg-muted/30 p-4 text-sm text-muted-foreground">Sin restricción semanal individual. La agenda mantiene el horario del establecimiento y del área.</p> : <div className="divide-y rounded-xl border">{WEEK_DAYS.map(({ key, label }) => {
       const day = av[key] ?? { active: false, open: "", close: "" };

@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CalendarPlus, Plus, UserRound, MessageCircle } from "lucide-react";
@@ -12,9 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { NewAppointmentDialog } from "@/components/dashboard/new-appointment-dialog";
 import { ProtectedDialog, SavedChangesStatus, useDialogEditGuard } from "@/components/dashboard/protected-dialog";
 import {
-  DialogContent,
   DialogDescription,
-  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -39,6 +37,9 @@ import {
   formatPhone,
 } from "@/lib/clients";
 import { type DashboardPet, formatPetType, getPetEmoji } from "@/lib/pets";
+import { FormDialogContent, FormDialogHeader, FormDialogBody, FormDialogFooter, FormSection, FormField, FormAdditional } from "./form-layout";
+import { FormSubmissionError, useFormFeedback } from "./form-feedback";
+import { submissionErrorMessage } from "@/lib/form-feedback";
 
 function clientPetToDashboardPet(pet: ClientPet, owner: { id: string; phone: string; name: string | null }): DashboardPet {
   return {
@@ -80,6 +81,7 @@ function ClientSheetContent({ clientId, initialEdit = false, onUpdated, onNaviga
   const access = useDashboardAccess();
   const tenant = useTenant();
   const { toast } = useToast();
+  const feedback = useFormFeedback();
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 60_000); return () => clearInterval(timer); }, []);
   const [client, setClient] = useState<ClientDetail | null>(null);
@@ -141,15 +143,16 @@ function ClientSheetContent({ clientId, initialEdit = false, onUpdated, onNaviga
   if (loading) {
     return (
       <>
-        <DialogHeader className="border-b px-4 py-4">
+        <FormDialogHeader>
           <DialogTitle>Cargando…</DialogTitle>
-        </DialogHeader>
+        </FormDialogHeader>
         <ClientSheetSkeleton />
       </>
     );
   }
 
   const handleEdit = () => {
+    feedback.clear();
     setEditForm({
       name: client?.name ?? "",
       phone: client?.phone ?? "",
@@ -161,8 +164,9 @@ function ClientSheetContent({ clientId, initialEdit = false, onUpdated, onNaviga
     setEditing(true);
   };
 
-  const handleSave = async () => {
-    if (!client) return;
+  const handleSave = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!client || saving || !feedback.validate(event.currentTarget, { "edit-client-phone": "Escribe el teléfono principal." })) return;
     setSaving(true);
     try {
       const res = await fetch(proxyUrl(`/api/dashboard/clients/${client.id}${tenantQuery(tenant)}`), {
@@ -170,7 +174,10 @@ function ClientSheetContent({ clientId, initialEdit = false, onUpdated, onNaviga
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(access?.capabilities.administration ? editForm : { ...editForm, notes: undefined }),
       });
-      if (!res.ok) throw new Error("Error al guardar");
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload.error ?? "No se pudieron guardar los cambios.");
+      }
       const updated = await res.json();
       setClient((prev) => prev ? { ...prev, ...updated } : prev);
       setEditing(false);
@@ -178,8 +185,7 @@ function ClientSheetContent({ clientId, initialEdit = false, onUpdated, onNaviga
       onUpdated?.();
       toast("Cambios guardados.", "success");
     } catch (err) {
-      console.error(err);
-      toast("No se guardó. Intenta de nuevo.", "error");
+      feedback.setSubmitError(submissionErrorMessage(err, "No se pudieron guardar los cambios."));
     } finally {
       setSaving(false);
     }
@@ -188,9 +194,9 @@ function ClientSheetContent({ clientId, initialEdit = false, onUpdated, onNaviga
   if (error || !client) {
     return (
       <>
-        <DialogHeader className="border-b px-4 py-4">
+        <FormDialogHeader>
           <DialogTitle>Cliente</DialogTitle>
-        </DialogHeader>
+        </FormDialogHeader>
         <div className="px-4 py-8 text-sm text-destructive">
           {error ?? "Cliente no encontrado"}
         </div>
@@ -204,7 +210,7 @@ function ClientSheetContent({ clientId, initialEdit = false, onUpdated, onNaviga
 
   return (
     <>
-      <DialogHeader className="border-b px-6 py-5">
+      <FormDialogHeader>
         <div className="flex items-start gap-3 pr-6">
         <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-800"><UserRound className="size-6" /></span>
         <div className="min-w-0">
@@ -225,9 +231,9 @@ function ClientSheetContent({ clientId, initialEdit = false, onUpdated, onNaviga
           {access?.capabilities.schedule && <Button disabled={dirty || saving || client.pets.length === 0} onClick={() => { setAppointmentPetId(client.pets.length === 1 ? client.pets[0].id : undefined); setNewAppointment(true); }} className="gap-2"><CalendarPlus className="h-4 w-4" />Nueva cita</Button>}
         </div>
         {dirty && <p className="text-xs text-muted-foreground">Guarda o cancela los cambios antes de agendar.</p>}
-      </DialogHeader>
+      </FormDialogHeader>
 
-      <div className="flex flex-col gap-6 overflow-y-auto px-6 py-5">
+      <FormDialogBody>
         {/* Ficha del cliente */}
         <section className="space-y-3">
           <div className="flex items-center justify-between">
@@ -237,61 +243,21 @@ function ClientSheetContent({ clientId, initialEdit = false, onUpdated, onNaviga
             )}
           </div>
           {editing ? (
-            <fieldset disabled={saving} className="space-y-3">
-              <label className="block text-sm font-medium">Nombre
-              <Input
-                placeholder="Nombre"
-                value={editForm.name}
-                onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
-              />
-              </label>
-              <label className="block text-sm font-medium">Teléfono principal
-              <Input
-                placeholder="Telefono principal"
-                type="tel"
-                value={editForm.phone}
-                onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
-              />
-              </label>
-              <label className="block text-sm font-medium">Teléfono alternativo (opcional)
-              <Input
-                placeholder="Telefono alternativo (opcional)"
-                type="tel"
-                value={editForm.phoneAlt}
-                onChange={(e) => setEditForm((f) => ({ ...f, phoneAlt: e.target.value }))}
-              />
-              </label>
-              <label className="block text-sm font-medium">Correo electrónico (opcional)
-              <Input
-                placeholder="Email"
-                value={editForm.email}
-                onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
-              />
-              </label>
-              <label className="block text-sm font-medium">Dirección (opcional)
-              <Input
-                placeholder="Dirección"
-                value={editForm.address}
-                onChange={(e) => setEditForm((f) => ({ ...f, address: e.target.value }))}
-              />
-              </label>
-              <label hidden={!access?.capabilities.administration} className="block text-sm font-medium">Notas del propietario (opcional)
-              <Textarea
-                rows={4}
-                placeholder="Notas"
-                value={editForm.notes}
-                onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
-              />
-              </label>
-              <div className="flex gap-2">
-                <Button size="sm" onClick={handleSave} disabled={saving}>
-                  {saving ? "Guardando…" : "Guardar"}
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => discard(() => setEditing(false))} disabled={saving}>
-                  Cancelar
-                </Button>
-              </div>
-            </fieldset>
+            <form id="edit-client-form" onSubmit={handleSave} noValidate aria-busy={saving} className="space-y-4">
+              <FormSubmissionError message={feedback.submitError} />
+              <fieldset disabled={saving} className="min-w-0 space-y-4">
+                <FormSection title="Contacto principal">
+                  <FormField id="edit-client-name" label="Nombre" optional><Input id="edit-client-name" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} /></FormField>
+                  <FormField id="edit-client-phone" label="Teléfono principal" error={feedback.errors["edit-client-phone"]}><Input id="edit-client-phone" required type="tel" autoComplete="tel" {...feedback.fieldProps("edit-client-phone")} value={editForm.phone} onChange={e => { feedback.clearField("edit-client-phone"); setEditForm(f => ({ ...f, phone: e.target.value })); }} /></FormField>
+                </FormSection>
+                <FormAdditional>
+                  <FormField id="edit-client-phoneAlt" label="Teléfono alternativo" optional><Input id="edit-client-phoneAlt" type="tel" value={editForm.phoneAlt} onChange={e => setEditForm(f => ({ ...f, phoneAlt: e.target.value }))} /></FormField>
+                  <FormField id="edit-client-email" label="Correo electrónico" optional error={feedback.errors["edit-client-email"]}><Input id="edit-client-email" type="email" autoComplete="email" {...feedback.fieldProps("edit-client-email")} value={editForm.email} onChange={e => { feedback.clearField("edit-client-email"); setEditForm(f => ({ ...f, email: e.target.value })); }} /></FormField>
+                  <FormField id="edit-client-address" label="Dirección" optional><Input id="edit-client-address" value={editForm.address} onChange={e => setEditForm(f => ({ ...f, address: e.target.value }))} /></FormField>
+                  {access?.capabilities.administration && <FormField id="edit-client-notes" label="Notas del propietario" optional><Textarea id="edit-client-notes" rows={4} value={editForm.notes} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} /></FormField>}
+                </FormAdditional>
+              </fieldset>
+            </form>
           ) : (
             <div className="rounded-xl border p-4 text-sm">
               <dl className="grid gap-4 sm:grid-cols-2">
@@ -367,7 +333,11 @@ function ClientSheetContent({ clientId, initialEdit = false, onUpdated, onNaviga
           <div><h3 className="flex items-center gap-2 text-base font-semibold"><MessageCircle className="size-4" />Conversaciones</h3><p className="mt-1 text-sm text-muted-foreground">{client.conversationsCount ? `${client.conversationsCount} conversaciones registradas.` : "Todavía no hay conversaciones de este propietario."}</p></div>
           {client.latestConversationId && <Button asChild variant="outline"><Link href={conversationHref} onClick={(event) => { event.preventDefault(); discard(() => { onNavigate(); router.push(conversationHref); }); }}>Ver última conversación</Link></Button>}
         </section>
-      </div>
+      </FormDialogBody>
+      {editing && <FormDialogFooter>
+        <Button type="button" variant="outline" onClick={() => discard(() => setEditing(false))} disabled={saving}>Cancelar</Button>
+        <Button type="submit" form="edit-client-form" disabled={saving}>{saving ? "Guardando…" : "Guardar cambios"}</Button>
+      </FormDialogFooter>}
 
       {/* Expediente de mascota inline */}
       {newAppointment && access?.capabilities.schedule && <NewAppointmentDialog initialDate={new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" })} initialClientId={client.id} initialPetId={appointmentPetId} onClose={() => setNewAppointment(false)} onCreated={() => { setNewAppointment(false); setRefresh((value) => value + 1); onUpdated?.(); }} />}
@@ -383,6 +353,8 @@ function ClientSheetContent({ clientId, initialEdit = false, onUpdated, onNaviga
         open={addingPet}
         onOpenChange={setAddingPet}
         defaultOwnerPhone={client.phone}
+        defaultOwnerName={client.name ?? ""}
+        lockOwner
         onCreated={() => {
           setAddingPet(false);
           setRefresh((value) => value + 1);
@@ -403,11 +375,11 @@ export function ClientSheet({
 }: ClientSheetProps) {
   return (
     <ProtectedDialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[92vh] w-full max-w-[95vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
+      <FormDialogContent className="h-[92dvh] max-w-3xl">
         {open && clientId ? (
           <ClientSheetContent key={`${clientId}-${initialEdit}`} clientId={clientId} initialEdit={initialEdit} onUpdated={onUpdated} onNavigate={() => onOpenChange(false)} />
         ) : null}
-      </DialogContent>
+      </FormDialogContent>
     </ProtectedDialog>
   );
 }

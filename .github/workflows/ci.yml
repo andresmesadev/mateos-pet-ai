@@ -51,6 +51,9 @@ jobs:
       - name: Run tests
         run: npm --prefix backend test
 
+      - name: Verify operational cash query contract
+        run: node --test scripts/operational-cash-query.test.cjs
+
   inbound-postgres:
     runs-on: ubuntu-latest
     services:
@@ -114,7 +117,7 @@ jobs:
 
       - name: Verify POS and dashboard helpers
         run: |
-          mapfile -t helper_tests < <(find scripts -maxdepth 1 -name '*.test.cjs' ! -name '*-postgres.test.cjs' | sort)
+          mapfile -t helper_tests < <(find scripts -maxdepth 1 -name '*.test.cjs' ! -name '*-postgres.test.cjs' ! -name 'operational-cash-query.test.cjs' | sort)
           node --test "${helper_tests[@]}"
 
       - name: Build frontend

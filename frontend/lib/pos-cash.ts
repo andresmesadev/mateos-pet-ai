@@ -1,4 +1,21 @@
 import type { PaymentMethod, Transaction } from "./transactions";
+import { isHistoryPage, type HistoryPage } from "./financial-history-page";
+import { isHistoryTransaction, transactionNeedsReview } from "./pos-history";
+
+export type CashData = HistoryPage<Transaction> & { date: string; scope: "day" | "pending"; transactions: Transaction[]; toReview: string[]; totalRegistered: number; hasMore: boolean; pendingCount: number; summaryCash: ReturnType<typeof summarizeCash> };
+export function isCashData(value: unknown): value is CashData {
+  if (!isHistoryPage(value, isHistoryTransaction)) return false;
+  const cash = value as CashData;
+  const integer = (n: number) => Number.isSafeInteger(n) && n >= 0;
+  const summary = cash.summaryCash;
+  return /^\d{4}-\d{2}-\d{2}$/.test(cash.date) && ["day", "pending"].includes(cash.scope) && integer(cash.pendingCount) &&
+    Array.isArray(cash.toReview) && cash.toReview.length === cash.data.filter(transactionNeedsReview).length && cash.data.every(row => cash.toReview.includes(row.id) === transactionNeedsReview(row)) &&
+    Number.isFinite(cash.totalRegistered) && cash.totalRegistered === cash.summary.activeTotal && typeof cash.hasMore === "boolean" && cash.hasMore === (cash.page < cash.totalPages) &&
+    !!summary && integer(summary.reviewCount) && integer(summary.reviewCents) &&
+    ["cash", "transfer", "card", "other"].every(method => { const group = summary.methods?.[method as PaymentMethod]; return !!group && integer(group.count) && integer(group.cents); }) &&
+    summary.reviewCount + Object.values(summary.methods).reduce((sum, group) => sum + group.count, 0) === cash.total &&
+    summary.reviewCents + Object.values(summary.methods).reduce((sum, group) => sum + group.cents, 0) === Math.round(cash.totalRegistered * 100);
+}
 
 export type CashFilter = "all" | "review" | "registered";
 export type CashMethod = PaymentMethod | "all";

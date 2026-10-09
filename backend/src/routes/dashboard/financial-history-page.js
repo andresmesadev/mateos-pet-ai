@@ -39,15 +39,17 @@ function readHistoryQuery(query, kind) {
 }
 
 // Only fixed adapter identifiers enter SQL. All user values remain parameters.
-function historySql(kind, tenantId, query) {
+function historySql(kind, tenantId, query, { allDates = false } = {}) {
   const transactions = kind === "transactions";
   const source = transactions ? Prisma.sql`"Transaction" t` : Prisma.sql`"Expense" t`;
   const date = transactions ? Prisma.sql`t."paidAt"` : Prisma.sql`t."date"`;
   const amount = transactions ? Prisma.sql`t."total"` : Prisma.sql`t."amount"`;
-  const conditions = [Prisma.sql`t."tenantId" = ${tenantId}`, Prisma.sql`${date} >= ${bogotaDayStart(query.from)}`, Prisma.sql`${date} < ${new Date(bogotaDayStart(query.to).getTime() + 86_400_000)}`];
+  const conditions = [Prisma.sql`t."tenantId" = ${tenantId}`];
+  if (!allDates) conditions.push(Prisma.sql`${date} >= ${bogotaDayStart(query.from)}`, Prisma.sql`${date} < ${new Date(bogotaDayStart(query.to).getTime() + 86_400_000)}`);
   if (query.status !== "all") conditions.push(Prisma.sql`t."status" = ${query.status}`);
   const review = Prisma.sql`(t."origin" = 'system_appointment_completed' AND (t."recordedActorId" IS NULL OR t."recordedActorId" = ''))`;
   if (transactions) {
+    if (query.confirmedOnly) conditions.push(Prisma.sql`NOT ${review}`);
     if (query.origin !== "all") conditions.push(Prisma.sql`COALESCE(t."origin", 'legacy') = ${query.origin}`);
     if (query.method === "review") conditions.push(review);
     else if (query.method !== "all") conditions.push(Prisma.sql`t."paymentMethod" = ${query.method} AND NOT ${review}`);

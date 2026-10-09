@@ -15,7 +15,7 @@ export async function createReportWorkbook(summary: ReportSummary, breakdown: Re
     ["Período de comparación", reportRange(summary.previousRangeStart, summary.previousRangeEnd)],
     ["Comparación", summary.comparison === "equivalent" ? "Días equivalentes" : "Período anterior completo"],
     ["Criterio", reportComparisonText(summary)],
-    ["Consulta (Bogotá)", new Date(summary.asOf).toLocaleString("es-CO", { timeZone: "America/Bogota" })],
+    ["Consulta (hora de Colombia)", new Date(summary.asOf).toLocaleString("es-CO", { timeZone: "America/Bogota" })],
     ["Moneda", "COP"], [],
     ["Indicador", "Período seleccionado", "Período anterior", "Diferencia"],
   ]);

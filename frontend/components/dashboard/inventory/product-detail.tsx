@@ -24,8 +24,8 @@ export function ProductDetail({ product: p, manage, cash, disabled, movements, h
   return <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
     <DialogContent className="flex max-h-[90dvh] w-[calc(100%-2rem)] max-w-4xl flex-col overflow-hidden border-border bg-white shadow-xl">
       <DialogHeader className="shrink-0 border-border pr-12">
-        <DialogTitle className="text-xl sm:text-2xl">{p.name}</DialogTitle>
-        <DialogDescription>{p.internalCode} · {p.presentation}</DialogDescription>
+        <DialogTitle className="break-words text-xl sm:text-2xl">{p.name}</DialogTitle>
+        <DialogDescription className="break-words">{p.internalCode} · {p.presentation}</DialogDescription>
       </DialogHeader>
       <Tabs defaultValue="summary" className="min-h-0 gap-0">
         <div className="shrink-0 border-b px-6 py-3"><TabsList aria-label="Información del producto" className="h-11 w-full sm:w-auto">
@@ -65,10 +65,13 @@ export function ProductDetail({ product: p, manage, cash, disabled, movements, h
         {manage && <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
           {p.active && <Button aria-label="Registrar entrada" disabled={disabled} onClick={onEntry}><PackagePlus /><span className="sm:hidden">Entrada</span><span className="hidden sm:inline">Registrar entrada</span></Button>}
           <Button variant="outline" disabled={disabled} onClick={onEdit}><Pencil />Editar</Button>
-          <Button aria-label="Conteo físico" variant="outline" disabled={disabled || !p.lots.length} onClick={onCount}><ClipboardList /><span className="sm:hidden">Conteo</span><span className="hidden sm:inline">Conteo físico</span></Button>
+          <Button aria-label="Conteo físico" aria-describedby={!p.lots.length ? "inventory-count-help" : undefined} variant="outline" disabled={disabled || !p.lots.length} onClick={onCount}><ClipboardList /><span className="sm:hidden">Conteo</span><span className="hidden sm:inline">Conteo físico</span></Button>
           <Button variant="ghost" disabled={disabled} onClick={onToggleActive}>{p.active ? "Desactivar" : "Activar"}</Button>
         </div>}
         <Button variant="outline" onClick={onClose}>Cerrar</Button>
+        {manage && !p.lots.length && <p id="inventory-count-help" className="w-full text-xs text-muted-foreground">{p.active ? "Registra una entrada para poder contar las existencias." : "Activa el producto y registra una entrada para poder contar las existencias."}</p>}
+        {manage && disabled && <p role="status" className="w-full text-xs text-muted-foreground">Actualizando el producto. Las acciones estarán disponibles al terminar.</p>}
+        {manage && !p.active && <p className="w-full text-xs text-muted-foreground">El producto está desactivado. Actívalo para registrar nuevas entradas y usos.</p>}
         {manage && <p className="w-full text-xs text-muted-foreground">Desactivar conserva el historial y bloquea nuevos usos.</p>}
       </DialogFooter>
     </DialogContent>

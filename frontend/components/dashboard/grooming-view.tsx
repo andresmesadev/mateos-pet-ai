@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { groomingListFilters } from "@/lib/list-continuity";
+import { useListContinuity } from "@/lib/use-list-continuity";
 import { CalendarPlus, CheckCheck, Clock3, Scissors, Search, StickyNote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AppointmentDetailDialog } from "@/components/dashboard/appointment-detail-dialog";
@@ -23,14 +25,8 @@ export function GroomingView({ initialVisits, initialHasMore, initialError, tena
 }) {
   const access = useDashboardAccess();
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
-  const [date, setDate] = useState(today);
-  const [search, setSearch] = useState("");
   const [term, setTerm] = useState("");
-  const [stage, setStage] = useState("all");
-  const [view, setView] = useState<"active" | "history" | "all">("active");
-  const [staffFilter, setStaffFilter] = useState("all");
   const [refresh, setRefresh] = useState(0);
-  const key = `${date}:${term}:${refresh}`;
   const [result, setResult] = useState<ListResult>({ key: `${today}::0`, appointments: initialVisits, hasMore: initialHasMore, error: initialError });
   const [staff, setStaff] = useState<{ id: string; name: string }[]>([]);
   const [staffError, setStaffError] = useState(false);
@@ -46,6 +42,13 @@ export function GroomingView({ initialVisits, initialHasMore, initialError, tena
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const continuity = useListContinuity("grooming", groomingListFilters({}, today, null), raw => groomingListFilters(raw, today, staffLoading || staffError ? null : staff.map(person => person.id)));
+  const { date, q: search, stage, view, staff: staffFilter } = continuity.filters;
+  const key = `${date}:${term}:${refresh}`;
+  const setDate = (date: string) => continuity.update({ date });
+  const setStage = (stage: string) => continuity.update({ stage });
+  const setView = (view: string) => continuity.update({ view, stage: "all" });
+  const setStaffFilter = (staff: string) => continuity.update({ staff });
   const bootstrapped = useRef(false);
   const loading = result.key !== key;
 
@@ -66,6 +69,7 @@ export function GroomingView({ initialVisits, initialHasMore, initialError, tena
     return () => controller.abort();
   }, [tenantId, staffRefresh]);
   useEffect(() => {
+    if (!continuity.ready) return;
     if (!bootstrapped.current) {
       bootstrapped.current = true;
       if (key === `${today}::0`) return;
@@ -82,7 +86,7 @@ export function GroomingView({ initialVisits, initialHasMore, initialError, tena
       })
       .catch((cause) => { if (!controller.signal.aborted) setResult({ key, appointments: [], hasMore: false, error: cause instanceof Error ? cause.message : "Intenta de nuevo." }); });
     return () => controller.abort();
-  }, [date, term, refresh, tenantId, key, today]);
+  }, [date, term, refresh, tenantId, key, today, continuity.ready]);
 
   function updateVisit(updated: GroomingVisit) {
     setResult((current) => ({ ...current, appointments: current.appointments.map((item) => item.id === updated.id ? updated : item) }));
@@ -118,19 +122,21 @@ export function GroomingView({ initialVisits, initialHasMore, initialError, tena
   const scopeLabel = term.length >= 2 ? "Resultados de todas las fechas" : `Citas del ${new Date(`${date}T12:00:00Z`).toLocaleDateString("es-CO", { dateStyle: "long", timeZone: "UTC" })}`;
   const agendaHref = `/dashboard/calendar${tenantId ? `?tenant=${encodeURIComponent(tenantId)}` : ""}`;
 
+  if (!continuity.ready) return <p role="status">Preparando filtros de Peluquería…</p>;
   return <div className="space-y-5">
     <div className="flex flex-wrap items-center justify-between gap-3"><p className="max-w-xl text-sm text-muted-foreground">Recibe la mascota, registra el baño o corte y confirma su entrega al propietario.</p><Button disabled={!access?.capabilities.schedule} onClick={() => setNewOpen(true)}><CalendarPlus className="size-4" /> Nueva cita</Button></div>
     <section className="overflow-hidden rounded-2xl border bg-white shadow-sm" aria-labelledby="grooming-list-title">
       <div className="space-y-4 border-b p-5 sm:p-6">
         <div className="flex flex-wrap items-end gap-4">
-          <div className="min-w-56 flex-1"><label htmlFor="grooming-search" className="mb-1.5 block text-sm font-semibold">Buscar mascota o propietario</label><div className="relative"><Search className="absolute left-3 top-3 size-4 text-muted-foreground" /><input id="grooming-search" type="search" value={search} onChange={(event) => { setSearch(event.target.value); setView(event.target.value.trim().length >= 2 ? "all" : "active"); setStage("all"); }} maxLength={80} placeholder="Ej. Toby o Ana García" className="min-h-10 w-full rounded-lg border bg-white py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-600" /></div></div>
+          <div className="min-w-56 flex-1"><label htmlFor="grooming-search" className="mb-1.5 block text-sm font-semibold">Buscar mascota o propietario</label><div className="relative"><Search className="absolute left-3 top-3 size-4 text-muted-foreground" /><input id="grooming-search" type="search" value={search} onChange={(event) => { continuity.update({ q: event.target.value, view: event.target.value.trim().length >= 2 ? "all" : "active", stage: "all" }, "replace"); }} maxLength={80} placeholder="Ej. Toby o Ana García" className="min-h-10 w-full rounded-lg border bg-white py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-600" /></div></div>
           <div><label htmlFor="grooming-date" className="mb-1.5 block text-sm font-semibold">Día de atención</label><input id="grooming-date" type="date" disabled={term.length >= 2} value={date} onChange={(event) => { if (event.target.value) setDate(event.target.value); }} className="min-h-10 rounded-lg border bg-white px-3 text-sm disabled:bg-muted" /></div>
-          <Button variant="outline" onClick={() => { setSearch(""); setTerm(""); setDate(today); setStage("all"); setView("active"); setStaffFilter("all"); setRefresh((value) => value + 1); }}>Hoy</Button>
+          <Button variant="outline" onClick={() => { continuity.clear(); setTerm(""); setRefresh((value) => value + 1); }}>Hoy</Button>
           <div><label htmlFor="grooming-staff" className="mb-1.5 block text-sm font-semibold">Peluquero responsable</label><select id="grooming-staff" value={staffFilter} onChange={(event) => setStaffFilter(event.target.value)} className="min-h-10 max-w-64 rounded-lg border bg-white px-3 text-sm"><option value="all">Todos</option><option value="unassigned">Sin asignar</option>{staff.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
           <Button variant="outline" disabled={loading || Boolean(busy)} onClick={() => setRefresh((value) => value + 1)}>Actualizar</Button>
         </div>
+        <Button variant="ghost" size="sm" onClick={() => { continuity.clear(); setTerm(""); }}>Limpiar filtros</Button>
         {staffError && <div role="status" className="text-sm text-amber-800">No se pudieron cargar los peluqueros. <Button size="sm" variant="outline" onClick={() => { setStaffLoading(true); setStaffRefresh((value) => value + 1); }}>Reintentar equipo</Button></div>}
-        <div className="flex flex-wrap gap-2 border-b pb-4" aria-label="Vista de atenciones">{([{ value: "active", label: "Atenciones pendientes" }, { value: "history", label: "Entregadas y ausencias" }, { value: "all", label: "Todas las visitas" }] as const).map((item) => <button key={item.value} type="button" aria-pressed={view === item.value} onClick={() => { setView(item.value); setStage("all"); }} className={`rounded-lg px-3 py-2 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-teal-600 ${view === item.value ? "bg-teal-700 text-white" : "bg-slate-50 text-slate-600"}`}>{item.label} <span className="ml-1 tabular-nums">{loading ? "—" : filtered.filter((visit) => item.value === "all" || (item.value === "history" ? groomingIsArchived(visit) : !groomingIsArchived(visit))).length}</span></button>)}</div>
+        <div className="flex flex-wrap gap-2 border-b pb-4" aria-label="Vista de atenciones">{([{ value: "active", label: "Atenciones pendientes" }, { value: "history", label: "Entregadas y ausencias" }, { value: "all", label: "Todas las visitas" }] as const).map((item) => <button key={item.value} type="button" aria-pressed={view === item.value} onClick={() => { setView(item.value); }} className={`rounded-lg px-3 py-2 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-teal-600 ${view === item.value ? "bg-teal-700 text-white" : "bg-slate-50 text-slate-600"}`}>{item.label} <span className="ml-1 tabular-nums">{loading ? "—" : filtered.filter((visit) => item.value === "all" || (item.value === "history" ? groomingIsArchived(visit) : !groomingIsArchived(visit))).length}</span></button>)}</div>
         <div className="flex flex-wrap gap-2" aria-label="Etapa de peluquería"><button type="button" aria-pressed={stage === "all"} onClick={() => setStage("all")} className={`rounded-lg px-3 py-2 text-sm font-semibold ${stage === "all" ? "bg-amber-100 text-amber-950" : "bg-slate-50 text-slate-600"}`}>Todas las etapas</button>{GROOMING_STAGES.filter((label) => view === "all" || (view === "history" ? ["Entregadas", "Canceladas / No asistieron"].includes(label) : !["Entregadas", "Canceladas / No asistieron"].includes(label))).map((label) => <button type="button" key={label} aria-pressed={stage === label} onClick={() => setStage(stage === label ? "all" : label)} className={`rounded-lg px-3 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-teal-600 ${stage === label ? "bg-amber-100 text-amber-950 ring-1 ring-amber-400" : "bg-slate-50 text-slate-600 hover:bg-amber-50"}`}>{label} <span className="ml-1 font-semibold tabular-nums">{loading ? "—" : scoped.filter((item) => groomingStage(item, today) === label).length}</span></button>)}</div>
       </div>
       <div className="border-b bg-slate-50 px-5 py-3 sm:px-6"><h2 id="grooming-list-title" className="text-sm font-semibold">{scopeLabel}</h2>{term.length >= 2 && <p className="mt-1 text-xs text-muted-foreground">La búsqueda incluye visitas anteriores y citas canceladas o no asistidas.</p>}</div>

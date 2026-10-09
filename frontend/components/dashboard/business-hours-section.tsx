@@ -21,7 +21,7 @@ function WeekEditor({ scope, title, hours, fallback, errors, onChange, onCopy }:
   onChange: (day: BusinessHourDay, field: keyof DayHours, value: string | boolean) => void; onCopy: () => void;
 }) {
   return <div className="space-y-4">
-    <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm text-muted-foreground">Apertura y cierre · hora de Bogotá</p><Button type="button" variant="outline" size="sm" onClick={onCopy} disabled={!displayedDay("mon", hours, fallback).active}><Copy aria-hidden="true" />Copiar lunes a días abiertos</Button></div>
+    <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm text-muted-foreground">Apertura y cierre · hora de Colombia</p><Button type="button" variant="outline" size="sm" onClick={onCopy} disabled={!displayedDay("mon", hours, fallback).active}><Copy aria-hidden="true" />Copiar lunes a días abiertos</Button></div>
     <div className="divide-y divide-border rounded-xl border border-border">{WEEK_DAYS.map(({ key, label }) => {
       const day = displayedDay(key, hours, fallback);
       const error = errors[`${scope}-${key}`];

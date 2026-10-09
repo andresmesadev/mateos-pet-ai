@@ -1,13 +1,19 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useActionConfirmation } from "@/components/dashboard/action-confirmation";
+
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Clock3, Search, Stethoscope, X } from "lucide-react";
 
 import { VetRecordSheet } from "@/components/dashboard/vet-record-sheet";
+import { homeHref } from "@/lib/home-workspace";
 import { proxyUrl } from "@/lib/api";
 import { arrivalWindowExpired, type TodayAppointment, formatStatus, statusBadgeClass } from "@/lib/appointments";
+import { clinicalListFilters } from "@/lib/list-continuity";
+import { useListContinuity } from "@/lib/use-list-continuity";
+import { Button } from "@/components/ui/button";
 import { getPetEmoji } from "@/lib/pets";
 
 type Props = {
@@ -79,26 +85,30 @@ function appointmentTime(iso: string): string {
   }).format(new Date(iso));
 }
 
-export function VetConsultationsView({ appointments, preview = false, tenantId, clinician = false, clinicianStaffId = null, initialAppointmentId, initialDate }: Props) {
+export function VetConsultationsView({ appointments, preview = false, tenantId, clinician = false, clinicianStaffId = null, initialAppointmentId }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedAppointment = appointments.find((item) => item.id === initialAppointmentId && item.petId && isVetAppointment(item) && !["cancelled", "no_show"].includes(item.status));
   const isVet = clinician;
-  const [scope, setScope] = useState<"today" | "week">(initialDate ? "week" : "today");
-  const [professionalFilter, setProfessionalFilter] = useState(clinician && clinicianStaffId ? clinicianStaffId : "all");
-  const [careFilter, setCareFilter] = useState("all");
+  const { confirm, confirmation } = useActionConfirmation();
   const [professionals, setProfessionals] = useState<{ id: string; name: string }[]>([]);
   const [professionalError, setProfessionalError] = useState(false);
+  const [professionalLoading, setProfessionalLoading] = useState(true);
   const [selected, setSelected] = useState<TodayAppointment | null>(requestedAppointment ?? null);
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const [anchor, setAnchor] = useState(initialDate ?? today);
+  const continuity = useListContinuity("clinical", clinicalListFilters({}, today, clinician ? clinicianStaffId : null, null), raw => clinicalListFilters(raw, today, clinician ? clinicianStaffId : null, professionalLoading || professionalError ? null : professionals.map(person => person.id)));
+  const { date: anchor, q: searchQuery, staff: professionalFilter, care: careFilter } = continuity.filters;
+  const scope = continuity.filters.scope === "day" ? "today" : "week";
+  const setScope = (scope: "today" | "week") => continuity.update({ scope: scope === "today" ? "day" : "week", ...(scope === "today" ? { date: today } : {}) });
+  const setProfessionalFilter = (staff: string) => continuity.update({ staff });
+  const setCareFilter = (care: string | ((current: string) => string)) => continuity.update({ care: typeof care === "function" ? care(careFilter) : care });
+  const [weekRefresh, setWeekRefresh] = useState(0);
   const [weekAppointments, setWeekAppointments] = useState(appointments);
   const [loading, setLoading] = useState(false);
   const [weekError, setWeekError] = useState<string | null>(null);
   const [failedDate, setFailedDate] = useState<string | null>(null);
   const requestId = useRef(0);
-  const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<TodayAppointment[] | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -128,7 +138,8 @@ export function VetConsultationsView({ appointments, preview = false, tenantId, 
         if (!Array.isArray(data)) throw new Error("staff");
         if (!cancelled) setProfessionals(data.filter((item) => item.role === "vet"));
       })
-      .catch(() => { if (!cancelled) setProfessionalError(true); });
+      .catch(() => { if (!cancelled) setProfessionalError(true); })
+      .finally(() => { if (!cancelled) setProfessionalLoading(false); });
     return () => { cancelled = true; };
   }, [preview, tenantId]);
 
@@ -139,15 +150,16 @@ export function VetConsultationsView({ appointments, preview = false, tenantId, 
 
   useEffect(() => {
     if (preview || searchQuery.trim().length >= 2) return;
+    const controller = new AbortController();
     const timer = setInterval(() => {
       const params = new URLSearchParams({ date: anchor });
       if (tenantId) params.set("tenantId", tenantId);
-      void fetch(proxyUrl(`/api/dashboard/appointments/week?${params}`), { cache: "no-store" })
+      void fetch(proxyUrl(`/api/dashboard/appointments/week?${params}`), { cache: "no-store", signal: controller.signal })
         .then(async (response) => response.ok ? response.json() as Promise<{ appointments?: TodayAppointment[] }> : null)
-        .then((payload) => { if (Array.isArray(payload?.appointments)) setWeekAppointments(payload.appointments); })
+        .then((payload) => { if (!controller.signal.aborted && Array.isArray(payload?.appointments)) setWeekAppointments(payload.appointments); })
         .catch(() => {});
     }, 60_000);
-    return () => clearInterval(timer);
+    return () => { controller.abort(); clearInterval(timer); };
   }, [anchor, preview, searchQuery, tenantId]);
 
   useEffect(() => () => {
@@ -155,7 +167,7 @@ export function VetConsultationsView({ appointments, preview = false, tenantId, 
     searchRequestId.current += 1;
   }, []);
 
-  async function runSearch(query: string, currentRequest: number) {
+  const runSearch = useCallback(async (query: string, currentRequest: number) => {
     try {
       if (preview) {
         const term = query.toLocaleLowerCase("es-CO");
@@ -182,23 +194,28 @@ export function VetConsultationsView({ appointments, preview = false, tenantId, 
     } finally {
       if (currentRequest === searchRequestId.current) setSearchLoading(false);
     }
-  }
+  }, [preview, appointments, tenantId]);
 
-  function updateSearch(value: string) {
-    setSearchQuery(value);
+  function updateSearch(value: string) { continuity.update({ q: value }, "replace"); }
+
+  useEffect(() => {
+    if (!continuity.ready) return;
+    // Browser history/restoration must run the same search as typing.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSearchResults(null);
     setSearchError(null);
     setSearchHasMore(false);
     if (searchTimer.current) clearTimeout(searchTimer.current);
     const currentRequest = ++searchRequestId.current;
-    const query = value.trim();
+    const query = searchQuery.trim();
     if (query.length < 2) {
       setSearchLoading(false);
       return;
     }
     setSearchLoading(true);
     searchTimer.current = setTimeout(() => void runSearch(query, currentRequest), 300);
-  }
+    return () => { if (searchTimer.current) clearTimeout(searchTimer.current); ++searchRequestId.current; };
+  }, [searchQuery, continuity.ready, runSearch]);
 
   function clearSearch() {
     updateSearch("");
@@ -211,7 +228,7 @@ export function VetConsultationsView({ appointments, preview = false, tenantId, 
         setStatusError(`Guarda primero la historia clínica de ${appointment.petName}.`);
         return;
       }
-      if (!window.confirm("¿Finalizar esta cita? Además de cerrar la atención, se registrarán el cobro y la comisión correspondientes.")) return;
+      if (!await confirm("¿Finalizar esta cita? Además de cerrar la atención, se registrarán el cobro y la comisión correspondientes.")) return;
     }
     setStatusBusyId(appointment.id);
     setStatusError(null);
@@ -235,32 +252,41 @@ export function VetConsultationsView({ appointments, preview = false, tenantId, 
     }
   }
 
-  async function loadWeek(date: string, nextScope: "today" | "week" = "week") {
-    if (preview || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
-    const currentRequest = ++requestId.current;
-    setLoading(true);
-    setWeekError(null);
-    setFailedDate(null);
-    try {
-      const query = new URLSearchParams({ date });
-      if (tenantId) query.set("tenantId", tenantId);
-      const response = await fetch(proxyUrl(`/api/dashboard/appointments/week?${query}`), { cache: "no-store" });
-      if (!response.ok) throw new Error("No se pudieron cargar las consultas de esa semana.");
-      const payload = await response.json() as { appointments?: TodayAppointment[] };
-      if (!Array.isArray(payload.appointments)) throw new Error("La respuesta de la agenda no es válida.");
-      if (currentRequest !== requestId.current) return;
-      setWeekAppointments(payload.appointments);
-      setAnchor(date);
-      setScope(nextScope);
-    } catch (error) {
-      if (currentRequest === requestId.current) {
-        setWeekError(error instanceof Error ? error.message : "No se pudieron cargar las consultas.");
-        setFailedDate(date);
-      }
-    } finally {
-      if (currentRequest === requestId.current) setLoading(false);
-    }
+  function loadWeek(date: string, nextScope: "today" | "week" = "week") {
+    continuity.update({ date, scope: nextScope === "today" ? "day" : "week" });
+    setWeekRefresh(value => value + 1);
   }
+
+  useEffect(() => {
+    if (!continuity.ready || preview || searchQuery.trim().length >= 2) return;
+    const date = anchor;
+    const controller = new AbortController();
+    async function load() {
+      const currentRequest = ++requestId.current;
+      setLoading(true);
+      setWeekError(null);
+      setFailedDate(null);
+      try {
+        const query = new URLSearchParams({ date });
+        if (tenantId) query.set("tenantId", tenantId);
+        const response = await fetch(proxyUrl(`/api/dashboard/appointments/week?${query}`), { cache: "no-store", signal: controller.signal });
+        if (!response.ok) throw new Error("No se pudieron cargar las consultas de esa semana.");
+        const payload = await response.json() as { appointments?: TodayAppointment[] };
+        if (!Array.isArray(payload.appointments)) throw new Error("La respuesta de la agenda no es válida.");
+        if (controller.signal.aborted || currentRequest !== requestId.current) return;
+        setWeekAppointments(payload.appointments);
+      } catch (error) {
+        if (!controller.signal.aborted && currentRequest === requestId.current) {
+          setWeekError(error instanceof Error ? error.message : "No se pudieron cargar las consultas.");
+          setFailedDate(date);
+        }
+      } finally {
+        if (!controller.signal.aborted && currentRequest === requestId.current) setLoading(false);
+      }
+    }
+    void load();
+    return () => { controller.abort(); };
+  }, [anchor, weekRefresh, continuity.ready, preview, searchQuery, tenantId]);
 
   const veterinaryAppointments = weekAppointments
     .filter(isVetAppointment)
@@ -281,8 +307,10 @@ export function VetConsultationsView({ appointments, preview = false, tenantId, 
     { label: "Historias pendientes", value: professionalAppointments.filter((item) => ["in_progress", "completed"].includes(item.status) && !item.hasMedicalRecord).length, icon: ClipboardList, tint: "bg-rose-50 text-rose-700" },
   ];
 
+  if (!continuity.ready) return <p role="status">Preparando filtros de Consultas…</p>;
   return (
     <div className="space-y-6">
+      {confirmation}
       {initialAppointmentId && !requestedAppointment && <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">No se pudo abrir esa consulta. Comprueba el establecimiento y la fecha, o busca al paciente en las consultas anteriores.</div>}
       {(!searchActive || searchResults) && <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5" aria-label={`Resumen de consultas: ${period}`}>
         {metrics.map(({ label, value, icon: Icon, tint }) => (
@@ -328,6 +356,7 @@ export function VetConsultationsView({ appointments, preview = false, tenantId, 
           </div>
           {!clinician && <div className="flex items-center gap-2"><label htmlFor="consultas-profesional" className="text-sm text-muted-foreground">Profesional:</label><select id="consultas-profesional" value={professionalFilter} onChange={(event) => setProfessionalFilter(event.target.value)} className="min-h-9 max-w-64 rounded-lg border border-border bg-white px-3 text-sm"><option value="all">Todos los profesionales</option><option value="unassigned">Sin asignar</option>{professionals.map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}</select></div>}
           {professionalError && !clinician && <p role="status" className="text-xs text-amber-800">No se cargó el listado de profesionales. Puedes usar Todas o Sin asignar.</p>}
+          <Button variant="ghost" size="sm" onClick={() => continuity.clear()}>Limpiar filtros</Button>
           {careFilter !== "all" && <button type="button" onClick={() => setCareFilter("all")} className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-teal-200 bg-teal-50 px-3 text-sm font-semibold text-teal-800">{careFilter}<X className="size-4" aria-hidden="true" /><span className="sr-only">Quitar filtro</span></button>}
         </div>
 
@@ -392,7 +421,7 @@ export function VetConsultationsView({ appointments, preview = false, tenantId, 
                   </div>
                   <div className="flex shrink-0 flex-wrap items-center gap-2 pl-[60px] sm:pl-0">
                     {appointment.petId && !preview && !isVet && (
-                      <Link href={`/dashboard/contacto?pet=${encodeURIComponent(appointment.petId)}`} className="inline-flex min-h-9 items-center rounded-lg border border-border px-3 text-xs font-semibold text-foreground hover:bg-muted">Ver historia</Link>
+                      <Link href={homeHref(`/dashboard/contacto?pet=${encodeURIComponent(appointment.petId)}`, tenantId ?? null)} className="inline-flex min-h-9 items-center rounded-lg border border-border px-3 text-xs font-semibold text-foreground hover:bg-muted">Ver historia</Link>
                     )}
                     {!preview && canManage && appointment.status === "confirmed" && !graceExpired && <button type="button" disabled={statusBusyId === appointment.id} onClick={() => void advanceAppointment(appointment, "arrived")} className="inline-flex min-h-9 items-center rounded-lg border border-teal-200 bg-teal-50 px-3 text-xs font-semibold text-teal-900 hover:bg-teal-100 disabled:opacity-50">{statusBusyId === appointment.id ? "Actualizando…" : "Registrar llegada"}</button>}
                     {!preview && canManage && appointment.status === "arrived" && !priorDay && <button type="button" disabled={statusBusyId === appointment.id} onClick={() => void advanceAppointment(appointment, "in_progress")} className="inline-flex min-h-9 items-center rounded-lg bg-teal-700 px-3 text-xs font-semibold text-white hover:bg-teal-800 disabled:opacity-50">{statusBusyId === appointment.id ? "Actualizando…" : "Iniciar atención"}</button>}

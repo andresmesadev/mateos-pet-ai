@@ -10,7 +10,7 @@ El identificador de WhatsApp se conserva protegido y aparece dentro de **Informa
 
 ## Persistencia y alcance
 
-- Diseño previo: `docs/architecture/business-contact-phone-20261006.md`.
+- Diseño previo: `docs/history/designs/business-contact-phone-20261006.md`.
 - `Tenant.contactPhone`, nullable, VARCHAR(16), sin unicidad; CHECK para el formato normalizado.
 - Migración `20261006180000_business_contact_phone`, aditiva, aplicada únicamente a `127.0.0.1:5433/mateos_dev`. Los establecimientos existentes quedan con contacto null; no se copian identificadores técnicos como teléfonos.
 - Prisma regenerado, versión 7.10.0.

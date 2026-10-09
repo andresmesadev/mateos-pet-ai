@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { signOut } from "next-auth/react";
+import { clearWorkspaceSession, workspaceStorage } from "@/lib/workspace-session";
 import { clearSaleDrafts } from "@/lib/pos-draft";
 import {
   Home,
@@ -27,6 +28,8 @@ import {
 import { cn } from "@/lib/utils";
 import { useDashboardAccess } from "@/components/dashboard/dashboard-access-provider";
 import { homeForRole, ROLE_NAMES } from "@/lib/dashboard-access";
+import { useTenant } from "@/lib/use-tenant";
+import { homeHref } from "@/lib/home-workspace";
 
 // ── Estructura de navegación ──────────────────────────────────
 
@@ -73,10 +76,12 @@ function NavLink({
   onNavigate?: () => void;
 }) {
   const active = isActive(item, pathname);
+  const tenant = useTenant();
   const Icon = item.icon;
   return (
     <Link
-      href={item.href}
+      href={homeHref(item.href, tenant)}
+      prefetch={false}
       onClick={onNavigate}
       className={cn(
         "group relative flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700",
@@ -104,6 +109,7 @@ function NavLink({
 // ── Contenido del sidebar ─────────────────────────────────────
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+  const tenant = useTenant();
   const pathname = usePathname();
   const { data: session } = useSession();
   const access = useDashboardAccess();
@@ -120,7 +126,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       className="flex h-full flex-col bg-white text-sidebar-foreground"
     >
       {/* Marca */}
-      <Link href={homeForRole(teamRole)} onClick={onNavigate} className="flex items-center gap-3 border-b border-sidebar-border px-5 py-5 focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-teal-700">
+      <Link prefetch={false} href={homeHref(homeForRole(teamRole), tenant)} onClick={onNavigate} className="flex items-center gap-3 border-b border-sidebar-border px-5 py-5 focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-teal-700">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-700 text-white">
           <PawPrint className="h-5 w-5" />
         </div>
@@ -162,7 +168,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         </div>
         <button
           type="button"
-          onClick={() => { try { clearSaleDrafts(sessionStorage); } catch { /* Sign-out remains available if storage is blocked. */ } void signOut({ callbackUrl: "/login" }); }}
+          onClick={() => { clearWorkspaceSession(workspaceStorage()); try { clearSaleDrafts(sessionStorage); } catch { /* Sign-out remains available if storage is blocked. */ } void signOut({ callbackUrl: "/login" }); }}
           aria-label="Cerrar sesión"
           className="rounded-lg p-1.5 text-sidebar-foreground/40 transition-colors hover:bg-black/[0.06] hover:text-sidebar-foreground"
         >

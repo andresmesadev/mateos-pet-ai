@@ -1,6 +1,7 @@
 "use client";
 
 import { signOut } from "next-auth/react";
+import { clearWorkspaceSession, workspaceStorage } from "@/lib/workspace-session";
 
 import { Button } from "@/components/ui/button";
 
@@ -9,7 +10,7 @@ export function LogoutButton() {
     <Button
       type="button"
       variant="outline"
-      onClick={() => signOut({ callbackUrl: "/login" })}
+      onClick={() => { clearWorkspaceSession(workspaceStorage()); void signOut({ callbackUrl: "/login" }); }}
     >
       Cerrar sesión
     </Button>

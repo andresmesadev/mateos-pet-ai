@@ -94,7 +94,7 @@ export function ProductPicker({ use, onSelect, resetAfterSelect = false, inputId
         <Input ref={input} id={inputId} autoFocus autoComplete="off" className="h-12 bg-white pl-10" value={search} placeholder="Escanea el código o escribe el producto" onChange={event => {
           scanIntent.current = null; setSearch(event.target.value); setBrowsing(false); setPage(""); setRows([]); setCursor(null); setMessage(""); setBusy(!hideUntilSearch || !!event.target.value.trim());
         }} role="combobox" aria-autocomplete="list" aria-controls={listId} aria-expanded={resultsVisible && rows.length > 0} aria-activedescendant={resultsVisible && rows[active] ? `${listId}-${rows[active].id}` : undefined} onKeyDown={event => {
-          if (event.key === "Escape") { event.preventDefault(); scanIntent.current = null; setSearch(""); setBrowsing(false); setRows([]); setCursor(null); setBusy(false); setPage(""); setMessage(""); }
+          if (event.key === "Escape" && (search || rows.length || browsing || busy)) { event.preventDefault(); event.stopPropagation(); scanIntent.current = null; setSearch(""); setBrowsing(false); setRows([]); setCursor(null); setBusy(false); setPage(""); setMessage(""); }
           if (event.key === "ArrowDown" || event.key === "ArrowUp") {
             event.preventDefault();
             if (rows.length) setActive(index => (index + (event.key === "ArrowDown" ? 1 : -1) + rows.length) % rows.length);

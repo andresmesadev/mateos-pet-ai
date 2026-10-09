@@ -1,5 +1,8 @@
 ﻿"use client";
 
+import { useToast } from "@/components/ui/toast";
+import { useActionConfirmation } from "@/components/dashboard/action-confirmation";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Eye, Pencil, Plus, PawPrint, Search, Trash2, X } from "lucide-react";
 import { useTenant, tenantQuery } from "@/lib/use-tenant";
@@ -48,10 +51,14 @@ function TableSkeleton() {
 export function PetsTable({
   initialPetId = null,
   initialNew = false,
+  initialSearch = "",
 }: {
   initialPetId?: string | null;
   initialNew?: boolean;
+  initialSearch?: string;
 }) {
+  const { confirm, confirmation } = useActionConfirmation();
+  const { toast } = useToast();
   const [pets, setPets] = useState<DashboardPet[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +67,7 @@ export function PetsTable({
   const [initialEdit, setInitialEdit] = useState(false);
   const [openedFromQuery, setOpenedFromQuery] = useState(false);
   const [newOpen, setNewOpen] = useState(initialNew);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialSearch);
 
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -160,15 +167,15 @@ export function PetsTable({
 
   const handleDeletePet = async (e: React.MouseEvent, pet: DashboardPet) => {
     e.stopPropagation();
-    if (!window.confirm(`¿Eliminar a "${pet.name}"? Esta acción no se puede deshacer.`)) return;
+    if (!await confirm({ description: `¿Eliminar a "${pet.name}"? Esta acción no se puede deshacer.`, title: "Confirmar eliminación", confirmLabel: "Eliminar", destructive: true })) return;
     setDeleting(pet.id);
     try {
       const sep = tenantQuery(tenant) ? `${tenantQuery(tenant)}&` : "?";
       const response = await fetch(proxyUrl(`/api/dashboard/pets/${pet.id}${sep.replace("&", "")}`), { method: "DELETE" });
-      if (!response.ok) throw new Error("No se pudo eliminar la mascota.");
+      if (!response.ok) { const payload = await response.json().catch(() => ({})) as { error?: string }; throw new Error(payload.error ?? "No se pudo eliminar la mascota."); }
       void loadPets();
-    } catch {
-      alert("No se pudo eliminar la mascota. Inténtalo de nuevo.");
+    } catch (cause) {
+      toast(cause instanceof Error ? cause.message : "No se pudo eliminar la mascota. Inténtalo de nuevo.", "error");
     } finally {
       setDeleting(null);
     }
@@ -188,6 +195,7 @@ export function PetsTable({
 
   return (
     <>
+      {confirmation}
       <Card>
         <CardHeader className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">

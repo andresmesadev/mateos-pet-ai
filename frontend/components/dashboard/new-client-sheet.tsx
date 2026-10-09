@@ -6,15 +6,15 @@ import { UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { proxyUrl } from "@/lib/api";
+import { ProtectedDialog, useDialogEditGuard } from "@/components/dashboard/protected-dialog";
+import { FieldError, FormSubmissionError, useFormFeedback } from "@/components/dashboard/form-feedback";
+import { submissionErrorMessage } from "@/lib/form-feedback";
+import { FormDialogContent, FormDialogHeader, FormDialogBody, FormDialogFooter, FormSection, FormAdditional } from "./form-layout";
 
 type Props = {
   open: boolean;
@@ -22,13 +22,15 @@ type Props = {
   onCreated: () => void;
 };
 
-export function NewClientSheet({ open, onOpenChange, onCreated }: Props) {
+function NewClientContent({ onOpenChange, onCreated }: Props) {
   const { toast } = useToast();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const feedback = useFormFeedback();
+  const discard = useDialogEditGuard(Boolean(name || phone || email || notes), saving);
 
   function reset() {
     setName("");
@@ -39,10 +41,7 @@ export function NewClientSheet({ open, onOpenChange, onCreated }: Props) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!phone.trim()) {
-      toast("El teléfono es requerido.", "error");
-      return;
-    }
+    if (saving || !feedback.validate(e.currentTarget as HTMLFormElement, { "nc-phone": "El teléfono es requerido." })) return;
     setSaving(true);
     try {
       const res = await fetch(proxyUrl("/api/dashboard/clients"), {
@@ -59,31 +58,33 @@ export function NewClientSheet({ open, onOpenChange, onCreated }: Props) {
       onOpenChange(false);
       onCreated();
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Error al crear cliente", "error");
+      feedback.setSubmitError(submissionErrorMessage(err, "No se pudo crear el cliente."));
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!saving) onOpenChange(v); }}>
-      <DialogContent className="max-h-[92vh] w-full max-w-xl overflow-y-auto">
-        <DialogHeader>
+      <FormDialogContent className="max-w-xl">
+        <FormDialogHeader>
           <div className="mb-1 flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-500/15 ring-1 ring-violet-500/25">
               <UserPlus className="h-4 w-4 text-violet-700" />
             </div>
-            <div>
+            <div className="min-w-0">
               <DialogTitle>Nuevo cliente</DialogTitle>
               <DialogDescription>
                 Normalmente se registran solos por WhatsApp.
               </DialogDescription>
             </div>
           </div>
-        </DialogHeader>
+        </FormDialogHeader>
 
-        <form id="new-client-form" onSubmit={handleSubmit}>
-          <div className="space-y-4 px-6 py-5">
+        <form id="new-client-form" className="flex min-h-0 flex-1 flex-col" onSubmit={handleSubmit} noValidate aria-busy={saving}>
+          <FormDialogBody>
+          <fieldset disabled={saving} className="min-w-0 space-y-4">
+            <FormSubmissionError message={feedback.submitError} />
+            <FormSection title="Contacto principal">
             <div className="space-y-1.5">
               <label htmlFor="nc-phone" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Teléfono *
@@ -91,15 +92,19 @@ export function NewClientSheet({ open, onOpenChange, onCreated }: Props) {
               <Input
                 id="nc-phone"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) => { setPhone(e.target.value); feedback.clearField("nc-phone"); }}
+                aria-required="true"
+                aria-invalid={Boolean(feedback.errors["nc-phone"])}
+                aria-describedby={feedback.errors["nc-phone"] ? "nc-phone-error" : undefined}
                 placeholder="573001234567"
                 inputMode="tel"
                 autoFocus
               />
+              <FieldError id="nc-phone" message={feedback.errors["nc-phone"]} />
             </div>
             <div className="space-y-1.5">
               <label htmlFor="nc-name" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Nombre
+                Nombre (opcional)
               </label>
               <Input
                 id="nc-name"
@@ -108,21 +113,26 @@ export function NewClientSheet({ open, onOpenChange, onCreated }: Props) {
                 placeholder="Nombre completo"
               />
             </div>
+            </FormSection>
+            <FormAdditional>
             <div className="space-y-1.5">
               <label htmlFor="nc-email" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Email
+                Correo electrónico (opcional)
               </label>
               <Input
                 id="nc-email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => { setEmail(e.target.value); feedback.clearField("nc-email"); }}
+                aria-invalid={Boolean(feedback.errors["nc-email"])}
+                aria-describedby={feedback.errors["nc-email"] ? "nc-email-error" : undefined}
                 placeholder="email@ejemplo.com"
                 type="email"
               />
+              <FieldError id="nc-email" message={feedback.errors["nc-email"]} />
             </div>
             <div className="space-y-1.5">
               <label htmlFor="nc-notes" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Notas
+                Notas (opcional)
               </label>
               <Input
                 id="nc-notes"
@@ -131,18 +141,23 @@ export function NewClientSheet({ open, onOpenChange, onCreated }: Props) {
                 placeholder="Observaciones opcionales"
               />
             </div>
-          </div>
+            </FormAdditional>
+          </fieldset>
+          </FormDialogBody>
         </form>
 
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+        <FormDialogFooter>
+          <Button type="button" variant="outline" onClick={() => discard(() => onOpenChange(false))} disabled={saving}>
             Cancelar
           </Button>
           <Button type="submit" form="new-client-form" disabled={saving}>
             {saving ? "Guardando…" : "Crear cliente"}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </FormDialogFooter>
+      </FormDialogContent>
   );
+}
+
+export function NewClientSheet(props: Props) {
+  return <ProtectedDialog open={props.open} onOpenChange={props.onOpenChange}>{props.open && <NewClientContent {...props} />}</ProtectedDialog>;
 }

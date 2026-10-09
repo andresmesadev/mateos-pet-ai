@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
+import { canonicalDashboardHref, type DashboardSearchParams } from "@/lib/dashboard-navigation";
 export type { ChurnClient } from "@/lib/customer-followup";
-export default async function ChurnPage({ searchParams }: { searchParams: Promise<{ tenant?: string }> }) {
-  const { tenant } = await searchParams;
-  redirect(`/dashboard/recuperacion?tab=churn${tenant ? `&tenant=${encodeURIComponent(tenant)}` : ""}`);
+export default async function Page({ searchParams }: { searchParams: Promise<DashboardSearchParams> }) {
+  redirect(canonicalDashboardHref("/dashboard/recuperacion", await searchParams, { tab: "churn" }));
 }

@@ -50,7 +50,7 @@ Snapshots:   0 total
 
 ### Rutas reales y PostgreSQL local
 
-Prueba guardada en [team-administration-postgres.test.cjs](C:/Users/andre/Desktop/Proyectos/mateos-pet-ai/scripts/team-administration-postgres.test.cjs). Utiliza establecimientos desechables, el middleware de permisos, las rutas reales y la base mateos_dev. Incluye nombre/teléfono, horario 09:15–15:10, reset a null, rechazo de horarios/contactos inválidos antes de escribir, permisos deduplicados, prohibición de cambios administrativos a Recepción, credencial temporal, protección de la cuenta administradora existente, revocación y aislamiento entre establecimientos.
+Prueba guardada en [team-administration-postgres.test.cjs](../../scripts/team-administration-postgres.test.cjs). Utiliza establecimientos desechables, el middleware de permisos, las rutas reales y la base mateos_dev. Incluye nombre/teléfono, horario 09:15–15:10, reset a null, rechazo de horarios/contactos inválidos antes de escribir, permisos deduplicados, prohibición de cambios administrativos a Recepción, credencial temporal, protección de la cuenta administradora existente, revocación y aislamiento entre establecimientos.
 
 ```text
 PASS: altas y cambios reales; horario 09:15–15:10 y reset;
@@ -93,19 +93,19 @@ PASS: no queda ningún establecimiento temporal de esta comprobación.
 
 Equipo organizado:
 
-![Equipo organizado](C:/Users/andre/Desktop/Proyectos/mateos-pet-ai/docs/history/ADMINISTRACION_EQUIPO_20261006.png)
+![Equipo organizado](ADMINISTRACION_EQUIPO_20261006.png)
 
 Horario centrado con guardado al pie:
 
-![Horario del integrante](C:/Users/andre/Desktop/Proyectos/mateos-pet-ai/docs/history/ADMINISTRACION_EQUIPO_HORARIO_20261006.png)
+![Horario del integrante](ADMINISTRACION_EQUIPO_HORARIO_20261006.png)
 
 Hoja en pantalla móvil:
 
-![Horario en móvil](C:/Users/andre/Desktop/Proyectos/mateos-pet-ai/docs/history/ADMINISTRACION_EQUIPO_MOVIL_20261006.png)
+![Horario en móvil](ADMINISTRACION_EQUIPO_MOVIL_20261006.png)
 
 ## Pendiente importante: disponibilidad integrada con Agenda
 
-**Resuelto en el trabajo posterior del 7 de octubre de 2026.** Se integraron horarios, ausencias y revisión/reasignación de citas; ver [informe de comprobación](C:/Users/andre/Desktop/Proyectos/mateos-pet-ai/docs/history/EQUIPO_DISPONIBILIDAD_AGENDA_20261007.md). Las observaciones siguientes describen el estado anterior a esa integración.
+**Resuelto en el trabajo posterior del 7 de octubre de 2026.** Se integraron horarios, ausencias y revisión/reasignación de citas; ver [informe de comprobación](EQUIPO_DISPONIBILIDAD_AGENDA_20261007.md). Las observaciones siguientes describen el estado anterior a esa integración.
 
 Esta revisión **no cierra toda la disponibilidad del equipo**. La auditoría confirmó que el horario semanal del dashboard vive en Staff.availability, mientras los horarios base y las ausencias del dominio viven en StaffAvailability. ADR 003 conserva su convivencia sin sincronización implícita. Las asignaciones manuales de Agenda todavía no bloquean automáticamente según el horario individual; el editor lo indica explícitamente.
 

@@ -1,4 +1,16 @@
-# Caja y ventas: espacio de trabajo POS
+# Punto de venta: espacio de trabajo POS
+
+## Correcciones de cierre del frontend — 8 de octubre de 2026
+
+La consulta vigente de `GET /cash/operational` sustituye el límite operativo de 200 filas por páginas de 10 a 50 registros. Acepta `scope=day|pending`, `date`, `page`, `pageSize`, `search`, `filter=all|review|registered` y `method`. La búsqueda y los totales se aplican al conjunto completo del filtro. Conteo, agrupaciones y página comparten una lectura `RepeatableRead` con aislamiento por Tenant. `pendingCount` cuenta todos los cobros de servicios activos sin operador confirmado del establecimiento; no representa cuentas por cobrar.
+
+Recepción conserva la consulta ordinaria de hoy y puede revisar cobros de servicios pendientes de fechas anteriores. La consulta ordinaria de fechas pasadas y los reportes administrativos mantienen sus permisos. La lectura individual de un cobro de sistema permite comprobarlo después de confirmar su método; las ventas manuales históricas siguen excluidas de ese acceso operativo.
+
+El formulario verifica el registro por ID antes de enviar. Una respuesta de éxito debe contener identidad, importe y datos confirmados válidos. Si el resultado es incierto, conserva el método y la nota y ofrece **Comprobar resultado**, que solo consulta; no reenvía el comando. Cerrar y reabrir el diálogo en la misma vista conserva ese intento. No se modifica el importe ni se reconstruye una venta nueva. Se reutiliza el comando de liquidación existente de ADR 007; el cierre diario congelado permanece idéntico.
+
+El proxy autenticado tiene un plazo de 15 segundos para recibir respuesta y cuerpo, y el cliente de estos recorridos limita la espera a 20 segundos. Abandonar la espera no cancela ni revierte una escritura en el servidor. Los parámetros de negocio repetidos se conservan para que sus validadores puedan rechazarlos; la selección de Tenant continúa resolviéndose exclusivamente desde la identidad autorizada.
+
+No hay modelos, migraciones, casos de uso ni permisos nuevos. Las secciones fechadas anteriores conservan el alcance y las limitaciones de su momento; su referencia al límite de 200 filas queda reemplazada para Caja por este contrato. Evidencia y límites de cierre: [ajustes finales del frontend](../history/FRONTEND_CIERRE_AJUSTES_20261008.md).
 
 ## Definición funcional
 

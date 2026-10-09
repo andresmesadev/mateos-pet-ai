@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { ChevronRight, Home } from "lucide-react";
+import { useTenant } from "@/lib/use-tenant";
+import { homeHref } from "@/lib/home-workspace";
 
 const PATH_LABELS: Record<string, string> = {
   calendar: "Agenda",
@@ -29,6 +31,7 @@ const PATH_LABELS: Record<string, string> = {
 };
 
 export function BreadcrumbNav() {
+  const tenant = useTenant();
   const pathname = usePathname();
   const { data: session } = useSession();
 
@@ -43,7 +46,8 @@ export function BreadcrumbNav() {
       className="mb-5 flex items-center gap-1 text-xs text-muted-foreground"
     >
       <Link
-        href="/dashboard"
+        prefetch={false}
+        href={homeHref("/dashboard", tenant)}
         className="flex items-center gap-1 transition-colors hover:text-foreground"
       >
         <Home className="h-3.5 w-3.5" />
@@ -61,7 +65,7 @@ export function BreadcrumbNav() {
             {isLast ? (
               <span className="font-medium text-foreground">{label}</span>
             ) : (
-              <Link href={href} className="transition-colors hover:text-foreground">
+              <Link prefetch={false} href={homeHref(href, tenant)} className="transition-colors hover:text-foreground">
                 {label}
               </Link>
             )}

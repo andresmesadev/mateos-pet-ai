@@ -31,6 +31,7 @@ export function PosTabs({ active }: { active: PosTab }) {
     for (const key of ["from", "to", "source", "detail", "reportPeriod", "reportOffset", "offset", "comparison"]) p.delete(key);
     p.delete("period");
     p.delete("date");
+    p.delete("review");
     return `/dashboard/pos?${p.toString()}`;
   }
 

@@ -1,18 +1,6 @@
-﻿import { Scissors } from "lucide-react";
+import { redirect } from "next/navigation";
+import { canonicalDashboardHref, type DashboardSearchParams } from "@/lib/dashboard-navigation";
 
-import { PageHeader } from "@/components/dashboard/page-header";
-import { ServicesManager } from "@/components/dashboard/services-manager";
-
-export default function ServicesPage() {
-  return (
-    <div>
-      <PageHeader
-        title="Servicios"
-        description="Catálogo de servicios disponibles para el agente y los clientes"
-        icon={Scissors}
-        tint="bg-pink-500/15 text-pink-700"
-      />
-      <ServicesManager />
-    </div>
-  );
+export default async function Page({ searchParams }: { searchParams: Promise<DashboardSearchParams> }) {
+  redirect(canonicalDashboardHref("/dashboard/settings", await searchParams, {"tab":"localizacion"}));
 }

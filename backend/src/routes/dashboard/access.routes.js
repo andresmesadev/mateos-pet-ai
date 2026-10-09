@@ -2,8 +2,10 @@ const router = require("express").Router();
 const prisma = require("../../lib/prisma");
 const { createHash } = require("node:crypto");
 const { resolvePrice } = require("../../services/domain/price-resolver.service");
-const { APPOINTMENT_INCLUDE, mapAppointmentRow, mapTransaction, getBogotaYmd, bogotaDayStart } = require("./shared");
+const { APPOINTMENT_INCLUDE, mapAppointmentRow, getBogotaYmd, bogotaDayStart } = require("./shared");
 const { serviceModule, moduleAllowsAppointment } = require("../../services/dashboard-access.service");
+const { readOperationalCash } = require("./operational-cash-page");
+const { HistoryQueryError } = require("./financial-history-page");
 router.get("/access", (req, res) => res.json(req.access));
 router.get("/cash/context", (req, res) => {
   const actorId = req.actor?.staffId || req.actor?.email;
@@ -62,20 +64,11 @@ router.get("/workspace", async (req, res) => {
 });
 router.get("/cash/operational", async (req, res) => {
   try {
-    const date = getBogotaYmd(), start = bogotaDayStart(date), end = new Date(start.getTime() + 86400000);
-    const rows = await prisma.transaction.findMany({
-      where: { tenantId: req.tenant.tenantId, status: "active", paidAt: { gte: start, lt: end } },
-      include: { user: { select: { name: true, phone: true } }, pet: { select: { name: true, type: true } }, items: true },
-      orderBy: { paidAt: "desc" }, take: 200,
-    });
     // A system charge already counts as income under ADR 007. A missing actor
     // means payment details need review, not that historical income is unpaid.
-    return res.json({ date, transactions: rows.map(mapTransaction),
-      toReview: rows.filter(row => row.origin === "system_appointment_completed" && !row.recordedActorId).map(row => row.id),
-      totalRegistered: rows.reduce((total, row) => total + Number(row.total), 0),
-      hasMore: rows.length === 200,
-    });
+    return res.json(await readOperationalCash(prisma, req.tenant.tenantId, req.query, req.access));
   } catch (error) {
+    if (error instanceof HistoryQueryError) return res.status(error.status).json({ error: error.message });
     console.error("[Cash] Operational read failed:", error.message);
     return res.status(503).json({ error: "No se pudo cargar la caja de hoy" });
   }

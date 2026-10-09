@@ -121,7 +121,7 @@ Las tres advertencias de lint son los imports sin uso ya detectados en `sale-for
 
 ## Puesta en producción pendiente
 
-El procedimiento operativo detallado y los scripts de inspección/backup están en [QUEUE_RECOVERY_2_36_1_DEPLOYMENT.md](../operations/QUEUE_RECOVERY_2_36_1_DEPLOYMENT.md). Se prepararon sin conexión al servidor.
+El procedimiento operativo detallado y los scripts de inspección/backup están en [QUEUE_RECOVERY_2_36_1_DEPLOYMENT.md](operations/QUEUE_RECOVERY_2_36_1_DEPLOYMENT.md). Se prepararon sin conexión al servidor.
 
 1. Revisar el estado real de migraciones y respaldar la base según el procedimiento del entorno. Esta tarea solo aplicó la migración en PostgreSQL aislado.
 2. Detener el backend/worker antiguo antes de aplicar `20260915170000_inbound_job_recovery`. No mezclar workers antiguos y nuevos: el antiguo desconoce fases, concesiones y esperas.

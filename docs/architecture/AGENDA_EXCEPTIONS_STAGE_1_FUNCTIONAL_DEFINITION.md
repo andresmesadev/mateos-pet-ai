@@ -1,6 +1,8 @@
 # Excepciones de Agenda — Etapa 1: Definición funcional
 
-**Estado:** propuesta para aprobación de Etapa 2  
+**Estado actual (revisión documental 2026-10-08):** diseño aprobado e implementado; [cierre técnico](../history/AGENDA_EXCEPTIONS_COMPLETION_REPORT.md). Las formulaciones en futuro conservan el diseño original.
+
+**Estado al redactar la etapa:** propuesta para aprobación de Etapa 2
 **Fecha:** 2026-09-17  
 **Origen:** necesidad operativa identificada tras la configuración de horarios por servicio (ADR 012).
 

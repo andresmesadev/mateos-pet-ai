@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-export default async function ReactivationPage({ searchParams }: { searchParams: Promise<{ tenant?: string }> }) {
-  const { tenant } = await searchParams;
-  redirect(`/dashboard/recuperacion?tab=reactivar${tenant ? `&tenant=${encodeURIComponent(tenant)}` : ""}`);
+import { canonicalDashboardHref, type DashboardSearchParams } from "@/lib/dashboard-navigation";
+export default async function Page({ searchParams }: { searchParams: Promise<DashboardSearchParams> }) {
+  redirect(canonicalDashboardHref("/dashboard/recuperacion", await searchParams, { tab: "reactivar" }));
 }

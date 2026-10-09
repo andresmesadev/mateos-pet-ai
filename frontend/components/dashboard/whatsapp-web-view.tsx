@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { MessageCircle, RefreshCw, Search, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,9 +11,12 @@ import { useTenant } from "@/lib/use-tenant";
 import { type ConversationsResponse, type DashboardConversation, formatPhone } from "@/lib/conversations";
 import { threadDateLabel, uniqueThreads } from "@/lib/whatsapp-workspace";
 import { cn } from "@/lib/utils";
+import { useWorkspaceIdentity } from "@/lib/use-list-continuity";
+import { useWhatsAppDrafts } from "@/lib/use-whatsapp-drafts";
 import { WhatsAppChatPane } from "@/components/dashboard/whatsapp-chat-pane";
 
 function WhatsAppWorkspace({ initialConversationId, tenant }: { initialConversationId: string | null; tenant: string | null }) {
+  const params = useSearchParams();
   const workspaceRef = useRef<HTMLDivElement>(null);
   const [conversations, setConversations] = useState<DashboardConversation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,12 +25,12 @@ function WhatsAppWorkspace({ initialConversationId, tenant }: { initialConversat
   const [requestedId, setRequestedId] = useState(initialConversationId);
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
-  const [attention, setAttention] = useState<"all" | "human">("all");
+  const [attention, setAttention] = useState<"all" | "human">(() => params.get("attention") === "human" ? "human" : "all");
   const [pages, setPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [refresh, setRefresh] = useState(0);
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const { drafts, recovered, onDraft, storageFailed } = useWhatsAppDrafts();
   const [busyThreads, setBusyThreads] = useState<Record<string, boolean>>({});
 
   useLayoutEffect(() => {
@@ -119,12 +123,13 @@ function WhatsAppWorkspace({ initialConversationId, tenant }: { initialConversat
       {!error && <div className="border-t p-3 text-center"><p className="text-xs text-muted-foreground">{loading ? "Actualizando…" : `${conversations.length} de ${total} conversaciones`}</p>{pages < totalPages && <Button variant="outline" className="mt-2 min-h-11 w-full" disabled={loading} onClick={() => setPages((value) => value + 1)}>Cargar conversaciones anteriores</Button>}</div>}
     </section>
     <section aria-label="Chat seleccionado" className={cn("min-w-0 flex-1", !selectedId && "hidden md:block")}>
-      {selectedId ? <WhatsAppChatPane key={selectedId} conversationId={selectedId} tenant={tenant} drafts={drafts} busyThreads={busyThreads} onDraft={(key, text, expected) => setDrafts((current) => expected !== undefined && current[key]?.trim() !== expected ? current : ({ ...current, [key]: text }))} onBusy={(key, busy) => setBusyThreads((current) => ({ ...current, [key]: busy }))} onBack={() => setSelectedId(null)} onChanged={() => setRefresh((value) => value + 1)} /> : <div className="flex h-full flex-col items-center justify-center gap-4 border-b-4 border-[#25d366] bg-[#f0f2f5] p-6 text-center"><div className="rounded-full bg-[#dfeae6] p-6 text-[#008069]"><MessageCircle className="size-12" /></div><h2 className="text-2xl font-semibold tracking-tight">WhatsApp de tu centro</h2><p className="max-w-sm text-sm leading-relaxed text-[#54656f]">Selecciona un chat para conversar con el propietario y consultar sus mascotas y próximas visitas.</p></div>}
+      {selectedId ? <WhatsAppChatPane key={selectedId} conversationId={selectedId} tenant={tenant} drafts={drafts} recoveredDrafts={recovered} storageFailed={storageFailed} busyThreads={busyThreads} onDraft={onDraft} onBusy={(key, busy) => setBusyThreads((current) => ({ ...current, [key]: busy }))} onBack={() => setSelectedId(null)} onChanged={() => setRefresh((value) => value + 1)} /> : <div className="flex h-full flex-col items-center justify-center gap-4 border-b-4 border-[#25d366] bg-[#f0f2f5] p-6 text-center"><div className="rounded-full bg-[#dfeae6] p-6 text-[#008069]"><MessageCircle className="size-12" /></div><h2 className="text-2xl font-semibold tracking-tight">WhatsApp de tu centro</h2><p className="max-w-sm text-sm leading-relaxed text-[#54656f]">Selecciona un chat para conversar con el propietario y consultar sus mascotas y próximas visitas.</p></div>}
     </section>
   </div>;
 }
 
 export function WhatsAppWebView({ initialConversationId = null }: { initialConversationId?: string | null }) {
   const tenant = useTenant();
-  return <WhatsAppWorkspace key={tenant ?? "current"} initialConversationId={initialConversationId} tenant={tenant} />;
+  const { owner } = useWorkspaceIdentity();
+  return <WhatsAppWorkspace key={`${owner}:${tenant ?? "current"}`} initialConversationId={initialConversationId} tenant={tenant} />;
 }

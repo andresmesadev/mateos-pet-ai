@@ -15,6 +15,8 @@ const EditGuardContext = createContext<EditGuard | null>(null);
 /** Protect every editor inside this dialog, including Escape and backdrop dismissal. */
 export function ProtectedDialog({ open, onOpenChange, children }: { open: boolean; onOpenChange: (open: boolean) => void; children: ReactNode }) {
   const editors = useRef(new Map<string, EditState>());
+  const resumeFocus = useRef<HTMLElement | null>(null);
+  const discarded = useRef(false);
   const [pending, setPending] = useState<(() => void) | null>(null);
   const register = useCallback((id: string, state: EditState) => {
     editors.current.set(id, state);
@@ -22,7 +24,11 @@ export function ProtectedDialog({ open, onOpenChange, children }: { open: boolea
   }, []);
   const discard = useCallback((action: () => void, dirty: boolean) => {
     if ([...editors.current.values()].some((editor) => editor.saving)) return;
-    if (dirty) setPending(() => action);
+    if (dirty) {
+      resumeFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      discarded.current = false;
+      setPending(() => action);
+    }
     else action();
   }, []);
   const guard = useMemo(() => ({ register, discard }), [register, discard]);
@@ -35,12 +41,15 @@ export function ProtectedDialog({ open, onOpenChange, children }: { open: boolea
     <AlertDialog.Root open={Boolean(open && pending)} onOpenChange={(nextOpen) => { if (!nextOpen) setPending(null); }}>
       <AlertDialog.Portal>
         <AlertDialog.Overlay className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm" />
-        <AlertDialog.Content className="fixed left-1/2 top-1/2 z-[60] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border bg-card p-6 shadow-xl">
+        <AlertDialog.Content onCloseAutoFocus={event => {
+          event.preventDefault();
+          if (!discarded.current && resumeFocus.current?.isConnected) resumeFocus.current.focus();
+        }} className="fixed left-1/2 top-1/2 z-[60] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border bg-card p-6 shadow-xl">
           <AlertDialog.Title className="text-lg font-semibold">¿Salir sin guardar?</AlertDialog.Title>
           <AlertDialog.Description className="mt-2 text-sm text-muted-foreground">Tienes cambios pendientes. Puedes seguir editando o descartarlos; los datos ya guardados se conservan.</AlertDialog.Description>
           <div className="mt-6 flex flex-wrap justify-end gap-2">
             <AlertDialog.Cancel asChild><Button variant="outline">Seguir editando</Button></AlertDialog.Cancel>
-            <AlertDialog.Action asChild><Button variant="destructive" onClick={() => { const action = pending; setPending(null); action?.(); }}>Descartar cambios</Button></AlertDialog.Action>
+            <AlertDialog.Action asChild><Button variant="destructive" onClick={() => { discarded.current = true; const action = pending; setPending(null); action?.(); }}>Descartar cambios</Button></AlertDialog.Action>
           </div>
         </AlertDialog.Content>
       </AlertDialog.Portal>

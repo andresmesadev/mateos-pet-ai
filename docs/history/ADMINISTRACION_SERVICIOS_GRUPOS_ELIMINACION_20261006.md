@@ -6,7 +6,7 @@ Servicios y precios muestra grupos separados de Peluquería y Veterinaria, con c
 
 En Retirados aparecen Editar, Reactivar y Eliminar. El diálogo de eliminación exige escribir el nombre actual y explica que no hay recuperación. La eliminación física únicamente se permite a Administración, dentro del establecimiento autenticado, cuando no existen citas, reglas de precio o vínculos con el equipo (incluidos registros inactivos). No se elimina en cascada y se conserva la auditoría existente.
 
-La creación de capacidades del equipo revalida y bloquea la referencia en su transacción, evitando una carrera con la eliminación. No se modificó el esquema ni se aplicaron migraciones para estos dos cambios. Diseño y excepción de conservación documentados en `docs/architecture/service-catalog-retirement-cleanup-20261006.md` y en el modelo de dominio.
+La creación de capacidades del equipo revalida y bloquea la referencia en su transacción, evitando una carrera con la eliminación. No se modificó el esquema ni se aplicaron migraciones para estos dos cambios. Diseño y excepción de conservación documentados en `docs/history/designs/service-catalog-retirement-cleanup-20261006.md` y en el modelo de dominio.
 
 ## Evidencia real
 

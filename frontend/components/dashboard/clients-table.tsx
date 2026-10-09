@@ -1,5 +1,8 @@
 ﻿"use client";
 
+import { useToast } from "@/components/ui/toast";
+import { useActionConfirmation } from "@/components/dashboard/action-confirmation";
+
 import { useEffect, useState } from "react";
 import { Eye, Pencil, Plus, Search, Trash2, Users, X } from "lucide-react";
 import { useSearchParams } from "next/navigation";
@@ -46,6 +49,8 @@ function TableSkeleton() {
 }
 
 export function ClientsTable() {
+  const { confirm, confirmation } = useActionConfirmation();
+  const { toast } = useToast();
   const access = useDashboardAccess();
   const tenant = useTenant();
   const searchParams = useSearchParams();
@@ -130,17 +135,17 @@ export function ClientsTable() {
 
   const handleDelete = async (e: React.MouseEvent, id: string, name: string) => {
     e.stopPropagation();
-    if (!window.confirm(`Eliminar al cliente "${name}"? Esta accion no se puede deshacer.`)) return;
+    if (!await confirm({ description: `Eliminar al cliente "${name}"? Esta accion no se puede deshacer.`, title: "Confirmar eliminación", confirmLabel: "Eliminar", destructive: true })) return;
     setDeleting(id);
     try {
       const base = proxyUrl(`/api/dashboard/clients/${id}`);
       const tq = tenantQuery(tenant);
       const url = tq ? `${base}?${tq.replace("?", "")}` : base;
       const response = await fetch(url, { method: "DELETE" });
-      if (!response.ok) throw new Error("No se pudo eliminar el cliente.");
+      if (!response.ok) { const payload = await response.json().catch(() => ({})) as { error?: string }; throw new Error(payload.error ?? "No se pudo eliminar el cliente."); }
       setVersion((v) => v + 1);
-    } catch {
-      alert("No se pudo eliminar el cliente.");
+    } catch (cause) {
+      toast(cause instanceof Error ? cause.message : "No se pudo eliminar el cliente.", "error");
     } finally {
       setDeleting(null);
     }
@@ -148,6 +153,7 @@ export function ClientsTable() {
 
   return (
     <>
+      {confirmation}
       <Card>
         <CardHeader className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">

@@ -1,6 +1,8 @@
 # Excepciones de Agenda — Etapa 2: Casos de uso
 
-**Estado:** propuesta para aprobación de Etapa 3  
+**Estado actual (revisión documental 2026-10-08):** diseño aprobado e implementado; [cierre técnico](../history/AGENDA_EXCEPTIONS_COMPLETION_REPORT.md). Las formulaciones en futuro conservan el diseño original.
+
+**Estado al redactar la etapa:** propuesta para aprobación de Etapa 3
 **Precondición:** Etapa 1 aprobada el 2026-09-17.
 
 ## Vocabulario cerrado

@@ -37,7 +37,7 @@ export function CustomerFollowupActions({ ownerId, petId, conversationId, catego
   }
   return <div className="space-y-2">
     <div className="flex flex-wrap gap-2">
-      <Button variant="outline" size="sm" asChild><Link href={petId ? `/dashboard/pets?pet=${encodeURIComponent(petId)}${suffix}` : `/dashboard/contacto?client=${encodeURIComponent(ownerId ?? "")}${suffix}`}>{petId ? "Ver expediente" : "Ver cliente"}</Link></Button>
+      <Button variant="outline" size="sm" asChild><Link href={petId ? `/dashboard/contacto?view=mascotas&pet=${encodeURIComponent(petId)}${suffix}` : `/dashboard/contacto?client=${encodeURIComponent(ownerId ?? "")}${suffix}`}>{petId ? "Ver expediente" : "Ver cliente"}</Link></Button>
       {access?.capabilities.chat && ownerId && <Button variant="outline" size="sm" disabled={loading} onClick={openChat}>{loading ? "Abriendo…" : "WhatsApp"}</Button>}
       {access?.capabilities.schedule && ownerId && <Button variant="outline" size="sm" onClick={() => setAppointment(true)}>Agendar cita</Button>}
     </div>

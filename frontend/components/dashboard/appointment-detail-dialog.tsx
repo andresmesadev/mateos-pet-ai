@@ -1,18 +1,23 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { CalendarDays, Clock3, PawPrint, Stethoscope, UserRound } from "lucide-react";
+import { useActionConfirmation } from "@/components/dashboard/action-confirmation";
 
+import { useRef, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { ProtectedDialog, useDialogEditGuard } from "@/components/dashboard/protected-dialog";
+
+import { CaseSummary } from "@/components/dashboard/case-summary";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { VetRecordSheet } from "@/components/dashboard/vet-record-sheet";
 import { proxyUrl } from "@/lib/api";
+import { dashboardRequest } from "@/lib/dashboard-request";
 import { useDashboardAccess } from "@/components/dashboard/dashboard-access-provider";
 import { tenantQuery, useTenant } from "@/lib/use-tenant";
+import { homeHref } from "@/lib/home-workspace";
 import {
-  formatColombiaDateTime,
   formatService,
   formatStatus,
   getStatusTransitions,
@@ -32,14 +37,18 @@ type Props = {
 
 const VET_SERVICE_TYPES = ["vet", "consultation", "veterinary_consultation"];
 
-export function AppointmentDetailDialog({ appointment, onClose, onUpdated, readOnly = false, startInPriceEdit = false }: Props) {
+function AppointmentDetailContent({ appointment, onClose, onUpdated, readOnly = false, startInPriceEdit = false }: Props) {
+  const { confirm, confirmation } = useActionConfirmation();
   const tenant = useTenant();
+  const router = useRouter();
   const access = useDashboardAccess();
   const [busy, setBusy] = useState(false);
+  const priceBusy = useRef(false);
   const [recordOpen, setRecordOpen] = useState(false);
   const [editingPrice, setEditingPrice] = useState(startInPriceEdit);
-  const [price, setPrice] = useState(appointment.priceResolution?.manualOverride?.toString() ?? "");
+  const [price, setPrice] = useState(appointment.priceResolution?.manualOverride?.toString() ?? appointment.finalPrice?.toString() ?? "");
   const [error, setError] = useState<string | null>(null);
+  const discard = useDialogEditGuard(editingPrice && price !== (appointment.priceResolution?.manualOverride?.toString() ?? appointment.finalPrice?.toString() ?? ""), busy);
   const graceExpired = ["pending", "confirmed"].includes(appointment.status) && arrivalWindowExpired(appointment.date);
   const previousDayArrival = appointment.status === "arrived" && new Date(appointment.date).toLocaleDateString("en-CA", { timeZone: "America/Bogota" }) < new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
   const own = access?.capabilities.administration || !appointment.staffId || appointment.staffId === access?.staffId;
@@ -50,21 +59,21 @@ export function AppointmentDetailDialog({ appointment, onClose, onUpdated, readO
     (appointment.status === "in_progress" || appointment.status === "completed") && !!appointment.petId;
 
   async function updateStatus(nextStatus: string) {
-    if (nextStatus === "in_progress" && previousDayArrival && !window.confirm("Esta llegada corresponde a un día anterior. ¿Confirmas que sí se prestó la atención y vas a completar su historia clínica?")) return;
+    if (nextStatus === "in_progress" && previousDayArrival && !await confirm("Esta llegada corresponde a un día anterior. ¿Confirmas que sí se prestó la atención y vas a completar su historia clínica?")) return;
     if (["cancelled", "no_show", "completed"].includes(nextStatus)) {
       const question = nextStatus === "completed"
         ? "¿Completar esta cita? Se registrarán el cobro y la comisión correspondientes."
         : nextStatus === "no_show"
           ? "¿Marcar esta cita como no asistida?"
           : "¿Cancelar esta cita? Esta acción no se puede deshacer.";
-      if (!window.confirm(question)) return;
+      if (!await confirm(question)) return;
     }
 
     setBusy(true);
     setError(null);
     try {
       const complete = nextStatus === "completed";
-      const response = await fetch(proxyUrl(`/api/dashboard/appointments/${appointment.id}${complete ? "/complete" : ""}`), {
+      const response = await fetch(proxyUrl(`/api/dashboard/appointments/${appointment.id}${complete ? "/complete" : ""}${tenantQuery(tenant)}`), {
         method: complete ? "POST" : "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(complete ? {} : { status: nextStatus }),
@@ -81,35 +90,38 @@ export function AppointmentDetailDialog({ appointment, onClose, onUpdated, readO
 
   async function savePrice(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (priceBusy.current || busy) return;
     const amount = Number(price);
     if (price.trim() === "" || !Number.isFinite(amount) || amount < 0 || amount > 99_999_999.99 || Math.abs(amount * 100 - Math.round(amount * 100)) > 0.000001) {
       setError("Ingresa un precio válido en pesos colombianos.");
       return;
     }
 
-    setBusy(true);
+    priceBusy.current = true; setBusy(true);
     setError(null);
     try {
       const pricePath = canSavePetPrice ? `/api/dashboard/appointments/${appointment.id}/agreed-price` : `/api/dashboard/appointments/${appointment.id}`;
-      const response = await fetch(proxyUrl(`${pricePath}${tenantQuery(tenant)}`), {
+      const { response, payload } = await dashboardRequest(proxyUrl(`${pricePath}${tenantQuery(tenant)}`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(canSavePetPrice ? { price: amount } : { finalPrice: amount }),
       });
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(payload?.error || "Intenta de nuevo.");
+      if (!response.ok) throw new Error(payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string" ? payload.error : "Comprueba el precio guardado antes de volver a intentarlo.");
+      if (!payload || typeof payload !== "object" || !("id" in payload) || payload.id !== appointment.id || !("date" in payload) || typeof payload.date !== "string" || !Number.isFinite(Date.parse(payload.date)) || !("status" in payload) || typeof payload.status !== "string" || !("finalPrice" in payload) || typeof payload.finalPrice !== "number" || Math.round(payload.finalPrice * 100) !== Math.round(amount * 100)) throw new Error("La respuesta no confirma el precio. Conservamos tu valor; actualiza la cita para comprobar el guardado.");
       onUpdated(payload as TodayAppointment);
       setEditingPrice(false);
     } catch (cause) {
       setError(cause instanceof Error ? `No se pudo guardar el precio. ${cause.message}` : "No se pudo guardar el precio. Intenta de nuevo.");
     } finally {
+      priceBusy.current = false;
       setBusy(false);
     }
   }
 
   return (
     <>
-      <Dialog open={!recordOpen} onOpenChange={(open) => { if (!open && !busy) onClose(); }}>
+      {confirmation}
+      {!recordOpen && (
         <DialogContent className="max-h-[min(90vh,760px)] max-w-2xl overflow-y-auto border-slate-200 bg-white p-0 text-slate-900 shadow-2xl">
           <DialogHeader className="border-b border-slate-200 bg-slate-50/70 px-6 py-6 pr-14 sm:px-8">
             <div className="mb-3 flex flex-wrap items-center gap-3">
@@ -121,13 +133,8 @@ export function AppointmentDetailDialog({ appointment, onClose, onUpdated, readO
           </DialogHeader>
 
           <div className="space-y-6 px-6 py-6 sm:px-8">
-            <dl className="grid gap-4 sm:grid-cols-2">
-              <div className="flex gap-3"><CalendarDays className="mt-0.5 size-5 shrink-0 text-teal-700" /><div><dt className="text-xs font-medium text-slate-500">Fecha y hora</dt><dd className="font-semibold">{formatColombiaDateTime(appointment.date)}</dd></div></div>
-              <div className="flex gap-3"><PawPrint className="mt-0.5 size-5 shrink-0 text-teal-700" /><div><dt className="text-xs font-medium text-slate-500">Servicio</dt><dd className="font-semibold">{appointment.serviceName ?? formatService(appointment.serviceType)}</dd></div></div>
-              <div className="flex gap-3"><UserRound className="mt-0.5 size-5 shrink-0 text-teal-700" /><div><dt className="text-xs font-medium text-slate-500">Propietario</dt><dd className="font-semibold">{appointment.clientName ?? appointment.clientPhone ?? "Sin registrar"}</dd>{appointment.clientName && appointment.clientPhone && <dd className="text-sm text-slate-500">{appointment.clientPhone}</dd>}</div></div>
-              <div className="flex gap-3"><Stethoscope className="mt-0.5 size-5 shrink-0 text-teal-700" /><div><dt className="text-xs font-medium text-slate-500">Profesional</dt><dd className="font-semibold">{appointment.staffName ?? "Sin asignar"}</dd></div></div>
-              {(access?.capabilities.cash || access?.capabilities.appointmentPrice) && <div className="flex gap-3"><Clock3 className="mt-0.5 size-5 shrink-0 text-teal-700" /><div><dt className="text-xs font-medium text-slate-500">Precio de esta cita</dt><dd className="font-semibold">{appointment.finalPrice == null ? "Sin precio definido" : `$${appointment.finalPrice.toLocaleString("es-CO")}`}</dd>{canEditPrice && !editingPrice && <button type="button" onClick={() => { setPrice(appointment.priceResolution?.manualOverride?.toString() ?? appointment.finalPrice?.toString() ?? ""); setError(null); setEditingPrice(true); }} className="mt-1 text-sm font-semibold text-teal-800 underline underline-offset-4 hover:text-teal-950">{appointment.finalPrice == null ? "Definir precio" : "Cambiar precio"}</button>}</div></div>}
-            </dl>
+            <CaseSummary appointment={appointment} showPrice />
+            {canEditPrice && !editingPrice && <Button variant="outline" onClick={() => { setPrice(appointment.priceResolution?.manualOverride?.toString() ?? appointment.finalPrice?.toString() ?? ""); setError(null); setEditingPrice(true); }}>{appointment.finalPrice == null ? "Definir precio" : "Cambiar precio"}</Button>}
 
             {canEditPrice && editingPrice && <form onSubmit={savePrice} className="rounded-2xl border border-teal-200 bg-teal-50/60 p-4 sm:p-5">
               <h3 className="font-semibold text-slate-950">Precio para {appointment.petName}</h3>
@@ -135,7 +142,7 @@ export function AppointmentDetailDialog({ appointment, onClose, onUpdated, readO
                 ? `Se guardará para ${appointment.petName} en ${appointment.serviceName ?? formatService(appointment.serviceType)} y se usará en próximas citas del mismo servicio que no tengan precio fijado. También fija el precio de esta cita. Puedes editar la tarifa desde su ficha.`
                 : "El valor se guardará solo para esta cita. Las tarifas del catálogo y de futuras visitas las administra el responsable del negocio."}</p>
               <label htmlFor="appointment-price" className="mt-4 block text-sm font-semibold text-slate-800">Valor de esta cita (COP)</label>
-              <div className="mt-1 flex max-w-xs items-center overflow-hidden rounded-lg border border-slate-300 bg-white focus-within:ring-2 focus-within:ring-teal-600"><span className="px-3 text-slate-500" aria-hidden="true">$</span><input id="appointment-price" type="number" inputMode="decimal" min="0" max="99999999.99" step="0.01" required autoFocus value={price} onChange={(event) => setPrice(event.target.value)} placeholder="Ej. 45000" className="min-h-11 w-full bg-transparent pr-3 text-slate-950 outline-none" /></div>
+              <div className="mt-1 flex max-w-xs items-center overflow-hidden rounded-lg border border-slate-300 bg-white focus-within:ring-2 focus-within:ring-teal-600"><span className="px-3 text-slate-500" aria-hidden="true">$</span><input id="appointment-price" disabled={busy} type="number" inputMode="decimal" min="0" max="99999999.99" step="0.01" required autoFocus value={price} onChange={(event) => setPrice(event.target.value)} placeholder="Ej. 45000" className="min-h-11 w-full bg-transparent pr-3 text-slate-950 outline-none disabled:opacity-60" /></div>
               <div className="mt-4 flex flex-wrap gap-2"><Button type="submit" size="sm" disabled={busy}>{busy ? "Guardando…" : "Guardar precio"}</Button><Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => { setEditingPrice(false); setError(null); }}>Cancelar</Button></div>
             </form>}
 
@@ -159,11 +166,15 @@ export function AppointmentDetailDialog({ appointment, onClose, onUpdated, readO
               </section>
             )}
 
-            {!readOnly && access?.capabilities.contacts && appointment.petId && <Link href={`/dashboard/pets?pet=${encodeURIComponent(appointment.petId)}`} onClick={onClose} className="inline-flex min-h-10 items-center text-sm font-semibold text-teal-800 underline underline-offset-4 hover:text-teal-950">Ver ficha de {appointment.petName}</Link>}
+            {!readOnly && access?.capabilities.contacts && appointment.petId && <Link prefetch={false} href={homeHref(`/dashboard/contacto?view=mascotas&pet=${encodeURIComponent(appointment.petId)}`, tenant)} onClick={event => { event.preventDefault(); discard(() => { onClose(); router.push(homeHref(`/dashboard/contacto?view=mascotas&pet=${encodeURIComponent(appointment.petId!)}`, tenant)); }); }} className="inline-flex min-h-10 items-center text-sm font-semibold text-teal-800 underline underline-offset-4 hover:text-teal-950">Ver ficha de {appointment.petName}</Link>}
           </div>
         </DialogContent>
-      </Dialog>
+      )}
       {recordOpen && <VetRecordSheet appointment={appointment} open={recordOpen} onOpenChange={setRecordOpen} />}
     </>
   );
+}
+
+export function AppointmentDetailDialog(props: Props) {
+  return <ProtectedDialog open onOpenChange={open => { if (!open) props.onClose(); }}><AppointmentDetailContent {...props} /></ProtectedDialog>;
 }

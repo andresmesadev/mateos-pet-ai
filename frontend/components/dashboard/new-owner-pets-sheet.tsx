@@ -6,17 +6,17 @@ import { Plus, Trash2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { useDashboardAccess } from "@/components/dashboard/dashboard-access-provider";
+import { ProtectedDialog, useDialogEditGuard } from "@/components/dashboard/protected-dialog";
 import { proxyUrl } from "@/lib/api";
 import { useTenant, tenantQuery } from "@/lib/use-tenant";
+import { FieldError, FormSubmissionError, useFormFeedback } from "@/components/dashboard/form-feedback";
+import { submissionErrorMessage } from "@/lib/form-feedback";
+import { FormDialogContent, FormDialogHeader, FormDialogBody, FormDialogFooter, FormSection, FormAdditional } from "./form-layout";
 
 type PetDraft = {
   uid: number;
@@ -28,10 +28,12 @@ type PetDraft = {
   notes: string;
 };
 
+export type CreatedOwnerPets = { owner: { id: string; name: string | null; phone: string }; pets: { id: string; name: string; type: string }[] };
+
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreated: () => void;
+  onCreated: (created: CreatedOwnerPets) => void;
 };
 
 let uidCounter = 1;
@@ -46,7 +48,7 @@ const SELECT_CLASS =
 const TEXTAREA_CLASS =
   "w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none disabled:cursor-not-allowed disabled:opacity-50";
 
-export function NewOwnerPetsSheet({ open, onOpenChange, onCreated }: Props) {
+function NewOwnerPetsContent({ onOpenChange, onCreated }: Props) {
   const { toast } = useToast();
   const tenant = useTenant();
   const access = useDashboardAccess();
@@ -59,6 +61,9 @@ export function NewOwnerPetsSheet({ open, onOpenChange, onCreated }: Props) {
   const [notes, setNotes] = useState("");
   const [pets, setPets] = useState<PetDraft[]>(() => [emptyPet()]);
   const [saving, setSaving] = useState(false);
+  const feedback = useFormFeedback();
+  const dirty = Boolean(ownerName || phone || phoneAlt || email || address || notes || pets.some(pet => pet.name || pet.breed || pet.gender || pet.weight || pet.notes || pet.type !== "dog"));
+  const discard = useDialogEditGuard(dirty, saving);
 
   function reset() {
     setOwnerName("");
@@ -73,16 +78,16 @@ export function NewOwnerPetsSheet({ open, onOpenChange, onCreated }: Props) {
   function addPet() { setPets((prev) => [...prev, emptyPet()]); }
   function removePet(uid: number) { setPets((prev) => prev.filter((p) => p.uid !== uid)); }
   function updatePet(uid: number, field: keyof Omit<PetDraft, "uid">, value: string) {
+    feedback.clearField(`pet-${field}-${uid}`);
     setPets((prev) => prev.map((p) => (p.uid === uid ? { ...p, [field]: value } : p)));
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!ownerName.trim()) { toast("El nombre del propietario es requerido.", "error"); return; }
-    if (!phone.trim()) { toast("El teléfono es requerido.", "error"); return; }
-    for (let i = 0; i < pets.length; i++) {
-      if (!pets[i].name.trim()) { toast(`Mascota ${i + 1}: el nombre es requerido.`, "error"); return; }
-    }
+    if (saving || !feedback.validate(e.currentTarget as HTMLFormElement, {
+      "op-name": "El nombre del propietario es requerido.", "op-phone": "El teléfono es requerido.",
+      ...Object.fromEntries(pets.map((pet, index) => [`pet-name-${pet.uid}`, `Mascota ${index + 1}: el nombre es requerido.`])),
+    })) return;
 
     setSaving(true);
     try {
@@ -110,83 +115,65 @@ export function NewOwnerPetsSheet({ open, onOpenChange, onCreated }: Props) {
         const data = await res.json().catch(() => ({})) as { error?: string };
         throw new Error(data.error ?? "No se pudo crear el propietario");
       }
+      const created = await res.json() as CreatedOwnerPets;
       toast("Propietario y mascota(s) creados.", "success");
       reset();
       onOpenChange(false);
-      onCreated();
+      onCreated(created);
       window.dispatchEvent(new CustomEvent("pets:refresh"));
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Error al crear", "error");
+      feedback.setSubmitError(submissionErrorMessage(err, "No se pudo crear el propietario y sus mascotas."));
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!saving) onOpenChange(v); }}>
-      <DialogContent className="max-h-[92vh] w-full max-w-2xl overflow-y-auto">
-        <DialogHeader>
+    <>
+      <FormDialogContent>
+        <FormDialogHeader>
           <div className="mb-1 flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500/15 ring-1 ring-sky-500/25">
               <Users className="h-4 w-4 text-sky-700" />
             </div>
-            <div>
+            <div className="min-w-0">
               <DialogTitle>Nuevo propietario + mascota(s)</DialogTitle>
               <DialogDescription>
                 Registra al propietario y sus mascotas en un solo paso.
               </DialogDescription>
             </div>
           </div>
-        </DialogHeader>
+        </FormDialogHeader>
 
-        <form id="new-owner-pets-form" onSubmit={handleSubmit}>
+        <form id="new-owner-pets-form" className="flex min-h-0 flex-1 flex-col" onSubmit={handleSubmit} noValidate aria-busy={saving}>
           {/* Scroll interno para contenido largo */}
-          <div className="max-h-[60vh] overflow-y-auto px-6 py-5">
+          <FormDialogBody>
             <div className="space-y-6">
+              <FormSubmissionError message={feedback.submitError} />
               {/* ── Propietario ── */}
-              <div className="space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Propietario</p>
+              <FormSection title="Contacto del propietario">
                 <div className="space-y-1.5">
                   <label htmlFor="op-name" className="text-xs font-medium text-muted-foreground">Nombre *</label>
-                  <Input id="op-name" value={ownerName} onChange={(e) => setOwnerName(e.target.value)} placeholder="Nombre completo" autoFocus disabled={saving} />
+                  <Input id="op-name" value={ownerName} onChange={(e) => { setOwnerName(e.target.value); feedback.clearField("op-name"); }} placeholder="Nombre completo" autoFocus disabled={saving} aria-required="true" aria-invalid={Boolean(feedback.errors["op-name"])} aria-describedby={feedback.errors["op-name"] ? "op-name-error" : undefined} />
+                  <FieldError id="op-name" message={feedback.errors["op-name"]} />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <label htmlFor="op-phone" className="text-xs font-medium text-muted-foreground">Teléfono *</label>
-                    <Input id="op-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="573001234567" inputMode="tel" disabled={saving} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label htmlFor="op-phone-alt" className="text-xs font-medium text-muted-foreground">Teléfono alternativo</label>
-                    <Input id="op-phone-alt" value={phoneAlt} onChange={(e) => setPhoneAlt(e.target.value)} placeholder="opcional" inputMode="tel" disabled={saving} />
+                    <Input id="op-phone" value={phone} onChange={(e) => { setPhone(e.target.value); feedback.clearField("op-phone"); }} placeholder="573001234567" inputMode="tel" disabled={saving} aria-required="true" aria-invalid={Boolean(feedback.errors["op-phone"])} aria-describedby={feedback.errors["op-phone"] ? "op-phone-error" : undefined} />
+                    <FieldError id="op-phone" message={feedback.errors["op-phone"]} />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label htmlFor="op-email" className="text-xs font-medium text-muted-foreground">Email</label>
-                    <Input id="op-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="opcional" disabled={saving} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label htmlFor="op-address" className="text-xs font-medium text-muted-foreground">Dirección</label>
-                    <Input id="op-address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="opcional" disabled={saving} />
-                  </div>
-                </div>
-                <div className="space-y-1.5" hidden={!access?.capabilities.administration}>
-                  <label htmlFor="op-notes" className="text-xs font-medium text-muted-foreground">Notas del propietario</label>
-                  <textarea id="op-notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Observaciones opcionales" disabled={saving} className={TEXTAREA_CLASS} />
-                </div>
-              </div>
+              </FormSection>
 
               {/* ── Mascotas ── */}
-              <div className="space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                  Mascota{pets.length > 1 ? "s" : ""}
-                </p>
+              <FormSection title={`Mascota${pets.length > 1 ? "s" : ""}`}>
                 {pets.map((pet, index) => (
                   <div key={pet.uid} className="space-y-3 rounded-xl border border-black/[0.06] bg-accent/20 p-4">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Mascota {index + 1}</span>
                       {pets.length > 1 && (
-                        <button type="button" onClick={() => removePet(pet.uid)} disabled={saving} className="rounded-lg p-1 text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive">
+                        <button type="button" aria-label={`Quitar mascota ${index + 1}`} onClick={() => removePet(pet.uid)} disabled={saving} className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive">
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       )}
@@ -194,10 +181,11 @@ export function NewOwnerPetsSheet({ open, onOpenChange, onCreated }: Props) {
 
                     <div className="space-y-1.5">
                       <label htmlFor={`pet-name-${pet.uid}`} className="text-xs font-medium text-muted-foreground">Nombre *</label>
-                      <Input id={`pet-name-${pet.uid}`} value={pet.name} onChange={(e) => updatePet(pet.uid, "name", e.target.value)} placeholder="ej. Max" disabled={saving} />
+                      <Input id={`pet-name-${pet.uid}`} value={pet.name} onChange={(e) => updatePet(pet.uid, "name", e.target.value)} placeholder="ej. Max" disabled={saving} aria-required="true" aria-invalid={Boolean(feedback.errors[`pet-name-${pet.uid}`])} aria-describedby={feedback.errors[`pet-name-${pet.uid}`] ? `pet-name-${pet.uid}-error` : undefined} />
+                      <FieldError id={`pet-name-${pet.uid}`} message={feedback.errors[`pet-name-${pet.uid}`]} />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid gap-2 sm:grid-cols-2">
                       <div className="space-y-1.5">
                         <label htmlFor={`pet-type-${pet.uid}`} className="text-xs font-medium text-muted-foreground">Especie *</label>
                         <select id={`pet-type-${pet.uid}`} value={pet.type} onChange={(e) => updatePet(pet.uid, "type", e.target.value)} className={SELECT_CLASS} disabled={saving}>
@@ -209,14 +197,14 @@ export function NewOwnerPetsSheet({ open, onOpenChange, onCreated }: Props) {
                         </select>
                       </div>
                       <div className="space-y-1.5">
-                        <label htmlFor={`pet-breed-${pet.uid}`} className="text-xs font-medium text-muted-foreground">Raza</label>
+                        <label htmlFor={`pet-breed-${pet.uid}`} className="text-xs font-medium text-muted-foreground">Raza (opcional)</label>
                         <Input id={`pet-breed-${pet.uid}`} value={pet.breed} onChange={(e) => updatePet(pet.uid, "breed", e.target.value)} placeholder="opcional" disabled={saving} />
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid gap-2 sm:grid-cols-2">
                       <div className="space-y-1.5">
-                        <label htmlFor={`pet-gender-${pet.uid}`} className="text-xs font-medium text-muted-foreground">Género</label>
+                        <label htmlFor={`pet-gender-${pet.uid}`} className="text-xs font-medium text-muted-foreground">Género (opcional)</label>
                         <select id={`pet-gender-${pet.uid}`} value={pet.gender} onChange={(e) => updatePet(pet.uid, "gender", e.target.value)} className={SELECT_CLASS} disabled={saving}>
                           <option value="">Sin especificar</option>
                           <option value="male">Macho</option>
@@ -224,13 +212,14 @@ export function NewOwnerPetsSheet({ open, onOpenChange, onCreated }: Props) {
                         </select>
                       </div>
                       <div className="space-y-1.5">
-                        <label htmlFor={`pet-weight-${pet.uid}`} className="text-xs font-medium text-muted-foreground">Peso (kg) · Profesional</label>
-                        <Input id={`pet-weight-${pet.uid}`} type="number" step="0.1" min="0" disabled={!access?.capabilities.administration || saving} value={pet.weight} onChange={(e) => updatePet(pet.uid, "weight", e.target.value)} placeholder="ej. 12.5" />
+                        <label htmlFor={`pet-weight-${pet.uid}`} className="text-xs font-medium text-muted-foreground">Peso (kg) · Profesional (opcional)</label>
+                        <Input id={`pet-weight-${pet.uid}`} type="number" step="0.1" min="0" disabled={!access?.capabilities.administration || saving} value={pet.weight} onChange={(e) => updatePet(pet.uid, "weight", e.target.value)} placeholder="ej. 12.5" aria-invalid={Boolean(feedback.errors[`pet-weight-${pet.uid}`])} aria-describedby={feedback.errors[`pet-weight-${pet.uid}`] ? `pet-weight-${pet.uid}-error` : undefined} />
+                        <FieldError id={`pet-weight-${pet.uid}`} message={feedback.errors[`pet-weight-${pet.uid}`]} />
                       </div>
                     </div>
 
                     <div className="space-y-1.5">
-                      <label htmlFor={`pet-notes-${pet.uid}`} className="text-xs font-medium text-muted-foreground">{access?.capabilities.administration ? "Notas" : "Alertas para el manejo"}</label>
+                      <label htmlFor={`pet-notes-${pet.uid}`} className="text-xs font-medium text-muted-foreground">{access?.capabilities.administration ? "Notas" : "Alertas para el manejo"} (opcional)</label>
                       <textarea id={`pet-notes-${pet.uid}`} rows={2} value={pet.notes} onChange={(e) => updatePet(pet.uid, "notes", e.target.value)} placeholder="Alergias, comportamiento… (opcional)" disabled={saving} className={TEXTAREA_CLASS} />
                     </div>
                   </div>
@@ -240,24 +229,36 @@ export function NewOwnerPetsSheet({ open, onOpenChange, onCreated }: Props) {
                   type="button"
                   onClick={addPet}
                   disabled={saving}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-black/[0.1] py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                  className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-black/[0.1] py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
                 >
                   <Plus className="h-3.5 w-3.5" /> Agregar otra mascota
                 </button>
-              </div>
+              </FormSection>
+              <FormAdditional>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2"><label htmlFor="op-phone-alt" className="text-sm font-semibold">Teléfono alternativo (opcional)</label><Input id="op-phone-alt" value={phoneAlt} onChange={e => setPhoneAlt(e.target.value)} inputMode="tel" disabled={saving} /></div>
+                  <div className="space-y-2"><label htmlFor="op-email" className="text-sm font-semibold">Correo electrónico (opcional)</label><Input id="op-email" type="email" value={email} onChange={e => { setEmail(e.target.value); feedback.clearField("op-email"); }} disabled={saving} {...feedback.fieldProps("op-email")} /><FieldError id="op-email" message={feedback.errors["op-email"]} /></div>
+                  <div className="space-y-2 sm:col-span-2"><label htmlFor="op-address" className="text-sm font-semibold">Dirección (opcional)</label><Input id="op-address" value={address} onChange={e => setAddress(e.target.value)} disabled={saving} /></div>
+                </div>
+                {access?.capabilities.administration && <div className="space-y-2"><label htmlFor="op-notes" className="text-sm font-semibold">Notas del propietario (opcional)</label><textarea id="op-notes" rows={2} value={notes} onChange={e => setNotes(e.target.value)} disabled={saving} className={TEXTAREA_CLASS} /></div>}
+              </FormAdditional>
             </div>
-          </div>
+          </FormDialogBody>
         </form>
 
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+        <FormDialogFooter>
+          <Button type="button" variant="outline" onClick={() => discard(() => onOpenChange(false))} disabled={saving}>
             Cancelar
           </Button>
           <Button type="submit" form="new-owner-pets-form" disabled={saving}>
             {saving ? "Creando…" : "Crear propietario + mascota(s)"}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </FormDialogFooter>
+      </FormDialogContent>
+    </>
   );
+}
+
+export function NewOwnerPetsSheet(props: Props) {
+  return <ProtectedDialog open={props.open} onOpenChange={props.onOpenChange}>{props.open && <NewOwnerPetsContent {...props} />}</ProtectedDialog>;
 }

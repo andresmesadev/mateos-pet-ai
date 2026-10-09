@@ -11,7 +11,7 @@ Fecha: 2026-10-06. Corrección solicitada por el responsable a partir de las cap
 - Los textos de las sugerencias, el formulario de nuevas citas, los recordatorios y la revisión de citas afectadas conservan los minutos.
 - **Ver equipo y accesos** selecciona realmente esa sección. Si hay cambios pendientes, permite continuar editando o descartarlos antes de salir.
 
-Diseño previo y límites de la corrección: `docs/architecture/ADMINISTRATION_MINUTE_PRECISION_FIX_20261006.md`.
+Diseño previo y límites de la corrección: `docs/history/designs/ADMINISTRATION_MINUTE_PRECISION_FIX_20261006.md`.
 Este informe sustituye la limitación inicial a horas completas del informe anterior de Horarios.
 
 ## Evidencia real
@@ -69,9 +69,9 @@ PASS: no queda ningún establecimiento temporal de esta comprobación.
 EXIT 0
 ```
 
-![Horarios con minutos](C:/Users/andre/Desktop/Proyectos/mateos-pet-ai/docs/history/ADMINISTRACION_HORARIOS_MINUTOS_20261006.png)
+![Horarios con minutos](ADMINISTRACION_HORARIOS_MINUTOS_20261006.png)
 
-![Equipo abierto desde el botón](C:/Users/andre/Desktop/Proyectos/mateos-pet-ai/docs/history/ADMINISTRACION_EQUIPO_NAVEGACION_20261006.png)
+![Equipo abierto desde el botón](ADMINISTRACION_EQUIPO_NAVEGACION_20261006.png)
 
 ## Estado y siguiente apartado
 

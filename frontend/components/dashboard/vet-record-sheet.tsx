@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { CaseSummary } from "@/components/dashboard/case-summary";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { CalendarDays, ClipboardList, Stethoscope } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useDashboardAccess } from "./dashboard-access-provider";
@@ -16,6 +18,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { proxyUrl } from "@/lib/api";
+import { dashboardRequest } from "@/lib/dashboard-request";
 import { formatColombiaDateTime, type TodayAppointment } from "@/lib/appointments";
 import { getPetEmoji, NEXT_ACTION_TYPES, type PetNextAction } from "@/lib/pets";
 import { VetPatientContext } from "@/components/dashboard/vet-patient-context";
@@ -118,6 +121,9 @@ const EMPTY_ACTION: NewAction = { type: "control", dueAt: "", notes: "" };
 
 export function VetRecordSheet({ appointment, open, onOpenChange, onSaved, preview = false, readOnly = false }: Props) {
   const { toast } = useToast();
+  const router = useRouter();
+  const pendingHref = useRef<string | null>(null);
+  const discardedForNavigation = useRef(false);
   const { data: session } = useSession();
   const access = useDashboardAccess();
   const tenant = useTenant();
@@ -154,6 +160,19 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved, previ
 
   // next actions
   const [existingActions, setExistingActions] = useState<PetNextAction[]>([]);
+  const [actionsLoading, setActionsLoading] = useState(false);
+  const [actionsLoadError, setActionsLoadError] = useState("");
+  const actionsRequest = useRef(0);
+  const loadActions = useCallback(async () => {
+    const request = ++actionsRequest.current;
+    setActionsLoading(true); setActionsLoadError("");
+    try {
+      const { response, payload } = await dashboardRequest(proxyUrl(`/api/dashboard/pets/${appointment.petId}/next-actions${tenantQuery(tenant)}`), { cache: "no-store" });
+      if (!response.ok || !Array.isArray(payload) || payload.some(item => !item || typeof item.id !== "string" || typeof item.type !== "string")) throw new Error("No se pudieron cargar los seguimientos. No podemos confirmar si hay acciones pendientes.");
+      if (request === actionsRequest.current) setExistingActions(payload as PetNextAction[]);
+    } catch (cause) { if (request === actionsRequest.current) setActionsLoadError(cause instanceof Error ? cause.message : "No se pudieron cargar los seguimientos."); }
+    finally { if (request === actionsRequest.current) setActionsLoading(false); }
+  }, [appointment.petId, tenant, setExistingActions]);
   const [newAction, setNewAction] = useState<NewAction>(EMPTY_ACTION);
   const [addingAction, setAddingAction] = useState(false);
   const [dismissingActionId, setDismissingActionId] = useState<string | null>(null);
@@ -173,17 +192,19 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved, previ
   useEffect(() => {
     if (!open || preview || readOnly) return;
     const beforeUnload = (event: BeforeUnloadEvent) => {
-      if (!dirtyRef.current && !actionDirty && !busy) return;
+      if (discardedForNavigation.current || (!dirtyRef.current && !actionDirty && !busy)) return;
       event.preventDefault();
       event.returnValue = "";
     };
     const beforeNavigate = (event: MouseEvent) => {
-      const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
-      if (!link || (!dirtyRef.current && !actionDirty && !busy)) return;
-      if (busy || !window.confirm("Hay cambios sin guardar. ¿Salir de todas formas?")) {
-        event.preventDefault();
-        event.stopPropagation();
-      }
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const link = event.target instanceof Element ? event.target.closest("a[href]") as HTMLAnchorElement | null : null;
+      if (!link || link.hasAttribute("download") || (link.target && link.target !== "_self") || (!dirtyRef.current && !actionDirty && !busy)) return;
+      const target = new URL(link.href, window.location.href);
+      if (!["http:", "https:"].includes(target.protocol) || target.href === window.location.href) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (!busy) { pendingHref.current = target.href; setExitRequested(true); }
     };
     window.addEventListener("beforeunload", beforeUnload);
     document.addEventListener("click", beforeNavigate, true);
@@ -249,12 +270,10 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved, previ
       setFormDirty(false);
       dirtyRef.current = false;
       try {
-        const [staffRes, recordRes, actionsRes] = await Promise.all([
+        void loadActions();
+        const [staffRes, recordRes] = await Promise.all([
           fetch(proxyUrl(`/api/dashboard/staff${tenantQuery(tenant)}`), { cache: "no-store" }),
           fetch(proxyUrl(`/api/dashboard/appointments/${appointment.id}/medical-record${tenantQuery(tenant)}`), {
-            cache: "no-store",
-          }),
-          fetch(proxyUrl(`/api/dashboard/pets/${appointment.petId}/next-actions${tenantQuery(tenant)}`), {
             cache: "no-store",
           }),
         ]);
@@ -290,10 +309,6 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved, previ
           setRecordLoadFailed(true);
         }
 
-        if (!cancelled && actionsRes.ok) {
-          const actions = await actionsRes.json();
-          setExistingActions(Array.isArray(actions) ? actions : []);
-        }
       } catch {
         if (!cancelled) setRecordLoadFailed(true);
       } finally {
@@ -302,7 +317,7 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved, previ
     })();
 
     return () => { cancelled = true; };
-  }, [open, appointment.id, appointment.petId, appointment.staffId, clinicianId, adminEmail, preview, tenant, access?.staffId, access?.capabilities.administration]);
+  }, [open, appointment.id, appointment.petId, appointment.staffId, clinicianId, adminEmail, preview, tenant, access?.staffId, access?.capabilities.administration, loadActions]);
 
   function handleOpenChange(next: boolean) {
     if (!next && busy) return;
@@ -371,13 +386,7 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved, previ
       onSaved?.();
       toast("Historia clínica guardada para esta consulta.", "success");
       // El guardado puede crear o actualizar automáticamente el próximo control.
-      void fetch(proxyUrl(`/api/dashboard/pets/${appointment.petId}/next-actions${tenantQuery(tenant)}`), { cache: "no-store" })
-        .then(async (response) => {
-          if (!response.ok) return;
-          const actions = await response.json();
-          if (Array.isArray(actions)) setExistingActions(actions);
-        })
-        .catch(() => {});
+      void loadActions();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al guardar");
     } finally {
@@ -396,11 +405,7 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved, previ
               <DialogDescription className="mt-1 text-sm">Registro de esta consulta veterinaria</DialogDescription>
             </div>
           </div>
-          <div className="mt-5 grid gap-3 rounded-xl bg-slate-50 px-4 py-3 text-sm sm:grid-cols-3">
-            <div><span className="block text-xs text-slate-500">Responsable</span><span className="font-semibold text-slate-800">{appointment.clientName || appointment.clientPhone || "Sin nombre"}</span></div>
-            <div><span className="block text-xs text-slate-500">Servicio</span><span className="font-semibold text-slate-800">{appointment.serviceName || appointment.serviceType}</span></div>
-            <div><span className="block text-xs text-slate-500">Fecha de la consulta</span><span className="font-semibold text-slate-800">{formatColombiaDateTime(appointment.date)}</span></div>
-          </div>
+
         </DialogHeader>
 
         {!loading && !viewMode && !readOnly && <nav aria-label="Secciones de la historia clínica" className="flex shrink-0 gap-2 overflow-x-auto border-b border-slate-200 bg-slate-50 px-5 py-2 sm:px-8">
@@ -408,6 +413,7 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved, previ
         </nav>}
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto bg-white px-5 py-6 sm:px-8">
           <div className="mx-auto max-w-3xl space-y-6">
+            <CaseSummary appointment={appointment} />
             {preview && (
               <p role="status" className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-900">
                 Vista de ejemplo. Puedes explorar el formato, pero no se guardarán cambios.
@@ -424,6 +430,8 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved, previ
               <ClipboardList className="size-4 text-teal-700" aria-hidden="true" />
               {hasRecord ? "Registro guardado de esta consulta" : "Nuevo registro para esta consulta"}
             </div>
+            {actionsLoading && <p role="status" className="text-sm text-slate-600">Cargando seguimientos…</p>}
+            {actionsLoadError && <div role="alert" className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"><p>{actionsLoadError}</p><Button type="button" variant="outline" disabled={actionsLoading} onClick={() => void loadActions()}>Reintentar seguimientos</Button></div>}
             {hasRecord && appointment.status === "completed" && !viewMode && !readOnly && <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-4">
               <p className="text-sm font-semibold text-amber-950">Corrección de una consulta finalizada · Versión {recordMeta?.version ?? 1}</p>
               <p className="text-xs text-amber-900">La versión anterior se conservará junto con tu identidad, la fecha y el motivo del cambio. Una nueva visita debe registrarse en una cita nueva.</p>
@@ -508,7 +516,7 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved, previ
                 <p className="mt-1 text-xs">La recomendación no reserva una cita. Estas son las citas existentes de la mascota para esa fecha; confirma cuál corresponde al control.</p>
                 {controlLoading ? <p role="status" className="mt-2 text-xs">Comprobando agenda…</p> : controlError ? <p role="alert" className="mt-2 text-xs text-amber-900">No se pudo comprobar la agenda. No podemos confirmar si existe una cita.</p> : controlAppointments.length > 0 ? <ul className="mt-2 space-y-1 text-xs">{controlAppointments.map((item) => <li key={item.id}>{item.serviceName ?? item.serviceType} · {formatColombiaDateTime(item.date)}</li>)}</ul> : <p className="mt-2 text-xs font-semibold">Sin citas registradas para esa fecha. Solicita su agendamiento.</p>}
               </div>}
-            <fieldset disabled={readOnly || busy || loading || recordLoadFailed} className="border-t border-slate-100 pt-5 space-y-3">
+            <fieldset disabled={readOnly || busy || loading || recordLoadFailed || actionsLoading || !!actionsLoadError} className="border-t border-slate-100 pt-5 space-y-3">
               <legend className="sr-only">Gestionar seguimientos</legend>
               <p className="text-sm font-semibold text-slate-800">Seguimientos de esta consulta</p>
               <p className="text-xs text-slate-500">{hasRecord ? "Cada acción se guarda por separado al pulsar “Agregar acción”." : "Guarda primero la historia clínica para registrar sus acciones de seguimiento."}</p>
@@ -659,15 +667,15 @@ export function VetRecordSheet({ appointment, open, onOpenChange, onSaved, previ
           </div>
         </div>
       </DialogContent>
-      <Dialog open={exitRequested} onOpenChange={setExitRequested}>
+      <Dialog open={exitRequested} onOpenChange={next => { setExitRequested(next); if (!next) pendingHref.current = null; }}>
         <DialogContent role="alertdialog" showClose={false} className="max-w-md border-slate-200 bg-white p-6 text-slate-950">
           <DialogHeader className="border-0 p-0">
             <DialogTitle>¿Cerrar sin guardar?</DialogTitle>
             <DialogDescription>Hay cambios pendientes en la historia o una acción de seguimiento sin agregar. Si cierras, se perderán esos cambios.</DialogDescription>
           </DialogHeader>
           <div className="mt-4 flex flex-wrap justify-end gap-2">
-            <Button variant="outline" onClick={() => setExitRequested(false)}>Seguir editando</Button>
-            <Button onClick={() => { dirtyRef.current = false; setExitRequested(false); onOpenChange(false); }}>Descartar y cerrar</Button>
+            <Button variant="outline" onClick={() => { pendingHref.current = null; setExitRequested(false); }}>Seguir editando</Button>
+            <Button onClick={() => { dirtyRef.current = false; discardedForNavigation.current = true; const href = pendingHref.current; pendingHref.current = null; setExitRequested(false); onOpenChange(false); if (href) { const target = new URL(href); if (target.origin === window.location.origin) router.push(target.pathname + target.search + target.hash); else window.location.assign(href); } }}>Descartar y cerrar</Button>
           </div>
         </DialogContent>
       </Dialog>

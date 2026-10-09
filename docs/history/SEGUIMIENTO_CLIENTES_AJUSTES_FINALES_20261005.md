@@ -2,7 +2,7 @@
 
 Fecha: 5 de octubre de 2026. Estado: implementado y verificado localmente.
 
-Propuesta aceptada: [customer-followup-next-adjustments.md](../architecture/customer-followup-next-adjustments.md). Continúa el [informe inicial](SEGUIMIENTO_CLIENTES_20261005.md).
+Propuesta aceptada: [customer-followup-next-adjustments.md](designs/customer-followup-next-adjustments.md). Continúa el [informe inicial](SEGUIMIENTO_CLIENTES_20261005.md).
 
 ## Cambios aplicados
 

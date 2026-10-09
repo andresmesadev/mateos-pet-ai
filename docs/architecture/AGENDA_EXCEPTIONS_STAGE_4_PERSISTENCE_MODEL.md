@@ -1,6 +1,8 @@
 # Excepciones de Agenda — Etapa 4: Modelo de persistencia
 
-**Estado:** propuesta para aprobación de Etapa 5  
+**Estado actual (revisión documental 2026-10-08):** diseño aprobado e implementado; [cierre técnico](../history/AGENDA_EXCEPTIONS_COMPLETION_REPORT.md). Las formulaciones en futuro conservan el diseño original.
+
+**Estado al redactar la etapa:** propuesta para aprobación de Etapa 5
 **Precondiciones:** Etapas 1, 2 y 3 aprobadas el 2026-09-17.
 
 ## Entidad nueva: `AgendaException`

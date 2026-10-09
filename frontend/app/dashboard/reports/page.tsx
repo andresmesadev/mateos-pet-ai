@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
+import { canonicalDashboardHref, type DashboardSearchParams } from "@/lib/dashboard-navigation";
 
-export default function ReportsPage() {
-  redirect("/dashboard/pos?tab=reportes");
+export default async function Page({ searchParams }: { searchParams: Promise<DashboardSearchParams> }) {
+  redirect(canonicalDashboardHref("/dashboard/pos", await searchParams, {"tab":"reportes"}));
 }
