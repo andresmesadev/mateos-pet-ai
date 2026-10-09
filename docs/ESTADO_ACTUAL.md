@@ -6,10 +6,10 @@ Fecha de corte documental: **8 de octubre de 2026**. Este documento orienta la l
 
 | Ámbito | Estado respaldado por evidencia |
 | --- | --- |
-| Versión declarada del backend | `2.45.0`, en `backend/package.json`; [publicación preparada](history/RELEASE_2_45_0_VPS_20261008.md). |
-| Última publicación documentada | [2.44.0 — Administración](history/RELEASE_2_44_0_VPS_20261007.md), publicada y comprobada el 7 de octubre. Esto no es una nueva inspección de la VPS. |
-| Inicio, navegación y continuidad de trabajo | Mejoras comprobadas localmente; commit, push y despliegue pendientes. [Revisión general del dashboard](history/REVISION_GENERAL_DASHBOARD_20261008.md). |
-| Correcciones finales del frontend | Recuperación del pago, pendientes de todas las fechas, seguimiento clínico con reintento y bloqueo del precio durante el guardado. [Evidencia y límites del cierre local](history/FRONTEND_CIERRE_AJUSTES_20261008.md). Publicación pendiente; la comprobación manual con zoom real y lector de pantalla continúa sin certificar. |
+| Versión declarada del backend | `2.45.0`, en `backend/package.json` y salud de producción; [publicación certificada](history/RELEASE_2_45_0_VPS_20261008.md). |
+| Última publicación documentada | [2.45.0 — Dashboard unificado](history/RELEASE_2_45_0_VPS_20261008.md), publicada y comprobada el 8 de octubre, hora de Colombia: CI verde, respaldo cifrado, 14 destinos HTTPS y conteos conservados. |
+| Inicio, navegación y continuidad de trabajo | Mejoras publicadas en 2.45.0, después de la [revisión general del dashboard](history/REVISION_GENERAL_DASHBOARD_20261008.md). |
+| Correcciones finales del frontend | Recuperación del pago, pendientes de todas las fechas, seguimiento clínico con reintento y bloqueo del precio durante el guardado publicados en 2.45.0. [Evidencia y límites del cierre local](history/FRONTEND_CIERRE_AJUSTES_20261008.md). La comprobación manual con zoom real y lector de pantalla continúa sin certificar. |
 | Inventario y Seguimiento de clientes | Publicados en [2.43.0](history/RELEASE_2_43_0_VPS_20261005.md), después de la implementación y migración de Inventario en [2.42.0](history/RELEASE_2_42_0_VPS_20261005.md). |
 
 ## Fuentes por módulo
@@ -28,7 +28,7 @@ Fecha de corte documental: **8 de octubre de 2026**. Este documento orienta la l
 
 ## Pendientes que la limpieza no cierra
 
-- **Publicación de las mejoras locales:** la revisión local del 8 de octubre no certifica una nueva versión en producción.
+- **Accesibilidad manual:** zoom real y lector de pantalla continúan pendientes; los controles automatizados no sustituyen esas comprobaciones.
 - **Beta externa:** el [plan de preparación](operations/CLOSED_BETA_READINESS_PLAN_20260919.md) y la [matriz de agenda](operations/CLOSED_BETA_AGENDA_MATRIX_20260926.md) conservan comprobaciones reales pendientes. Las pruebas de dashboard y PostgreSQL local no sustituyen la observación del piloto ni todos los casos del canal WhatsApp.
 - **Reactivación por WhatsApp real:** el informe de publicación 2.43.0 documenta la falta de nombre/idioma de plantilla aprobada. No consta en ese informe un envío real concluido; no darlo por certificado a partir de pruebas simuladas.
 - **Documentos legales:** ambas plantillas conservan campos del prestador, contacto y fecha por completar. [Estado y alcance](legal/README.md).
