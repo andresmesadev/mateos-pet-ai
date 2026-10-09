@@ -3,7 +3,7 @@
 **Fecha:** 9 de octubre de 2026.
 **Ventana inspeccionada:** 14:17–14:21 de Colombia, 19:17–19:21 UTC.
 **Producción inspeccionada:** versión 2.45.0.
-**Estado:** causas identificadas y correcciones locales; publicación y repetición real pendientes.
+**Estado:** causas identificadas y correcciones publicadas en 2.45.1; repetición real pendiente.
 
 ## Resultado observado
 
@@ -95,7 +95,7 @@ el canal real después de publicar.
 
 ## Siguiente prueba real
 
-1. Publicar la corrección probada y comprobar CI, versión y salud de la VPS.
+1. Completado: corrección publicada en `a73007a`, CI verde y VPS saludable con 2.45.1. Ver [publicación comprobada](../history/RELEASE_2_45_1_VPS_20261009.md).
 2. Repetir la solicitud genérica desde un cliente con historial: debe preguntar el servicio y evaluar una fecha futura actual.
 3. Comprobar identificación, nombre de mascota, recogida y agradecimiento con el segundo remitente.
 4. Con ambos clientes preparados para confirmar **el mismo servicio, fecha y hora**, enviar las confirmaciones lo más cerca posible en el tiempo.
@@ -106,3 +106,13 @@ Los días y horas se eligen con la configuración efectiva; no se reutilizan
 fechas históricas de septiembre. Si la publicación reinicia el worker, ese
 reinicio debe anotarse al evaluar la ventana de 48 horas; no se oculta para
 obtener un resultado saludable.
+
+## Publicación de la reparación
+
+El 9 de octubre a las 15:02 de Colombia terminó el despliegue de 2.45.1.
+La comprobación autenticada del dashboard pasó; a las 15:03 se observaron
+39 trabajos `done/complete`, cero leases vencidos y cero errores nuevos.
+No se modificaron las citas anteriores ni se enviaron mensajes. Estos
+resultados certifican publicación y arranque, no la repetición de los casos
+conversacionales ni la contención de dos confirmaciones para el mismo turno.
+La ventana de salud se reinició a las 15:03 para observar esta versión.

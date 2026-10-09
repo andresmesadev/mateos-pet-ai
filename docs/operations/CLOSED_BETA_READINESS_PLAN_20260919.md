@@ -22,7 +22,7 @@
 
 ## Plan aprobado
 
-**Seguimiento del 9 de octubre de 2026:** la publicación comprobada es `2.45.0`.
+**Seguimiento del 9 de octubre de 2026:** la publicación comprobada es [2.45.1](../history/RELEASE_2_45_1_VPS_20261009.md).
 Se verificaron copia cifrada independiente, restauración local y tarea diaria
 autorizada; se inició una nueva observación de salud y se preparó el
 procedimiento de medición del piloto. Ver
@@ -41,8 +41,8 @@ históricas y no describen la versión activa.
 | 5 | Implementar backup y restauración | Backup cifrado y periódico, retención definida y restauración ensayada. | ✅ Copia cifrada independiente, restauración local y tarea diaria comprobadas el 2026-10-09; vigilar continuidad del equipo del operador |
 | 6 | Configurar WhatsApp de producción | Número empresarial real registrado, app publicada y flujo entrante/saliente verificado. | Aplazado por decisión del operador; se conserva el número de prueba de Meta |
 | 7 | Completar documentación legal del piloto | Política, términos y acuerdo de piloto completados y revisados. | Pendiente |
-| 8 | Ejecutar matriz integral de agenda | Casos de veterinaria, peluquería, domingos, festivos, conflictos, cancelación y fallos aprobados. | 🧪 Prueba de dos remitentes realizada; detectó fallos de sesión, nombres y respuestas. Correcciones locales; falta publicar y repetir el conflicto por el mismo turno ([incidente](WHATSAPP_CONCURRENT_TRIAL_INCIDENT_20261009.md)) |
-| 9 | Ejecutar período de estabilización | 48 horas sin errores del worker ni pérdida de mensajes; métricas y cola nominales. | Pendiente |
+| 8 | Ejecutar matriz integral de agenda | Casos de veterinaria, peluquería, domingos, festivos, conflictos, cancelación y fallos aprobados. | 🧪 Reparación de sesión, nombres y respuestas publicada en 2.45.1, CI y salud aprobados; faltan repetir los escenarios afectados y el conflicto por el mismo turno ([incidente](WHATSAPP_CONCURRENT_TRIAL_INCIDENT_20261009.md)) |
+| 9 | Ejecutar período de estabilización | 48 horas sin errores del worker ni pérdida de mensajes; métricas y cola nominales. | 🧪 Ventana nueva iniciada el 2026-10-09 a las 15:03 de Colombia para 2.45.1; falta completarla y revisar cola, entregas y carga |
 | 10 | Abrir cohorte inicial | Un establecimiento, alcance funcional explícito, 5–10 usuarios, soporte y criterio de rollback definidos. | Pendiente |
 
 ## Condiciones de salida a beta

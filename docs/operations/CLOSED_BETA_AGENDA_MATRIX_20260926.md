@@ -86,3 +86,10 @@ Usar un remitente verificado del número de prueba de Meta y registrar fecha/hor
 **Límites fuera de horario (21:51–21:53 UTC):** primero llegó en un solo mensaje la solicitud de 10:00 y 17:00, y el asistente rechazó el horario; ese mensaje combinado no permite atribuir el rechazo a cada hora. Se repitieron por separado: a las 17:00 respondió “Ese horario está fuera de nuestra atención para ese día”, y luego dio la misma respuesta para las 10:00. Ambos `InboundJob` terminaron `done/complete` en un intento, sin `lastError`. No se creó ninguna cita nueva: las únicas citas del 28/09 siguen `cancelled`.
 
 **Peluquería en domingo (21:54 UTC):** a “Quiero peluquería para Akiles el domingo 27 de septiembre a las 11:00”, el asistente respondió que el domingo 27 no hay atención y ofreció buscar otro día. `InboundJob` terminó `done/complete`, un intento y `lastError=null`; no existe cita el 27/09. No se confirmó ninguna alternativa.
+
+**Publicación posterior (2026-10-09, 15:02 de Colombia):** la reparación de
+sesión, nombres y respuestas del incidente de dos remitentes está desplegada
+en **2.45.1**, con CI, salud y acceso autenticado al dashboard aprobados.
+Ver [evidencia de publicación](../history/RELEASE_2_45_1_VPS_20261009.md).
+La matriz sigue abierta para repetir esos escenarios y confirmar con dos
+remitentes el mismo turno; el despliegue no demuestra ese resultado.

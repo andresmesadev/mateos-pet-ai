@@ -233,3 +233,22 @@ No se reconstruyen el motor conversacional, la arquitectura ni los módulos cons
 ## Estado de publicación
 
 Esta ronda añade herramientas operativas y documentación, sin entidades, migraciones, dependencias nuevas ni cambios funcionales del producto. Por eso no se cambia `2.45.0` ni se crea un tag oficial. Los cambios son locales hasta publicar y verificar CI; no se declara un despliegue nuevo.
+
+### Actualización posterior: publicación conjunta con la reparación de WhatsApp
+
+El estado anterior describe la ronda operativa inicial. El usuario autorizó
+después commit, push y despliegue de las herramientas junto con la reparación
+funcional del incidente de dos remitentes. Esa entrega sí cambia el producto:
+se publicó como **2.45.1**, commit `a73007a`, CI verde y VPS comprobada el
+9 de octubre a las 15:02 de Colombia. Ver [informe de publicación](../history/RELEASE_2_45_1_VPS_20261009.md).
+
+Antes de desplegar se creó y copió el respaldo cifrado
+`mateos-pet-ai-20261009T200043Z`, con checksum verificado. No se eliminaron
+las copias anteriores. La tarea diaria permanece instalada.
+
+El reinicio planificado del worker obliga a conservar como incompleta la
+ventana de las 12:39. Se detuvo su proceso identificado y se abrió una nueva
+a las **15:03:11 de Colombia** (`.cache/stability/ventana-20261009T200311Z.jsonl`,
+PID inicial `31200`). Primera muestra saludable con 2.45.1; final previsto
+11 de octubre a las 15:03 si no hay interrupciones. Los pasos 2, 8 y 9
+siguen abiertos para carga, repetición real y estabilización completa.
