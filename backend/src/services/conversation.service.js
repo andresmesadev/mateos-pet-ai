@@ -8,7 +8,8 @@
 // reexportando desde aquí sin cambios para no romper a quien ya los importa
 // de conversation.service.js (whatsapp.service.js, entre otros).
 const { STEPS, BOOKING_STEPS } = require("./domain/booking-steps");
-const { isAcknowledgementOnly } = require("./booking-turn.service");
+const { isAcknowledgementOnly, isFarewellOnly } = require("./booking-turn.service");
+const { buildBookingConfirmation } = require("./booking-message.service");
 
 const scheduling = require("./scheduling.service");
 const { findNextAvailableGroomingSlot } = require("./availability-db.service");
@@ -255,18 +256,9 @@ const offerNextGroomingSlot = async (petName, referenceDate, tenantId) => {
 const buildGroomingConfirmedReply = (session, extra = {}) => {
   const dateKey = extra.scheduling_date_key ?? session.scheduling_date_key;
   const hour = extra.scheduling_hour ?? session.scheduling_hour;
-  const now = extra.now || new Date();
-
-  const dayLabel = dateKey ? scheduling.formatRelativeDayLabel(dateKey, now) : "";
-  const timeLabel = hour != null ? scheduling.formatHourAmPm(hour) : "";
-  const petName = session.pet_name;
-  const petPart = petName ? ` para ${petName}` : "";
   const domicilioAddress = extra.domicilio_address ?? session.domicilio_address;
-
-  if (domicilioAddress) {
-    return `¡Listo! Cita de grooming agendada${petPart} para ${dayLabel} a las ${timeLabel}, pasamos a recogerte en ${domicilioAddress} 🐾 ¡Hasta pronto!`;
-  }
-  return `¡Listo! Cita de grooming agendada${petPart} para ${dayLabel} a las ${timeLabel} 🐾 ¡Te esperamos en Mateos Pet!`;
+  return buildBookingConfirmation({ petName: session.pet_name, serviceType: "grooming", dateKey, hour,
+    pickup: extra.domicilio ?? session.domicilio, address: domicilioAddress });
 };
 
 // ─── Wizard (WhatsApp conversation state machine) ─────────────────────────────
@@ -331,8 +323,8 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
   const needsClientName = Boolean(options.needsClientName);
   const currentStep = session.step ?? analysis?.step;
 
-  if (isAcknowledgementOnly(userMessage)) {
-    return { reply: "¡Con mucho gusto! 🐾", step: currentStep === STEPS.COMPLETED ? null : currentStep ?? null,
+  if (isAcknowledgementOnly(userMessage) || isFarewellOnly(userMessage)) {
+    return { reply: isFarewellOnly(userMessage) ? "¡Hasta pronto! Que tengas un buen día 🐾" : "¡Con mucho gusto! Que tengas un buen día. ¡Hasta pronto! 🐾", step: currentStep === STEPS.COMPLETED ? null : currentStep ?? null,
       sessionPatch: {}, forceRuleReply: true };
   }
 
@@ -446,9 +438,9 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
 
     if (wantsDomicilio === false) {
       return {
-        reply: buildGroomingConfirmedReply(session, { now }),
+        reply: buildGroomingConfirmedReply(session, { now, domicilio: false }),
         step: STEPS.COMPLETED,
-        sessionPatch: { domicilio: false },
+        sessionPatch: { domicilio: false, domicilio_address: null },
         createGroomingAppointment: true,
       };
     }
@@ -533,30 +525,13 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
       if (userId) {
         try {
           const userPets = await getUserPets(userId);
-          if (userPets && userPets.length > 1) {
+          if (userPets && userPets.length > 0) {
             const petList = userPets.map((p) => `• ${p.name}`).join("\n");
             return {
-              reply: `¡Claro! ¿Para cuál de tus mascotas es? 🐾\n${petList}`,
+              reply: `¿Para qué mascota es esta cita? 🐾\nTengo registrada${userPets.length === 1 ? "" : "s"}:\n${petList}\n\nDime su nombre; también puede ser otra mascota.`,
               step: STEPS.AWAITING_PET_NAME,
               sessionPatch: {},
-            };
-          }
-          if (userPets && userPets.length === 1) {
-            const onlyPet = userPets[0];
-            const nested = await buildRuleBasedReply(
-              { ...analysis, pet_name: onlyPet.name, pet_type: onlyPet.type },
-              options
-            );
-            // El autocompletado solo vive dentro de esta llamada recursiva —
-            // sin esto, la sesión persistida nunca se entera de qué mascota
-            // se resolvió, y la cita termina creándose con un nombre genérico.
-            return {
-              ...nested,
-              sessionPatch: {
-                ...(nested.sessionPatch || {}),
-                pet_name: onlyPet.name,
-                pet_type: onlyPet.type,
-              },
+              forceRuleReply: true,
             };
           }
         } catch { /* si falla el lookup, caemos al flujo normal */ }
@@ -605,7 +580,7 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
         if (requested?.sessionPatch) {
           slotResult = {
             ...requested,
-            reply: `${requested.reply.replace(/¿Confirmamos la cita\?$/i, "").trim()} ¿Te queda bien ese turno?`,
+            reply: `🐾 Mascota: ${petName}\n${requested.reply.replace(/¿Confirmamos la cita\?$/i, "").trim()} ¿Te queda bien ese turno?`,
           };
         } else {
           const nextSlot = await offerNextGroomingSlot(petName, now, tenantId);
@@ -644,7 +619,7 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
       });
 
       if (vet) {
-        return { reply: vet.reply, step: vet.step, sessionPatch: vet.sessionPatch || {}, forceRuleReply: true };
+        return { reply: vet.step === STEPS.AWAITING_CONFIRMATION ? `🐾 Mascota: ${petName}\n${vet.reply}` : vet.reply, step: vet.step, sessionPatch: vet.sessionPatch || {}, forceRuleReply: true };
       }
 
       return {

@@ -55,4 +55,35 @@ const isAcknowledgementOnly = (text) => {
   return /^(?:(?:muchas|mil) )?gracias(?: por (?:todo|tu ayuda|la ayuda|la informacion))?$/.test(n);
 };
 
-module.exports = { prepareBookingTurn, separateClientAndPet, isAcknowledgementOnly };
+const isFarewellOnly = (text) => {
+  const n = normalizeText(text).replace(/[^\p{L}\s]/gu, " ").trim().replace(/\s+/g, " ");
+  return /^(?:adios|chao|chau|hasta (?:pronto|luego|manana)|buenas noches)(?: muchas gracias)?$/.test(n);
+};
+
+// A name suggested by history is not a selection for this booking.
+const selectCurrentPet = (previous, analysis, text) => {
+  const next = { ...(analysis || {}) };
+  const normalized = normalizeText(text).replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim();
+  const candidate = normalizeText(next.pet_name || "").replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim();
+  const mentioned = candidate && (` ${normalized} `).includes(` ${candidate} `);
+  if (!mentioned) {
+    next.pet_name = previous.pet_name || null;
+    if (!/\b(?:perro|perra|gato|gata)\b/.test(normalized)) next.pet_type = previous.pet_type || null;
+  }
+  if (!next.pet_name && previous.step === STEPS.AWAITING_PET_NAME &&
+      /^[\p{L}][\p{L}\p{N}' -]{1,59}$/u.test(text.trim()) &&
+      !/\b(?:si|no|ok|confirmo|gracias|hola|quiero|cita|manana|perro|gato|otra|mascota|cual|nombre)\b/.test(normalized) &&
+      !isFarewellOnly(text)) {
+    next.pet_name = text.trim();
+  }
+  return next;
+};
+
+const confirmsSelectedPet = (text, petName) => {
+  const n = normalizeText(text);
+  if (!/\b(?:para|mascota|perro|perra|gato|gata|otra|otro)\b/.test(n)) return true;
+  const selected = normalizeText(petName || "");
+  return Boolean(selected && (` ${n} `).includes(` ${selected} `) && !/\b(?:otra|otro)\b/.test(n));
+};
+
+module.exports = { prepareBookingTurn, separateClientAndPet, isAcknowledgementOnly, isFarewellOnly, selectCurrentPet, confirmsSelectedPet };

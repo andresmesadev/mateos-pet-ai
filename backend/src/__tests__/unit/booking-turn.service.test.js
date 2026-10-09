@@ -1,4 +1,4 @@
-const { prepareBookingTurn, separateClientAndPet, isAcknowledgementOnly } = require("../../services/booking-turn.service");
+const { prepareBookingTurn, separateClientAndPet, isAcknowledgementOnly, selectCurrentPet, confirmsSelectedPet } = require("../../services/booking-turn.service");
 const { STEPS } = require("../../services/domain/booking-steps");
 const { detectDomicilioIntent } = require("../../services/domain/intent-detector.service");
 
@@ -75,4 +75,23 @@ test("two independent clients cannot change each other's prepared session", () =
   expect(a.requested_service).toBeNull();
   expect(b.pet_name).toBe("Mascota B");
   expect(b.scheduling_date_key).toBe("2026-10-10");
+});
+
+test("history cannot choose a pet for a new generic booking", () => {
+  expect(selectCurrentPet({}, { pet_name: "Luna", pet_type: "cat" }, "Quiero una consulta mañana")).toEqual({ pet_name: null, pet_type: null });
+});
+
+test("an explicit name selects the pet; a short answer overrides an extractor using an old name", () => {
+  expect(selectCurrentPet({}, { pet_name: "Luna", pet_type: "cat" }, "Quiero consulta para Luna").pet_name).toBe("Luna");
+  expect(selectCurrentPet({ step: STEPS.AWAITING_PET_NAME }, { pet_name: "Luna", pet_type: "cat" }, "Toby")).toEqual({ pet_name: "Toby", pet_type: null });
+});
+
+test("an unrelated turn does not replace the selected pet with a name from history", () => {
+  expect(selectCurrentPet({ pet_name: "Toby", pet_type: "dog" }, { pet_name: "Luna", pet_type: "cat" }, "mañana a las 12")).toEqual({ pet_name: "Toby", pet_type: "dog" });
+});
+
+test("changing the pet in a confirmation must revalidate instead of confirming the old pet", () => {
+  expect(confirmsSelectedPet("Sí, para Michi", "Luna")).toBe(false);
+  expect(confirmsSelectedPet("Sí, para Luna", "Luna")).toBe(true);
+  expect(confirmsSelectedPet("Sí, confirmo", "Luna")).toBe(true);
 });

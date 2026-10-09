@@ -18,7 +18,7 @@ const { generateReply, STEPS } = require("../../services/conversation.service");
 describe("generateReply — flujo completado", () => {
   test.each([null, { intent: "greeting" }, { intent: "query_appointments" }])("un agradecimiento puro no depende de la clasificación del modelo: %j", async (analysis) => {
     const result = await generateReply({ analysis, session: {}, userMessage: "Muchas gracias" });
-    expect(result.reply).toBe("¡Con mucho gusto! 🐾");
+    expect(result.reply).toContain("¡Hasta pronto!");
     expect(result.step).toBeNull();
   });
 
@@ -63,7 +63,7 @@ describe("generateReply — flujo completado", () => {
       userMessage: "Gracias",
     });
 
-    expect(result.reply).toBe("¡Con mucho gusto! 🐾");
+    expect(result.reply).toContain("¡Hasta pronto!");
     expect(result.step).toBeNull();
     expect(result.reply).not.toMatch(/disponibilidad/i);
     expect(result.reply).not.toMatch(/hola|soy Lina/i);
@@ -77,6 +77,13 @@ describe("generateReply — flujo completado", () => {
       userMessage: "Gracias",
     });
 
-    expect(result.reply).toBe("¡Con mucho gusto! 🐾");
+    expect(result.reply).toContain("¡Hasta pronto!");
+  });
+
+  test.each(["Chao", "Hasta luego", "Buenas noches", "Adiós, muchas gracias"])("se despide ante %s sin volver a saludar", async (userMessage) => {
+    const result = await generateReply({ analysis: { intent: "greeting" }, session: {}, userMessage });
+    expect(result.reply).toContain("¡Hasta pronto!");
+    expect(result.reply).not.toMatch(/hola|soy Lina/i);
+    expect(result.step).toBeNull();
   });
 });

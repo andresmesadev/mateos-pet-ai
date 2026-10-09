@@ -7,7 +7,8 @@ const {
   STEPS,
 } = require("./conversation.service");
 const { getSession, updateSession } = require("./memory.service");
-const { prepareBookingTurn, separateClientAndPet, isAcknowledgementOnly } = require("./booking-turn.service");
+const { prepareBookingTurn, separateClientAndPet, isAcknowledgementOnly, selectCurrentPet, confirmsSelectedPet } = require("./booking-turn.service");
+const { buildBookingConfirmation } = require("./booking-message.service");
 const scheduling = require("./scheduling.service");
 const { findOrCreateUser, updateUserNameIfMissing } = require("./user.service");
 const { findPetByNameAndOwner, resolveAppointmentPetName } = require("./pet.service");
@@ -493,12 +494,18 @@ const processSingleIncomingMessage = async (parsed) => {
 
   if (
     previous.step === "awaiting_confirmation" &&
-    isConfirmationMessage(parsed.text)
+    isConfirmationMessage(parsed.text) && confirmsSelectedPet(parsed.text, previous.pet_name)
   ) {
     const dateKey = previous.scheduling_date_key;
     const hour = previous.scheduling_hour;
 
     if (user && dateKey != null && hour != null) {
+      if (isEmptyValue(previous.pet_name)) {
+        const session = updateSession(parsed.from, { ...previous, step: STEPS.AWAITING_PET_NAME });
+        await syncConversationState(conversation?.id, { intent: session.intent, step: session.step });
+        return { received: true, processed: true, user, conversation, ...parsed, appointment: null,
+          session, reply: "Antes de confirmar, dime el nombre de la mascota para esta cita 🐾" };
+      }
       try {
         // Para grooming usar el sub-servicio específico si está disponible
         const serviceType = previous.grooming_service
@@ -558,15 +565,16 @@ const processSingleIncomingMessage = async (parsed) => {
           };
         }
 
+        const petName = await resolveAppointmentPetName(previous.pet_name, user.id);
         const appointment = await createAppointment({
           userId: user.id,
           tenantId: user.tenantId || null,
-          petName: await resolveAppointmentPetName(previous.pet_name, user.id),
+          petName,
           petType: previous.pet_type || "other",
           serviceType,
           date: appointmentDate,
           status: "confirmed",
-          address: previous.domicilio_address || null,
+          address: previous.domicilio === true ? previous.domicilio_address || null : null,
           groomingBreed: previous.grooming_breed || null,
           groomingSize: previous.grooming_size || null,
         });
@@ -575,11 +583,9 @@ const processSingleIncomingMessage = async (parsed) => {
           `[WhatsApp] Appointment persisted: ${appointment.id} (${dateKey} ${hour}h ${formatSlotForUser(dateKey, hour)}, ${serviceType})`
         );
 
-        const slotLabel = formatSlotForUser(dateKey, hour);
-        const { reply: defaultReply, step, sessionPatch } = getConfirmationReply();
-        const reply = slotLabel
-          ? `¡Listo! Tu cita quedó agendada ${slotLabel} 🐾 ¡Te esperamos en Mateos Pet!`
-          : defaultReply;
+        const { step, sessionPatch } = getConfirmationReply();
+        const reply = buildBookingConfirmation({ petName, serviceType, dateKey, hour,
+          pickup: previous.domicilio === true, address: appointment.address || previous.domicilio_address });
         const session = updateSession(parsed.from, {
           ...previous,
           step,
@@ -758,6 +764,9 @@ const processSingleIncomingMessage = async (parsed) => {
     analysis = { ...(analysis || {}), requested_service: null };
   }
   ({ previous, analysis } = separateClientAndPet(previous, analysis, parsed.text));
+  if (analysis?.intent === "schedule_appointment" || analysis?.requested_service || previous.requested_service || turn.freshRequest) {
+    analysis = selectCurrentPet(previous, analysis, parsed.text);
+  }
   if (explicitTerms.dateText || explicitTerms.timeText) {
     analysis = {
       ...(analysis || {}),
@@ -835,22 +844,24 @@ const processSingleIncomingMessage = async (parsed) => {
           };
           throw new Error("Grooming slot no longer available");
         }
-        await createAppointment({
+        const petName = await resolveAppointmentPetName(sessionForAppt.pet_name, user.id);
+        const appointment = await createAppointment({
           userId: user.id,
           tenantId: user.tenantId || null,
-          petName: await resolveAppointmentPetName(previous.pet_name, user.id),
-          petType: previous.pet_type || "other",
+          petName,
+          petType: sessionForAppt.pet_type || "other",
           serviceType,
           date: appointmentDate,
           status: "confirmed",
-          address: sessionForAppt.domicilio_address || null,
+          address: sessionForAppt.domicilio === true ? sessionForAppt.domicilio_address || null : null,
           groomingBreed: sessionForAppt.grooming_breed || null,
           groomingSize: sessionForAppt.grooming_size || null,
         });
         logger.info(`[WhatsApp] Grooming appointment created: ${dateKey} ${hour}h ${serviceType}`);
         result = {
           ...result,
-          reply: `¡Listo! Tu cita de peluquería quedó agendada ${formatSlotForUser(dateKey, Number(hour))} 🐾 ¡Te esperamos en Mateos Pet!`,
+          reply: buildBookingConfirmation({ petName, serviceType, dateKey, hour: Number(hour),
+            pickup: sessionForAppt.domicilio === true, address: appointment.address || sessionForAppt.domicilio_address }),
           step: STEPS.COMPLETED,
           sessionPatch: { ...(result.sessionPatch || {}) },
         };
