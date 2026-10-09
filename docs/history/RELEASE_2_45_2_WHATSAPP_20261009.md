@@ -1,7 +1,12 @@
 # 2.45.2 — mascota elegida, despedida y resumen de la cita
 
 **Fecha:** 9 de octubre de 2026.
-**Estado:** implementación local comprobada; publicación y VPS pendientes.
+**Estado:** publicada en GitHub y comprobada en la VPS.
+**Commit funcional:** `0c7015e3f49f9be5ea7dfc876a486f7bafebffcf`.
+**Commit desplegado y aprobado por CI:** `1b1ee47de507b510951ffb2a2181a5b4fe26ce88`.
+**Hora del despliegue:** 2026-10-09, 16:28:07 de Colombia / 21:28:07 UTC.
+**Referencia de cierre:** `v2.45.2`, sobre la certificación documental posterior;
+ese commit no modifica el código desplegado ni requiere otro reinicio.
 
 ## Solicitud y alcance
 
@@ -99,3 +104,66 @@ no se sustituyen por el build, la salud o los tests simulados.
 El paso 8 de la [preparación de beta](../operations/CLOSED_BETA_READINESS_PLAN_20260919.md)
 sigue abierto y se mantiene el número de prueba de Meta. No se abre beta
 externa por esta mejora.
+
+## Publicación comprobada
+
+[CI 37993280049](https://github.com/andresmesadev/mateos-pet-ai/actions/runs/37993280049)
+terminó verde para `1b1ee47`: `test` 31 s, `lint` 56 s,
+`inbound-postgres` 48 s y `administration-postgres` 1 min 36 s. Los dos
+jobs PostgreSQL ejecutaron sus pruebas reales; no se omitieron para publicar.
+
+Antes del despliegue se comprobó el checkout limpio de la VPS en `d40dce5`.
+El servicio de respaldo terminó `Result=success`, `ExecMainStatus=0`:
+
+- Copia cifrada: `mateos-pet-ai-20261009T212029Z`, 409.124 bytes.
+- SHA-256: `184cd9386117c48e374e38a417fe25ee823c7700d2dc4b8770d773b35df5899d`.
+- Verificación en servidor y descarga independiente en `backups/offsite/`: correctas.
+- Imágenes de recuperación: backend y frontend con tag `rollback-2.45.1-20261009`.
+
+Se ejecutó `bash scripts/deploy.sh` como `ubuntu`. La compilación del backend
+produjo `sha256:941fbc177c36d8d0979b5398bdad0c1fd781362c24faaa60a2f0c6248796a475`.
+El frontend reutilizó caché y su imagen anterior; Compose conservó ese
+contenedor. PostgreSQL conservó su volumen y no se reinició.
+
+```text
+46 migrations found in prisma/migrations
+No pending migrations to apply.
+Deploy complete: 1b1ee47
+Deployment exit=0
+Health: version=2.45.2 status=ok database=ok openai=ok inboundWorker=ok
+consecutiveFailures=0
+HTTPS administrator authentication: PASS
+14 authenticated dashboard destinations: HTTP 200
+Authenticated Caja day/pending: paginated contract and complete totals PASS
+Ambiguous cash parameters rejected: HTTP 400
+Authenticated services and inventory contracts: PASS
+Anonymous dashboard/proxy denied: redirect to login / HTTP 401
+Release HTTPS smoke passed. No business writes or outgoing messages.
+```
+
+Lectura de cola a las 21:28:48 UTC: **50 trabajos `done/complete`**, cero
+leases reclamados vencidos y cero trabajos nuevos con error desde el reinicio.
+Logs de arranque: backend 8 líneas, frontend 3 líneas, cero firmas de error.
+Los resets temporales de `curl` durante el arranque fueron recuperados por
+los reintentos del script; el resultado final fue código 0 y salud correcta.
+No se modificaron ni cancelaron las citas de prueba del operador.
+
+El build del backend informó cero vulnerabilidades en sus dependencias de
+producción. La instalación temporal raíz de Prisma volvió a informar cuatro
+hallazgos altos de herramientas, ya registrados en [2.45.1](RELEASE_2_45_1_VPS_20261009.md);
+esa carpeta se elimina de la imagen final. No se declara saneado ese conjunto
+de herramientas de desarrollo por este cambio.
+
+## Observación de esta versión
+
+La ventana anterior de 2.45.1 se conservó, sin eliminarla: 17 muestras,
+80 minutos, cero huecos y cero fallos de salud, pero **incompleta** frente
+al requisito de 48 horas. Se detuvo únicamente el proceso identificado al
+iniciar este despliegue.
+
+Worker de 2.45.2 iniciado a las **21:28:04.512 UTC**. Nueva observación local:
+`.cache/stability/ventana-20261009T212837Z.jsonl`, PID inicial `14236`,
+iniciada el **9 de octubre a las 16:28:37 de Colombia**, con muestras cada
+5 minutos. Final previsto: **11 de octubre a las 16:28**, si el equipo y
+proceso permanecen disponibles. Estas muestras no sustituyen comprobar
+entregas, comportamiento del asistente ni tráfico real del piloto.
