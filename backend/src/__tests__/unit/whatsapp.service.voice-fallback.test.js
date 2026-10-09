@@ -34,7 +34,7 @@ jest.mock("../../services/appointment.service", () => ({
   createAppointment: jest.fn(),
   checkAppointmentConflict: jest.fn(),
 }));
-jest.mock("../../lib/timezone", () => ({ formatSlotForUser: jest.fn() }));
+jest.mock("../../lib/timezone", () => ({ ...jest.requireActual("../../lib/timezone"), formatSlotForUser: jest.fn() }));
 jest.mock("../../services/conversation-persistence.service", () => ({
   findOrCreateConversation: jest.fn(),
   saveMessage: jest.fn(),

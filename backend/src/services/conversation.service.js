@@ -8,6 +8,7 @@
 // reexportando desde aquí sin cambios para no romper a quien ya los importa
 // de conversation.service.js (whatsapp.service.js, entre otros).
 const { STEPS, BOOKING_STEPS } = require("./domain/booking-steps");
+const { isAcknowledgementOnly } = require("./booking-turn.service");
 
 const scheduling = require("./scheduling.service");
 const { findNextAvailableGroomingSlot } = require("./availability-db.service");
@@ -307,10 +308,17 @@ const resolveGenerateReplyInput = (input, options = {}) => {
 // (cancelar/reprogramar/consultar) y las ramas con forceRuleReply explícito
 // (saludo, "sin cita necesaria") siguen fijas — no formaban parte de este
 // hallazgo ("el wizard de reserva se siente frío"), y tocarlas es un cambio
-// de alcance distinto.
+// de alcance distinto. Corrección 2026-10-09: las ofertas de peluquería,
+// preguntas de recogida y confirmaciones vuelven a preservar el texto de
+// reglas: la prueba real mostró que una reformulación anunciaba una reserva
+// antes de pedir la dirección. Las preguntas generales siguen usando IA.
 const shouldUseRuleReplyOnly = (ruleResult, analysis) => {
   if (ruleResult?.forceRuleReply) return true;
   if (MANAGEMENT_INTENTS.has(analysis?.intent)) return true;
+  // Offers, pickup questions and completion must retain the actual operation,
+  // rather than letting a tone rewrite claim that a reservation already exists.
+  if ([STEPS.AWAITING_GROOMING_SLOT_CONFIRM, STEPS.AWAITING_DOMICILIO,
+    STEPS.AWAITING_DOMICILIO_ADDRESS, STEPS.COMPLETED].includes(ruleResult?.step)) return true;
   return false;
 };
 
@@ -322,6 +330,11 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
   const tenantId = options.tenantId;
   const needsClientName = Boolean(options.needsClientName);
   const currentStep = session.step ?? analysis?.step;
+
+  if (isAcknowledgementOnly(userMessage)) {
+    return { reply: "¡Con mucho gusto! 🐾", step: currentStep === STEPS.COMPLETED ? null : currentStep ?? null,
+      sessionPatch: {}, forceRuleReply: true };
+  }
 
   if (!analysis || typeof analysis !== "object") {
     return { reply: "¡Hola! Soy Lina 😊 ¿En qué te podemos colaborar? 🐾", step: null, sessionPatch: {} };
@@ -512,6 +525,7 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
         reply: "¡Con gusto te agendo! 🐾 ¿Es para veterinaria o grooming?",
         step: null,
         sessionPatch: {},
+        forceRuleReply: true,
       };
     }
 

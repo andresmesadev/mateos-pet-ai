@@ -4,6 +4,8 @@
 
 - [Base local de desarrollo](LOCAL_DEVELOPMENT_DATABASE.md): PostgreSQL local, destino de conexión y datos ficticios.
 - [Respaldo y restauración](DATABASE_BACKUP_AND_RESTORE.md): respaldo cifrado, verificación de integridad y recuperación.
+- [Aplicación de la revisión de viabilidad](VIABILITY_IMPROVEMENT_EXECUTION_20261009.md): copia independiente y observación de estabilidad; implementación y ejecución se registran por separado.
+- [Piloto interno](INTERNAL_PILOT_RUNBOOK.md): responsables, aceptación del frontend, incidentes y medición de uso y costes.
 - Despliegue: ejecutar el procedimiento del repositorio en `scripts/deploy.sh` y comprobar la versión declarada, migraciones, respaldo y salud. Los informes de releases documentan lo que se ejecutó, sin autorizar otro despliegue.
 
 ## Controles que siguen abiertos

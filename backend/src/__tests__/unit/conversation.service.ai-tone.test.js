@@ -24,6 +24,17 @@ const { generateReply, STEPS } = require("../../services/conversation.service");
 beforeEach(() => jest.clearAllMocks());
 
 describe("generateReply — el wizard de reserva ya es elegible para reformularse con IA", () => {
+  test("la respuesta de recogida no se convierte en una confirmación inventada por la IA", async () => {
+    generateReplyWithAI.mockResolvedValue("Listo, ya programé la recogida y la cita");
+    const result = await generateReply({ analysis: { intent: "schedule_appointment" },
+      session: { step: STEPS.AWAITING_DOMICILIO, pet_name: "Mascota de prueba" },
+      userMessage: "En casa" });
+    expect(result.step).toBe(STEPS.AWAITING_DOMICILIO_ADDRESS);
+    expect(result.reply).toMatch(/dirección de recogida/i);
+    expect(result.createGroomingAppointment).toBeUndefined();
+    expect(generateReplyWithAI).not.toHaveBeenCalled();
+  });
+
   test("pregunta de nombre de mascota (AWAITING_PET_NAME): usa la respuesta de la IA cuando está disponible", async () => {
     generateReplyWithAI.mockResolvedValue("¡Con gusto! ¿Cómo se llama tu compañero? 🐾");
 

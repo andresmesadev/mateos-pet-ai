@@ -30,16 +30,27 @@ command -v docker >/dev/null 2>&1 || fail "docker is not installed"
 )
 
 container="mateos-restore-drill-$(date -u +%Y%m%d%H%M%S)-$$"
+container_id=""
 cleanup() {
-  if [[ "$keep_container" != "true" ]]; then
-    docker rm -f "$container" >/dev/null 2>&1 || true
+  local status=$?
+  if [[ "$keep_container" != "true" && "$container_id" =~ ^[a-f0-9]{64}$ ]]; then
+    # Remove only the container successfully created by this invocation and its
+    # anonymous data volume; a failed name collision never deletes another run.
+    if ! docker rm -f -v "$container_id" >/dev/null 2>&1; then
+      echo "restore drill cleanup failed: inspect the temporary container before retrying" >&2
+      status=1
+    fi
   fi
+  trap - EXIT
+  exit "$status"
 }
 trap cleanup EXIT
 
-docker run -d --name "$container" \
+container_id=$(docker run -d --name "$container" \
+  --network none \
+  --label com.mateos.operation=restore-drill \
   -e POSTGRES_HOST_AUTH_METHOD=trust \
-  "$pg_image" >/dev/null
+  "$pg_image")
 
 ready_checks=0
 for _ in $(seq 1 60); do

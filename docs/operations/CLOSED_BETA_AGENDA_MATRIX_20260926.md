@@ -1,7 +1,24 @@
 # Matriz de agenda para beta cerrada — ejecución interna
 
 **Fecha:** 2026-09-26
-**Estado:** en curso. Se validaron recorridos reales de veterinaria, peluquería, domingo, festivo y cancelación; faltan límites horarios, conflicto y fallo controlado en el canal real.
+**Estado:** en curso, con la prueba de concurrencia como siguiente comprobación. Se validaron recorridos reales de veterinaria, peluquería, domingo, festivo, rechazo fuera de horario veterinario y cancelación.
+
+**Incidente de la prueba del 9 de octubre:** se encontraron reutilización de
+un servicio y fecha antiguos, confusión dueño/mascota y un saludo ante
+agradecimiento. Los 15 trabajos terminaron, pero las citas quedaron en días
+distintos; el conflicto por el mismo turno no quedó comprobado. Reparación
+local y repetición real pendientes de publicar; ver
+[informe del incidente](WHATSAPP_CONCURRENT_TRIAL_INCIDENT_20261009.md).
+
+**Seguimiento 2026-10-09:** el operador confirma el trabajo previo de agenda y solicita centrar el siguiente recorrido en dos personas conversando al mismo tiempo. Los festivos y el rechazo fuera de horario veterinario ya tienen evidencia real más abajo; no se presentan como pruebas nuevas pendientes. La tabla conserva la cobertura específica documentada de cada servicio, sin atribuir resultados a escenarios que no figuran en el registro.
+
+### Próxima prueba: dos conversaciones y un mismo turno
+
+1. Dos remitentes verificados del mismo establecimiento conversan simultáneamente; cada uno conserva su nombre, mascota, servicio y estado de reserva.
+2. Ambos solicitan el mismo turno veterinario libre, con fecha futura laborable, y confirman lo más cerca posible en el tiempo.
+3. El resultado debe ser como máximo una cita activa para ese turno. El otro cliente recibe indisponibilidad o una alternativa válida; no recibe una confirmación de reserva inexistente.
+4. Comprobar las dos conversaciones, los trabajos de la cola, los logs y el dashboard. Ambos mensajes deben procesarse y los datos de los clientes no deben mezclarse.
+5. Cancelar la cita de prueba y comprobar la liberación del turno. Registrar la evidencia antes de cerrar el paso 8.
 
 ## Configuración temporal aprobada
 

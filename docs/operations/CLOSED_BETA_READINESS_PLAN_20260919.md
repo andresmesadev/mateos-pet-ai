@@ -22,16 +22,26 @@
 
 ## Plan aprobado
 
+**Seguimiento del 9 de octubre de 2026:** la publicación comprobada es `2.45.0`.
+Se verificaron copia cifrada independiente, restauración local y tarea diaria
+autorizada; se inició una nueva observación de salud y se preparó el
+procedimiento de medición del piloto. Ver
+[aplicación de mejoras](VIABILITY_IMPROVEMENT_EXECUTION_20261009.md).
+El paso 5 tiene sus comprobaciones completas; se deben vigilar sus ejecuciones
+diarias. Los pasos 2, 8 y 9 siguen abiertos; se conserva
+el aplazamiento del número real. Las cifras iniciales de este documento son
+históricas y no describen la versión activa.
+
 | Paso | Trabajo | Criterio de cierre | Estado |
 | --- | --- | --- | --- |
 | 1 | Corregir los timeouts del worker entrante | El barrido tolera el arranque en frío de la base, tiene prueba de regresión y opera sin timeouts repetidos en producción. | ✅ Completado (`2.39.3`) |
 | 2 | Garantizar capacidad de la base de datos | PostgreSQL operativo en la VPS, sin límite mensual de Neon; salud y capacidad observadas durante el piloto. | 🧪 Migración completada (`2.39.10`) y capacidad inicial verificada; faltan observación sostenida y carga del piloto |
 | 3 | Actualizar dependencias vulnerables y runtime Node | Cero vulnerabilidades altas conocidas en dependencias de producción, runtime soportado y CI verde. | ✅ Completado (`2.39.6`) |
 | 4 | Activar observabilidad | Sentry o equivalente recibe una excepción controlada y existe alerta de salud/worker. | ✅ Completado (`2.39.7`) |
-| 5 | Implementar backup y restauración | Backup cifrado y periódico, retención definida y restauración ensayada. | 🟡 Respaldo diario y restauración de ensayo completados; falta copia cifrada fuera de la VPS antes de beta externa |
+| 5 | Implementar backup y restauración | Backup cifrado y periódico, retención definida y restauración ensayada. | ✅ Copia cifrada independiente, restauración local y tarea diaria comprobadas el 2026-10-09; vigilar continuidad del equipo del operador |
 | 6 | Configurar WhatsApp de producción | Número empresarial real registrado, app publicada y flujo entrante/saliente verificado. | Aplazado por decisión del operador; se conserva el número de prueba de Meta |
 | 7 | Completar documentación legal del piloto | Política, términos y acuerdo de piloto completados y revisados. | Pendiente |
-| 8 | Ejecutar matriz integral de agenda | Casos de veterinaria, peluquería, domingos, festivos, conflictos, cancelación y fallos aprobados. | 🧪 En curso: horario temporal configurado y matriz automatizada; falta recorrido WhatsApp → cola → dashboard ([registro](CLOSED_BETA_AGENDA_MATRIX_20260926.md)) |
+| 8 | Ejecutar matriz integral de agenda | Casos de veterinaria, peluquería, domingos, festivos, conflictos, cancelación y fallos aprobados. | 🧪 Prueba de dos remitentes realizada; detectó fallos de sesión, nombres y respuestas. Correcciones locales; falta publicar y repetir el conflicto por el mismo turno ([incidente](WHATSAPP_CONCURRENT_TRIAL_INCIDENT_20261009.md)) |
 | 9 | Ejecutar período de estabilización | 48 horas sin errores del worker ni pérdida de mensajes; métricas y cola nominales. | Pendiente |
 | 10 | Abrir cohorte inicial | Un establecimiento, alcance funcional explícito, 5–10 usuarios, soporte y criterio de rollback definidos. | Pendiente |
 
@@ -232,6 +242,16 @@ tiempo y contador de fallos, sin revelar credenciales ni mensajes entrantes.
 Paso cerrado el 2026-09-22.
 
 ## Registro del paso 5
+
+**Actualización 2026-10-09:** se completaron las comprobaciones pendientes:
+copia cifrada independiente en el equipo del operador, restauración desde
+esa copia (48 tablas, 46 migraciones, código 0) y tarea diaria autorizada
+`MateosPetAI-OffsiteBackup`, a las 03:35 de Colombia. La prueba del Programador
+terminó con `LastTaskResult=0`. No elimina copias locales existentes. El
+operador debe vigilar la ejecución y mantener el equipo conectado y con sesión
+abierta; detalles en [registro de ejecución](VIABILITY_IMPROVEMENT_EXECUTION_20261009.md).
+El paso 5 tiene sus comprobaciones completas; los siguientes párrafos son
+evidencia histórica de septiembre, cuando aún faltaba la copia independiente.
 
 **Actualización 2026-09-23:** se quitó la suspensión del timer y se creó una
 copia real cifrada de la base local en

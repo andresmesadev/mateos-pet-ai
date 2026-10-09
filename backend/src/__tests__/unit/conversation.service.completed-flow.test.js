@@ -1,7 +1,8 @@
 /**
  * Corrección del bug "Gracias" (motor conversacional): tras completar una
  * reserva (session.step === STEPS.COMPLETED), el siguiente mensaje del
- * cliente debía saludar de nuevo sin reofrecer disponibilidad — la rama
+ * cliente no debe reofrecer disponibilidad. La corrección de octubre además
+ * agradece sin reiniciar el saludo. Originalmente la rama
  * comparaba analysis.step (siempre undefined, la IA no extrae "step" de un
  * mensaje suelto) en vez de currentStep (session.step). Reproduce
  * exactamente el escenario real: sesión con datos de una cita ya agendada
@@ -15,6 +16,12 @@ jest.mock("../../services/domain/medical-auto-capture.service", () => ({
 const { generateReply, STEPS } = require("../../services/conversation.service");
 
 describe("generateReply — flujo completado", () => {
+  test.each([null, { intent: "greeting" }, { intent: "query_appointments" }])("un agradecimiento puro no depende de la clasificación del modelo: %j", async (analysis) => {
+    const result = await generateReply({ analysis, session: {}, userMessage: "Muchas gracias" });
+    expect(result.reply).toBe("¡Con mucho gusto! 🐾");
+    expect(result.step).toBeNull();
+  });
+
   test("cliente nuevo: solicita el nombre antes de pedir datos de mascota", async () => {
     const result = await generateReply({
       analysis: { intent: "greeting" },
@@ -39,7 +46,7 @@ describe("generateReply — flujo completado", () => {
     expect(result.sessionPatch.client_name).toBe("Andrés");
   });
 
-  test("tras COMPLETED, un mensaje de agradecimiento saluda de nuevo sin reofrecer un slot", async () => {
+  test("tras COMPLETED, agradece sin saludar de nuevo ni reofrecer un slot", async () => {
     const session = {
       step: STEPS.COMPLETED,
       pet_name: "Benji patricio",
@@ -56,9 +63,10 @@ describe("generateReply — flujo completado", () => {
       userMessage: "Gracias",
     });
 
-    expect(result.reply).toBe("¡Hola de nuevo! 😊 Soy Lina, ¿en qué te podemos colaborar hoy? 🐾");
+    expect(result.reply).toBe("¡Con mucho gusto! 🐾");
     expect(result.step).toBeNull();
     expect(result.reply).not.toMatch(/disponibilidad/i);
+    expect(result.reply).not.toMatch(/hola|soy Lina/i);
   });
 
   test("sin session.step (conversación nueva), un mensaje suelto no cae en la rama de completado", async () => {
@@ -69,6 +77,6 @@ describe("generateReply — flujo completado", () => {
       userMessage: "Gracias",
     });
 
-    expect(result.reply).not.toBe("¡Hola de nuevo! 😊 Soy Lina, ¿en qué te podemos colaborar hoy? 🐾");
+    expect(result.reply).toBe("¡Con mucho gusto! 🐾");
   });
 });

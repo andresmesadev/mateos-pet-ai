@@ -7,6 +7,7 @@ const {
   STEPS,
 } = require("./conversation.service");
 const { getSession, updateSession } = require("./memory.service");
+const { prepareBookingTurn, separateClientAndPet, isAcknowledgementOnly } = require("./booking-turn.service");
 const scheduling = require("./scheduling.service");
 const { findOrCreateUser, updateUserNameIfMissing } = require("./user.service");
 const { findPetByNameAndOwner, resolveAppointmentPetName } = require("./pet.service");
@@ -448,27 +449,16 @@ const processSingleIncomingMessage = async (parsed) => {
   let previous = getSession(parsed.from);
   logger.info("[Conversation] Current step:", previous.step ?? "(none)");
 
-  if (previous.step === "completed") {
-    // Limpia también los datos de la reserva ya cerrada — dejar step: null sin
-    // limpiar el resto hacía que un mensaje posterior sin relación (ej. "Gracias")
-    // reutilizara pet_name/requested_service de la cita ya agendada y disparara
-    // una nueva oferta de horario. Mismo criterio de reinicio ya usado por la
-    // rama de saludo en conversation.service.js.
-    previous = {
-      ...previous,
-      step: null,
-      pet_name: null,
-      pet_type: null,
-      requested_service: null,
-      grooming_service: null,
-      scheduling_date_key: null,
-      scheduling_hour: null,
-      date: null,
-      time: null,
-      domicilio: null,
-      domicilio_address: null,
-    };
-  }
+  const turnNow = new Date();
+  const explicitTerms = typeof scheduling.extractExplicitSchedulingTerms === "function"
+    ? scheduling.extractExplicitSchedulingTerms(parsed.text, turnNow)
+    : { dateText: null, timeText: null };
+  const turn = prepareBookingTurn(previous, parsed.text, turnNow, {
+    ...explicitTerms,
+    dateKey: explicitTerms.dateText ? scheduling.parseDateToKey(explicitTerms.dateText, turnNow) : null,
+    hour: explicitTerms.timeText ? scheduling.parseTimeToHour(explicitTerms.timeText) : null,
+  });
+  previous = turn.previous;
 
   if (scheduling.detectHumanEscalation(parsed.text)) {
     const reply =
@@ -515,6 +505,7 @@ const processSingleIncomingMessage = async (parsed) => {
           ? previous.grooming_service
           : mapSessionServiceType(previous.requested_service);
         const appointmentDate = buildAppointmentDateTime(dateKey, hour);
+        if (appointmentDate.getTime() <= Date.now()) throw new Error("Appointment slot is in the past");
 
         const hasConflict = await checkAppointmentConflict({
           date: appointmentDate,
@@ -650,11 +641,12 @@ const processSingleIncomingMessage = async (parsed) => {
       "[WhatsApp] Confirmación sin scheduling_date_key/hour; cita no persistida"
     );
 
-    const { reply, step, sessionPatch } = getConfirmationReply();
+    const reply = "No tengo un horario validado para confirmar todavía 🐾 No se guardó una cita. ¿Qué día y hora necesitas?";
     const session = updateSession(parsed.from, {
       ...previous,
-      step,
-      ...(sessionPatch || {}),
+      step: STEPS.AWAITING_DATE_TIME,
+      scheduling_date_key: null,
+      scheduling_hour: null,
     });
 
     logger.info("[Conversation] New step:", session.step);
@@ -756,14 +748,16 @@ const processSingleIncomingMessage = async (parsed) => {
   if (
     previous.step === STEPS.AWAITING_CLIENT_NAME &&
     isEmptyValue(analysis?.client_name) &&
+    !isAcknowledgementOnly(parsed.text) &&
     isPlausibleClientName(parsed.text)
   ) {
     analysis = { ...(analysis || {}), client_name: parsed.text.trim() };
   }
 
-  const explicitTerms = typeof scheduling.extractExplicitSchedulingTerms === "function"
-    ? scheduling.extractExplicitSchedulingTerms(parsed.text, new Date())
-    : { dateText: null, timeText: null };
+  if (turn.freshRequest && !/\b(veterin\w*|consulta\w*|medic\w*|peluq\w*|groom\w*|bano\w*|corte\w*)\b/i.test(parsed.text.normalize("NFD").replace(/[\u0300-\u036f]/g, ""))) {
+    analysis = { ...(analysis || {}), requested_service: null };
+  }
+  ({ previous, analysis } = separateClientAndPet(previous, analysis, parsed.text));
   if (explicitTerms.dateText || explicitTerms.timeText) {
     analysis = {
       ...(analysis || {}),
@@ -821,6 +815,7 @@ const processSingleIncomingMessage = async (parsed) => {
       try {
         const serviceType = sessionForAppt.grooming_service || "grooming";
         const appointmentDate = buildAppointmentDateTime(dateKey, Number(hour));
+        if (appointmentDate.getTime() <= Date.now()) throw new Error("Appointment slot is in the past");
         const hasConflict = await checkAppointmentConflict({
           date: appointmentDate,
           serviceType,

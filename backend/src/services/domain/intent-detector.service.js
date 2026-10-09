@@ -110,7 +110,7 @@ const detectDomicilioIntent = (text) => {
   const wantsPickup =
     n.includes("recoger") || n.includes("recogen") || n.includes("pasen") ||
     n.includes("domicilio") || n.includes("traigan") || n.includes("manden") ||
-    n.includes("mando") || n.includes("enviar");
+    n.includes("mando") || n.includes("enviar") || /^en (?:mi )?casa[.!?\s]*$/.test(n);
   const willBring =
     n.includes("traigo") || n.includes("llevo") || n.includes("voy yo") ||
     n.includes("presencial") || n.includes("lo llevo") || n.includes("la llevo");

@@ -14,7 +14,7 @@ jest.mock("../../services/conversation.service", () => ({
   generateReply: jest.fn(),
   getConfirmationReply: jest.fn(),
   isConfirmationMessage: jest.fn(),
-  STEPS: { AWAITING_CONFIRMATION: "awaiting_confirmation", HUMAN_TAKEOVER: "human_takeover" },
+  STEPS: require("../../services/domain/booking-steps").STEPS,
 }));
 jest.mock("../../services/memory.service", () => ({ getSession: jest.fn(), updateSession: jest.fn() }));
 jest.mock("../../services/scheduling.service", () => ({
@@ -37,7 +37,7 @@ jest.mock("../../services/appointment.service", () => ({
   createAppointment: jest.fn(),
   checkAppointmentConflict: jest.fn(),
 }));
-jest.mock("../../lib/timezone", () => ({ formatSlotForUser: jest.fn() }));
+jest.mock("../../lib/timezone", () => ({ ...jest.requireActual("../../lib/timezone"), formatSlotForUser: jest.fn() }));
 jest.mock("../../services/conversation-persistence.service", () => ({
   findOrCreateConversation: jest.fn(),
   saveMessage: jest.fn(),
@@ -97,6 +97,59 @@ beforeEach(() => {
   getTenantByPhone.mockResolvedValue({ id: "tenant-1", slug: "t1", active: true });
   findOrCreateUser.mockResolvedValue({ id: "user-1", phone: PHONE, tenantId: "tenant-1" });
   saveMessage.mockResolvedValue({ id: "msg-1" });
+});
+
+describe("processIncomingMessage — regresión del recorrido simultáneo del 9 de octubre", () => {
+  beforeEach(() => {
+    jest.useFakeTimers({ doNotFake: ["nextTick", "setImmediate", "setTimeout"] });
+    jest.setSystemTime(new Date("2026-10-09T19:18:00Z"));
+    findOrCreateConversation.mockResolvedValue({ id: "conv-test", status: "activa" });
+    updateSession.mockImplementation((phone, data) => data);
+    generateReply.mockResolvedValue({ reply: "¿Es para veterinaria o peluquería?", step: null, sessionPatch: {} });
+  });
+  afterEach(() => jest.useRealTimers());
+
+  test("el historial no decide el servicio ni revive una oferta de septiembre ante una nueva solicitud", async () => {
+    getSession.mockReturnValue({ step: "awaiting_grooming_slot_confirm", requested_service: "bath_grooming",
+      pet_name: "Mascota A", scheduling_date_key: "2026-09-28", scheduling_hour: 11 });
+    analyzeMessage.mockResolvedValue({ intent: "schedule_appointment", requested_service: "bath_grooming",
+      date: "mañana", time: "11" });
+    await processIncomingMessage(buildBody("Hola necesito una cita para mañana a las 11", "new-request"));
+    expect(generateReply).toHaveBeenCalledWith(expect.objectContaining({
+      analysis: expect.objectContaining({ requested_service: null, scheduling_date_key: null }),
+      session: expect.objectContaining({ step: null, requested_service: null, scheduling_date_key: null }),
+    }), expect.anything());
+    expect(require("../../services/appointment.service").createAppointment).not.toHaveBeenCalled();
+  });
+
+  test("el nombre de persona duplicado por el extractor no se almacena como mascota", async () => {
+    getSession.mockReturnValue({ step: "awaiting_client_name" });
+    analyzeMessage.mockResolvedValue({ intent: "other", client_name: "Persona B", pet_name: "Persona B" });
+    await processIncomingMessage(buildBody("Persona B", "owner-name"));
+    expect(generateReply).toHaveBeenCalledWith(expect.objectContaining({
+      analysis: expect.objectContaining({ client_name: "Persona B", pet_name: null }),
+    }), expect.anything());
+    expect(updateSession).toHaveBeenCalledWith(PHONE, expect.objectContaining({ pet_name: null }));
+  });
+
+  test("la confirmación de un turno antiguo no alcanza la creación de cita", async () => {
+    getSession.mockReturnValue({ step: "awaiting_confirmation", requested_service: "veterinary_consultation",
+      scheduling_date_key: "2026-09-28", scheduling_hour: 11 });
+    analyzeMessage.mockResolvedValue({ intent: "other" });
+    await processIncomingMessage(buildBody("Sí, confirmo", "expired-confirmation"));
+    expect(require("../../services/appointment.service").createAppointment).not.toHaveBeenCalled();
+    expect(generateReply).toHaveBeenCalledWith(expect.objectContaining({ session: expect.objectContaining({ step: null }) }), expect.anything());
+  });
+
+  test("sin horario validado la confirmación informa que no se guardó ninguna cita", async () => {
+    getSession.mockReturnValue({ step: "awaiting_confirmation" });
+    require("../../services/conversation.service").isConfirmationMessage.mockReturnValueOnce(true);
+    const result = await processIncomingMessage(buildBody("Sí, confirmo", "missing-slot"));
+    expect(result.reply).toContain("No se guardó una cita");
+    expect(result.session.step).toBe("awaiting_date_time");
+    expect(result.appointment).toBeNull();
+    expect(require("../../services/appointment.service").createAppointment).not.toHaveBeenCalled();
+  });
 });
 
 describe("processIncomingMessage — silencio tras escalar a humano", () => {
