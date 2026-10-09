@@ -67,6 +67,25 @@ un comando de lint; se comprueba la sintaxis de sus servicios cambiados.
 
 ## Publicación y repetición real
 
+La primera CI del commit `0c7015e` y su reintento aprobaron pruebas unitarias
+y lint/build, pero los dos jobs PostgreSQL se detuvieron **antes de las
+pruebas**, al inicializar los contenedores: Docker Hub respondió
+`toomanyrequests: You have reached your unauthenticated pull rate limit`.
+Ver [ejecución inicial](https://github.com/andresmesadev/mateos-pet-ai/actions/runs/37992802642).
+No se presentó ese resultado como CI verde ni se desplegó con ese bloqueo.
+
+Para ejecutar las mismas pruebas, los dos servicios PostgreSQL de CI usan
+la copia pública disponible en `mirror.gcr.io`, fijada al manifiesto
+linux/amd64 `sha256:1d50c689b0a6511b9ea0a15615281c81a59fd04a08eb35057ec8646fb3a2118a`.
+Se consultaron los manifiestos del tag `pgvector/pgvector:0.8.6-pg18-bookworm`
+en origen y caché: los identificadores coinciden exactamente. No cambian
+el servicio PostgreSQL de producción, las migraciones, las credenciales ni
+las aserciones. La caché es pública; no se creó cuenta ni plan.
+La [documentación de la caché](https://docs.cloud.google.com/artifact-registry/docs/pull-cached-dockerhub-images)
+explica que su contenido puede retirarse: no se garantiza disponibilidad
+permanente. Para actualizar pgvector se debe verificar y actualizar también
+este identificador de CI; no se selecciona automáticamente una imagen distinta.
+
 Comprobar CI antes de publicar en la VPS; conservar respaldo cifrado e
 imágenes anteriores. El despliegue usa el script existente y conserva el
 volumen PostgreSQL. Una nueva publicación reinicia el worker: la ventana de

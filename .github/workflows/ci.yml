@@ -58,7 +58,9 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: pgvector/pgvector:0.8.6-pg18-bookworm
+        # Same pgvector 0.8.6 / PostgreSQL 18 image, verified against Docker Hub.
+        # Pin linux/amd64 content and use the public cache to avoid runner pull limits.
+        image: mirror.gcr.io/pgvector/pgvector@sha256:1d50c689b0a6511b9ea0a15615281c81a59fd04a08eb35057ec8646fb3a2118a
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -127,7 +129,8 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: pgvector/pgvector:0.8.6-pg18-bookworm
+        # Same pinned image as the inbound PostgreSQL integration job.
+        image: mirror.gcr.io/pgvector/pgvector@sha256:1d50c689b0a6511b9ea0a15615281c81a59fd04a08eb35057ec8646fb3a2118a
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
