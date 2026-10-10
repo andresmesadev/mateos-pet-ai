@@ -1,7 +1,7 @@
 # Matriz de agenda para beta cerrada — ejecución interna
 
 **Fecha:** 2026-09-26
-**Estado:** en curso, con la prueba de concurrencia como siguiente comprobación. Se validaron recorridos reales de veterinaria, peluquería, domingo, festivo, rechazo fuera de horario veterinario y cancelación.
+**Estado:** en curso: negación, recogida y reprogramación como siguientes comprobaciones. Se validaron recorridos reales de veterinaria, peluquería, domingo, festivo, rechazo fuera de horario veterinario, conflicto entre dos propuestas y cancelación. Ver [pruebas de seguridad 2.46.2](ASSISTANT_BOOKING_SAFETY_TRIAL_20261010.md).
 
 **Incidente de la prueba del 9 de octubre:** se encontraron reutilización de
 un servicio y fecha antiguos, confusión dueño/mascota y un saludo ante

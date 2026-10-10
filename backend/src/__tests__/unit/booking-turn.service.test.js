@@ -67,6 +67,12 @@ test("pickup at home is recognized without interpreting a negative answer as pic
   expect(detectDomicilioIntent("Yo lo llevo")).toBe(false);
   expect(detectDomicilioIntent("No en casa, yo lo llevo")).toBe(false);
 });
+test.each(["Quiero que lo recojan en casa", "Que la recojan", "Necesito recogida", "Lo pueden recoger", "Recogida a domicilio"])("recognizes an explicit pickup request: %s", text => {
+  expect(detectDomicilioIntent(text)).toBe(true);
+});
+test.each(["Sin recogida", "No quiero recogida", "No quiero que lo recojan, yo lo llevo", "No necesito domicilio", "No lo recojan"])("does not turn an explicit refusal into pickup: %s", text => {
+  expect(detectDomicilioIntent(text)).toBe(false);
+});
 
 test("two independent clients cannot change each other's prepared session", () => {
   const second = { ...oldSession, client_name: "Persona B", pet_name: "Mascota B", scheduling_date_key: "2026-10-10" };

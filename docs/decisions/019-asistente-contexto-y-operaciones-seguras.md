@@ -51,4 +51,8 @@ El operador respondió «Si acepto a las 11» al turno ofrecido; el adaptador co
 
 Este ajuste cumple el contrato de confirmación ya aprobado: no cambia horarios, capacidad, secuencia, permisos, persistencia ni esquema físico. Regresiones: aceptación con hora, aceptación con fecha y hora, hora distinta y rechazo sin reserva. La prueba de dirección y reprogramación continúa después de publicar la corrección.
 
+La continuación real detectó que «Quiero que lo recojan en casa» no era reconocido: el detector incluía «recoger»/«recogen», pero omitía «recojan» y «recogida». Se añaden esas formas y se excluyen rechazos explícitos como «Sin recogida»/«No quiero que lo recojan», antes de buscar palabras afirmativas. Se mantiene la pregunta de dirección y el consentimiento final; no se agrega una modalidad de negocio ni se guarda una cita con solo elegir recogida. Regresión del recorrido completo con las frases reales y pruebas del detector con solicitudes/rechazos.
+
+La negación en la revisión final no guardó citas, pero reofreció el turno. El reconocimiento explícito de «No confirmo» se aplica también en `awaiting_confirmation`, conservando revisión/dirección y sin reiniciar la oferta. Una solicitud nueva puede reemplazar ese borrador conforme a las reglas ya aprobadas.
+
 Regresiones del incidente y negativos de confirmación; propiedad de cita, reprogramación fallida, selección/corrección, turno vencido, lotes mixtos, escritura ordenada, control humano, envío incierto y coste por mensaje. Suite completa, lint y revisión del diff; evidencia real y pendientes de prueba WhatsApp en el informe de ejecución. Evaluar versión antes de cierre/publicación.

@@ -108,8 +108,10 @@ const parseGroomingService = (text) => {
 // Returns true (wants pickup), false (will bring pet), or null (unclear)
 const detectDomicilioIntent = (text) => {
   const n = normalizeText(text);
+  // Match refusal before the pickup words it contains.
+  if (/\b(?:sin|no(?:\s+(?:quiero|necesito|prefiero))?(?:\s+que)?(?:\s+(?:lo|la|me))?)\s+(?:recoger(?:lo|la)?|recogen|recogida|recojan|domicilio)\b/.test(n)) return false;
   const wantsPickup =
-    n.includes("recoger") || n.includes("recogen") || n.includes("pasen") ||
+    n.includes("recoger") || n.includes("recogen") || n.includes("recojan") || n.includes("recogida") || n.includes("pasen") ||
     n.includes("domicilio") || n.includes("traigan") || n.includes("manden") ||
     n.includes("mando") || n.includes("enviar") || /^en (?:mi )?casa[.!?\s]*$/.test(n);
   const willBring =

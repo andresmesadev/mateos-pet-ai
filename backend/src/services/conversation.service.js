@@ -313,20 +313,21 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
   if (petChanged || slotChanged || isAvailabilityQuestion(userMessage)) {
     if ([STEPS.AWAITING_GROOMING_SLOT_CONFIRM, STEPS.AWAITING_DOMICILIO, STEPS.AWAITING_DOMICILIO_ADDRESS].includes(currentStep)) currentStep = null;
   }
+  if ([STEPS.AWAITING_GROOMING_SLOT_CONFIRM, STEPS.AWAITING_CONFIRMATION].includes(currentStep) &&
+      /^no\s+(?:confirm\w*|acept\w*|autoriz\w*)\b/.test(normalizeText(userMessage))) {
+    return {
+      reply: "De acuerdo, no he agendado la cita. Si quieres otro día, dime cuál. 🐾",
+      step: currentStep,
+      sessionPatch: {},
+      forceRuleReply: true,
+    };
+  }
   if (currentStep === STEPS.AWAITING_GROOMING_SLOT_CONFIRM) {
     if (isConfirmationMessage(userMessage)) {
       return {
         reply: "¡Perfecto! ¿Lo traes tú al salón o prefieres que lo recojamos en casa? 🏠",
         step: STEPS.AWAITING_DOMICILIO,
         sessionPatch: {},
-      };
-    }
-    if (/^no\s+(?:confirm\w*|acept\w*|autoriz\w*)\b/.test(normalizeText(userMessage))) {
-      return {
-        reply: "De acuerdo, no he agendado la cita. Si quieres otro día, dime cuál. 🐾",
-        step: STEPS.AWAITING_GROOMING_SLOT_CONFIRM,
-        sessionPatch: {},
-        forceRuleReply: true,
       };
     }
     const nextSlot = await offerNextGroomingSlot(session.pet_name, now, tenantId);

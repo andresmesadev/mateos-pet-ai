@@ -77,9 +77,10 @@ test("a new grooming request without the word cita cannot reuse an unregistered 
 });
 test("grooming pickup is reviewed first and only saved after explicit final consent", async () => {
   start(grooming);
-  await processIncomingMessage(body("Sí"));
+  await processIncomingMessage(body("Si acepto a las 11"));
   expect(memory.getSession(PHONE, "tenant").step).toBe(STEPS.AWAITING_DOMICILIO);
-  await processIncomingMessage(body("Recoger en casa"));
+  await processIncomingMessage(body("Quiero que lo recojan en casa"));
+  expect(memory.getSession(PHONE, "tenant").step).toBe(STEPS.AWAITING_DOMICILIO_ADDRESS);
   const unclear = await processIncomingMessage(body("No sé todavía"));
   expect(unclear.session.step).toBe(STEPS.AWAITING_DOMICILIO_ADDRESS);
   const review = await processIncomingMessage(body("Calle 10 # 20-30"));
@@ -95,6 +96,15 @@ test.each(["No confirmo", "Necesito saber cuánto cuesta", "No estoy de acuerdo"
   const answer = await processIncomingMessage(body(text));
   expect(appointments.createAppointment).not.toHaveBeenCalled();
   expect(answer.session.pet_name).toBe("Matías");
+});
+test("refusing the final pickup review preserves it without creating a booking or repeating the slot offer", async () => {
+  start({ ...grooming, step: STEPS.AWAITING_CONFIRMATION, domicilio: true, domicilio_address: "Calle 10 #20-30" });
+  const answer = await processIncomingMessage(body("No confirmo la cita"));
+  expect(answer.session.step).toBe(STEPS.AWAITING_CONFIRMATION);
+  expect(answer.session.domicilio_address).toBe("Calle 10 #20-30");
+  expect(answer.reply).toContain("no he agendado");
+  expect(answer.reply).not.toContain("¿Te queda bien");
+  expect(appointments.createAppointment).not.toHaveBeenCalled();
 });
 test("correction to another pet invalidates proposal and asks species, never silently assumes history", async () => {
   start({ ...grooming, pet_name: "Akiles" });

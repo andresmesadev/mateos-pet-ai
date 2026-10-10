@@ -30,6 +30,8 @@ No cambia disponibilidad, capacidad ni persistencia de reservas; las seis prueba
 
 La observación de salud comenzó el **10 de octubre a las 15:31:58 de Colombia**, cada cinco minutos, en `.cache/stability/ventana-2.46.1-20261010T203158Z.jsonl` (PID inicial 24644). Primera muestra correcta. Final previsto: **12 de octubre a las 15:31:58**, si el equipo y proceso permanecen disponibles. Estado `incomplete`: no se declara cumplida la ventana de 48 horas.
 
+**Seguimiento posterior:** se detuvo el proceso identificado antes de desplegar 2.46.2 por el bucle detectado al aceptar la hora de peluquería. Archivo conservado con diez muestras, 45 minutos, cero fallos/huecos/reinicios; ventana incompleta. La observación vigente y las nuevas pruebas están en el [registro de tres casos](../operations/ASSISTANT_BOOKING_SAFETY_TRIAL_20261010.md).
+
 El responsable confirmó que dispone de dos números verificados. Se preparó una prueba de veterinaria para el **martes 13 de octubre a las 12:00**, comprobado libre: Akiles en un chat y BetaDos como nombre sugerido en el otro. El segundo operador utilizó realmente **Benji**, mascota registrada como perro.
 
 Propuestas reales: Akiles a las **15:35:41** y Benji a las **15:36:26**. Cada chat conserva su propietario y mascota; ambas sesiones quedan en `awaiting_confirmation`, fecha `2026-10-13`, hora `12`, especie `dog`. Los mensajes muestran consulta veterinaria y aclaran «Aún no está guardada». La base no tiene citas en ese turno. El segundo mensaje fue «Quiero veterinaria para benji…», sin «cita»: la petición nueva se reconoce; al ser Benji una mascota registrada, no se repregunta su especie. Esto no prueba aún el caso de mascota nueva sin especie.
