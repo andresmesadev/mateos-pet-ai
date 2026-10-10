@@ -7,12 +7,14 @@
 un servicio y fecha antiguos, confusión dueño/mascota y un saludo ante
 agradecimiento. Los 15 trabajos terminaron, pero las citas quedaron en días
 distintos; el conflicto por el mismo turno no quedó comprobado. Reparación
-local y repetición real pendientes de publicar; ver
+local publicada después; el conflicto de turno todavía requiere repetición real. Ver
 [informe del incidente](WHATSAPP_CONCURRENT_TRIAL_INCIDENT_20261009.md).
 
 **Seguimiento 2026-10-09:** el operador confirma el trabajo previo de agenda y solicita centrar el siguiente recorrido en dos personas conversando al mismo tiempo. Los festivos y el rechazo fuera de horario veterinario ya tienen evidencia real más abajo; no se presentan como pruebas nuevas pendientes. La tabla conserva la cobertura específica documentada de cada servicio, sin atribuir resultados a escenarios que no figuran en el registro.
 
 ### Próxima prueba: dos conversaciones y un mismo turno
+
+**Seguimiento 2026-10-10, 2.46.1:** código publicado y desplegado, CI aprobado. Akiles y Benji recibieron propuestas correctas de veterinaria para el martes 13 a las 12:00, con propietarios separados. Confirmaciones con 19 segundos de diferencia: una cita de Benji y rechazo por ocupación a Akiles, verificados en BD y proxy autenticado del calendario. No certifica llegada exactamente simultánea ni concurrencia entre procesos. Benji cancelado después de consentimiento explícito; turno disponible. Matías sin especie produjo pregunta «¿perro o gato?»; tras «Perro», ofreció peluquería el martes a las 11 sin crear cita. Ocho respuestas con recibo `read`, 71 trabajos entrantes completos, cero leases vencidos. Ver [evidencia y límites](../history/RELEASE_2_46_1_ASSISTANT_TRIAL_20261010.md). El paso 8 general sigue abierto para los escenarios adicionales.
 
 **Adición aprobada 2026-10-10:** repetir el caso Akiles/veterinaria + Matías/peluquería; preguntar por hoy debe conservar mascota y servicio. Probar peluquería en una tarde con huecos vencidos: permite el primer turno aún reservable y sigue rechazando saltos sobre huecos futuros. En ambas agendas, negación no reserva; cancelación selecciona cita y confirma; reprogramación fallida conserva la original. Peluquería con recogida muestra dirección y espera una aceptación final. Esta adición define pruebas pendientes, no resultados de WhatsApp.
 

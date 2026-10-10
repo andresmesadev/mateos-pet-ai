@@ -41,27 +41,29 @@ históricas y no describen la versión activa.
 | 5 | Implementar backup y restauración | Backup cifrado y periódico, retención definida y restauración ensayada. | ✅ Copia cifrada independiente, restauración local y tarea diaria comprobadas el 2026-10-09; vigilar continuidad del equipo del operador |
 | 6 | Configurar WhatsApp de producción | Número empresarial real registrado, app publicada y flujo entrante/saliente verificado. | Aplazado por decisión del operador; se conserva el número de prueba de Meta |
 | 7 | Completar documentación legal del piloto | Política, términos y acuerdo de piloto completados y revisados. | Pendiente |
-| 8 | Ejecutar matriz integral de agenda | Casos de veterinaria, peluquería, domingos, festivos, conflictos, cancelación y fallos aprobados. | 🔴 Abierto: 2.46.0 publicada y desplegada; CI, 1.420 pruebas y seis tests reales de concurrencia/autorización en PostgreSQL aprobados. Falta matriz real de WhatsApp, incluido conflicto por el mismo turno. Ver [publicación](../history/RELEASE_2_46_0_ASSISTANT_20261010.md) y [pendientes](VIRTUAL_ASSISTANT_IMPROVEMENTS_EXECUTION_20261010.md) |
-| 9 | Ejecutar período de estabilización | 48 horas sin errores del worker ni pérdida de mensajes; métricas y cola nominales. | 🧪 Reiniciada para 2.46.0 el 2026-10-10 a las 15:19:48 de Colombia; falta completar ventana y revisar cola, entregas y carga. La ventana anterior quedó incompleta, con un hueco |
+| 8 | Ejecutar matriz integral de agenda | Casos de veterinaria, peluquería, domingos, festivos, conflictos, cancelación y fallos aprobados. | 🔴 Abierto: 2.46.1 publicada y desplegada; CI, 1.421 pruebas y seis tests reales de PostgreSQL aprobados. WhatsApp: propuestas Akiles/Benji aisladas, una reserva y rechazo al segundo (19 s de diferencia), cancelación/liberación, especie explícita de Matías. Faltan los escenarios adicionales. Ver [evidencia y límites](../history/RELEASE_2_46_1_ASSISTANT_TRIAL_20261010.md) y [pendientes](VIRTUAL_ASSISTANT_IMPROVEMENTS_EXECUTION_20261010.md) |
+| 9 | Ejecutar período de estabilización | 48 horas sin errores del worker ni pérdida de mensajes; métricas y cola nominales. | 🧪 Reiniciada para 2.46.1 el 2026-10-10 a las 15:31:58 de Colombia; falta completar ventana y revisar cola, entregas y carga. Las ventanas anteriores quedaron incompletas |
 | 10 | Abrir cohorte inicial | Un establecimiento, alcance funcional explícito, 5–10 usuarios, soporte y criterio de rollback definidos. | Pendiente |
 
 ## Condiciones de salida a beta
 
 ### Siguiente trabajo recomendado — 10 de octubre de 2026
 
-**Seguimiento de publicación, 15:19 de Colombia:** `2.46.0` quedó desplegada
+**Seguimiento de publicación, 15:30 de Colombia:** `2.46.1` quedó desplegada
 después de CI aprobado, respaldo cifrado y prueba real de bloqueos de
 PostgreSQL. Salud y smoke HTTPS correctos. Se reinició la observación de 48
-horas y se solicitó la prueba real Matías/Akiles. Ver
-[release](../history/RELEASE_2_46_0_ASSISTANT_20261010.md). Los pasos 2, 8 y 9
+horas. La prueba real Matías/Akiles en 2.46.0 mantuvo mascota y servicio;
+detectó una especie antigua y motivó 2.46.1. Ver
+[release y prueba simultánea pendiente](../history/RELEASE_2_46_1_ASSISTANT_TRIAL_20261010.md). Los pasos 2, 8 y 9
 permanecen abiertos; el número de Meta sigue siendo el de prueba.
 
-**Seguimiento posterior a la aprobación de las mejoras:** la candidata local
+**Seguimiento inicial posterior a la aprobación de las mejoras:** la candidata local
 `2.46.0` reorganiza el asistente y cubre los hallazgos en el alcance indicado
 en el [informe de ejecución](VIRTUAL_ASSISTANT_IMPROVEMENTS_EXECUTION_20261010.md).
 Pasaron 180 suites y 1.420 pruebas. Los párrafos siguientes conservan la
 evidencia previa de `2.45.2`; no describen la implementación local posterior.
-Faltan publicación, matriz real, recibos de entrega, carga y estabilización.
+La publicación se completó y dos respuestas reales se relacionaron con recibos
+`sent/read`. Faltan completar matriz real, carga y estabilización.
 No marcar completos los pasos 2, 8 o 9 por este resultado automatizado.
 
 La versión 2.45.2 continúa saludable. Hasta las 11:43 de Colombia se

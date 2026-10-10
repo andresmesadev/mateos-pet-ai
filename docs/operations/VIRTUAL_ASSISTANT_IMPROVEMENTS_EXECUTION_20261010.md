@@ -1,10 +1,12 @@
 # Asistente virtual: mejoras implementadas y lo que falta
 
-**Fecha:** 10 de octubre de 2026. **Estado actualizado:** `2.46.0` publicada y desplegada en el commit de implementación `1d55f3e`, CI aprobado. Ver [release y comprobaciones de la VPS](../history/RELEASE_2_46_0_ASSISTANT_20261010.md). **Base de la auditoría:** `2.45.2`, commit `ac6709b`. El paso 8 y la salida a beta externa siguen abiertos. Las secciones siguientes conservan también la evidencia inicial y señalan las validaciones reales pendientes.
+**Fecha:** 10 de octubre de 2026. **Estado actualizado:** `2.46.1` publicada y desplegada en el commit de código `157c735`, CI aprobado. Ver [release inicial](../history/RELEASE_2_46_0_ASSISTANT_20261010.md) y [corrección, VPS y pruebas pendientes](../history/RELEASE_2_46_1_ASSISTANT_TRIAL_20261010.md). **Base de la auditoría:** `2.45.2`, commit `ac6709b`. El paso 8 y la salida a beta externa siguen abiertos. Las secciones siguientes conservan también la evidencia inicial y señalan las validaciones reales pendientes.
 
 **Continuación autorizada:** el responsable pidió completar la publicación y el despliegue después de este informe. Se añadió `scripts/assistant-agenda-postgres.test.cjs`, incorporado automáticamente al job existente `administration-postgres`. La prueba real detectó y permitió corregir la deserialización del resultado `void` del advisory lock de reprogramación; se convirtió a texto, como en la reserva existente. Las cinco comprobaciones más su contenedor pasan (6 tests, 0 fallos): reserva concurrente, destino ocupado, autorización, dos movimientos concurrentes y reserva compitiendo con movimiento. Los fixtures se eliminan por UUID y marcadores propios; no se envían mensajes ni eventos de Calendar.
 
 La ejecución final del backend después de esta corrección pasó 180 suites / 1.420 tests en 30,874 s; lint terminó con exit 0. La limitación anterior sobre no haber ensayado el movimiento con PostgreSQL queda superada por esta evidencia local y CI, aunque sigue pendiente el recorrido simultáneo desde WhatsApp. El estado de publicación y comprobación de la VPS quedó registrado en el informe de release; las secciones siguientes conservan el alcance del informe inicial.
+
+**Seguimiento de 2.46.1:** 180 suites / 1.421 tests y cuatro jobs CI aprobados. Recorrido real Akiles/Benji: propuestas separadas y una única cita, rechazo al segundo con confirmaciones separadas por 19 segundos; cita de prueba cancelada y turno liberado. Matías sin especie recibió pregunta explícita antes de ofrecer peluquería. Ocho respuestas con recibos de lectura, cola completa y sin leases vencidos. Esta evidencia supera los pendientes de esas comprobaciones concretas, no certifica llegada simultánea, carga ni toda la matriz. Ver el informe de seguimiento para resultados y límites.
 
 ## 1. Respuesta a la pregunta del proyecto
 
@@ -82,7 +84,7 @@ No se eliminaron historias médicas, registros de clientes/mascotas, CRUD clíni
 | Hallazgo | Estado de esta entrega |
 | --- | --- |
 | AV01 — aceptación de negaciones | Implementado: protocolo común y regresiones de rechazo/duda/corrección. |
-| AV02 — cancelación/reprogramación insegura | Implementado: selección autorizada, consentimiento y movimiento transaccional; falta ensayo concurrente con PostgreSQL real. |
+| AV02 — cancelación/reprogramación insegura | Implementado: selección autorizada, consentimiento y movimiento transaccional; ensayo concurrente con PostgreSQL real aprobado localmente y en CI. Falta recorrido simultáneo desde WhatsApp. |
 | AV03 — disponibilidad confundida con citas existentes | Implementado: se conserva el borrador; regresión Matías/Akiles en el recorrido real del adaptador. |
 | AV04 — corrección de mascota en peluquería | Implementado: invalida propuesta y datos asociados. |
 | AV05 — dirección insuficiente | Implementado: validación y revisión final. No valida geográficamente la dirección. |
@@ -96,9 +98,9 @@ No se eliminaron historias médicas, registros de clientes/mascotas, CRUD clíni
 | AV13 — fallo de análisis/saludo pierde el objetivo | Implementado: conservación del paso vigente. |
 | AV14 — primer mensaje no soportado oculta hermanos | Implementado: normalización y encolado por mensaje. |
 | AV15 — último duplicado descarta respuestas previas | Implementado: conservación de respuestas ya preparadas. |
-| AV16 — envío aceptado seguido de fallo duplica | Contenido: conserva ID y detiene reintentos aceptados/inciertos; faltan recibos reales y simulación de caída completa. |
+| AV16 — envío aceptado seguido de fallo duplica | Contenido: conserva ID y detiene reintentos aceptados/inciertos; recibos reales `sent/read` relacionados en dos mensajes de 2.46.0. Falta simulación de caída completa. |
 | AV17 — worker global serial bloquea otros chats | Pendiente de medición. No se añadieron workers concurrentes ni soporte de varias instancias. |
-| AV18 — llamadas innecesarias | Reducidas; falta medir tokens/latencia reales y comparar con la base. |
+| AV18 — llamadas innecesarias | Reducidas; dos mensajes reales medidos en 2.46.0. Faltan lote representativo y comparación con la base; no se declara P95 ni porcentaje de ahorro. |
 | AV19 — recuperación sin umbral/datos como instrucciones | Implementado el filtro y separación; falta calibración y evaluación adversarial completa. |
 | AV20 — historial y caché sin límites | Implementado: lectura acotada, vencimiento y capacidad. |
 | AV21 — escritura clínica pasiva en mascota incorrecta | Retirada del recorrido de recepción; no se borra información histórica. |
@@ -106,7 +108,7 @@ No se eliminaron historias médicas, registros de clientes/mascotas, CRUD clíni
 | AV23 — identidad humana falsa/información inventada | Corregido el prompt y las fuentes de catálogo/horarios; falta evaluar preguntas reales y cotización. |
 | AV24 — simulador duplicado/helpers muertos | Retirados o sustituidos; grep de consumidores ejecutado sobre el repositorio. |
 
-## 6. Evidencia final de verificación
+## 6. Evidencia inicial de verificación local (2.46.0)
 
 Backend ejecutado con **Node `v24.15.0`**, desde `backend/`:
 
@@ -142,13 +144,13 @@ Las pruebas automatizadas de conversación usan el motor/adaptador real, con Ope
 
 ## 7. Qué falta y en qué orden seguir
 
-1. **Publicar la candidata de forma controlada:** revisar diff, crear commit y push, comprobar CI, desplegar y verificar versión, salud, worker y rollback. Esta entrega todavía está local; no atribuirle resultados de la VPS.
+1. **Publicación completada:** commit y push, CI aprobado y despliegue de 2.46.0 y 2.46.1; versión, salud, worker y recuperación documentados en sus informes. Las pruebas reales y la estabilización continúan abiertas.
 2. **Completar el paso 8 con el número de prueba de Meta:** Matías/Akiles, selección de otra mascota, negativos, cambio de datos después de propuesta, recogida con dirección, cancelación ambigua y reprogramación fallida. Ver la [matriz](CLOSED_BETA_AGENDA_MATRIX_20260926.md).
-3. **Probar competencia por el mismo turno con PostgreSQL real:** dos clientes distintos, una sola reserva válida, rechazo claro al segundo; reprogramación a destino ocupado conserva fecha/ID original. Comprobar dashboard y BD, además del texto recibido.
+3. **Completar competencia por el mismo turno desde WhatsApp:** PostgreSQL real ya aprobado; falta verificar dos clientes distintos con el modelo y transporte reales, una sola reserva válida y rechazo claro al segundo. Comprobar dashboard y BD, además del texto recibido.
 4. **Verificar transporte y atención humana:** unir el ID saliente con `delivered/read/failed`, separar esos registros de trabajos entrantes y ensayar el procedimiento de `needs_review`. Confirmar liberación del control humano y revisión real de adjuntos.
 5. **Medir un lote representativo de conversaciones:** éxito por escenario, turnos innecesarios, confusión persona/mascota/servicio, mensajes perdidos o duplicados, tiempo de respuesta P50/P95, espera de cola y tokens. Si un chat lento perjudica a otros, diseñar concurrencia acotada por conversación sobre la infraestructura existente antes de ampliar el piloto.
 6. **Reiniciar la ventana de estabilización para la versión desplegada:** 48 horas, observar capacidad de PostgreSQL en la VPS, entregas, cola, fallos y continuidad del respaldo. Después completar documentación/acuerdo del piloto y decidir la cohorte inicial.
 
 **Criterio de calidad:** cero operaciones destructivas o reservas sin consentimiento en la matriz; cero mezcla de cliente, mascota o establecimiento; ninguna pérdida de la cita original en los fallos ensayados; evidencia de cada resultado en agenda y transporte. Registrar fallos del modelo real como regresiones antes de ampliar usuarios. Los umbrales de latencia y consumo se fijan con las mediciones del piloto, no con cifras inventadas.
 
-**Decisión actual:** apto para revisar y publicar como candidata a nuevas pruebas internas; aún no se certifica beta externa. Se conserva PostgreSQL/Docker en la VPS y el número de prueba de Meta conforme a las decisiones del proyecto.
+**Decisión actual:** candidata publicada y desplegada para nuevas pruebas internas; aún no se certifica beta externa. Se conserva PostgreSQL/Docker en la VPS y el número de prueba de Meta conforme a las decisiones del proyecto.

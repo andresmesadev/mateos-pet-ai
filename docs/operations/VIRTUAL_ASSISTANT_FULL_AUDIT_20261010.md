@@ -1,6 +1,6 @@
 # Auditoría integral del asistente virtual — 10 de octubre de 2026
 
-**Versión inspeccionada:** 2.45.2, commit `ac6709b`. **Estado de esta evidencia:** auditoría de la base publicada. La implementación local posterior y los pendientes están en [informe de ejecución](VIRTUAL_ASSISTANT_IMPROVEMENTS_EXECUTION_20261010.md); no está desplegada. **Decisión para beta:** continuar validación interna supervisada; paso 8 abierto.
+**Versión inspeccionada:** 2.45.2, commit `ac6709b`. **Estado de esta evidencia:** auditoría de la base publicada. La implementación posterior, su publicación y los pendientes están en [informe de ejecución](VIRTUAL_ASSISTANT_IMPROVEMENTS_EXECUTION_20261010.md). Los hallazgos y referencias de código de este documento describen la base auditada. **Decisión para beta:** continuar validación interna supervisada; paso 8 abierto.
 
 ## 1. Resumen para el responsable del proyecto
 

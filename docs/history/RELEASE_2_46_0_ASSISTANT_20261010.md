@@ -46,8 +46,8 @@ Nueva ventana de 2.46.0:
 
 - Archivo local `.cache/stability/ventana-2.46.0-20261010T201948Z.jsonl`, PID inicial 33648.
 - Inicio: **10 de octubre a las 15:19:48 de Colombia**. Muestras cada cinco minutos.
-- Final previsto: **12 de octubre a las 15:19:48**, si el equipo y proceso permanecen disponibles.
-- Primera muestra correcta, versión única 2.46.0. Estado actual: `incomplete`.
+- Se detuvo el proceso identificado antes del despliegue de 2.46.1; se preservó el archivo con dos muestras, cinco minutos de cobertura, cero fallos y cero huecos.
+- Estado: `incomplete`; sustituida por la ventana de 2.46.1 descrita en el [seguimiento](RELEASE_2_46_1_ASSISTANT_TRIAL_20261010.md). No satisface 48 horas.
 
 Esta observación solo mide salud pública; no reemplaza probar cola, entregas, carga ni comprensión del modelo.
 
@@ -58,6 +58,8 @@ El operador envió «Quiero peluquería para Matías el martes 13 de octubre». 
 Después envió «Para hoy ya no hay?». A las 15:22:29 el asistente ofreció hoy a las 16:00 para Matías; conservó peluquería y no listó la cita veterinaria de Akiles. Es una comprobación real del incidente y de que el hueco vencido de las 11:00 no bloquea el turno futuro.
 
 La prueba también detectó un dato antiguo: la sesión conservaba `pet_type=other`, aunque solo Akiles estaba registrado y Matías no tenía especie confirmada. La detección de petición nueva dependía de la palabra «cita» y no reconocía «quiero peluquería». Se preparó la corrección `2.46.1` y una regresión del recorrido real para preguntar la especie antes de ofrecer horario; ver el [seguimiento](RELEASE_2_46_1_ASSISTANT_TRIAL_20261010.md). No se registró mascota ni cita nueva en estas dos pruebas.
+
+Medición inicial de esos dos mensajes: procesamiento del worker 3.964 ms y 2.320 ms; una extracción de IA por mensaje, con 1.708 y 1.700 tokens totales respectivamente. No hubo reescritura adicional ni búsqueda semántica para estos turnos. Son dos muestras del procesamiento, no tiempo completo de espera en cola/lectura del cliente ni un P95 representativo; no se extrapola coste ni rendimiento bajo carga.
 
 Siguen pendientes: regreso a disponibilidad durante ese borrador, negativos, correcciones, recogida, cancelación ambigua, reprogramación fallida desde WhatsApp, dos clientes disputando un turno, recibos reales de entrega, atención humana/adjuntos y medición de tiempo de respuesta/tokens. No confundir la concurrencia comprobada en PostgreSQL con un recorrido completo por WhatsApp.
 
