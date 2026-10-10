@@ -45,4 +45,10 @@ La autorización para implementar las propuestas incluye aplicar secuencia sobre
 
 ## Validación y cierre
 
+### Ajuste de aceptación explícita del turno — 10 de octubre, prueba real
+
+El operador respondió «Si acepto a las 11» al turno ofrecido; el adaptador conservó el horario, pero las reglas de conversación reiniciaron el paso por encontrar cualquier expresión horaria. Repetir el dato ya propuesto no es cambiarlo. En los pasos de peluquería se compara la fecha/hora normalizada con la propuesta vigente; solo un valor distinto, cambio de mascota o pregunta de disponibilidad invalida ese paso. La aceptación del mismo turno continúa a modalidad de atención, sin reservar todavía. Una negación explícita reconoce que no se agendó y conserva el borrador para una posible corrección posterior.
+
+Este ajuste cumple el contrato de confirmación ya aprobado: no cambia horarios, capacidad, secuencia, permisos, persistencia ni esquema físico. Regresiones: aceptación con hora, aceptación con fecha y hora, hora distinta y rechazo sin reserva. La prueba de dirección y reprogramación continúa después de publicar la corrección.
+
 Regresiones del incidente y negativos de confirmación; propiedad de cita, reprogramación fallida, selección/corrección, turno vencido, lotes mixtos, escritura ordenada, control humano, envío incierto y coste por mensaje. Suite completa, lint y revisión del diff; evidencia real y pendientes de prueba WhatsApp en el informe de ejecución. Evaluar versión antes de cierre/publicación.

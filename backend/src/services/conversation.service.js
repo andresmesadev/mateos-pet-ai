@@ -307,7 +307,10 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
   // 3a. Usuario responde al slot ofrecido
   const petChanged = analysis.pet_name && normalizeText(analysis.pet_name) !== normalizeText(session.pet_name || "");
   const freshTerms = scheduling.extractExplicitSchedulingTerms(userMessage, now);
-  if (petChanged || freshTerms.dateText || freshTerms.timeText || isAvailabilityQuestion(userMessage)) {
+  // Repeating the offered date/hour while accepting is not a new proposal.
+  const slotChanged = (freshTerms.dateText && scheduling.parseDateToKey(freshTerms.dateText, now) !== session.scheduling_date_key) ||
+    (freshTerms.timeText && scheduling.parseTimeToHour(freshTerms.timeText) !== Number(session.scheduling_hour));
+  if (petChanged || slotChanged || isAvailabilityQuestion(userMessage)) {
     if ([STEPS.AWAITING_GROOMING_SLOT_CONFIRM, STEPS.AWAITING_DOMICILIO, STEPS.AWAITING_DOMICILIO_ADDRESS].includes(currentStep)) currentStep = null;
   }
   if (currentStep === STEPS.AWAITING_GROOMING_SLOT_CONFIRM) {
@@ -316,6 +319,14 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
         reply: "¡Perfecto! ¿Lo traes tú al salón o prefieres que lo recojamos en casa? 🏠",
         step: STEPS.AWAITING_DOMICILIO,
         sessionPatch: {},
+      };
+    }
+    if (/^no\s+(?:confirm\w*|acept\w*|autoriz\w*)\b/.test(normalizeText(userMessage))) {
+      return {
+        reply: "De acuerdo, no he agendado la cita. Si quieres otro día, dime cuál. 🐾",
+        step: STEPS.AWAITING_GROOMING_SLOT_CONFIRM,
+        sessionPatch: {},
+        forceRuleReply: true,
       };
     }
     const nextSlot = await offerNextGroomingSlot(session.pet_name, now, tenantId);

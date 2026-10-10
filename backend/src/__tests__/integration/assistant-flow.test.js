@@ -30,6 +30,30 @@ beforeEach(() => {
 });
 afterEach(() => jest.useRealTimers());
 const grooming = { step: STEPS.AWAITING_GROOMING_SLOT_CONFIRM, pet_name: "Matías", pet_type: "dog", requested_service: "bath_grooming", scheduling_date_key: "2026-10-13", scheduling_hour: 11 };
+test.each(["Si acepto a las 11", "Sí, acepto las 11:00", "Sí, acepto el martes 13 de octubre a las 11"])("accepting the offered slot with its time does not repeat the offer: %s", async text => {
+  start(grooming);
+  const answer = await processIncomingMessage(body(text));
+  expect(answer.session.step).toBe(STEPS.AWAITING_DOMICILIO);
+  expect(answer.session.scheduling_date_key).toBe("2026-10-13");
+  expect(answer.session.scheduling_hour).toBe(11);
+  expect(answer.reply).toMatch(/traes|recojamos/i);
+  expect(appointments.createAppointment).not.toHaveBeenCalled();
+});
+test("accepting a different hour must not bypass the grooming slot proposal", async () => {
+  start(grooming);
+  const answer = await processIncomingMessage(body("Sí, acepto a las 12"));
+  expect(answer.session.step).not.toBe(STEPS.AWAITING_DOMICILIO);
+  expect(answer.session.step).not.toBe(STEPS.COMPLETED);
+  expect(appointments.createAppointment).not.toHaveBeenCalled();
+});
+test("an explicit refusal of the grooming offer is acknowledged without repeating it", async () => {
+  start(grooming);
+  const answer = await processIncomingMessage(body("No confirmo la cita"));
+  expect(answer.session.step).toBe(STEPS.AWAITING_GROOMING_SLOT_CONFIRM);
+  expect(answer.reply).toContain("no he agendado");
+  expect(answer.reply).not.toContain("¿Te queda bien");
+  expect(appointments.createAppointment).not.toHaveBeenCalled();
+});
 test("actual incident: availability question keeps Matías grooming draft, not Akiles vet appointments", async () => {
   start(grooming);
   ai.analyzeMessage.mockResolvedValue({ intent: "query_appointments" });
