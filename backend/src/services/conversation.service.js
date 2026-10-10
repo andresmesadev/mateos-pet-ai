@@ -547,7 +547,10 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
       });
 
       if (vet) {
-        return { reply: vet.step === STEPS.AWAITING_CONFIRMATION ? buildBookingReview({ ...session, ...analysis, ...vet.sessionPatch }) : vet.reply, step: vet.step, sessionPatch: vet.sessionPatch || {}, forceRuleReply: true };
+        const reply = vet.step === STEPS.AWAITING_CONFIRMATION
+          ? buildBookingReview({ ...session, ...analysis, ...vet.sessionPatch })
+          : `${vet.reply}${session.reschedule_appointment_id ? "\n\nTu cita original sigue reservada." : ""}`;
+        return { reply, step: vet.step, sessionPatch: vet.sessionPatch || {}, forceRuleReply: true };
       }
 
       return {

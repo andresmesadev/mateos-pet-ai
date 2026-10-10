@@ -749,7 +749,11 @@ const processSingleIncomingMessage = async (parsed) => {
 
   const mergedAnalysis = mergeSessionData(previous, analysis);
   if (previous.requested_service && !require("./assistant-protocol.service").classifyManagementRequest(parsed.text, analysis?.intent, previous)) {
-    if (["query_appointments", "greeting"].includes(mergedAnalysis.intent)) mergedAnalysis.intent = "schedule_appointment";
+    // Once the original appointment is selected, a destination is input to
+    // availability, not a new management command suggested by the model.
+    if (["query_appointments", "greeting"].includes(mergedAnalysis.intent) ||
+        (previous.reschedule_appointment_id && (explicitTerms.dateText || explicitTerms.timeText) &&
+          mergedAnalysis.intent === "reschedule_appointment")) mergedAnalysis.intent = "schedule_appointment";
   }
   // Se conserva en la respuesta interna por compatibilidad; la mascota se
   // persiste durante la confirmación de la cita, no durante la extracción.

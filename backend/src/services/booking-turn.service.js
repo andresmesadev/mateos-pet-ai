@@ -83,7 +83,7 @@ const selectCurrentPet = (previous, analysis, text) => {
 
 const confirmsSelectedPet = (text, petName) => {
   const n = normalizeText(text).replace(/[¡!¿?.,;:]/g, " ").replace(/\s+/g, " ").trim();
-  if (!/\b(?:para|mascota|perro|perra|gato|gata|otra|otro)\b/.test(n)) return /^(?:si|ok|okay|confirmo|confirmado|dale|claro|listo|bueno|acepto|perfecto|de acuerdo)(?:\s+(?:si|confirmo|la cita|acepto las? \d+(?::\d+)?(?: am| pm)?))?[.!\s]*$/.test(n);
+  if (!/\b(?:para|mascota|perro|perra|gato|gata|otra|otro)\b/.test(n)) return /^(?:si|ok|okay|confirmo|confirmado|dale|claro|listo|bueno|acepto|perfecto|de acuerdo)(?:\s+(?:si|confirmo|la cita|acepto las? \d+(?::\d+)?(?: am| pm)?))?(?:\s+(?:por favor|gracias))?[.!\s]*$/.test(n);
   const selected = normalizeText(petName || "");
   return Boolean(selected && (` ${n} `).includes(` ${selected} `) && !/\b(?:otra|otro)\b/.test(n));
 };

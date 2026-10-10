@@ -20,7 +20,7 @@ La sesión de Matías está en `awaiting_grooming_slot_confirm`, peluquería, ma
 | --- | --- | --- |
 | Negación | Seguridad aprobada desde WhatsApp; reconocimiento final corregido y desplegado, repetición pendiente | Rechazo en oferta y en revisión final: cero citas nuevas. La respuesta final de 2.46.2 reofreció turno; se corrigió para reconocer la negación. |
 | Dirección de recogida | Validación/revisión aprobadas; variante de solicitud corregida y desplegada, repetición pendiente | Rechaza «No sé todavía», muestra dirección ficticia completa y exige consentimiento. «Que lo recojan» no se reconocía; corrección 2.46.3 publicada, falta repetir esa frase. |
-| Reprogramación a destino ocupado | En preparación | Se solicitaron dos citas de prueba de veterinaria: Akiles a las 12 y Benji a las 13 del martes 13. |
+| Reprogramación a destino ocupado | Citas preparadas; cambio pendiente | Akiles confirmado a las 12 y Benji a las 13 del martes 13; propietarios distintos. Falta solicitar el destino ocupado y comprobar conservación y cancelación. |
 
 La cola completa o una respuesta textual por sí solas no demuestran que la operación sea correcta. Cada caso debe relacionar mensajes, estado y agenda persistida; registrar también entrega, errores y limpieza de las citas de prueba.
 
@@ -90,3 +90,26 @@ No existen citas creadas desde el inicio de estas tres pruebas. Las dos peticion
 Cuando estén disponibles las citas de prueba: registrar IDs y propietarios, seleccionar explícitamente la cita original, solicitar el turno ocupado, verificar rechazo y conservación de ambas filas, y cancelar mediante los chats únicamente esos IDs. También repetir «que lo recojan» y el reconocimiento de negación final en 2.46.3. Estas comprobaciones permanecen pendientes; las pruebas automatizadas aprobadas no las sustituyen.
 
 Seguimiento de la versión y prueba anterior: [2.46.1](../history/RELEASE_2_46_1_ASSISTANT_TRIAL_20261010.md). Estado global: [plan de beta](CLOSED_BETA_READINESS_PLAN_20260919.md).
+
+### Preparación real de la reprogramación — 16:39–16:43
+
+La revisión de las 16:43:39 confirmó las dos reservas nuevas, tras solicitudes explícitas y «Si confirmo» en ambos chats:
+
+| Mascota | Cita nueva | Propietario | Fecha UTC | Estado |
+| --- | --- | --- | --- | --- |
+| Akiles | `cmv2x4pox001m0in5qo5jt7ys` | `cmuedexmz000e0ipnccgf757b` | `2026-10-13T17:00:00Z` (12:00 Colombia) | `confirmed` |
+| Benji | `cmv2x4p84001a0in5l8nzn9of` | `cmv1cl82g000g0inqykc185kk` | `2026-10-13T18:00:00Z` (13:00 Colombia) | `confirmed` |
+
+Ambas son de veterinaria (`vet`), especie `dog`; los resúmenes y confirmaciones mantuvieron separados mascota, servicio y hora. La cita cancelada de Benji de la prueba anterior conserva su estado e historial. Las sesiones nuevas terminaron en `completed`.
+
+Hallazgo adicional: «Si por favor» de Akiles a las 16:39:52 repitió la revisión final; «Si confirmo» a las 16:40:42 sí creó la cita. No hubo duplicado, pero queda registrado un problema de reconocimiento de aceptación, pendiente de diagnóstico y regresión. No se declara corregido.
+
+Se pidió reprogramar explícitamente la cita de Akiles del martes 13 y, cuando el asistente solicite destino, responder martes 13 a las 13:00. Si hay selección entre citas, identificar primero la fila nueva. Todavía no se certifica el rechazo ni la conservación de la reserva: falta el intercambio real.
+
+### Incidente real de reprogramación — 16:44–16:45
+
+«Quiero reprogramar la cita veterinaria de Akiles del martes 13 de octubre» a las 16:44:26 seleccionó correctamente la original y preguntó destino. «El martes 13 de octubre a las 13:00» a las 16:44:46 produjo un saludo genérico a las 16:44:48, en vez de rechazo de horario ocupado. La sesión perdió el paso (`null`), pero conservó `reschedule_appointment_id`. A las 16:45:09, Akiles seguía confirmado a las 12 y Benji a las 13, mismos IDs, propietarios y tres filas del martes (incluida la cancelada anterior). No se movió ni duplicó ninguna cita. Las dos respuestas tienen recibos `sent`, `delivered` y `read`; los 24 trabajos desde las 16:39 terminaron `done/complete`, sin errores.
+
+La regresión del recorrido real reproduce el saludo cuando el modelo interpreta el destino como `reschedule_appointment`; se estaba excluyendo del recorrido de reserva pese a tener una cita seleccionada. Se corrige esa continuación únicamente cuando hay selección y fecha/hora explícita, sin nueva orden de gestión. Los destinos rechazados recuerdan que la original sigue reservada. También se corrige el sufijo cortés de aceptación en el control de mascota.
+
+Antes de corregir: **2 regresiones fallidas / 17 aprobadas**, después de completar el doble de alternativas de disponibilidad. Después: **53 pruebas dirigidas** aprobadas. Suite completa de la candidata **2.46.4: 180 suites / 1.446 pruebas**, exit 0, 46,732 s. Lint frontend exit 0; comprobación de sintaxis de los tres servicios y `git diff --check`, exit 0. Los errores deliberados de dobles de prueba no son logs de la VPS. Respaldo cifrado previo `/var/backups/mateos-pet-ai/mateos-pet-ai-20261010T214809Z`, `Result=success`, `ExecMainStatus=0`. Sin cambios de schema ni migraciones nuevas. Publicación, CI, despliegue y repetición real pendientes; conservar las dos citas para el ensayo.

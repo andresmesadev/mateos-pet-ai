@@ -55,4 +55,10 @@ La continuación real detectó que «Quiero que lo recojan en casa» no era reco
 
 La negación en la revisión final no guardó citas, pero reofreció el turno. El reconocimiento explícito de «No confirmo» se aplica también en `awaiting_confirmation`, conservando revisión/dirección y sin reiniciar la oferta. Una solicitud nueva puede reemplazar ese borrador conforme a las reglas ya aprobadas.
 
+### Continuación de reprogramación — prueba real de las 16:44
+
+Tras seleccionar correctamente Akiles, la respuesta «El martes 13 de octubre a las 13:00» terminó en un saludo genérico. Ambas reservas conservaron ID, horario y estado. La regresión del adaptador reproduce ese resultado cuando el modelo devuelve `reschedule_appointment` para el destino: se excluía del recorrido de disponibilidad pese a existir cita seleccionada. Solo si hay `reschedule_appointment_id`, términos explícitos de fecha/hora y ninguna orden de gestión nueva, esa etiqueta se interpreta como continuación de agendamiento. La selección original y la identidad autenticada siguen intactas; el horario se consulta en el servicio existente. Un destino rechazado aclara que la cita original sigue reservada.
+
+La aceptación «Si por favor» pasaba el protocolo de consentimiento, pero no el control de mascota seleccionada. Se admite el sufijo cortés «por favor»/«gracias» en las frases completas ya permitidas; preguntas, negaciones y correcciones siguen sin autorización. No se relaja la selección de otra mascota ni se aceptan horas distintas en esa confirmación. Sin cambios de dominio, esquema físico o capacidad. Versión candidata `2.46.4`; repetición WhatsApp pendiente de despliegue.
+
 Regresiones del incidente y negativos de confirmación; propiedad de cita, reprogramación fallida, selección/corrección, turno vencido, lotes mixtos, escritura ordenada, control humano, envío incierto y coste por mensaje. Suite completa, lint y revisión del diff; evidencia real y pendientes de prueba WhatsApp en el informe de ejecución. Evaluar versión antes de cierre/publicación.

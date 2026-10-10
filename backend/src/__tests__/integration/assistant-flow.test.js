@@ -5,13 +5,14 @@ jest.mock("../../services/user.service", () => ({ findOrCreateUser: jest.fn().mo
 jest.mock("../../services/pet.service", () => ({ getUserPets: jest.fn().mockResolvedValue([{ name: "Akiles", type: "dog" }]), findPetByNameAndOwner: jest.fn().mockResolvedValue(null), resolveAppointmentPetName: jest.fn(async name => name) }));
 jest.mock("../../services/tenant.service", () => ({ getTenantByPhone: jest.fn().mockResolvedValue({ id: "tenant", active: true }) }));
 jest.mock("../../services/appointment.service", () => ({ ...jest.requireActual("../../services/appointment.service"), createAppointment: jest.fn(async data => ({ ...data, id: "new" })), checkAppointmentConflict: jest.fn().mockResolvedValue(false), getUserAppointments: jest.fn().mockResolvedValue([]) }));
-jest.mock("../../services/availability-db.service", () => ({ findNextAvailableGroomingSlot: jest.fn().mockResolvedValue({ date: "2026-10-13", hour: 11 }), listAvailableSlotsForDate: jest.fn().mockResolvedValue([13]), isSlotAvailable: jest.fn().mockResolvedValue(true) }));
+jest.mock("../../services/availability-db.service", () => ({ findNextAvailableGroomingSlot: jest.fn().mockResolvedValue({ date: "2026-10-13", hour: 11 }), listAvailableSlotsForDate: jest.fn().mockResolvedValue([13]), isSlotAvailable: jest.fn().mockResolvedValue(true), suggestAvailableVetSlots: jest.fn().mockResolvedValue({ hours: [14] }) }));
 jest.mock("../../services/business-config.service", () => ({ getBusinessHours: jest.fn().mockResolvedValue(null) }));
 jest.mock("../../services/conversation-persistence.service", () => ({ findOrCreateConversation: jest.fn(), saveMessage: jest.fn().mockResolvedValue({}), findMessageByExternalId: jest.fn().mockResolvedValue(null), getConversationMessages: jest.fn().mockResolvedValue([]), syncConversationState: jest.fn().mockImplementation(id => require("../../services/memory.service").flushConversationSession(id)) }));
 const memory = require("../../services/memory.service");
 const persistence = require("../../services/conversation-persistence.service");
 const ai = require("../../services/openai.service");
 const appointments = require("../../services/appointment.service");
+const availability = require("../../services/availability-db.service");
 const { processIncomingMessage } = require("../../services/whatsapp.service");
 const { STEPS } = require("../../services/domain/booking-steps");
 const PHONE = "test-owner";
@@ -24,6 +25,7 @@ const start = session => {
 };
 beforeEach(() => {
   jest.clearAllMocks();
+  availability.isSlotAvailable.mockResolvedValue(true);
   jest.useFakeTimers({ doNotFake: ["nextTick", "setImmediate"] });
   jest.setSystemTime(new Date("2026-10-10T16:50:00Z"));
   ai.analyzeMessage.mockResolvedValue({ intent: "other" });
@@ -128,5 +130,36 @@ test("a pet correction during reschedule cannot silently move the original pet's
   const answer = await processIncomingMessage(body("Sí, pero para Matías"));
   expect(answer.reply).toContain("original sigue reservada");
   expect(answer.session.pet_name).toBe("Akiles");
+  expect(appointments.createAppointment).not.toHaveBeenCalled();
+});
+
+test.each(["reschedule_appointment", "other", "greeting"])("a rescheduling destination reaches availability despite model intent %s", async intent => {
+  start({ step: null });
+  appointments.getUserAppointments.mockResolvedValueOnce([{ id: "original", userId: "owner", tenantId: "tenant", petName: "Akiles", petType: "dog", serviceType: "vet", date: new Date("2026-10-13T17:00:00Z"), status: "confirmed" }]);
+  const selected = await processIncomingMessage(body("Quiero reprogramar la cita veterinaria de Akiles del martes 13 de octubre"));
+  expect(selected.session.reschedule_appointment_id).toBe("original");
+  expect(selected.session.step).toBe(STEPS.AWAITING_DATE_TIME);
+  ai.analyzeMessage.mockResolvedValue({ intent });
+  availability.isSlotAvailable.mockResolvedValueOnce(false);
+  const rejected = await processIncomingMessage(body("El martes 13 de octubre a las 13:00"));
+  expect(availability.isSlotAvailable).toHaveBeenCalledWith(expect.objectContaining({ dateKey: "2026-10-13", hour: 13, excludeAppointmentId: "original" }));
+  expect(rejected.session.reschedule_appointment_id).toBe("original");
+  expect(rejected.session.step).toBe(STEPS.AWAITING_DATE_TIME);
+  expect(rejected.reply).toMatch(/ocupad|disponib|no hay/i);
+  expect(rejected.reply).not.toContain("Soy Lina");
+  expect(rejected.reply).toContain("Tu cita original sigue reservada");
+  expect(appointments.createAppointment).not.toHaveBeenCalled();
+});
+
+test.each(["Si por favor", "Sí, confirmo, gracias"])("polite confirmation saves the reviewed pet once: %s", async text => {
+  start({ step: STEPS.AWAITING_CONFIRMATION, pet_name: "Akiles", pet_type: "dog", requested_service: "veterinary_consultation", scheduling_date_key: "2026-10-13", scheduling_hour: 12, domicilio: false });
+  const answer = await processIncomingMessage(body(text));
+  expect(appointments.createAppointment).toHaveBeenCalledTimes(1);
+  expect(answer.session.step).toBe(STEPS.COMPLETED);
+});
+
+test.each(["Sí por favor, pero para Matías", "Sí por favor, cuánto cuesta", "No, por favor", "Sí por favor a las 13"])("polite wording cannot authorize a correction or question: %s", async text => {
+  start({ step: STEPS.AWAITING_CONFIRMATION, pet_name: "Akiles", pet_type: "dog", requested_service: "veterinary_consultation", scheduling_date_key: "2026-10-13", scheduling_hour: 12, domicilio: false });
+  await processIncomingMessage(body(text));
   expect(appointments.createAppointment).not.toHaveBeenCalled();
 });
