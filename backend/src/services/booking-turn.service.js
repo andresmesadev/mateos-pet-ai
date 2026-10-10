@@ -13,7 +13,7 @@ const clearBooking = (session) => ({
 
 const prepareBookingTurn = (session = {}, text = "", now = new Date(), slot = {}) => {
   const normalized = normalizeText(text);
-  const freshRequest = /\b(?:quiero|necesito|quisiera|deseo|agendar|reservar)\b.*\b(?:cita|agendar|reservar)\b/.test(normalized);
+  const freshRequest = /\b(?:quiero|necesito|quisiera|deseo|agendar|reservar)\b.*\b(?:cita|agendar|reservar|peluqueria|grooming|bano|consulta|veterinaria)\b/.test(normalized);
   const oldDate = session.scheduling_date_key;
   const today = toDateKey(now);
   const expired = BOOKING_STEPS.has(session.step) && oldDate && (oldDate < today ||

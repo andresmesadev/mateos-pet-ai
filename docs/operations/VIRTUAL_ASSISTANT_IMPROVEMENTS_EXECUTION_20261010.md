@@ -1,10 +1,10 @@
 # Asistente virtual: mejoras implementadas y lo que falta
 
-**Fecha:** 10 de octubre de 2026. **Estado:** implementación local verificada, candidata `2.46.0`. **Base publicada:** `2.45.2`, commit `ac6709b`. Estos cambios todavía no tienen commit, push, tag ni despliegue. El paso 8 y la salida a beta externa siguen abiertos.
+**Fecha:** 10 de octubre de 2026. **Estado actualizado:** `2.46.0` publicada y desplegada en el commit de implementación `1d55f3e`, CI aprobado. Ver [release y comprobaciones de la VPS](../history/RELEASE_2_46_0_ASSISTANT_20261010.md). **Base de la auditoría:** `2.45.2`, commit `ac6709b`. El paso 8 y la salida a beta externa siguen abiertos. Las secciones siguientes conservan también la evidencia inicial y señalan las validaciones reales pendientes.
 
 **Continuación autorizada:** el responsable pidió completar la publicación y el despliegue después de este informe. Se añadió `scripts/assistant-agenda-postgres.test.cjs`, incorporado automáticamente al job existente `administration-postgres`. La prueba real detectó y permitió corregir la deserialización del resultado `void` del advisory lock de reprogramación; se convirtió a texto, como en la reserva existente. Las cinco comprobaciones más su contenedor pasan (6 tests, 0 fallos): reserva concurrente, destino ocupado, autorización, dos movimientos concurrentes y reserva compitiendo con movimiento. Los fixtures se eliminan por UUID y marcadores propios; no se envían mensajes ni eventos de Calendar.
 
-La ejecución final del backend después de esta corrección pasó 180 suites / 1.420 tests en 30,874 s; lint terminó con exit 0. La limitación anterior sobre no haber ensayado el movimiento con PostgreSQL queda superada por esta evidencia local, aunque sigue pendiente el recorrido simultáneo desde WhatsApp. El estado de publicación y comprobación de la VPS se registrará en el informe de release; las secciones siguientes conservan el alcance del informe inicial.
+La ejecución final del backend después de esta corrección pasó 180 suites / 1.420 tests en 30,874 s; lint terminó con exit 0. La limitación anterior sobre no haber ensayado el movimiento con PostgreSQL queda superada por esta evidencia local y CI, aunque sigue pendiente el recorrido simultáneo desde WhatsApp. El estado de publicación y comprobación de la VPS quedó registrado en el informe de release; las secciones siguientes conservan el alcance del informe inicial.
 
 ## 1. Respuesta a la pregunta del proyecto
 

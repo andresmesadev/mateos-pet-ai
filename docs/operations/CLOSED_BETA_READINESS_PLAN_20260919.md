@@ -41,13 +41,20 @@ históricas y no describen la versión activa.
 | 5 | Implementar backup y restauración | Backup cifrado y periódico, retención definida y restauración ensayada. | ✅ Copia cifrada independiente, restauración local y tarea diaria comprobadas el 2026-10-09; vigilar continuidad del equipo del operador |
 | 6 | Configurar WhatsApp de producción | Número empresarial real registrado, app publicada y flujo entrante/saliente verificado. | Aplazado por decisión del operador; se conserva el número de prueba de Meta |
 | 7 | Completar documentación legal del piloto | Política, términos y acuerdo de piloto completados y revisados. | Pendiente |
-| 8 | Ejecutar matriz integral de agenda | Casos de veterinaria, peluquería, domingos, festivos, conflictos, cancelación y fallos aprobados. | 🔴 Abierto: correcciones y reorganización implementadas localmente en la candidata 2.46.0, 180 suites / 1.420 pruebas; falta publicación y validación real, incluido conflicto por el mismo turno. Ver [ejecución y pendientes](VIRTUAL_ASSISTANT_IMPROVEMENTS_EXECUTION_20261010.md). Última publicación comprobada: 2.45.2 ([publicación](../history/RELEASE_2_45_2_WHATSAPP_20261009.md)) |
-| 9 | Ejecutar período de estabilización | 48 horas sin errores del worker ni pérdida de mensajes; métricas y cola nominales. | 🧪 Ventana nueva iniciada el 2026-10-09 a las 16:28 de Colombia para 2.45.2; falta completarla y revisar cola, entregas y carga |
+| 8 | Ejecutar matriz integral de agenda | Casos de veterinaria, peluquería, domingos, festivos, conflictos, cancelación y fallos aprobados. | 🔴 Abierto: 2.46.0 publicada y desplegada; CI, 1.420 pruebas y seis tests reales de concurrencia/autorización en PostgreSQL aprobados. Falta matriz real de WhatsApp, incluido conflicto por el mismo turno. Ver [publicación](../history/RELEASE_2_46_0_ASSISTANT_20261010.md) y [pendientes](VIRTUAL_ASSISTANT_IMPROVEMENTS_EXECUTION_20261010.md) |
+| 9 | Ejecutar período de estabilización | 48 horas sin errores del worker ni pérdida de mensajes; métricas y cola nominales. | 🧪 Reiniciada para 2.46.0 el 2026-10-10 a las 15:19:48 de Colombia; falta completar ventana y revisar cola, entregas y carga. La ventana anterior quedó incompleta, con un hueco |
 | 10 | Abrir cohorte inicial | Un establecimiento, alcance funcional explícito, 5–10 usuarios, soporte y criterio de rollback definidos. | Pendiente |
 
 ## Condiciones de salida a beta
 
 ### Siguiente trabajo recomendado — 10 de octubre de 2026
+
+**Seguimiento de publicación, 15:19 de Colombia:** `2.46.0` quedó desplegada
+después de CI aprobado, respaldo cifrado y prueba real de bloqueos de
+PostgreSQL. Salud y smoke HTTPS correctos. Se reinició la observación de 48
+horas y se solicitó la prueba real Matías/Akiles. Ver
+[release](../history/RELEASE_2_46_0_ASSISTANT_20261010.md). Los pasos 2, 8 y 9
+permanecen abiertos; el número de Meta sigue siendo el de prueba.
 
 **Seguimiento posterior a la aprobación de las mejoras:** la candidata local
 `2.46.0` reorganiza el asistente y cubre los hallazgos en el alcance indicado

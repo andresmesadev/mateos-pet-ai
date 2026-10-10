@@ -41,6 +41,16 @@ test("actual incident: availability question keeps Matías grooming draft, not A
   expect(appointments.getUserAppointments).not.toHaveBeenCalled();
   expect(appointments.createAppointment).not.toHaveBeenCalled();
 });
+test("a new grooming request without the word cita cannot reuse an unregistered pet's old species", async () => {
+  start({ ...grooming, pet_type: "other" });
+  ai.analyzeMessage.mockResolvedValue({ intent: "schedule_appointment", pet_name: "Matías", pet_type: "other", requested_service: "bath_grooming", date: "2026-10-13" });
+  const answer = await processIncomingMessage(body("Quiero peluquería para Matías el martes 13 de octubre"));
+  expect(answer.session.step).toBe(STEPS.AWAITING_PET_TYPE);
+  expect(answer.session.pet_name).toBe("Matías");
+  expect(answer.session.pet_type).toBeNull();
+  expect(answer.session.scheduling_date_key).toBeNull();
+  expect(appointments.createAppointment).not.toHaveBeenCalled();
+});
 test("grooming pickup is reviewed first and only saved after explicit final consent", async () => {
   start(grooming);
   await processIncomingMessage(body("Sí"));
