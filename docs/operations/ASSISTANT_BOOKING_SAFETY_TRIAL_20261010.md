@@ -1,6 +1,6 @@
 # Tres pruebas de seguridad de agenda desde WhatsApp
 
-**Fecha:** 10 de octubre de 2026, hora Colombia. **Versión al comenzar:** 2.46.1; corrección 2.46.2 publicada y desplegada. **Estado:** en ejecución interna supervisada. Continúa el paso 8; no certifica beta externa.
+**Fecha:** 10 de octubre de 2026, hora Colombia. **Versión al comenzar:** 2.46.1; versión vigente 2.46.3 publicada y desplegada. **Estado:** en ejecución interna supervisada. Continúa el paso 8; no certifica beta externa.
 
 El responsable autorizó probar negación, dirección de recogida y conservación de cita ante reprogramación fallida. Los mensajes los envía el operador desde los números de prueba verificados; las comprobaciones del servidor son de solo lectura. No se insertan fixtures directamente en producción ni se envían mensajes fabricados desde scripts.
 
@@ -18,8 +18,8 @@ La sesión de Matías está en `awaiting_grooming_slot_confirm`, peluquería, ma
 
 | Caso | Estado | Evidencia |
 | --- | --- | --- |
-| Negación | Seguridad aprobada desde WhatsApp; reconocimiento final corregido localmente | Rechazo en oferta y en revisión final: cero citas nuevas. La respuesta final de 2.46.2 reofreció turno; se corrigió para reconocer la negación. |
-| Dirección de recogida | Validación/revisión aprobadas; variante de solicitud corregida localmente | Rechaza «No sé todavía», muestra dirección ficticia completa y exige consentimiento. «Que lo recojan» no se reconocía; corrección 2.46.3 pendiente de publicación y repetición. |
+| Negación | Seguridad aprobada desde WhatsApp; reconocimiento final corregido y desplegado, repetición pendiente | Rechazo en oferta y en revisión final: cero citas nuevas. La respuesta final de 2.46.2 reofreció turno; se corrigió para reconocer la negación. |
+| Dirección de recogida | Validación/revisión aprobadas; variante de solicitud corregida y desplegada, repetición pendiente | Rechaza «No sé todavía», muestra dirección ficticia completa y exige consentimiento. «Que lo recojan» no se reconocía; corrección 2.46.3 publicada, falta repetir esa frase. |
 | Reprogramación a destino ocupado | En preparación | Se solicitaron dos citas de prueba de veterinaria: Akiles a las 12 y Benji a las 13 del martes 13. |
 
 La cola completa o una respuesta textual por sí solas no demuestran que la operación sea correcta. Cada caso debe relacionar mensajes, estado y agenda persistida; registrar también entrega, errores y limpieza de las citas de prueba.
@@ -72,5 +72,21 @@ En 2.46.2, «Si acepto a las 11» a las 16:23:33 avanzó a modalidad de atenció
 Reconoce «recojan»/«recogida» y rechazos explícitos antes de palabras afirmativas; mantiene dirección y consentimiento final. Se fortaleció la prueba del adaptador con ambas frases reales. Antes de corregir el detector: una regresión fallida y trece aprobadas. Después: 37 pruebas dirigidas aprobadas; verificación completa local 180 suites / 1.436 pruebas (60/483, 60/501, 60/452), todos exit 0.
 
 Después del ajuste adicional de reconocimiento de negación final: tres suites dirigidas, **64 pruebas aprobadas**, exit 0. La suite completa final se comprobará también en CI; no se atribuye la ejecución local anterior a ese último ajuste. Frontend sin cambios desde el lint aprobado de esta sesión. Persistencia y schema sin cambios.
+
+Publicación de 2.46.3: commit `03513b586cd72826ea69267f473be6e6031ca3cb`. [CI 38087940815](https://github.com/andresmesadev/mateos-pet-ai/actions/runs/38087940815): cuatro jobs `success`. Evidencia final del job `test`: **180 suites / 1.437 pruebas**, 14,45 s. Lint/build y pruebas de PostgreSQL aprobados. Respaldo cifrado previo: `/var/backups/mateos-pet-ai/mateos-pet-ai-20261010T213233Z`, servicio con resultado correcto.
+
+Se detuvo el monitor identificado de 2.46.2 antes de desplegar: tres muestras, diez minutos, cero fallos/huecos/reinicios, ventana incompleta. No sumar esos minutos a la observación de la versión corregida. Aún no llegaron las dos solicitudes nuevas para preparar el caso de reprogramación en la revisión previa al despliegue; cero trabajos activos y cero citas nuevas desde el inicio de estas tres pruebas.
+
+Despliegue de 2.46.3: `scripts/deploy.sh`, exit 0, commit `03513b5`, 46 migraciones aplicadas sin pendientes; worker iniciado a las **16:35:21 de Colombia**. Salud pública a las **16:35:57**: base/OpenAI/worker `ok`, versión 2.46.3 y cero fallos consecutivos. Smoke HTTPS autenticado: 14 destinos HTTP 200, contratos de caja/servicios/inventario aprobados, parámetros ambiguos HTTP 400 y acceso anónimo HTTP 401; exit 0, sin escrituras de negocio ni mensajes salientes.
+
+Monitor vigente: `.cache/stability/ventana-2.46.3-20261010T213557Z.jsonl`, PID inicial 39964. Inicio **10 de octubre a las 16:35:57**, final previsto **12 de octubre a las 16:35:57**, hora Colombia, condicionado al equipo/proceso disponible. Las ventanas anteriores permanecen incompletas; no se declara beta externa ni estabilización completada.
+
+### Revisión posterior y siguiente acción humana
+
+Después del despliegue: **79 trabajos entrantes y 38 registros de entrega, todos `done/complete`, cero leases vencidos**. En estas pruebas hubo ocho respuestas con ID de Meta; siete tienen recibo `read` en esa revisión. No equiparar el resto a fallo ni afirmar que todas fueron leídas. Logs del nuevo arranque: seis líneas, cero firmas de error; todavía no hay una ventana representativa.
+
+No existen citas creadas desde el inicio de estas tres pruebas. Las dos peticiones de veterinaria para preparar la reprogramación aún no llegaron al revisar la base; por ello no hay originales ni destino ocupado nuevos que certificar. Se pidió al operador elegir entre dos chats (Akiles a las 12/Benji a las 13) o su único chat con Akiles/Matías. No crear citas directamente por script para sustituir esta comprobación del canal real.
+
+Cuando estén disponibles las citas de prueba: registrar IDs y propietarios, seleccionar explícitamente la cita original, solicitar el turno ocupado, verificar rechazo y conservación de ambas filas, y cancelar mediante los chats únicamente esos IDs. También repetir «que lo recojan» y el reconocimiento de negación final en 2.46.3. Estas comprobaciones permanecen pendientes; las pruebas automatizadas aprobadas no las sustituyen.
 
 Seguimiento de la versión y prueba anterior: [2.46.1](../history/RELEASE_2_46_1_ASSISTANT_TRIAL_20261010.md). Estado global: [plan de beta](CLOSED_BETA_READINESS_PLAN_20260919.md).
