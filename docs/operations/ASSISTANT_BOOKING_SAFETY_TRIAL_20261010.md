@@ -1,6 +1,6 @@
 # Tres pruebas de seguridad de agenda desde WhatsApp
 
-**Fecha:** 10 de octubre de 2026, hora Colombia. **Versión al comenzar:** 2.46.1; versión vigente 2.46.3 publicada y desplegada. **Estado:** en ejecución interna supervisada. Continúa el paso 8; no certifica beta externa.
+**Fecha:** 10 de octubre de 2026, hora Colombia. **Versión al comenzar:** 2.46.1; versión vigente 2.46.4 publicada y desplegada. **Estado:** en ejecución interna supervisada. Continúa el paso 8; no certifica beta externa.
 
 El responsable autorizó probar negación, dirección de recogida y conservación de cita ante reprogramación fallida. Los mensajes los envía el operador desde los números de prueba verificados; las comprobaciones del servidor son de solo lectura. No se insertan fixtures directamente en producción ni se envían mensajes fabricados desde scripts.
 
@@ -20,7 +20,7 @@ La sesión de Matías está en `awaiting_grooming_slot_confirm`, peluquería, ma
 | --- | --- | --- |
 | Negación | Seguridad aprobada desde WhatsApp; reconocimiento final corregido y desplegado, repetición pendiente | Rechazo en oferta y en revisión final: cero citas nuevas. La respuesta final de 2.46.2 reofreció turno; se corrigió para reconocer la negación. |
 | Dirección de recogida | Validación/revisión aprobadas; variante de solicitud corregida y desplegada, repetición pendiente | Rechaza «No sé todavía», muestra dirección ficticia completa y exige consentimiento. «Que lo recojan» no se reconocía; corrección 2.46.3 publicada, falta repetir esa frase. |
-| Reprogramación a destino ocupado | Citas preparadas; cambio pendiente | Akiles confirmado a las 12 y Benji a las 13 del martes 13; propietarios distintos. Falta solicitar el destino ocupado y comprobar conservación y cancelación. |
+| Reprogramación a destino ocupado | Conservación aprobada; respuesta defectuosa corregida, repetición pendiente | El primer destino produjo saludo, sin mover ni duplicar citas. Corrección 2.46.4 desplegada; repetir rechazo y cancelar solo las dos citas nuevas. |
 
 La cola completa o una respuesta textual por sí solas no demuestran que la operación sea correcta. Cada caso debe relacionar mensajes, estado y agenda persistida; registrar también entrega, errores y limpieza de las citas de prueba.
 
@@ -113,3 +113,17 @@ Se pidió reprogramar explícitamente la cita de Akiles del martes 13 y, cuando 
 La regresión del recorrido real reproduce el saludo cuando el modelo interpreta el destino como `reschedule_appointment`; se estaba excluyendo del recorrido de reserva pese a tener una cita seleccionada. Se corrige esa continuación únicamente cuando hay selección y fecha/hora explícita, sin nueva orden de gestión. Los destinos rechazados recuerdan que la original sigue reservada. También se corrige el sufijo cortés de aceptación en el control de mascota.
 
 Antes de corregir: **2 regresiones fallidas / 17 aprobadas**, después de completar el doble de alternativas de disponibilidad. Después: **53 pruebas dirigidas** aprobadas. Suite completa de la candidata **2.46.4: 180 suites / 1.446 pruebas**, exit 0, 46,732 s. Lint frontend exit 0; comprobación de sintaxis de los tres servicios y `git diff --check`, exit 0. Los errores deliberados de dobles de prueba no son logs de la VPS. Respaldo cifrado previo `/var/backups/mateos-pet-ai/mateos-pet-ai-20261010T214809Z`, `Result=success`, `ExecMainStatus=0`. Sin cambios de schema ni migraciones nuevas. Publicación, CI, despliegue y repetición real pendientes; conservar las dos citas para el ensayo.
+
+### Publicación y despliegue 2.46.4 — 16:49–16:53
+
+Commit de código `ad422ed811ac22c3cf56e3a9695e2dd6240ba6ff`, publicado en `main`. [CI 38089080257](https://github.com/andresmesadev/mateos-pet-ai/actions/runs/38089080257): `test`, `lint`, `inbound-postgres` y `administration-postgres`, todos `success`. Resumen real del job de pruebas: **180 suites / 1.446 pruebas**, 14,347 s.
+
+Antes del reinicio se verificaron por el dashboard autenticado las mismas dos filas: Akiles confirmado a las 12 y Benji a las 13. La ventana identificada de 2.46.3 se detuvo y preservó: cuatro muestras, quince minutos, cero fallos/huecos/reinicios; incompleta. No cuenta para la versión siguiente.
+
+`scripts/deploy.sh`, exit 0, `ad422ed`: backend reconstruido, frontend reutilizado, 46 migraciones sin pendientes. Salud local a las 16:52:57: versión 2.46.4, worker iniciado 16:52:54, base/OpenAI/worker `ok`. Los resets transitorios de reinicio se recuperaron dentro del script. Smoke HTTPS exit 0: 14 destinos autenticados HTTP 200; contratos y rechazo de acceso anónimo aprobados. No hizo escrituras de negocio ni envíos salientes.
+
+Monitor nuevo: `.cache/stability/ventana-2.46.4-20261010T215319Z.jsonl`, PID inicial 43912; primera muestra **10 de octubre a las 16:53:20**, final previsto **12 de octubre a las 16:53:20**, Colombia, condicionado al equipo/proceso disponible. Muestra pública de las 16:53:20: `ok`, cero fallos consecutivos. No se declara completa la estabilización.
+
+Se pidió repetir selección de la cita veterinaria de Akiles y destino martes 13 a las 13:00, sin aceptar alternativas. Después verificar mismos IDs, rechazo, cola y entrega, cancelar solo las dos citas nuevas y repetir recogida/negación final. Esta sección registra despliegue; aún no sustituye el resultado del nuevo intercambio humano.
+
+Revisión de las **16:55:09**: todavía no llegaron mensajes posteriores al despliegue; las dos citas siguen `confirmed`, Akiles a las 12 y Benji a las 13. No se cancela ninguna desde un script para sustituir la prueba del canal. El operador tiene pendiente la instrucción de repetir el intercambio. La aceptación cortés está verificada por regresión y CI, pero su repetición desde WhatsApp sigue pendiente. Este informe conserva esos pendientes y no declara completados los tres casos ni el paso 8.
