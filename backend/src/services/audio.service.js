@@ -11,6 +11,8 @@ const TEMP_DIR = path.join(__dirname, "../../uploads/temp");
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
+  timeout: 30000,
+  maxRetries: 2,
 });
 
 const getAccessToken = () =>
@@ -68,6 +70,7 @@ const downloadWhatsAppAudio = async (mediaId) => {
 
     const metaUrl = `https://graph.facebook.com/${GRAPH_API_VERSION}/${id}`;
     const metaResponse = await axios.get(metaUrl, {
+      timeout: 15000,
       headers: { Authorization: `Bearer ${accessToken}` },
     });
 
@@ -80,6 +83,8 @@ const downloadWhatsAppAudio = async (mediaId) => {
     }
 
     const fileResponse = await axios.get(mediaUrl, {
+      timeout: 20000,
+      maxContentLength: 20 * 1024 * 1024,
       headers: { Authorization: `Bearer ${accessToken}` },
       responseType: "arraybuffer",
     });

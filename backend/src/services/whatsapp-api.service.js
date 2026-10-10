@@ -40,6 +40,7 @@ const sendWhatsAppMessage = async (to, message) => {
 
   try {
     const response = await axios.post(url, payload, {
+      timeout: 20000,
       headers: {
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
@@ -64,6 +65,8 @@ const sendWhatsAppMessage = async (to, message) => {
       );
     } else {
       console.error("[WhatsApp API] Error de red o request:", error.message);
+      error.deliveryUncertain = true;
+      throw error;
     }
 
     if (error.config) {

@@ -41,11 +41,84 @@ históricas y no describen la versión activa.
 | 5 | Implementar backup y restauración | Backup cifrado y periódico, retención definida y restauración ensayada. | ✅ Copia cifrada independiente, restauración local y tarea diaria comprobadas el 2026-10-09; vigilar continuidad del equipo del operador |
 | 6 | Configurar WhatsApp de producción | Número empresarial real registrado, app publicada y flujo entrante/saliente verificado. | Aplazado por decisión del operador; se conserva el número de prueba de Meta |
 | 7 | Completar documentación legal del piloto | Política, términos y acuerdo de piloto completados y revisados. | Pendiente |
-| 8 | Ejecutar matriz integral de agenda | Casos de veterinaria, peluquería, domingos, festivos, conflictos, cancelación y fallos aprobados. | 🧪 Dos consultas reales en horas distintas confirmadas; selección de mascota, resumen, recogida y despedida publicados en 2.45.2, CI y salud aprobados. Faltan repetición de estas mejoras y conflicto por el mismo turno ([publicación](../history/RELEASE_2_45_2_WHATSAPP_20261009.md)) |
+| 8 | Ejecutar matriz integral de agenda | Casos de veterinaria, peluquería, domingos, festivos, conflictos, cancelación y fallos aprobados. | 🔴 Abierto: correcciones y reorganización implementadas localmente en la candidata 2.46.0, 180 suites / 1.420 pruebas; falta publicación y validación real, incluido conflicto por el mismo turno. Ver [ejecución y pendientes](VIRTUAL_ASSISTANT_IMPROVEMENTS_EXECUTION_20261010.md). Última publicación comprobada: 2.45.2 ([publicación](../history/RELEASE_2_45_2_WHATSAPP_20261009.md)) |
 | 9 | Ejecutar período de estabilización | 48 horas sin errores del worker ni pérdida de mensajes; métricas y cola nominales. | 🧪 Ventana nueva iniciada el 2026-10-09 a las 16:28 de Colombia para 2.45.2; falta completarla y revisar cola, entregas y carga |
 | 10 | Abrir cohorte inicial | Un establecimiento, alcance funcional explícito, 5–10 usuarios, soporte y criterio de rollback definidos. | Pendiente |
 
 ## Condiciones de salida a beta
+
+### Siguiente trabajo recomendado — 10 de octubre de 2026
+
+**Seguimiento posterior a la aprobación de las mejoras:** la candidata local
+`2.46.0` reorganiza el asistente y cubre los hallazgos en el alcance indicado
+en el [informe de ejecución](VIRTUAL_ASSISTANT_IMPROVEMENTS_EXECUTION_20261010.md).
+Pasaron 180 suites y 1.420 pruebas. Los párrafos siguientes conservan la
+evidencia previa de `2.45.2`; no describen la implementación local posterior.
+Faltan publicación, matriz real, recibos de entrega, carga y estabilización.
+No marcar completos los pasos 2, 8 o 9 por este resultado automatizado.
+
+La versión 2.45.2 continúa saludable. Hasta las 11:43 de Colombia se
+registraron 232 muestras, 19 horas y 15 minutos de cobertura, sin huecos,
+fallos de salud ni reinicios detectados. La lectura HTTPS de las 11:47
+confirmó base, OpenAI y worker `ok`, con cero fallos consecutivos.
+La tarea local de respaldo se ejecutó hoy a las 03:35:01 y terminó con
+`LastTaskResult=0`. Estas comprobaciones no certifican por sí solas entregas
+de WhatsApp, comportamiento de agenda ni capacidad bajo carga.
+
+**Actualización posterior, prueba de las 11:50–11:54:** la selección de otra
+mascota reveló un bucle al preguntar por disponibilidad de hoy: el motor
+pasó de reservar peluquería para Matías a listar la cita veterinaria de
+Akiles y borró el paso activo. Los nueve trabajos terminaron; no hay cita
+creada para Matías. La [auditoría del incidente](WHATSAPP_BOOKING_CONTEXT_AUDIT_20261010.md)
+registra causas, riesgo adicional en cancelación/reprogramación y propuesta
+para los huecos de peluquería que ya no se pueden reservar. El paso 8 sigue
+abierto: primero corregir y probar estos hallazgos; después retomar la matriz.
+Las comprobaciones de salud anteriores corresponden a infraestructura y
+no certifican el comportamiento conversacional. Ninguna corrección de esta
+auditoría se considera publicada.
+
+**Auditoría integral solicitada después del incidente:** ver
+[auditoría completa del asistente](VIRTUAL_ASSISTANT_FULL_AUDIT_20261010.md).
+Registra 24 hallazgos y un plan en cuatro bloques. La primera prioridad es
+corregir confirmaciones negativas aceptadas por subcadenas y seleccionar
+la cita exacta al cancelar/reprogramar. Las propuestas de simplificación y
+reducción de alcance no se consideran ejecutadas. La suite base aprobó
+169 suites / 1.369 tests; las reproducciones específicas prueban huecos que
+esa suite todavía no cubre. Mantener el paso 8 abierto hasta sus regresiones
+y verificaciones reales, y después reevaluar estabilización y carga.
+
+**Pruebas pendientes del paso 8, después de corregir el incidente:**
+
+1. **Dueño con más de una mascota:** pedir una cita sin indicar nombre,
+   comprobar que pregunta cuál asistirá y elegir una distinta de la del
+   historial. Verificar la mascota en propuesta, mensaje final y dashboard.
+2. **Peluquería con recogida:** completar la dirección de prueba y comprobar
+   que coincide en el mensaje final y la cita guardada. Revisar los saltos
+   de línea y la despedida; un agradecimiento no debe reiniciar el saludo.
+3. **Conflicto real:** preparar dos remitentes para el mismo servicio, fecha
+   y hora válidos, y confirmar casi al mismo tiempo. Debe quedar como máximo
+   una cita activa para ese turno, con respuesta coherente para el otro
+   cliente y trabajos completos. Las consultas anteriores de las 12:00 y
+   13:00 no prueban esta condición.
+4. **Cancelar las citas creadas para esas pruebas** mediante el flujo del
+   cliente y comprobar que los turnos se liberan. No eliminar registros
+   históricos ni cancelar reservas ajenas automáticamente.
+
+Elegir las fechas con la disponibilidad efectiva del establecimiento,
+respetando domingos, festivos y turnos consecutivos de peluquería. Las
+regresiones de días cerrados y límites ya comprobadas siguen registradas;
+no se presentan como trabajo nunca ejecutado.
+
+En paralelo, completar la ventana del paso 9: final previsto el **11 de
+octubre a las 16:28 de Colombia**, siempre que equipo, proceso y servicios
+no se interrumpan. Después evaluar muestras, logs, entregas, cola y carga
+antes de cerrar los pasos 2 y 9. Todavía no se cumplen las 48 horas.
+
+Después corresponden documentos y condiciones del piloto (paso 7),
+responsable, soporte y participantes (paso 10). Se mantiene el número de
+prueba de Meta, el aplazamiento del paso 6 y la decisión de no contratar
+Neon. La situación actual sigue siendo validación interna supervisada;
+estos datos no habilitan todavía una beta externa.
 
 La beta cerrada externa solo cambia a **GO** cuando los pasos 1–9 estén cerrados
 y exista un responsable operativo durante la primera cohorte. El paso 6 sigue

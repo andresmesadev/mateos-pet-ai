@@ -2,11 +2,10 @@ const { analyzeMessage } = require("./openai.service");
 const logger = require("../lib/logger");
 const {
   generateReply,
-  getConfirmationReply,
   isConfirmationMessage,
   STEPS,
 } = require("./conversation.service");
-const { getSession, updateSession } = require("./memory.service");
+const { getSession: getCachedSession, updateSession: updateCachedSession } = require("./memory.service");
 const { prepareBookingTurn, separateClientAndPet, isAcknowledgementOnly, selectCurrentPet, confirmsSelectedPet } = require("./booking-turn.service");
 const { buildBookingConfirmation } = require("./booking-message.service");
 const scheduling = require("./scheduling.service");
@@ -16,6 +15,7 @@ const {
   buildAppointmentDateTime,
   mapSessionServiceType,
   createAppointment,
+  rescheduleAppointment,
   checkAppointmentConflict,
 } = require("./appointment.service");
 const { formatSlotForUser } = require("../lib/timezone");
@@ -37,9 +37,8 @@ const {
   buildKnowledgeContext,
 } = require("./business-knowledge.service");
 const { processVoiceMessage } = require("./audio.service");
-const { processImageMessage } = require("./image.service");
-const { createRecord } = require("./medical-record.service");
 const { getTenantByPhone } = require("./tenant.service");
+const { generateEmbedding } = require("./embedding.service");
 
 const persistUserMessage = async (user, conversation, content, externalId) => {
   if (!user?.id || !conversation?.id || !content) return;
@@ -55,6 +54,7 @@ const persistUserMessage = async (user, conversation, content, externalId) => {
     logger.info("[WhatsApp] Message persisted");
   } catch (error) {
     logger.error("[WhatsApp] Error persisting user message:", error.message);
+    throw error;
   }
 };
 
@@ -274,11 +274,13 @@ const processSingleIncomingMessage = async (parsed) => {
   // Mensaje necesita user/conversation disponibles para TODA rama con reply,
   // sin cambiar el comportamiento de recepción de ningún tipo de mensaje).
   let tenantId = null;
+  let businessName = "el establecimiento";
   if (parsed.phoneNumberId) {
     try {
       const tenant = await getTenantByPhone(parsed.phoneNumberId);
       if (tenant?.active) {
         tenantId = tenant.id;
+        businessName = tenant.name || businessName;
         logger.info(`[WhatsApp] Tenant identified: ${tenant.slug} (${tenant.id})`);
       }
     } catch (error) {
@@ -287,13 +289,16 @@ const processSingleIncomingMessage = async (parsed) => {
   }
 
   let user = null;
+  const getSession = phone => getCachedSession(phone, tenantId);
+  const updateSession = (phone, data) => updateCachedSession(phone, data, tenantId);
   try {
     user = await findOrCreateUser(parsed.from, tenantId);
     logger.info(
-      `[WhatsApp] User loaded: ${user.id} (${user.phone})`
+      `[WhatsApp] User loaded: ${user.id}`
     );
   } catch (error) {
     logger.error("[WhatsApp] Error loading user:", error.message);
+    throw error;
   }
 
   let conversation = null;
@@ -309,6 +314,7 @@ const processSingleIncomingMessage = async (parsed) => {
       await persistUserMessage(user, conversation, parsed.text, parsed.wamid);
     } catch (error) {
       logger.error("[WhatsApp] Error loading conversation:", error.message);
+      throw error;
     }
   }
 
@@ -361,90 +367,18 @@ const processSingleIncomingMessage = async (parsed) => {
       user,
       conversation,
       reply:
-        "Solo proceso imágenes 📸\nSi quieres compartir información médica, envíame una foto o escríbeme un mensaje.",
+        "Puedo recibir texto y notas de voz; las imágenes las revisa el equipo. Para ese archivo, contacta al establecimiento. 🐾",
     };
   }
 
-  logger.info(`Message: ${parsed.text}`);
+  logger.info("[WhatsApp] Incoming type:", parsed.type);
 
   if (parsed.type === "image" && parsed.mediaId) {
-    logger.info("[WhatsApp] Image message detected");
-
-    const imageSession = getSession(parsed.from);
-    const petName = imageSession?.pet_name;
-
-    if (!petName) {
-      const reply =
-        "Recibí tu imagen 📸 ¿De qué mascota es? Dime su nombre para guardarla en el historial médico.";
-      return {
-        received: true,
-        processed: true,
-        from: parsed.from,
-        user,
-        conversation,
-        reply,
-        ...parsed,
-        session: imageSession,
-      };
-    }
-
-    const imageAnalysis = await processImageMessage(parsed.mediaId);
-
-    if (!imageAnalysis) {
-      const reply =
-        "No pude analizar la imagen 😔 ¿Puedes intentarlo de nuevo?";
-      return {
-        received: true,
-        processed: true,
-        from: parsed.from,
-        user,
-        conversation,
-        reply,
-        ...parsed,
-        session: imageSession,
-      };
-    }
-
-    let savedRecord = null;
-    if (user) {
-      try {
-        const pet = await findPetByNameAndOwner(petName, user.id);
-        if (pet) {
-          savedRecord = await createRecord(
-            pet.id,
-            "note",
-            "Análisis de imagen",
-            imageAnalysis,
-            new Date()
-          );
-          logger.info(
-            "[WhatsApp] Image analysis saved as MedicalRecord:",
-            savedRecord.id
-          );
-        }
-      } catch (error) {
-        logger.error(
-          "[WhatsApp] Error saving image analysis as MedicalRecord:",
-          error.message
-        );
-      }
-    }
-
-    const reply = savedRecord
-      ? `📸 Esto es lo que observé en la imagen:\n\n${imageAnalysis}\n\n✅ Lo guardé en el historial de ${petName}.`
-      : `📸 Esto es lo que observé en la imagen:\n\n${imageAnalysis}`;
-
-
-    return {
-      received: true,
-      processed: true,
-      from: parsed.from,
-      user,
-      conversation,
-      reply,
-      ...parsed,
-      session: imageSession,
-    };
+    await persistUserMessage(user, conversation, "📷 Imagen recibida; requiere revisión del equipo.", parsed.wamid);
+    const session = updateSession(parsed.from, { ...getSession(parsed.from), step: STEPS.HUMAN_TAKEOVER, requires_human_attention: true });
+    await syncConversationState(conversation?.id, { step: session.step, intent: session.intent });
+    return { received: true, processed: true, user, conversation, ...parsed, session, escalationRequested: true,
+      reply: "Recibí tu imagen 📸 Solicitaré que el equipo la revise. No realizo diagnósticos ni guardo notas clínicas automáticamente." };
   }
 
   let previous = getSession(parsed.from);
@@ -463,7 +397,7 @@ const processSingleIncomingMessage = async (parsed) => {
 
   if (scheduling.detectHumanEscalation(parsed.text)) {
     const reply =
-      "Entiendo 😊\nVoy a escalar tu solicitud directamente con Lina 🐾";
+      "Entiendo 😊\nSolicitaré que una persona del equipo revise tu conversación. 🐾";
     const session = updateSession(parsed.from, {
       ...previous,
       requires_human_attention: true,
@@ -489,6 +423,7 @@ const processSingleIncomingMessage = async (parsed) => {
       reply,
       ...parsed,
       session,
+      escalationRequested: true,
     };
   }
 
@@ -500,12 +435,20 @@ const processSingleIncomingMessage = async (parsed) => {
     const hour = previous.scheduling_hour;
 
     if (user && dateKey != null && hour != null) {
+      if (!previous.requested_service || (previous.domicilio === true && !require("./assistant-protocol.service").isPickupAddress(previous.domicilio_address))) {
+        const step = previous.requested_service ? STEPS.AWAITING_DOMICILIO_ADDRESS : null;
+        const session = updateSession(parsed.from, { ...previous, step });
+        await syncConversationState(conversation?.id, { step, intent: session.intent });
+        return { received: true, processed: true, user, conversation, ...parsed, session, appointment: null,
+          reply: previous.requested_service ? "Antes de confirmar, necesito la dirección exacta de recogida. 📍" : "Antes de confirmar, dime si la cita es para veterinaria o peluquería. 🐾" };
+      }
       if (isEmptyValue(previous.pet_name)) {
         const session = updateSession(parsed.from, { ...previous, step: STEPS.AWAITING_PET_NAME });
         await syncConversationState(conversation?.id, { intent: session.intent, step: session.step });
         return { received: true, processed: true, user, conversation, ...parsed, appointment: null,
           session, reply: "Antes de confirmar, dime el nombre de la mascota para esta cita 🐾" };
       }
+      let persistedAppointment = null;
       try {
         // Para grooming usar el sub-servicio específico si está disponible
         const serviceType = previous.grooming_service
@@ -514,7 +457,7 @@ const processSingleIncomingMessage = async (parsed) => {
         const appointmentDate = buildAppointmentDateTime(dateKey, hour);
         if (appointmentDate.getTime() <= Date.now()) throw new Error("Appointment slot is in the past");
 
-        const hasConflict = await checkAppointmentConflict({
+        const hasConflict = !previous.reschedule_appointment_id && await checkAppointmentConflict({
           date: appointmentDate,
           serviceType,
           dateKey,
@@ -566,7 +509,9 @@ const processSingleIncomingMessage = async (parsed) => {
         }
 
         const petName = await resolveAppointmentPetName(previous.pet_name, user.id);
-        const appointment = await createAppointment({
+        const appointment = previous.reschedule_appointment_id ? await rescheduleAppointment({
+          userId: user.id, tenantId, appointmentId: previous.reschedule_appointment_id, date: appointmentDate,
+        }) : await createAppointment({
           userId: user.id,
           tenantId: user.tenantId || null,
           petName,
@@ -575,25 +520,25 @@ const processSingleIncomingMessage = async (parsed) => {
           date: appointmentDate,
           status: "confirmed",
           address: previous.domicilio === true ? previous.domicilio_address || null : null,
-          groomingBreed: previous.grooming_breed || null,
-          groomingSize: previous.grooming_size || null,
         });
+        persistedAppointment = appointment;
 
         logger.info(
           `[WhatsApp] Appointment persisted: ${appointment.id} (${dateKey} ${hour}h ${formatSlotForUser(dateKey, hour)}, ${serviceType})`
         );
 
-        const { step, sessionPatch } = getConfirmationReply();
-        const reply = buildBookingConfirmation({ petName, serviceType, dateKey, hour,
-          pickup: previous.domicilio === true, address: appointment.address || previous.domicilio_address });
+        const step = STEPS.COMPLETED;
+        const reply = buildBookingConfirmation({ petName: appointment.petName || petName, serviceType: appointment.serviceType || serviceType, dateKey, hour,
+          pickup: previous.reschedule_appointment_id ? Boolean(appointment.address) : previous.domicilio === true,
+          address: appointment.address || previous.domicilio_address })
+          .replace("Tu cita quedó agendada.", previous.reschedule_appointment_id ? "Tu cita quedó reprogramada." : "Tu cita quedó agendada.");
         const session = updateSession(parsed.from, {
           ...previous,
           step,
-          ...(sessionPatch || {}),
+          reschedule_appointment_id: null,
         });
 
         logger.info("[Conversation] New step:", session.step);
-        logger.info("Generated reply:", reply);
 
         await syncConversationState(conversation?.id, {
           intent: session.intent,
@@ -612,6 +557,11 @@ const processSingleIncomingMessage = async (parsed) => {
           session,
         };
       } catch (error) {
+        if (persistedAppointment) {
+          error.operationAccepted = true;
+          error.message = `Appointment ${persistedAppointment.id} persisted; session completion failed: ${error.message}`;
+          throw error;
+        }
         logger.error(
           "[WhatsApp] Error persisting appointment:",
           error.message
@@ -677,12 +627,15 @@ const processSingleIncomingMessage = async (parsed) => {
   }
 
   let semanticContext = "";
-  if (user?.id) {
+  const needsRetrieval = /\b(?:precio|costo|servicios|direccion|ubicacion|politica|requisito|alergia|historial|vacuna)\b/i.test(parsed.text || "");
+  const queryEmbedding = needsRetrieval ? await generateEmbedding(parsed.text).catch(() => null) : null;
+  if (user?.id && queryEmbedding) {
     try {
       const memories = await searchRelevantMemories({
         userId: user.id,
         query: parsed.text,
         limit: 5,
+        queryEmbedding,
       });
       semanticContext = buildSemanticContext(memories);
       if (semanticContext) {
@@ -701,12 +654,13 @@ const processSingleIncomingMessage = async (parsed) => {
   // mecanismo de inyección de contexto que la memoria por cliente, pero
   // acotado por tenantId. No cambia ninguna regla de negocio ni la lógica
   // de decisión del bot: solo enriquece lo que la IA ve antes de responder.
-  if (tenantId) {
+  if (tenantId && queryEmbedding) {
     try {
       const knowledge = await searchRelevantKnowledge({
         tenantId,
         query: parsed.text,
         limit: 5,
+        queryEmbedding,
       });
       const knowledgeContext = buildKnowledgeContext(knowledge);
       if (knowledgeContext) {
@@ -743,6 +697,7 @@ const processSingleIncomingMessage = async (parsed) => {
       message: parsed.text,
       semanticContext,
       history,
+      session: previous,
     });
   } catch (error) {
     logger.error("[WhatsApp] Error al analizar mensaje:", error.message);
@@ -767,6 +722,18 @@ const processSingleIncomingMessage = async (parsed) => {
   if (analysis?.intent === "schedule_appointment" || analysis?.requested_service || previous.requested_service || turn.freshRequest) {
     analysis = selectCurrentPet(previous, analysis, parsed.text);
   }
+  const normalizedName = value => String(value || "").trim().toLocaleLowerCase("es");
+  if (previous.reschedule_appointment_id && ((analysis?.pet_name && normalizedName(analysis.pet_name) !== normalizedName(previous.pet_name)) ||
+      (analysis?.requested_service && previous.requested_service && analysis.requested_service !== previous.requested_service))) {
+    return { received: true, processed: true, user, conversation, ...parsed, session: previous, escalationRequested: false,
+      reply: `La reprogramación seleccionada es para ${previous.pet_name}. Cambiar mascota o servicio requiere una reserva nueva. Tu cita original sigue reservada; dime «Quiero una nueva cita» para empezar otra. 🐾` };
+  }
+  if ((analysis?.pet_name && normalizedName(analysis.pet_name) !== normalizedName(previous.pet_name)) ||
+      (analysis?.requested_service && previous.requested_service && analysis.requested_service !== previous.requested_service)) {
+    previous = { ...previous, pet_name: analysis.pet_name || previous.pet_name, pet_type: analysis.pet_type ?? null,
+      step: null, scheduling_date_key: null, scheduling_hour: null, grooming_service: null,
+      domicilio: null, domicilio_address: null };
+  }
   if (explicitTerms.dateText || explicitTerms.timeText) {
     analysis = {
       ...(analysis || {}),
@@ -778,9 +745,12 @@ const processSingleIncomingMessage = async (parsed) => {
     };
   }
 
-  logger.info("AI Analysis:", analysis);
+  logger.info("[WhatsApp] Analysis intent:", analysis?.intent);
 
   const mergedAnalysis = mergeSessionData(previous, analysis);
+  if (previous.requested_service && !require("./assistant-protocol.service").classifyManagementRequest(parsed.text, analysis?.intent, previous)) {
+    if (["query_appointments", "greeting"].includes(mergedAnalysis.intent)) mergedAnalysis.intent = "schedule_appointment";
+  }
   // Se conserva en la respuesta interna por compatibilidad; la mascota se
   // persiste durante la confirmación de la cita, no durante la extracción.
   const pet = null;
@@ -808,6 +778,7 @@ const processSingleIncomingMessage = async (parsed) => {
       now: new Date(),
       userId: user?.id,
       userName: user?.name ?? null,
+      businessName,
       // Entregable 6.2 (Fase 6) — transporta el tenantId ya disponible en
       // `user` hasta el motor de disponibilidad (Tenant.businessHours real).
       tenantId: user?.tenantId ?? null,
@@ -815,87 +786,15 @@ const processSingleIncomingMessage = async (parsed) => {
     }
   );
 
-  // Grooming: la cita se crea al confirmar domicilio (no por awaiting_confirmation)
-  if (result.createGroomingAppointment && user) {
-    const sessionForAppt = { ...previous, ...(result.sessionPatch || {}) };
-    const dateKey = sessionForAppt.scheduling_date_key;
-    const hour = sessionForAppt.scheduling_hour;
-    if (dateKey != null && hour != null) {
-      try {
-        const serviceType = sessionForAppt.grooming_service || "grooming";
-        const appointmentDate = buildAppointmentDateTime(dateKey, Number(hour));
-        if (appointmentDate.getTime() <= Date.now()) throw new Error("Appointment slot is in the past");
-        const hasConflict = await checkAppointmentConflict({
-          date: appointmentDate,
-          serviceType,
-          dateKey,
-          hour,
-          tenantId: user.tenantId || null,
-        });
-        if (hasConflict) {
-          result = {
-            ...result,
-            reply: "Ese turno acaba de ser ocupado 😔 Te propongo el siguiente disponible.",
-            step: STEPS.AWAITING_GROOMING_SLOT_CONFIRM,
-            sessionPatch: {
-              scheduling_date_key: undefined,
-              scheduling_hour: undefined,
-            },
-          };
-          throw new Error("Grooming slot no longer available");
-        }
-        const petName = await resolveAppointmentPetName(sessionForAppt.pet_name, user.id);
-        const appointment = await createAppointment({
-          userId: user.id,
-          tenantId: user.tenantId || null,
-          petName,
-          petType: sessionForAppt.pet_type || "other",
-          serviceType,
-          date: appointmentDate,
-          status: "confirmed",
-          address: sessionForAppt.domicilio === true ? sessionForAppt.domicilio_address || null : null,
-          groomingBreed: sessionForAppt.grooming_breed || null,
-          groomingSize: sessionForAppt.grooming_size || null,
-        });
-        logger.info(`[WhatsApp] Grooming appointment created: ${dateKey} ${hour}h ${serviceType}`);
-        result = {
-          ...result,
-          reply: buildBookingConfirmation({ petName, serviceType, dateKey, hour: Number(hour),
-            pickup: sessionForAppt.domicilio === true, address: appointment.address || sessionForAppt.domicilio_address }),
-          step: STEPS.COMPLETED,
-          sessionPatch: { ...(result.sessionPatch || {}) },
-        };
-      } catch (error) {
-        logger.error("[WhatsApp] Error creating grooming appointment:", error.message);
-        if (error.message !== "Grooming slot no longer available") {
-          result = {
-            ...result,
-            reply: "No pudimos confirmar la cita todavía 😔 No se guardó ninguna reserva. ¿Intentamos de nuevo?",
-            step: STEPS.AWAITING_GROOMING_SLOT_CONFIRM,
-            sessionPatch: {},
-          };
-        }
-      }
-    } else {
-      logger.warn("[WhatsApp] Grooming appointment skipped — missing scheduling_date_key or hour");
-      result = {
-        ...result,
-        reply: "No pude confirmar el horario de peluquería 😔 ¿Te propongo el siguiente turno disponible?",
-        step: STEPS.AWAITING_GROOMING_SLOT_CONFIRM,
-        sessionPatch: {},
-      };
-    }
-  }
 
   const session = updateSession(parsed.from, {
     ...mergedAnalysis,
     step: result.step,
     ...(result.sessionPatch || {}),
+    requires_human_attention: result.sessionPatch?.requires_human_attention === true || result.step === STEPS.HUMAN_TAKEOVER,
   });
 
   logger.info("[Conversation] New step:", session.step);
-  logger.info("Generated reply:", result.reply);
-  logger.info("Session:", session);
 
   await syncConversationState(conversation?.id, {
     intent: mergedAnalysis?.intent,
@@ -913,6 +812,7 @@ const processSingleIncomingMessage = async (parsed) => {
     ...parsed,
     analysis: mergedAnalysis,
     session,
+    escalationRequested: result.sessionPatch?.requires_human_attention === true || result.step === STEPS.HUMAN_TAKEOVER,
   };
 };
 

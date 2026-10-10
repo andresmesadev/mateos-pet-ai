@@ -16,7 +16,7 @@ const MAX_CONTEXT_CHUNKS = 5;
 /**
  * @returns {Promise<Array<{ content: string, source: string|null, similarity: number }>>}
  */
-const searchRelevantKnowledge = async ({ tenantId, query, limit = 5 }) => {
+const searchRelevantKnowledge = async ({ tenantId, query, limit = 5, queryEmbedding }) => {
   try {
     const tid = String(tenantId || "").trim();
     const normalizedQuery = typeof query === "string" ? query.trim() : "";
@@ -29,7 +29,7 @@ const searchRelevantKnowledge = async ({ tenantId, query, limit = 5 }) => {
       return [];
     }
 
-    const embedding = await generateEmbedding(normalizedQuery);
+    const embedding = queryEmbedding || await generateEmbedding(normalizedQuery);
     if (!embedding) {
       console.warn("[BusinessKnowledge] Query embedding failed; returning []");
       return [];
@@ -55,7 +55,7 @@ const searchRelevantKnowledge = async ({ tenantId, query, limit = 5 }) => {
       content: row.content,
       source: row.source ?? null,
       similarity: Number(row.similarity),
-    }));
+    })).filter(chunk => chunk.similarity >= 0.5);
   } catch (error) {
     console.error("[BusinessKnowledge] searchRelevantKnowledge error:", error.message);
     return [];

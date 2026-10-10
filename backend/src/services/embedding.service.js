@@ -7,6 +7,8 @@ const EMBEDDING_DIMENSIONS = 1536;
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
+  timeout: 15000,
+  maxRetries: 2,
 });
 
 /**
@@ -39,11 +41,13 @@ const generateEmbedding = async (text) => {
   try {
     console.log("[Embedding] Generating embedding");
 
+    const startedAt = Date.now();
     const response = await openai.embeddings.create({
       model: EMBEDDING_MODEL,
       input: normalized,
       dimensions: EMBEDDING_DIMENSIONS,
     });
+    console.info("[AssistantAI] Usage:", { operation: "embedding", model: EMBEDDING_MODEL, elapsedMs: Date.now() - startedAt, totalTokens: response.usage?.total_tokens ?? null });
 
     const embedding = response.data?.[0]?.embedding;
 

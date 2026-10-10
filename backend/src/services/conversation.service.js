@@ -9,11 +9,14 @@
 // de conversation.service.js (whatsapp.service.js, entre otros).
 const { STEPS, BOOKING_STEPS } = require("./domain/booking-steps");
 const { isAcknowledgementOnly, isFarewellOnly } = require("./booking-turn.service");
-const { buildBookingConfirmation } = require("./booking-message.service");
+const { buildBookingReview } = require("./booking-message.service");
+const { isConfirmationMessage, isPickupAddress, classifyManagementRequest, isAvailabilityQuestion } = require("./assistant-protocol.service");
+const { handleAppointmentManagement } = require("./conversation-management.service");
 
 const scheduling = require("./scheduling.service");
-const { findNextAvailableGroomingSlot } = require("./availability-db.service");
-const { getBusinessHours } = require("./business-config.service");
+const { findNextAvailableGroomingSlot, listAvailableSlotsForDate } = require("./availability-db.service");
+const { getBusinessHours, getActiveModules } = require("./business-config.service");
+const { listBusinessServices } = require("./assistant-business-info.service");
 const { isBusinessDay, resolveHourWindow, SERVICE_TYPES } = require("./availability.service");
 const { generateReply: generateReplyWithAI } = require("./openai.service");
 const { getUserPets } = require("./pet.service");
@@ -22,13 +25,6 @@ const {
   getRecordsByType,
   formatRecordsForWhatsApp,
 } = require("./medical-record.service");
-const {
-  cancelAppointment,
-  getUserAppointments,
-  mapDbServiceTypeToSession,
-  formatAppointmentDateLabel,
-  formatAppointmentListLine,
-} = require("./appointment.service");
 const { findPetByNameAndOwner } = require("./pet.service");
 
 // ─── Domain services ──────────────────────────────────────────────────────────
@@ -38,9 +34,6 @@ const {
   isMissing,
   capitalize,
   MANAGEMENT_INTENTS,
-  detectCancelIntent,
-  detectRescheduleIntent,
-  detectQueryAppointmentsIntent,
   detectQueryMedicalHistoryIntent,
   detectHumanTakeoverIntent,
   detectNoAppointmentNeeded,
@@ -49,20 +42,8 @@ const {
   resolveMedicalHistoryFilter,
 } = require("./domain/intent-detector.service");
 
-const { trySaveMedicalInfo } = require("./domain/medical-auto-capture.service");
 
 // ─── Confirmation protocol ────────────────────────────────────────────────────
-
-const confirmationKeywords = [
-  "si", "ok", "perfecto", "confirmar", "confirmo", "dale",
-  "claro", "de acuerdo", "confirmado", "listo", "bueno",
-];
-
-const isConfirmationMessage = (text) => {
-  const n = normalizeText(text);
-  if (!n) return false;
-  return confirmationKeywords.some((k) => n.includes(normalizeText(k)));
-};
 
 // ─── WhatsApp formatting helpers ──────────────────────────────────────────────
 
@@ -111,92 +92,6 @@ const buildBusinessHoursReply = async (tenantId) => {
 
 // ─── Session patch helpers ────────────────────────────────────────────────────
 
-const clearSchedulingPatch = () => ({
-  scheduling_date_key: undefined,
-  scheduling_hour: undefined,
-  date: undefined,
-  time: undefined,
-});
-
-const buildRescheduleSessionPatch = (cancelled, session = {}) => {
-  const patch = { ...clearSchedulingPatch(), step: STEPS.AWAITING_DATE_TIME };
-  if (cancelled) {
-    patch.pet_name = cancelled.petName;
-    patch.pet_type = cancelled.petType;
-    patch.requested_service =
-      mapDbServiceTypeToSession(cancelled.serviceType) ?? session.requested_service;
-  } else {
-    if (!isMissing(session.pet_name)) patch.pet_name = session.pet_name;
-    if (!isMissing(session.pet_type)) patch.pet_type = session.pet_type;
-    if (!isMissing(session.requested_service)) patch.requested_service = session.requested_service;
-  }
-  return patch;
-};
-
-// ─── Management operation formatters ─────────────────────────────────────────
-// These call domain services and format their results for WhatsApp replies.
-
-const handleCancellation = async (userId) => {
-  if (!userId) {
-    return { reply: "No tienes citas activas por cancelar 🐾", step: null, sessionPatch: clearSchedulingPatch(), forceRuleReply: true };
-  }
-  try {
-    const cancelled = await cancelAppointment(userId);
-    if (!cancelled) {
-      return { reply: "No encontré citas activas para cancelar 🐾", step: null, sessionPatch: clearSchedulingPatch(), forceRuleReply: true };
-    }
-    const dateLabel = formatAppointmentDateLabel(cancelled);
-    return {
-      reply: `Listo, cancelé tu cita del ${dateLabel} ✅ ¿Deseas reagendar?`,
-      step: null, sessionPatch: clearSchedulingPatch(), forceRuleReply: true,
-    };
-  } catch (error) {
-    console.error("[Conversation] Cancel error:", error.message);
-    return { reply: "Hubo un problema al cancelar 😔 ¿Intentamos de nuevo?", step: null, sessionPatch: {}, forceRuleReply: true };
-  }
-};
-
-const handleReschedule = async (userId, session = {}) => {
-  if (!userId) {
-    return { reply: "No encontré citas para reprogramar 🐾", step: null, sessionPatch: clearSchedulingPatch(), forceRuleReply: true };
-  }
-  try {
-    const cancelled = await cancelAppointment(userId);
-    if (!cancelled) {
-      return { reply: "No encontré citas para reprogramar 🐾", step: null, sessionPatch: clearSchedulingPatch(), forceRuleReply: true };
-    }
-    return {
-      reply: "Cita cancelada ✅ ¿Para qué día y hora reagendamos?",
-      step: STEPS.AWAITING_DATE_TIME,
-      sessionPatch: buildRescheduleSessionPatch(cancelled, session),
-      forceRuleReply: true,
-    };
-  } catch (error) {
-    console.error("[Conversation] Reschedule error:", error.message);
-    return { reply: "Hubo un problema al reprogramar 😔 ¿Intentamos de nuevo?", step: null, sessionPatch: {}, forceRuleReply: true };
-  }
-};
-
-const handleQueryAppointments = async (userId) => {
-  if (!userId) {
-    return { reply: "No tienes citas programadas por ahora 🐾", step: null, sessionPatch: {}, forceRuleReply: true };
-  }
-  try {
-    const appointments = await getUserAppointments(userId);
-    if (!appointments.length) {
-      return { reply: "No tienes citas programadas 🐾 ¿Te agendo una?", step: null, sessionPatch: {}, forceRuleReply: true };
-    }
-    const lines = appointments.map(formatAppointmentListLine).filter(Boolean);
-    return {
-      reply: `Tienes estas citas agendadas:\n${lines.join("\n")}`,
-      step: null, sessionPatch: {}, forceRuleReply: true,
-    };
-  } catch (error) {
-    console.error("[Conversation] Query appointments error:", error.message);
-    return { reply: "No pude consultar tus citas 😔 ¿Intentamos de nuevo?", step: null, sessionPatch: {}, forceRuleReply: true };
-  }
-};
-
 const handleQueryMedicalHistory = async (userId, session = {}, analysis = {}, userMessage = "") => {
   const petName = analysis?.pet_name ?? session?.pet_name;
   if (isMissing(petName)) {
@@ -228,8 +123,10 @@ const handleQueryMedicalHistory = async (userId, session = {}, analysis = {}, us
 
 // ─── Grooming slot formatting ─────────────────────────────────────────────────
 
-const offerNextGroomingSlot = async (petName, referenceDate, tenantId) => {
-  const slot = await findNextAvailableGroomingSlot({ referenceDate, tenantId });
+const offerNextGroomingSlot = async (petName, referenceDate, tenantId, requestedDate) => {
+  const requestedKey = requestedDate && scheduling.parseDateToKey(requestedDate, referenceDate);
+  const daySlots = requestedKey ? await listAvailableSlotsForDate({ dateKey: requestedKey, referenceDate, tenantId, serviceType: SERVICE_TYPES.GROOMING }) : [];
+  const slot = daySlots.length ? { date: requestedKey, hour: daySlots[0] } : await findNextAvailableGroomingSlot({ referenceDate, tenantId });
 
   if (!slot) {
     return {
@@ -244,7 +141,7 @@ const offerNextGroomingSlot = async (petName, referenceDate, tenantId) => {
   const petPart = petName ? ` para ${petName}` : "";
 
   return {
-    reply: `¡Claro! ${capitalize(dayLabel)} tenemos disponibilidad a las ${timeLabel}${petPart} 🛁 ¿Te queda bien esa hora?`,
+    reply: `${requestedKey && !daySlots.length ? "No hay un turno reservable para peluquería en el día solicitado. " : ""}${capitalize(dayLabel)} tenemos disponibilidad a las ${timeLabel}${petPart} 🛁 ¿Te queda bien esa hora?`,
     step: STEPS.AWAITING_GROOMING_SLOT_CONFIRM,
     sessionPatch: {
       scheduling_date_key: slot.date,
@@ -253,13 +150,6 @@ const offerNextGroomingSlot = async (petName, referenceDate, tenantId) => {
   };
 };
 
-const buildGroomingConfirmedReply = (session, extra = {}) => {
-  const dateKey = extra.scheduling_date_key ?? session.scheduling_date_key;
-  const hour = extra.scheduling_hour ?? session.scheduling_hour;
-  const domicilioAddress = extra.domicilio_address ?? session.domicilio_address;
-  return buildBookingConfirmation({ petName: session.pet_name, serviceType: "grooming", dateKey, hour,
-    pickup: extra.domicilio ?? session.domicilio, address: domicilioAddress });
-};
 
 // ─── Wizard (WhatsApp conversation state machine) ─────────────────────────────
 
@@ -321,7 +211,7 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
   const userId = options.userId;
   const tenantId = options.tenantId;
   const needsClientName = Boolean(options.needsClientName);
-  const currentStep = session.step ?? analysis?.step;
+  let currentStep = session.step ?? analysis?.step;
 
   if (isAcknowledgementOnly(userMessage) || isFarewellOnly(userMessage)) {
     return { reply: isFarewellOnly(userMessage) ? "¡Hasta pronto! Que tengas un buen día 🐾" : "¡Con mucho gusto! Que tengas un buen día. ¡Hasta pronto! 🐾", step: currentStep === STEPS.COMPLETED ? null : currentStep ?? null,
@@ -329,15 +219,17 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
   }
 
   if (!analysis || typeof analysis !== "object") {
-    return { reply: "¡Hola! Soy Lina 😊 ¿En qué te podemos colaborar? 🐾", step: null, sessionPatch: {} };
+    return { reply: "No pude entender ese mensaje. ¿Puedes decirlo de otra forma? Conservé los datos que ya me diste. 🐾", step: currentStep ?? null, sessionPatch: {}, forceRuleReply: true };
   }
 
-  const intent = analysis.intent;
+  const management = classifyManagementRequest(userMessage, analysis.intent, session);
+  const intent = !management && session.requested_service && ["query_appointments", "ask_info", "greeting"].includes(analysis.intent)
+    && isAvailabilityQuestion(userMessage) ? "schedule_appointment" : analysis.intent;
 
   // ── 0. Transferencia a humano (prioridad absoluta) ────────────────────────────
   if (detectHumanTakeoverIntent(userMessage)) {
     return {
-      reply: "Con gusto 🐾 Te comunico con Lina, en un momento te atiende. También puedes escribirnos directamente si es urgente.",
+      reply: "Con gusto 🐾 Solicitaré que una persona del equipo revise tu conversación. Si es urgente, contacta directamente al establecimiento.",
       step: STEPS.HUMAN_TAKEOVER,
       sessionPatch: { requires_human_attention: true },
       forceRuleReply: true,
@@ -345,9 +237,9 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
   }
 
   // ── 1. Gestión (máxima prioridad) ────────────────────────────────────────────
-  if (detectRescheduleIntent(userMessage, intent)) return handleReschedule(userId, session);
-  if (detectCancelIntent(userMessage, intent)) return handleCancellation(userId);
-  if (detectQueryAppointmentsIntent(userMessage, intent)) return handleQueryAppointments(userId);
+  if (management || [STEPS.AWAITING_APPOINTMENT_SELECTION, STEPS.AWAITING_MANAGEMENT_CONFIRM].includes(currentStep)) {
+    return handleAppointmentManagement({ action: management, userId, tenantId, session, userMessage, now, petName: analysis.pet_name });
+  }
   if (detectQueryMedicalHistoryIntent(userMessage, intent)) {
     return handleQueryMedicalHistory(userId, session, analysis, userMessage);
   }
@@ -374,7 +266,7 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
 
   if (needsClientName) {
     return {
-      reply: "¡Hola! Soy Lina de Mateos Pet 🐾 ¿Con quién tengo el gusto?",
+      reply: `¡Hola! Soy Lina, asistente virtual de ${options.businessName || "el establecimiento"} 🐾 ¿Con quién tengo el gusto?`,
       step: STEPS.AWAITING_CLIENT_NAME,
       sessionPatch: {},
       forceRuleReply: true,
@@ -383,6 +275,7 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
 
   // ── 2. Saludo (siempre reinicia, sin importar el estado anterior) ────────────
   if (intent === "greeting") {
+    if (currentStep && currentStep !== STEPS.COMPLETED) return { reply: "¡Hola de nuevo! Conservé tu reserva en curso. Dime cómo seguimos. 🐾", step: currentStep, sessionPatch: {}, forceRuleReply: true };
     const userName = options.userName ? `, ${options.userName.split(" ")[0]}` : "";
     return {
       reply: `¡Hola${userName}! Soy Lina 😊 ¿En qué te podemos colaborar hoy? 🐾`,
@@ -412,6 +305,11 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
   // ── 3. Wizard grooming activo ─────────────────────────────────────────────────
 
   // 3a. Usuario responde al slot ofrecido
+  const petChanged = analysis.pet_name && normalizeText(analysis.pet_name) !== normalizeText(session.pet_name || "");
+  const freshTerms = scheduling.extractExplicitSchedulingTerms(userMessage, now);
+  if (petChanged || freshTerms.dateText || freshTerms.timeText || isAvailabilityQuestion(userMessage)) {
+    if ([STEPS.AWAITING_GROOMING_SLOT_CONFIRM, STEPS.AWAITING_DOMICILIO, STEPS.AWAITING_DOMICILIO_ADDRESS].includes(currentStep)) currentStep = null;
+  }
   if (currentStep === STEPS.AWAITING_GROOMING_SLOT_CONFIRM) {
     if (isConfirmationMessage(userMessage)) {
       return {
@@ -438,10 +336,10 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
 
     if (wantsDomicilio === false) {
       return {
-        reply: buildGroomingConfirmedReply(session, { now, domicilio: false }),
-        step: STEPS.COMPLETED,
+        reply: buildBookingReview({ ...session, domicilio: false, domicilio_address: null }),
+        step: STEPS.AWAITING_CONFIRMATION,
         sessionPatch: { domicilio: false, domicilio_address: null },
-        createGroomingAppointment: true,
+        forceRuleReply: true,
       };
     }
 
@@ -455,7 +353,7 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
   // 3c. Usuario da la dirección
   if (currentStep === STEPS.AWAITING_DOMICILIO_ADDRESS) {
     const address = userMessage.trim();
-    if (!address || address.length < 4) {
+    if (!isPickupAddress(address)) {
       return {
         reply: "¿Cuál es la dirección exacta de recogida? 📍",
         step: STEPS.AWAITING_DOMICILIO_ADDRESS,
@@ -463,10 +361,10 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
       };
     }
     return {
-      reply: buildGroomingConfirmedReply(session, { domicilio_address: address, now }),
-      step: STEPS.COMPLETED,
+      reply: buildBookingReview({ ...session, domicilio_address: address }),
+      step: STEPS.AWAITING_CONFIRMATION,
       sessionPatch: { domicilio_address: address },
-      createGroomingAppointment: true,
+      forceRuleReply: true,
     };
   }
 
@@ -480,7 +378,7 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
     };
   }
 
-  const petType = analysis.pet_type;
+  let petType = analysis.pet_type;
   const petName = analysis.pet_name;
   const service = analysis.requested_service;
   const date = analysis.date;
@@ -488,13 +386,20 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
 
   // ── 5. Info / otros ──────────────────────────────────────────────────────────
   if (intent === "ask_info") {
+    if (/precio|cuanto cuesta|costo|valor|tarifa/i.test(normalizeText(userMessage))) return {
+      reply: "Para confirmar el precio correcto necesitamos verificar el servicio y la mascota con el equipo. No he modificado tu reserva. 🐾",
+      step: currentStep ?? null, sessionPatch: {}, forceRuleReply: true,
+    };
+    if (/servicios|ofrecen|laboratorio|rayos|cirugia/i.test(normalizeText(userMessage))) return {
+      reply: await listBusinessServices(tenantId), step: currentStep ?? null, sessionPatch: {}, forceRuleReply: true,
+    };
     if (/\b(horarios?|hora de atenci[oó]n|a qu[eé] hora|abren|cierran)\b/i.test(userMessage)) {
-      return { reply: await buildBusinessHoursReply(tenantId), step: null, sessionPatch: {}, forceRuleReply: true };
+      return { reply: await buildBusinessHoursReply(tenantId), step: currentStep ?? null, sessionPatch: {}, forceRuleReply: true };
     }
     return {
       reply:
-        "Con gusto te cuento 😊 Tenemos servicios veterinarios (consulta, laboratorio, rayos X, ecografía, cirugías) y grooming. Para vacunación y desparasitación puedes venir sin cita durante el horario de atención, excepto los días cerrados y festivos 🐾 ¿Qué necesitas?",
-      step: null,
+        "Puedo ayudarte con reservas y consultas sobre el establecimiento. Para precios o servicios específicos necesito información verificada; si no la tengo, lo revisa el equipo. 🐾",
+      step: currentStep ?? null,
       sessionPatch: {},
     };
   }
@@ -503,7 +408,7 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
     if (isMissing(petName)) {
       return { reply: "¿Cómo se llama tu mascota? 🐾", step: null, sessionPatch: {} };
     }
-    return { reply: "Gracias por contarnos 🐾", step: null, sessionPatch: {} };
+    return { reply: "Gracias por contarnos. Esa información debe revisarla el equipo veterinario; no la añadiré automáticamente a una ficha clínica. 🐾", step: currentStep ?? null, sessionPatch: {}, forceRuleReply: true };
   }
 
   // ── 6. Agendamiento ───────────────────────────────────────────────────────────
@@ -512,6 +417,15 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
     (intent === "schedule_appointment" || !isMissing(service));
 
   if (isBooking) {
+    if (tenantId && typeof getActiveModules === "function" && service) {
+      const modules = await getActiveModules(tenantId);
+      const required = service === "bath_grooming" ? "grooming" : "veterinary";
+      if (!modules.includes(required)) return { reply: "Ese servicio no está habilitado en este establecimiento. El equipo puede orientarte. 🐾", step: currentStep ?? null, sessionPatch: {}, forceRuleReply: true };
+    }
+    if (petName && userId) {
+      const registered = await findPetByNameAndOwner(petName, userId);
+      if (registered) petType = analysis.pet_type = registered.type;
+    }
     if (isMissing(service)) {
       return {
         reply: "¡Con gusto te agendo! 🐾 ¿Es para veterinaria o grooming?",
@@ -575,6 +489,7 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
           awaitingStepConstant: STEPS.AWAITING_GROOMING_SLOT_CONFIRM,
           confirmationStepConstant: STEPS.AWAITING_GROOMING_SLOT_CONFIRM,
           tenantId,
+          excludeAppointmentId: session.reschedule_appointment_id,
         });
 
         if (requested?.sessionPatch) {
@@ -590,7 +505,7 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
           };
         }
       } else {
-        slotResult = await offerNextGroomingSlot(petName, now, tenantId);
+        slotResult = await offerNextGroomingSlot(petName, now, tenantId, requestedTerms.dateText || date);
       }
 
       if (groomSvc && slotResult.sessionPatch) {
@@ -616,10 +531,11 @@ const buildRuleBasedReply = async (analysis, options = {}) => {
         awaitingStepConstant: STEPS.AWAITING_DATE_TIME,
         confirmationStepConstant: STEPS.AWAITING_CONFIRMATION,
         tenantId,
+        excludeAppointmentId: session.reschedule_appointment_id,
       });
 
       if (vet) {
-        return { reply: vet.step === STEPS.AWAITING_CONFIRMATION ? `🐾 Mascota: ${petName}\n${vet.reply}` : vet.reply, step: vet.step, sessionPatch: vet.sessionPatch || {}, forceRuleReply: true };
+        return { reply: vet.step === STEPS.AWAITING_CONFIRMATION ? buildBookingReview({ ...session, ...analysis, ...vet.sessionPatch }) : vet.reply, step: vet.step, sessionPatch: vet.sessionPatch || {}, forceRuleReply: true };
       }
 
       return {
@@ -663,23 +579,6 @@ const generateReply = async (input, legacyOptions) => {
     userMessage,
   });
 
-  // Auto-capture: only outside active booking steps and not when querying history
-  const currentStep = session?.step ?? analysis?.step;
-  const inBookingWizard = currentStep && BOOKING_STEPS.has(currentStep);
-  const isQueryingHistory = detectQueryMedicalHistoryIntent(userMessage, analysis?.intent);
-
-  if (!inBookingWizard && !isQueryingHistory) {
-    const petName = session?.pet_name ?? analysis?.pet_name;
-    const medicalConfirmation = await trySaveMedicalInfo({
-      userId: options?.userId,
-      petName,
-      userMessage,
-    });
-    if (medicalConfirmation) {
-      ruleResult.reply = `${ruleResult.reply}\n\n${medicalConfirmation}`;
-    }
-  }
-
   const contextText = typeof semanticContext === "string" ? semanticContext.trim() : "";
 
   // Entregable 8.1 (D-F4): antes, sin contexto semántico (contextText vacío)
@@ -687,7 +586,7 @@ const generateReply = async (input, legacyOptions) => {
   // embebido recibía solo la plantilla de reglas. semanticContext vacío ya no
   // corta el intento; generateReplyWithAI (openai.service.js) redacta con lo
   // que haya, incluso sin memorias relevantes.
-  if (shouldUseRuleReplyOnly(ruleResult, analysis)) {
+  if (shouldUseRuleReplyOnly(ruleResult, analysis) || analysis?.intent !== "ask_info" || !contextText) {
     return ruleResult;
   }
 
@@ -715,20 +614,12 @@ const generateReply = async (input, legacyOptions) => {
   return ruleResult;
 };
 
-const getConfirmationReply = () => ({
-  reply: "¡Listo! Tu cita quedó agendada 🐾 ¡Te esperamos en Mateos Pet! Soy Lina, cualquier cosa me escribes 😊",
-  step: STEPS.COMPLETED,
-  sessionPatch: {},
-});
-
 module.exports = {
   // Reexportados desde domain/booking-steps.js — ver el fix del 2026-09-08
   // arriba (import) para por qué viven ahí y no aquí.
   STEPS,
   BOOKING_STEPS,
-  confirmationKeywords,
   normalizeText,
   isConfirmationMessage,
   generateReply,
-  getConfirmationReply,
 };

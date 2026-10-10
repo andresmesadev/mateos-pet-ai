@@ -9,9 +9,6 @@
  * (pet_name/requested_service todavía en memoria) + un mensaje de
  * agradecimiento sin relación con agendar.
  */
-jest.mock("../../services/domain/medical-auto-capture.service", () => ({
-  trySaveMedicalInfo: jest.fn().mockResolvedValue(null),
-}));
 
 const { generateReply, STEPS } = require("../../services/conversation.service");
 

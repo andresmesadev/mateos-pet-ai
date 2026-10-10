@@ -42,8 +42,20 @@ const appointmentAt = (hour, serviceType) => ({
 });
 
 beforeEach(() => {
+  jest.useFakeTimers({ doNotFake: ["nextTick", "setImmediate"] });
+  jest.setSystemTime(new Date("2026-01-07T12:00:00Z"));
   jest.clearAllMocks();
   prisma.appointment.findMany.mockResolvedValue([]);
+});
+afterEach(() => jest.useRealTimers());
+
+test("expired grooming gaps do not block afternoon, future gaps still do", async () => {
+  prisma.tenant.findUnique.mockResolvedValue({ businessHours: PILOT_HOURS });
+  const at = new Date("2026-01-08T16:51:00Z"); // 11:51 Colombia: 11 and 12 no longer reservable.
+  const options = { tenantId: "t-1", dateKey: THURSDAY, serviceType: "grooming", referenceDate: at };
+  await expect(isSlotAvailable({ ...options, hour: 13 })).resolves.toBe(true);
+  await expect(isSlotAvailable({ ...options, hour: 14 })).resolves.toBe(false);
+  await expect(isSlotAvailable({ ...options, dateKey: "2026-01-07", hour: 13 })).resolves.toBe(false);
 });
 
 describe("horarios con minutos sin cambiar la capacidad de un turno", () => {

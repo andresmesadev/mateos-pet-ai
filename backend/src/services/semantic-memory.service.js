@@ -12,7 +12,7 @@ const MAX_CONTEXT_MEMORIES = 5;
  * Búsqueda por similitud coseno (pgvector `<=>`) sobre MemoryEmbedding del usuario.
  * @returns {Promise<Array<{ content: string, metadata: unknown, createdAt: Date, distance: number, similarity: number }>>}
  */
-const searchRelevantMemories = async ({ userId, query, limit = 5 }) => {
+const searchRelevantMemories = async ({ userId, query, limit = 5, queryEmbedding }) => {
   try {
     const uid = String(userId || "").trim();
     const normalizedQuery = typeof query === "string" ? query.trim() : "";
@@ -26,7 +26,7 @@ const searchRelevantMemories = async ({ userId, query, limit = 5 }) => {
     }
 
     console.log("[SemanticMemory] Generating query embedding");
-    const embedding = await generateEmbedding(normalizedQuery);
+    const embedding = queryEmbedding || await generateEmbedding(normalizedQuery);
 
     if (!embedding) {
       console.warn("[SemanticMemory] Query embedding failed; returning []");
@@ -62,7 +62,7 @@ const searchRelevantMemories = async ({ userId, query, limit = 5 }) => {
     }));
 
     console.log(`[SemanticMemory] Memories found: ${memories.length}`);
-    return memories;
+    return memories.filter(memory => memory.similarity >= 0.5);
   } catch (error) {
     console.error(
       "[SemanticMemory] searchRelevantMemories error:",

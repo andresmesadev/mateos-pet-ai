@@ -81,20 +81,25 @@ function createSendMessageUseCase({
       throw new MessageDeliveryFailedError(`proveedor del canal "${channel.type}" no confirmó el envío`);
     }
 
-    const message = await messageRepository.create({
+    let message;
+    try { message = await messageRepository.create({
       conversationId: conversation.id,
       role: "assistant",
       origin,
       content,
+      ...(delivered.messageId ? { externalId: delivered.messageId } : {}),
       senderKind: author ? "human" : origin === "sistema" ? "system" : "ai",
       ...(author ? { senderActorId: author.id, senderName: author.name, senderRole: author.role } : {}),
-    });
+    }); } catch (error) { error.deliveryAccepted = true; error.providerMessageId = delivered.messageId || null; throw error; }
 
     return { message };
     });
     // Un consumidor de eventos puede enviar otro mensaje al mismo teléfono.
     // Publicar después de soltar el mutex evita una espera circular.
-    if (result.message) await eventPublisher.publish("MensajeEnviado", { message: result.message, channel });
+    if (result.message) {
+      try { await eventPublisher.publish("MensajeEnviado", { message: result.message, channel }); }
+      catch (error) { error.deliveryAccepted = true; error.providerMessageId = result.message.externalId || null; throw error; }
+    }
     return result;
   };
 }

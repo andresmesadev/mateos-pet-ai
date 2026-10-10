@@ -132,7 +132,7 @@ const syncCancelToCalendar = (appointment) => {
 const mapDbServiceTypeToSession = (serviceType) => {
   const s = String(serviceType || "").trim().toLowerCase();
 
-  if (s === "grooming") return "bath_grooming";
+  if (GROOMING_SERVICE_NAMES.has(s)) return "bath_grooming";
   if (s === "vet") return "veterinary_consultation";
   if (s === "medication") return "medication";
   if (s === "general_appointment") return "general_appointment";
@@ -185,13 +185,13 @@ const formatAppointmentListLine = (appointment) => {
   const dateLabel = formatInTimeZone(date, TIMEZONE, "dd/MM/yyyy");
   const timeLabel = formatInTimeZone(date, TIMEZONE, "h:mm a");
 
-  return `📅 ${serviceLabel} — ${dateLabel} a las ${timeLabel}`;
+  return `📅 ${appointment.petName || "Mascota"} · ${serviceLabel} — ${dateLabel} a las ${timeLabel}`;
 };
 
 /**
  * Próximas citas activas del usuario (pending/confirmed), máx. 3.
  */
-const getUserAppointments = async (userId) => {
+const getUserAppointments = async (userId, { tenantId, limit = MAX_USER_APPOINTMENTS } = {}) => {
   const id = String(userId || "").trim();
 
   if (!id) {
@@ -202,11 +202,12 @@ const getUserAppointments = async (userId) => {
     const appointments = await prisma.appointment.findMany({
       where: {
         userId: id,
+        ...(tenantId ? { tenantId } : {}),
         status: { in: ACTIVE_APPOINTMENT_STATUSES },
         date: { gte: new Date() },
       },
       orderBy: { date: "asc" },
-      take: MAX_USER_APPOINTMENTS,
+      take: Math.min(50, Math.max(1, limit)),
     });
 
     logger.info(
@@ -223,23 +224,25 @@ const getUserAppointments = async (userId) => {
 };
 
 /**
- * Cancela la última cita activa (pending/confirmed) del usuario.
+ * Cancela exclusivamente la cita seleccionada y autorizada.
  * @returns {Promise<object|null>} Cita cancelada o null si no hay activas
  */
-const cancelAppointment = async (userId) => {
+const cancelAppointment = async (userId, appointmentId, tenantId) => {
   const id = String(userId || "").trim();
 
-  if (!id) {
-    throw new Error("userId is required");
+  if (!id || !appointmentId || !tenantId) {
+    throw new Error("userId, appointmentId and tenantId are required");
   }
 
   try {
     const appointment = await prisma.appointment.findFirst({
       where: {
         userId: id,
+        id: appointmentId,
+        tenantId,
         status: { in: ACTIVE_APPOINTMENT_STATUSES },
+        date: { gte: new Date() },
       },
-      orderBy: { date: "desc" },
     });
 
     if (!appointment) {
@@ -247,10 +250,12 @@ const cancelAppointment = async (userId) => {
       return null;
     }
 
-    const cancelled = await prisma.appointment.update({
-      where: { id: appointment.id },
+    const changed = await prisma.appointment.updateMany({
+      where: { id: appointment.id, userId: id, tenantId, status: { in: ACTIVE_APPOINTMENT_STATUSES } },
       data: { status: "cancelled" },
     });
+    if (!changed.count) return null;
+    const cancelled = { ...appointment, status: "cancelled" };
 
     syncCancelToCalendar(cancelled);
 
@@ -406,6 +411,46 @@ const createAppointment = async (data) => {
   }
 };
 
+// Reprogramación: conserva identidad y cita original si el nuevo turno falla.
+const rescheduleAppointment = async ({ userId, tenantId, appointmentId, date }) => {
+  if (!userId || !tenantId || !appointmentId || !(date instanceof Date)) {
+    throw new Error("Authorized appointment and replacement date are required");
+  }
+  const owned = { id: appointmentId, userId, tenantId, status: { in: ACTIVE_APPOINTMENT_STATUSES }, date: { gte: new Date() } };
+  const original = await prisma.appointment.findFirst({ where: owned });
+  if (!original) throw new Error("Appointment is no longer active");
+  const bucket = mapToAvailabilityServiceType(original.serviceType);
+  const available = await availabilityDb.isSlotAvailable({
+    dateKey: toDateKey(date), hour: getDecimalHourInTimezone(date),
+    serviceType: bucket, tenantId, excludeAppointmentId: appointmentId,
+  });
+  if (!available) throw new SlotAlreadyBookedError({ tenantId, availabilityBucket: bucket, date });
+  const moved = await prisma.$transaction(async tx => {
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${tenantId + ":" + bucket})::bigint)::text AS locked`;
+    const current = await tx.appointment.findFirst({ where: owned });
+    if (!current || new Date(current.date).getTime() !== new Date(original.date).getTime()) {
+      throw new Error("Appointment changed; select it again");
+    }
+    if (current.staffId) {
+      const { lockStaff, assertStaffAssignment } = require("./staff-scheduling.service");
+      await lockStaff(tx, current.staffId);
+      const service = current.serviceId ? await tx.service.findFirst({ where: { id: current.serviceId, tenantId }, include: { category: true } }) : null;
+      await assertStaffAssignment(tx, { tenantId, staffId: current.staffId, date, service,
+        serviceType: current.serviceType, appointmentId });
+    }
+    const conflict = await tx.appointment.findFirst({ where: {
+      id: { not: appointmentId }, tenantId, availabilityBucket: bucket,
+      status: { not: "cancelled" },
+      date: { gt: new Date(date.getTime() - 3600000), lt: new Date(date.getTime() + 3600000) },
+    }, select: { id: true } });
+    if (conflict) throw new SlotAlreadyBookedError({ tenantId, availabilityBucket: bucket, date });
+    return tx.appointment.update({ where: { ...owned, date: current.date }, data: { date, googleEventId: null } });
+  });
+  syncCancelToCalendar(original);
+  if (moved.status === "confirmed") syncAppointmentToCalendar(moved);
+  return moved;
+};
+
 const findAppointmentsByDate = async (date) => {
   try {
     let start;
@@ -518,6 +563,7 @@ module.exports = {
   formatAppointmentDateLabel,
   formatAppointmentListLine,
   getUserAppointments,
+  rescheduleAppointment,
   createAppointment,
   findAppointmentsByDate,
   findAppointmentsByUser,

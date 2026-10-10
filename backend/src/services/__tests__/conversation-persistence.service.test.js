@@ -10,6 +10,7 @@ jest.mock("../embedding.service", () => ({
 
 jest.mock("../memory.service", () => ({
   hydrateSessionFromConversation: jest.fn(),
+  flushConversationSession: jest.fn().mockResolvedValue(false),
 }));
 
 const prisma = require("../../lib/prisma");
@@ -165,18 +166,18 @@ describe("saveMessage", () => {
     await saveMessage({
       conversationId: "c1",
       role: "user",
-      content: "hola",
+      content: "Mi mascota tiene una alergia documentada al pollo",
       userId: "u1",
       externalId: "wamid.1",
     });
     expect(prisma.message.create).toHaveBeenCalledWith({
-      data: { conversationId: "c1", role: "user", content: "hola", externalId: "wamid.1" },
+      data: { conversationId: "c1", role: "user", content: "Mi mascota tiene una alergia documentada al pollo", externalId: "wamid.1" },
     });
     expect(saveMessageEmbedding).toHaveBeenCalledWith({
       userId: "u1",
       conversationId: "c1",
       messageId: "msg-1",
-      content: "hola",
+      content: "Mi mascota tiene una alergia documentada al pollo",
       metadata: { role: "user" },
     });
   });
@@ -185,7 +186,7 @@ describe("saveMessage", () => {
     prisma.message.create.mockResolvedValue({ id: "msg-1" });
     saveMessageEmbedding.mockRejectedValue(new Error("embedding down"));
     await expect(
-      saveMessage({ conversationId: "c1", role: "user", content: "hola", userId: "u1" })
+      saveMessage({ conversationId: "c1", role: "user", content: "Mi mascota tiene una alergia documentada al pollo", userId: "u1" })
     ).resolves.toEqual({ id: "msg-1" });
     await new Promise((resolve) => setImmediate(resolve));
   });
@@ -217,7 +218,8 @@ describe("getConversationMessages", () => {
     await expect(getConversationMessages("c1")).resolves.toEqual([{ id: "msg-1" }]);
     expect(prisma.message.findMany).toHaveBeenCalledWith({
       where: { conversationId: "c1" },
-      orderBy: { createdAt: "asc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 21,
     });
   });
 
@@ -265,8 +267,8 @@ describe("syncConversationState", () => {
     });
   });
 
-  test("retorna null (sin lanzar) si prisma falla", async () => {
+  test("propaga un fallo de guardado para no completar el turno", async () => {
     prisma.conversation.update.mockRejectedValue(new Error("db down"));
-    await expect(syncConversationState("c1", { intent: "booking" })).resolves.toBeNull();
+    await expect(syncConversationState("c1", { intent: "booking" })).rejects.toThrow("db down");
   });
 });

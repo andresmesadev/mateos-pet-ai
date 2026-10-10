@@ -27,7 +27,7 @@ const findOrCreateConversation = async (userId) => {
     if (existing) {
       console.log("[ConversationPersistence] Conversation loaded");
       if (existing.user?.phone) {
-        hydrateSessionFromConversation(existing.user.phone, existing);
+        hydrateSessionFromConversation(existing.user.phone, { ...existing, tenantId: existing.tenantId || existing.user.tenantId });
       }
       // Saneamiento: conversaciones creadas antes de que tenantId se poblara
       // en la creación quedaron con tenantId null. Se repara al vuelo, sin
@@ -119,7 +119,7 @@ const saveMessage = async ({ conversationId, userId, role, content, externalId }
     });
     console.log("[ConversationPersistence] Message saved");
 
-    if (messageRole === "user" && uid) {
+    if (messageRole === "user" && uid && body.length >= 30 && /\b(?:alergia|vacuna|tratamiento|restriccion|preferencia)\b/i.test(body)) {
       console.log(
         "[ConversationPersistence] Triggering embedding generation"
       );
@@ -144,7 +144,7 @@ const saveMessage = async ({ conversationId, userId, role, content, externalId }
   }
 };
 
-const getConversationMessages = async (conversationId) => {
+const getConversationMessages = async (conversationId, limit = 21) => {
   const convId = String(conversationId || "").trim();
 
   if (!convId) {
@@ -152,10 +152,12 @@ const getConversationMessages = async (conversationId) => {
   }
 
   try {
-    return await prisma.message.findMany({
+    const rows = await prisma.message.findMany({
       where: { conversationId: convId },
-      orderBy: { createdAt: "asc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: Math.min(100, Math.max(1, limit)),
     });
+    return rows.reverse();
   } catch (error) {
     console.error(
       "[ConversationPersistence] getConversationMessages error:",
@@ -171,6 +173,8 @@ const getConversationMessages = async (conversationId) => {
 const syncConversationState = async (conversationId, { intent, step }) => {
   const convId = String(conversationId || "").trim();
   if (!convId) return null;
+  const { flushConversationSession } = require("./memory.service");
+  if (await flushConversationSession(convId)) return true;
 
   const data = {};
   if (intent !== undefined) data.intent = intent;
@@ -197,7 +201,7 @@ const syncConversationState = async (conversationId, { intent, step }) => {
       "[ConversationPersistence] syncConversationState error:",
       error.message
     );
-    return null;
+    throw error;
   }
 };
 

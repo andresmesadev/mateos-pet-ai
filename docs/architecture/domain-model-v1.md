@@ -692,6 +692,10 @@ La exclusión de inventario en la reconciliación del 2026-10-01 describe el alc
 
 ## Versiones y Mantenimiento
 
+### Precisión operativa de peluquería — 2026-10-10
+
+La secuencia se aplica a turnos que todavía pueden reservarse. Un hueco pasado o dentro del margen de anticipación de 30 minutos no obliga a ocuparlo para ofrecer los turnos restantes del día. Los huecos futuros conservan el orden consecutivo; la capacidad, duración, cierres y festivos no cambian. El responsable del producto aprobó esta precisión con la auditoría del asistente y el [ADR 019](../decisions/019-asistente-contexto-y-operaciones-seguras.md).
+
 Este documento es la fuente oficial de verdad sobre el modelo conceptual del negocio. Debe actualizarse antes de incorporar cualquier nueva entidad al sistema. Los cambios en este documento representan cambios en la arquitectura del producto, no solo en la implementación.
 
 **Próxima revisión:** cuando se inicie la Fase 2 del Plan Maestro de Evolución.

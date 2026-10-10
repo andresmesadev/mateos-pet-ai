@@ -69,6 +69,23 @@ describe("startInboundMessageJob", () => {
 });
 
 describe("processOneJob", () => {
+  test.each(["deliveryAccepted", "deliveryUncertain"])("%s never triggers an automatic resend", async flag => {
+    claimNextInboundJob.mockResolvedValue({ id: "ambiguous", phase: "ready", replies: [{ userId: "u", phone: "555", content: "test", origin: "agente" }], replyCursor: 0 });
+    const error = Object.assign(new Error("delivery requires review"), { [flag]: true });
+    sendMessage.mockRejectedValue(error);
+    await processOneJob();
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+    expect(markInboundJobDone).not.toHaveBeenCalled();
+    expect(markInboundJobFailed).toHaveBeenCalledWith(expect.objectContaining({ phase: "sending" }), error);
+  });
+  test("last duplicate in a batch does not discard earlier replies", async () => {
+    claimNextInboundJob.mockResolvedValue({ id: "batch-duplicate", phase: "pending", payload: {} });
+    processIncomingMessage.mockResolvedValue({ processed: false, duplicate: true,
+      additionalReplies: [{ from: "555", reply: "valid reply", user: { id: "u" }, conversation: { id: "c" } }] });
+    sendMessage.mockResolvedValue({});
+    await processOneJob();
+    expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({ content: "valid reply" }));
+  });
   test("recuperar respuestas preparadas no vuelve a ejecutar el motor", async () => {
     claimNextInboundJob.mockResolvedValue({
       id: "job-resume", payload: {}, phase: "ready", attempts: 2,

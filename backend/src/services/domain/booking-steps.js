@@ -23,6 +23,8 @@ const STEPS = {
   AWAITING_DOMICILIO_ADDRESS: "awaiting_domicilio_address",
   AWAITING_DATE_TIME: "awaiting_date_time",
   AWAITING_CONFIRMATION: "awaiting_confirmation",
+  AWAITING_APPOINTMENT_SELECTION: "awaiting_appointment_selection",
+  AWAITING_MANAGEMENT_CONFIRM: "awaiting_management_confirm",
   COMPLETED: "completed",
   // Entregable 8.3 (D-E1): antes "human_takeover" vivía como string literal
   // fuera de este enum — ver conversation.service.js para el historial

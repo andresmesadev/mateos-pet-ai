@@ -6,6 +6,7 @@ const { STEPS, BOOKING_STEPS } = require("./domain/booking-steps");
 const clearBooking = (session) => ({
   ...session, step: null, pet_name: null, pet_type: null,
   requested_service: null, grooming_service: null,
+  reschedule_appointment_id: null,
   scheduling_date_key: null, scheduling_hour: null, date: null, time: null,
   domicilio: null, domicilio_address: null,
 });
@@ -66,6 +67,7 @@ const selectCurrentPet = (previous, analysis, text) => {
   const normalized = normalizeText(text).replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim();
   const candidate = normalizeText(next.pet_name || "").replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim();
   const mentioned = candidate && (` ${normalized} `).includes(` ${candidate} `);
+  if (mentioned && candidate !== normalizeText(previous.pet_name || "") && !/\b(?:perro|perra|gato|gata)\b/.test(normalized)) next.pet_type = null;
   if (!mentioned) {
     next.pet_name = previous.pet_name || null;
     if (!/\b(?:perro|perra|gato|gata)\b/.test(normalized)) next.pet_type = previous.pet_type || null;
@@ -80,8 +82,8 @@ const selectCurrentPet = (previous, analysis, text) => {
 };
 
 const confirmsSelectedPet = (text, petName) => {
-  const n = normalizeText(text);
-  if (!/\b(?:para|mascota|perro|perra|gato|gata|otra|otro)\b/.test(n)) return true;
+  const n = normalizeText(text).replace(/[¡!¿?.,;:]/g, " ").replace(/\s+/g, " ").trim();
+  if (!/\b(?:para|mascota|perro|perra|gato|gata|otra|otro)\b/.test(n)) return /^(?:si|ok|okay|confirmo|confirmado|dale|claro|listo|bueno|acepto|perfecto|de acuerdo)(?:\s+(?:si|confirmo|la cita|acepto las? \d+(?::\d+)?(?: am| pm)?))?[.!\s]*$/.test(n);
   const selected = normalizeText(petName || "");
   return Boolean(selected && (` ${n} `).includes(` ${selected} `) && !/\b(?:otra|otro)\b/.test(n));
 };

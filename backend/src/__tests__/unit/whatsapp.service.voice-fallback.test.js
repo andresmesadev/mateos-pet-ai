@@ -9,7 +9,6 @@ jest.mock("../../services/openai.service", () => ({ analyzeMessage: jest.fn() })
 jest.mock("../../lib/logger", () => ({ info: jest.fn(), error: jest.fn(), warn: jest.fn() }));
 jest.mock("../../services/conversation.service", () => ({
   generateReply: jest.fn(),
-  getConfirmationReply: jest.fn(),
   isConfirmationMessage: jest.fn(),
   STEPS: { AWAITING_CONFIRMATION: "awaiting_confirmation", HUMAN_TAKEOVER: "human_takeover" },
 }));
@@ -52,7 +51,6 @@ jest.mock("../../services/business-knowledge.service", () => ({
   buildKnowledgeContext: jest.fn(() => ""),
 }));
 jest.mock("../../services/audio.service", () => ({ processVoiceMessage: jest.fn() }));
-jest.mock("../../services/image.service", () => ({ processImageMessage: jest.fn() }));
 jest.mock("../../services/medical-record.service", () => ({ createRecord: jest.fn() }));
 jest.mock("../../services/tenant.service", () => ({ getTenantByPhone: jest.fn() }));
 // phone-lock.service NO se mockea — mutex real en memoria, sin dependencias externas.

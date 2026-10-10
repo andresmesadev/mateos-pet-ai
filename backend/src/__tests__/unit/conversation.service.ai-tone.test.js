@@ -10,9 +10,6 @@
 jest.mock("../../services/openai.service", () => ({
   generateReply: jest.fn(),
 }));
-jest.mock("../../services/domain/medical-auto-capture.service", () => ({
-  trySaveMedicalInfo: jest.fn().mockResolvedValue(null),
-}));
 jest.mock("../../services/business-config.service", () => ({
   getBusinessHours: jest.fn(),
 }));
@@ -35,7 +32,7 @@ describe("generateReply — el wizard de reserva ya es elegible para reformulars
     expect(generateReplyWithAI).not.toHaveBeenCalled();
   });
 
-  test("pregunta de nombre de mascota (AWAITING_PET_NAME): usa la respuesta de la IA cuando está disponible", async () => {
+  test("preguntas del wizard conservan la plantilla sin una segunda llamada de IA", async () => {
     generateReplyWithAI.mockResolvedValue("¡Con gusto! ¿Cómo se llama tu compañero? 🐾");
 
     const result = await generateReply({
@@ -46,10 +43,8 @@ describe("generateReply — el wizard de reserva ya es elegible para reformulars
     });
 
     expect(result.step).toBe(STEPS.AWAITING_PET_NAME);
-    expect(result.reply).toBe("¡Con gusto! ¿Cómo se llama tu compañero? 🐾");
-    expect(generateReplyWithAI).toHaveBeenCalledWith(
-      expect.objectContaining({ suggestedReply: expect.stringContaining("¿Cómo se llama tu") })
-    );
+    expect(result.reply).toContain("¿Cómo se llama tu");
+    expect(generateReplyWithAI).not.toHaveBeenCalled();
   });
 
   test("nombre real del cliente se pasa a generateReplyWithAI como clientName", async () => {
@@ -57,10 +52,10 @@ describe("generateReply — el wizard de reserva ya es elegible para reformulars
 
     await generateReply(
       {
-        analysis: { intent: "schedule_appointment", requested_service: "bath_grooming" },
+        analysis: { intent: "ask_info" },
         session: {},
-        semanticContext: "",
-        userMessage: "Quiero un baño para mi perro",
+        semanticContext: "El establecimiento ofrece peluquería.",
+        userMessage: "¿Qué debo llevar?",
       },
       { userId: "user-1", userName: "María" }
     );
@@ -115,7 +110,7 @@ describe("generateReply — el wizard de reserva ya es elegible para reformulars
     });
 
     expect(generateReplyWithAI).not.toHaveBeenCalled();
-    expect(result.reply).toContain("cancel");
+    expect(result.reply).toContain("verificar tus citas");
   });
 
   test("saludo (forceRuleReply explícito) sigue fijo — la IA no se invoca", async () => {

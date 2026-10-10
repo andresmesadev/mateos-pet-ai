@@ -13,7 +13,7 @@ class WhatsAppChannelProvider extends ChannelProviderPort {
       throw new Error(`WhatsAppChannelProvider no soporta el tipo de canal "${channelType}".`);
     }
     const result = await sendWhatsAppMessage(to, content);
-    return result !== null;
+    return result ? { messageId: result.messages?.[0]?.id || null } : false;
   }
 
   // Mejora post-Fase 8 (2026-09-08).

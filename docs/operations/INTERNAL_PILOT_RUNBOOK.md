@@ -6,6 +6,8 @@
 
 ## Alcance y responsables
 
+**Reorganización del asistente (2026-10-10):** cancelar exige seleccionar cita y confirmar; reprogramar conserva la original hasta validar y moverla. Peluquería pide aceptación final después de mostrar recogida y dirección. Repetir negativos («No confirmo», duda de precio), dos mascotas, cambio de servicio y petición de hoy. Un hueco vencido no bloquea la tarde; sí un hueco futuro. Revisar `InboundJob` con `provider=whatsapp` para procesamiento y `provider=whatsapp_delivery` para recibos `sent/delivered/read/failed`; `done` del procesamiento no certifica entrega. Ante envío incierto, `needs_review`: no reintentar a ciegas.
+
 | Dato obligatorio | Valor |
 | --- | --- |
 | Establecimiento y tenant autorizado | Por completar por el operador |

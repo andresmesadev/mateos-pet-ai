@@ -8,7 +8,7 @@ class ChannelProviderPort {
    * @param {string} channelType — "whatsapp" | "email" | "sms"... (nunca un proveedor concreto)
    * @param {string} to
    * @param {string} content
-   * @returns {Promise<boolean>} éxito o fracaso del envío
+   * @returns {Promise<false|{messageId: string|null}>} aceptación del proveedor, no entrega al cliente
    */
   async send(_channelType, _to, _content) {
     throw new Error("ChannelProviderPort.send no implementado");

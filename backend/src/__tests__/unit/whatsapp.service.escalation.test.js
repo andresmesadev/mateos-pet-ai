@@ -12,7 +12,6 @@ jest.mock("../../services/openai.service", () => ({ analyzeMessage: jest.fn() })
 jest.mock("../../lib/logger", () => ({ info: jest.fn(), error: jest.fn(), warn: jest.fn() }));
 jest.mock("../../services/conversation.service", () => ({
   generateReply: jest.fn(),
-  getConfirmationReply: jest.fn(),
   isConfirmationMessage: jest.fn(),
   STEPS: require("../../services/domain/booking-steps").STEPS,
 }));
@@ -55,7 +54,6 @@ jest.mock("../../services/business-knowledge.service", () => ({
   buildKnowledgeContext: jest.fn(() => ""),
 }));
 jest.mock("../../services/audio.service", () => ({ processVoiceMessage: jest.fn() }));
-jest.mock("../../services/image.service", () => ({ processImageMessage: jest.fn() }));
 jest.mock("../../services/medical-record.service", () => ({ createRecord: jest.fn() }));
 jest.mock("../../services/tenant.service", () => ({ getTenantByPhone: jest.fn() }));
 // phone-lock.service NO se mockea — mutex real en memoria, sin dependencias externas.
@@ -129,7 +127,7 @@ describe("processIncomingMessage — regresión del recorrido simultáneo del 9 
     expect(generateReply).toHaveBeenCalledWith(expect.objectContaining({
       analysis: expect.objectContaining({ client_name: "Persona B", pet_name: null }),
     }), expect.anything());
-    expect(updateSession).toHaveBeenCalledWith(PHONE, expect.objectContaining({ pet_name: null }));
+    expect(updateSession).toHaveBeenCalledWith(PHONE, expect.objectContaining({ pet_name: null }), "tenant-1");
   });
 
   test("la confirmación de un turno antiguo no alcanza la creación de cita", async () => {
@@ -159,7 +157,7 @@ describe("processIncomingMessage — regresión del recorrido simultáneo del 9 
   });
 
   test("no crea una cita confirmada si aún no se seleccionó mascota", async () => {
-    getSession.mockReturnValue({ step: "awaiting_confirmation", scheduling_date_key: "2026-10-10", scheduling_hour: 12 });
+    getSession.mockReturnValue({ step: "awaiting_confirmation", requested_service: "veterinary_consultation", scheduling_date_key: "2026-10-10", scheduling_hour: 12 });
     require("../../services/conversation.service").isConfirmationMessage.mockReturnValueOnce(true);
     const result = await processIncomingMessage(buildBody("Sí, confirmo", "missing-pet"));
     expect(result.session.step).toBe("awaiting_pet_name");
@@ -175,7 +173,6 @@ describe("processIncomingMessage — regresión del recorrido simultáneo del 9 
     appointments.createAppointment.mockImplementation(async data => ({ ...data, id: "appt-vet" }));
     require("../../services/pet.service").resolveAppointmentPetName.mockResolvedValue("Luna");
     require("../../lib/timezone").formatSlotForUser.mockImplementation(jest.requireActual("../../lib/timezone").formatSlotForUser);
-    require("../../services/conversation.service").getConfirmationReply.mockReturnValue({ step: "completed", sessionPatch: {} });
     require("../../services/conversation.service").isConfirmationMessage.mockReturnValueOnce(true);
     getSession.mockReturnValue({ step: "awaiting_confirmation", requested_service: "veterinary_consultation", pet_name: "Luna", pet_type: "cat", scheduling_date_key: "2026-10-10", scheduling_hour: 12 });
     const result = await processIncomingMessage(buildBody("Sí, confirmo", "vet-summary"));
@@ -192,10 +189,9 @@ describe("processIncomingMessage — regresión del recorrido simultáneo del 9 
     appointments.createAppointment.mockImplementation(async data => ({ ...data, id: "appt-groom" }));
     require("../../services/pet.service").resolveAppointmentPetName.mockResolvedValue("Toby");
     require("../../lib/timezone").formatSlotForUser.mockImplementation(jest.requireActual("../../lib/timezone").formatSlotForUser);
-    getSession.mockReturnValue({ step: "awaiting_domicilio_address", requested_service: "bath_grooming", pet_name: "Toby", pet_type: "dog", domicilio: true, scheduling_date_key: "2026-10-10", scheduling_hour: 11 });
-    analyzeMessage.mockResolvedValue({ intent: "other" });
-    generateReply.mockResolvedValue({ step: "completed", sessionPatch: { domicilio_address: "Calle de prueba 10" }, createGroomingAppointment: true });
-    const result = await processIncomingMessage(buildBody("Calle de prueba 10", "pickup-summary"));
+    getSession.mockReturnValue({ step: "awaiting_confirmation", requested_service: "bath_grooming", pet_name: "Toby", pet_type: "dog", domicilio: true, domicilio_address: "Calle de prueba 10", scheduling_date_key: "2026-10-10", scheduling_hour: 11 });
+    require("../../services/conversation.service").isConfirmationMessage.mockReturnValueOnce(true);
+    const result = await processIncomingMessage(buildBody("Sí, confirmo", "pickup-summary"));
     expect(appointments.createAppointment).toHaveBeenCalledWith(expect.objectContaining({ petName: "Toby", address: "Calle de prueba 10" }));
     expect(result.reply).toContain("Dirección de recogida: Calle de prueba 10");
     expect(result.reply).not.toContain("Atención en el establecimiento");

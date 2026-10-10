@@ -75,8 +75,9 @@ const detectRescheduleIntent = (text, intent) => {
 };
 
 const detectQueryAppointmentsIntent = (text, intent) =>
-  intent === "query_appointments" ||
-  QUERY_APPOINTMENTS_PATTERNS.some((p) => normalizeText(text).includes(p));
+  !/\b(?:agendar|reservar)\b/.test(normalizeText(text)) &&
+  (intent === "query_appointments" ||
+  QUERY_APPOINTMENTS_PATTERNS.filter(p => p !== "mi cita").some((p) => normalizeText(text).includes(p)));
 
 const detectQueryMedicalHistoryIntent = (text, intent) =>
   intent === "query_medical_history" ||
@@ -116,8 +117,8 @@ const detectDomicilioIntent = (text) => {
     n.includes("presencial") || n.includes("lo llevo") || n.includes("la llevo");
   if (wantsPickup) return true;
   if (willBring) return false;
-  if (n.match(/\bsi\b/) || n.includes("yes") || n.includes("dale") || n.includes("quiero")) return true;
-  if (n.match(/\bno\b/) || n.includes("nop")) return false;
+  if (/^(?:si|yes|dale)(?:[,!. ]+por favor)?[.! ]*$/.test(n)) return true;
+  if (/^(?:no|nop)(?:[,!. ]+gracias)?[.! ]*$/.test(n)) return false;
   return null;
 };
 

@@ -2,9 +2,6 @@
  * Selección explícita: una mascota registrada no impide que el cliente
  * traiga otra. El historial propone nombres, pero no elige por el cliente.
  */
-jest.mock("../../services/domain/medical-auto-capture.service", () => ({
-  trySaveMedicalInfo: jest.fn().mockResolvedValue(null),
-}));
 
 jest.mock("../../services/pet.service", () => ({
   getUserPets: jest.fn(),

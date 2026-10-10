@@ -12,6 +12,9 @@ const sessions = {};
 
 /** @type {Record<string, { conversationId: string, userId: string }>} */
 const phoneContext = {};
+const persistenceQueues = new Map();
+const touched = new Map();
+const scopedPhone = (phone, tenantId) => tenantId ? `${tenantId}:${String(phone || "").trim()}` : String(phone || "").trim();
 
 const SESSION_DATA_FIELDS = [
   "client_name",
@@ -27,6 +30,7 @@ const SESSION_DATA_FIELDS = [
   "grooming_service",
   "domicilio",
   "domicilio_address",
+  "management_action", "management_appointment_id", "management_candidates", "management_resume_step", "reschedule_appointment_id",
 ];
 
 const mergeSession = (current, data) => {
@@ -89,12 +93,13 @@ const conversationToSession = (conversation) => {
  * Llamado desde conversation-persistence al cargar/crear conversación.
  */
 const hydrateSessionFromConversation = (phone, conversation) => {
-  const normalizedPhone = String(phone || "").trim();
+  const normalizedPhone = scopedPhone(phone, conversation?.tenantId);
 
   if (!normalizedPhone || !conversation?.id) {
     return getSession(normalizedPhone);
   }
 
+  const sameConversation = phoneContext[normalizedPhone]?.conversationId === conversation.id;
   phoneContext[normalizedPhone] = {
     conversationId: conversation.id,
     userId: conversation.userId,
@@ -104,11 +109,20 @@ const hydrateSessionFromConversation = (phone, conversation) => {
   const hasCachedSession =
     cached && typeof cached === "object" && Object.keys(cached).length > 0;
 
-  if (hasCachedSession) {
+  if (hasCachedSession && sameConversation) {
+    if (conversation.status === "activa") {
+      if (cached.step === "human_takeover") cached.step = null;
+      cached.requires_human_attention = false;
+    }
     return cached;
   }
 
   sessions[normalizedPhone] = conversationToSession(conversation);
+  if (conversation.status === "activa") {
+    if (sessions[normalizedPhone].step === "human_takeover") sessions[normalizedPhone].step = null;
+    sessions[normalizedPhone].requires_human_attention = false;
+  }
+  touched.set(normalizedPhone, Date.now());
   console.log(
     "[Memory] Session hydrated from DB:",
     normalizedPhone,
@@ -118,21 +132,30 @@ const hydrateSessionFromConversation = (phone, conversation) => {
   return sessions[normalizedPhone];
 };
 
-const getSession = (phone) => {
-  const normalizedPhone = String(phone || "").trim();
+const getSession = (phone, tenantId) => {
+  const normalizedPhone = scopedPhone(phone, tenantId);
+  for (const [key, at] of [...touched].sort((a, b) => a[1] - b[1])) {
+    if (key === normalizedPhone) continue;
+    if (persistenceQueues.has(phoneContext[key]?.conversationId)) continue;
+    if (Date.now() - at > 30 * 60 * 1000 || touched.size > 1000) {
+      delete sessions[key]; delete phoneContext[key]; touched.delete(key);
+    }
+  }
+  if (sessions[normalizedPhone]) touched.set(normalizedPhone, Date.now());
   return sessions[normalizedPhone] || {};
 };
 
-const persistSessionToDb = async (phone, session) => {
-  const ctx = phoneContext[phone];
+const persistSessionToDb = async (ctx, session) => {
 
   if (!ctx?.conversationId) {
-    console.warn("[Memory] No conversation context for persist:", phone);
     return;
   }
 
   const data = {
     sessionData: pickSessionDataFields(session),
+    abandonReminderSent: false,
+    step: session.step ?? null,
+    intent: session.intent ?? null,
   };
 
   if (session.step !== undefined) {
@@ -148,14 +171,36 @@ const persistSessionToDb = async (phone, session) => {
       where: { id: ctx.conversationId },
       data,
     });
-    console.log("[Memory] Session persisted to DB:", phone);
   } catch (error) {
     console.error("[Memory] persistSessionToDb error:", error.message);
+    throw error;
   }
 };
 
-const updateSession = (phone, data) => {
-  const normalizedPhone = String(phone || "").trim();
+const queueSnapshot = (ctx, session) => {
+  if (!ctx?.conversationId) return;
+  const snapshot = JSON.parse(JSON.stringify(session));
+  const pending = (persistenceQueues.get(ctx.conversationId) || Promise.resolve()).catch(() => {}).then(() => persistSessionToDb(ctx, snapshot));
+  persistenceQueues.set(ctx.conversationId, pending);
+  pending.catch(error => console.error("[Memory] Snapshot failed:", error.message));
+};
+const flushConversationSession = async conversationId => {
+  const pending = persistenceQueues.get(conversationId);
+  if (!pending) return false;
+  try { await pending; }
+  catch (error) {
+    // Do not let an uncommitted RAM snapshot become the next turn's authority.
+    for (const [key, context] of Object.entries(phoneContext)) if (context.conversationId === conversationId) {
+      delete sessions[key]; delete phoneContext[key]; touched.delete(key);
+    }
+    if (persistenceQueues.get(conversationId) === pending) persistenceQueues.delete(conversationId);
+    throw error;
+  }
+  if (persistenceQueues.get(conversationId) === pending) persistenceQueues.delete(conversationId);
+  return true;
+};
+const updateSession = (phone, data, tenantId) => {
+  const normalizedPhone = scopedPhone(phone, tenantId);
 
   // Entregable 8.3 (D-E1): único choke point de escritura de session.step —
   // registra (no bloquea) si algún llamador intenta escribir un valor fuera
@@ -167,38 +212,22 @@ const updateSession = (phone, data) => {
   const current = sessions[normalizedPhone] || {};
   sessions[normalizedPhone] = mergeSession(current, data);
 
-  persistSessionToDb(normalizedPhone, sessions[normalizedPhone]).catch(
-    (error) => {
-      console.error("[Memory] Background persist failed:", error.message);
-    }
-  );
+  touched.set(normalizedPhone, Date.now());
+  queueSnapshot(phoneContext[normalizedPhone], sessions[normalizedPhone]);
 
   return sessions[normalizedPhone];
 };
 
-const clearSession = (phone) => {
-  const normalizedPhone = String(phone || "").trim();
+const clearSession = (phone, tenantId) => {
+  const normalizedPhone = scopedPhone(phone, tenantId);
   delete sessions[normalizedPhone];
 
   const ctx = phoneContext[normalizedPhone];
   delete phoneContext[normalizedPhone];
+  touched.delete(normalizedPhone);
 
   if (ctx?.conversationId) {
-    prisma.conversation
-      .update({
-        where: { id: ctx.conversationId },
-        data: {
-          sessionData: {},
-          step: null,
-          intent: null,
-        },
-      })
-      .then(() => {
-        console.log("[Memory] Session cleared in DB:", normalizedPhone);
-      })
-      .catch((error) => {
-        console.error("[Memory] clearSession DB error:", error.message);
-      });
+    queueSnapshot(ctx, { step: null, intent: null });
   }
 };
 
@@ -207,5 +236,6 @@ module.exports = {
   updateSession,
   clearSession,
   hydrateSessionFromConversation,
+  flushConversationSession,
   SESSION_DATA_FIELDS,
 };

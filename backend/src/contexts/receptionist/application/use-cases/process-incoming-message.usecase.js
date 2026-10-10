@@ -57,7 +57,7 @@ function createProcessIncomingMessageUseCase({
   function buildDecisionFields(result) {
     const intent = result?.analysis?.intent ?? null;
     const step = result?.session?.step ?? null;
-    const escalated =
+    const escalated = typeof result?.escalationRequested === "boolean" ? result.escalationRequested :
       result?.session?.requires_human_attention === true || step === humanTakeoverStep;
     const reasoning = escalated
       ? `Escalamiento humano detectado (intent=${intent ?? "desconocido"})`

@@ -43,6 +43,7 @@ const FUTURE_SLOT_BUFFER_MS = 30 * 60 * 1000;
 /** true si `dateKey`+`hour` (hora del establecimiento) ya pasó, con margen. */
 const isPastSlot = (dateKey, hour, referenceDate) => {
   const ref = referenceDate instanceof Date ? referenceDate : new Date(referenceDate ?? Date.now());
+  if (dateKey < toDateKey(ref)) return true;
   if (dateKey !== toDateKey(ref)) return false;
   const slotUtc = zonedDateTimeToUtc(dateKey, hour);
   return slotUtc < new Date(ref.getTime() + FUTURE_SLOT_BUFFER_MS);
@@ -127,12 +128,13 @@ const getAppointmentsByDate = async (dateKey, tenantId) => {
   }
 };
 
-const getBookedHoursForDate = async (dateKey, serviceType, tenantId) => {
+const getBookedHoursForDate = async (dateKey, serviceType, tenantId, excludeAppointmentId) => {
   const type = normalizeServiceType(serviceType);
   const appointments = await getAppointmentsByDate(dateKey, tenantId);
   const hours = new Set();
 
   for (const appt of appointments) {
+    if (appt.id === excludeAppointmentId) continue;
     if (type === SERVICE_TYPES.GROOMING) {
       if (appt.serviceType === SERVICE_TYPES.GROOMING) {
         hours.add(appt.hour);
@@ -155,7 +157,7 @@ const getBookedHoursForDate = async (dateKey, serviceType, tenantId) => {
  * ya resuelta — evita volver a consultarla en llamadas repetidas dentro de un
  * mismo bucle de búsqueda (`findNextAvailableGroomingSlot`, `suggestAvailableVetSlots`).
  */
-const isSlotAvailableWithConfig = async ({ dateKey, hour, serviceType, businessHours, exception, referenceDate, tenantId, bookedHours }) => {
+const isSlotAvailableWithConfig = async ({ dateKey, hour, serviceType, businessHours, exception, referenceDate, tenantId, bookedHours, excludeAppointmentId }) => {
   const key = toDateKey(dateKey);
   const h = Number(hour);
   const type = normalizeServiceType(serviceType);
@@ -184,7 +186,7 @@ const isSlotAvailableWithConfig = async ({ dateKey, hour, serviceType, businessH
       return false;
     }
 
-    const booked = bookedHours ?? await getBookedHoursForDate(key, type, tenantId);
+    const booked = bookedHours ?? await getBookedHoursForDate(key, type, tenantId, excludeAppointmentId);
 
     // La unidad de capacidad existente es un turno de una hora por bucket.
     // Una cita a las 10:30 se cruza tanto con 10:00 como con 11:00.
@@ -200,6 +202,8 @@ const isSlotAvailableWithConfig = async ({ dateKey, hour, serviceType, businessH
       if (Math.abs((h - startHour) - Math.round(h - startHour)) > 1e-7) return false;
       if (startHour !== null && h > startHour) {
         for (let prev = startHour; prev < h; prev++) {
+          // Un turno que ya no puede reservarse no bloquea el resto del día.
+          if (isPastSlot(key, prev, referenceDate)) continue;
           if (![...booked].some(bookedHour => Math.abs(bookedHour - prev) < 1e-7)) {
             console.log(`[AvailabilityDB] Grooming slot ${h}h bloqueado — slot ${prev}h sin ocupar (regla consecutiva)`);
             return false;
@@ -220,7 +224,7 @@ const isSlotAvailableWithConfig = async ({ dateKey, hour, serviceType, businessH
  * Verifica slot libre en DB para fecha/hora/tipo.
  * @param {{ dateKey: string, hour: number, serviceType: string, tenantId?: string }} params
  */
-const isSlotAvailable = async ({ dateKey, hour, serviceType, tenantId, referenceDate }) => {
+const isSlotAvailable = async ({ dateKey, hour, serviceType, tenantId, referenceDate, excludeAppointmentId }) => {
   let businessHours = null;
   let exception = null;
   try {
@@ -235,7 +239,7 @@ const isSlotAvailable = async ({ dateKey, hour, serviceType, tenantId, reference
     console.error("[AvailabilityDB] isSlotAvailable: fallo leyendo excepciones de agenda:", error.message);
     return false;
   }
-  return isSlotAvailableWithConfig({ dateKey, hour, serviceType, businessHours, exception, referenceDate, tenantId });
+  return isSlotAvailableWithConfig({ dateKey, hour, serviceType, businessHours, exception, referenceDate, tenantId, excludeAppointmentId });
 };
 
 /** Horas reservables de un día para el formulario manual del dashboard. */

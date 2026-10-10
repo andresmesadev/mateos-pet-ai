@@ -379,6 +379,7 @@ const resolveVetScheduling = async ({
   awaitingStepConstant,
   confirmationStepConstant,
   tenantId,
+  excludeAppointmentId,
 }) => {
   console.log("[Scheduling] Using DB availability");
 
@@ -434,6 +435,8 @@ const resolveVetScheduling = async ({
     hour,
     serviceType: SERVICE_TYPES.VET,
     tenantId,
+    referenceDate,
+    excludeAppointmentId,
   });
 
   if (available) {
@@ -477,42 +480,6 @@ const resolveVetScheduling = async ({
 /**
  * Próximo turno grooming desde PostgreSQL.
  */
-const resolveGroomingNextSlotMessage = async ({
-  referenceDate = new Date(),
-  awaitingConfirmationStep,
-  awaitingDateTimeFallbackStep,
-}) => {
-  console.log("[Scheduling] Using DB availability");
-
-  const slot = await availabilityDb.findNextAvailableGroomingSlot({
-    referenceDate,
-  });
-
-  if (!slot) {
-    console.log("[scheduling] Grooming: sin slot disponible en ventana");
-    return {
-      reply:
-        "Ahora mismo no encontramos un turno de grooming libre 😔\n¿Te parece si te contactamos en un momento?",
-      step: awaitingDateTimeFallbackStep,
-    };
-  }
-
-  const dayLabel = formatRelativeDayLabel(slot.date, referenceDate);
-  const timeLabel = formatHourAmPm(slot.hour);
-  console.log("[Scheduling] Real slot found:", slot);
-
-  return {
-    reply: `El siguiente turno disponible para grooming es:\n${dayLabel} a las ${timeLabel} 🛁`,
-    step: awaitingConfirmationStep,
-    sessionPatch: {
-      scheduling_date_key: slot.date,
-      scheduling_hour: slot.hour,
-      date: dayLabel,
-      time: timeLabel,
-    },
-  };
-};
-
 const resolveGroomingScheduling = async ({
   dateText,
   timeText,
@@ -520,6 +487,7 @@ const resolveGroomingScheduling = async ({
   awaitingStepConstant,
   confirmationStepConstant,
   tenantId,
+  excludeAppointmentId,
 }) => {
   console.log("[Scheduling] Using DB availability (grooming)");
 
@@ -567,6 +535,8 @@ const resolveGroomingScheduling = async ({
     hour,
     serviceType: SERVICE_TYPES.GROOMING,
     tenantId,
+    referenceDate,
+    excludeAppointmentId,
   });
 
   if (available) {
@@ -593,7 +563,6 @@ module.exports = {
   detectHumanEscalation,
   resolveVetScheduling,
   resolveGroomingScheduling,
-  resolveGroomingNextSlotMessage,
   parseDateToKey,
   parseTimeToHour,
   extractExplicitSchedulingTerms,

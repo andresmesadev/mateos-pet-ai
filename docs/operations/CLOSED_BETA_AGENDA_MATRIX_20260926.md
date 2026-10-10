@@ -14,6 +14,8 @@ local y repetición real pendientes de publicar; ver
 
 ### Próxima prueba: dos conversaciones y un mismo turno
 
+**Adición aprobada 2026-10-10:** repetir el caso Akiles/veterinaria + Matías/peluquería; preguntar por hoy debe conservar mascota y servicio. Probar peluquería en una tarde con huecos vencidos: permite el primer turno aún reservable y sigue rechazando saltos sobre huecos futuros. En ambas agendas, negación no reserva; cancelación selecciona cita y confirma; reprogramación fallida conserva la original. Peluquería con recogida muestra dirección y espera una aceptación final. Esta adición define pruebas pendientes, no resultados de WhatsApp.
+
 1. Dos remitentes verificados del mismo establecimiento conversan simultáneamente; cada uno conserva su nombre, mascota, servicio y estado de reserva.
 2. Ambos solicitan el mismo turno veterinario libre, con fecha futura laborable, y confirman lo más cerca posible en el tiempo.
 3. El resultado debe ser como máximo una cita activa para ese turno. El otro cliente recibe indisponibilidad o una alternativa válida; no recibe una confirmación de reserva inexistente.

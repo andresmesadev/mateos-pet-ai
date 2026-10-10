@@ -23,8 +23,8 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // Persist only the public Communication command, not sessions, analysis or
 // arbitrary engine objects. Preserve the existing order of replies in a batch.
 const prepareReplies = (result, preparedAt) => {
-  if (!result?.processed || !result?.from) return [];
-  const replies = [...(Array.isArray(result.additionalReplies) ? result.additionalReplies : []), result];
+  if (!result) return [];
+  const replies = [...(Array.isArray(result.additionalReplies) ? result.additionalReplies : []), ...(result.processed ? [result] : [])];
   return replies.flatMap(({ from, reply, user, conversation }) => {
     if (!from || !reply) return [];
     if (!user?.id) {
@@ -45,6 +45,7 @@ const sendOneReply = async (reply, assertLease) => {
       await sendMessage(reply);
       return;
     } catch (error) {
+      if (error.deliveryAccepted || error.deliveryUncertain) throw error;
       if (attempt === MAX_SEND_ATTEMPTS) throw error;
       await delay(1000 * attempt);
     }
@@ -54,6 +55,7 @@ const sendOneReply = async (reply, assertLease) => {
 const processOneJob = async () => {
   let job = await claimNextInboundJob();
   if (!job) return false;
+  const startedAt = Date.now();
   let leaseError = null;
   let renewing = false;
   const assertLease = async () => {
@@ -102,6 +104,7 @@ const processOneJob = async () => {
     }
   } finally {
     clearInterval(heartbeat);
+    console.info("[InboundMessageJob] Turn timing:", { jobId: job.id, elapsedMs: Date.now() - startedAt, phase: job.phase });
   }
   return true;
 };
