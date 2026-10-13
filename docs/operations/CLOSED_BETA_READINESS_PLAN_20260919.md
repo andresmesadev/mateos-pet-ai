@@ -35,17 +35,23 @@ históricas y no describen la versión activa.
 | Paso | Trabajo | Criterio de cierre | Estado |
 | --- | --- | --- | --- |
 | 1 | Corregir los timeouts del worker entrante | El barrido tolera el arranque en frío de la base, tiene prueba de regresión y opera sin timeouts repetidos en producción. | ✅ Completado (`2.39.3`) |
-| 2 | Garantizar capacidad de la base de datos | PostgreSQL operativo en la VPS, sin límite mensual de Neon; salud y capacidad observadas durante el piloto. | 🧪 Migración completada (`2.39.10`) y capacidad inicial verificada; faltan observación sostenida y carga del piloto |
+| 2 | Garantizar capacidad de la base de datos | PostgreSQL operativo en la VPS, sin límite mensual de Neon; salud y capacidad observadas durante el piloto. | 🧪 Migración completada; salud de BD aprobada en 577 muestras durante 48 h de 2.46.4. Recursos actuales disponibles; faltan métricas sostenidas de recursos y carga representativa del piloto. Ver [revisión del 13 de octubre](PRODUCTION_STABILITY_48H_REVIEW_20261013.md) |
 | 3 | Actualizar dependencias vulnerables y runtime Node | Cero vulnerabilidades altas conocidas en dependencias de producción, runtime soportado y CI verde. | ✅ Completado (`2.39.6`) |
 | 4 | Activar observabilidad | Sentry o equivalente recibe una excepción controlada y existe alerta de salud/worker. | ✅ Completado (`2.39.7`) |
 | 5 | Implementar backup y restauración | Backup cifrado y periódico, retención definida y restauración ensayada. | ✅ Copia cifrada independiente, restauración local y tarea diaria comprobadas el 2026-10-09; vigilar continuidad del equipo del operador |
 | 6 | Configurar WhatsApp de producción | Número empresarial real registrado, app publicada y flujo entrante/saliente verificado. | Aplazado por decisión del operador; se conserva el número de prueba de Meta |
 | 7 | Completar documentación legal del piloto | Política, términos y acuerdo de piloto completados y revisados. | Pendiente |
 | 8 | Ejecutar matriz integral de agenda | Casos de veterinaria, peluquería, domingos, festivos, conflictos, cancelación y fallos aprobados. | 🔴 Abierto: 2.46.4 publicada y desplegada; CI y 1.446 pruebas aprobados. Negación y dirección verificadas; reprogramación preservó ambas citas pero respondió con saludo. Corrección del destino y aceptación cortés desplegadas; faltan repetición, limpieza de citas y cierre de otros escenarios. Ver [registro de tres casos](ASSISTANT_BOOKING_SAFETY_TRIAL_20261010.md) y [pendientes](VIRTUAL_ASSISTANT_IMPROVEMENTS_EXECUTION_20261010.md) |
-| 9 | Ejecutar período de estabilización | 48 horas sin errores del worker ni pérdida de mensajes; métricas y cola nominales. | 🧪 Reiniciada para 2.46.4 el 2026-10-10 a las 16:53:20 de Colombia; falta completar ventana y revisar cola, entregas y carga. Las ventanas anteriores quedaron incompletas |
+| 9 | Ejecutar período de estabilización | 48 horas sin errores del worker ni pérdida de mensajes; métricas y cola nominales. | 🟠 Salud 48 h aprobada (10–12 de octubre, 16:53:20 Colombia), 577 muestras sin fallos/huecos/reinicios. Cola nominal; 4 respuestas IA entregadas. Operación aún abierta: 2 recordatorios rechazados por Meta, 35 acciones inválidas en frontend por diagnosticar y tráfico escaso. Ver [revisión y siguientes acciones](PRODUCTION_STABILITY_48H_REVIEW_20261013.md) |
 | 10 | Abrir cohorte inicial | Un establecimiento, alcance funcional explícito, 5–10 usuarios, soporte y criterio de rollback definidos. | Pendiente |
 
 ## Condiciones de salida a beta
+
+### Revisión de estabilidad — 13 de octubre de 2026
+
+La ventana de salud de 2.46.4 sí terminó correctamente: 577 muestras, 48 horas completas, cero fallos, huecos y reinicios. El [informe de revisión](PRODUCTION_STABILITY_48H_REVIEW_20261013.md) contrasta esas muestras con cola, entrega, logs y recursos. Dos recordatorios recibieron `failed` con código `131047` después de más de 40 horas sin interacción del cliente. Las cuatro respuestas IA tienen entrega/lectura confirmada. El frontend registró 35 solicitudes con identificador de acción inválido; su origen sigue sin atribución demostrada.
+
+Se aprueba la subcomprobación de salud, pero el paso 9 completo y el paso 2 bajo carga siguen abiertos. Priorizar la compatibilidad de recordatorios con la ventana de atención y el diagnóstico de acciones inválidas; conservar las muestras actuales. El paso 8 no se cierra por salud correcta y sus instrucciones fechadas para el 13 de octubre deben revisarse antes de repetirlas hoy. Las secciones anteriores/posteriores con ventanas incompletas describen sus revisiones históricas.
 
 ### Siguiente trabajo recomendado — 10 de octubre de 2026
 
