@@ -6,6 +6,15 @@ class PrismaMessageRepository extends MessageRepositoryPort {
     return prisma.message.create({ data });
   }
 
+  async findLatestIncomingAt(userId, tenantId) {
+    const message = await prisma.message.findFirst({
+      where: { role: "user", conversation: { userId, tenantId } },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true },
+    });
+    return message?.createdAt ?? null;
+  }
+
   async listByConversation(conversationId) {
     return prisma.message.findMany({ where: { conversationId }, orderBy: { createdAt: "asc" } });
   }

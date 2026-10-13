@@ -17,6 +17,7 @@ const { runExclusive } = require("../../services/phone-lock.service");
 const { PrismaConversationControlRepository } = require("./infrastructure/persistence/prisma-conversation-control.repository");
 const { createControlConversationUseCase } = require("./application/use-cases/control-conversation.usecase");
 const { createTeamDeliveryGuard } = require("./infrastructure/providers/team-delivery-guard");
+const { createWhatsAppWindowGuard } = require("./infrastructure/providers/whatsapp-window-guard");
 
 const {
   createRegisterChannelUseCase,
@@ -40,13 +41,15 @@ const controlConversation = createControlConversationUseCase({ repository: contr
 
 const registerChannel = createRegisterChannelUseCase({ channelRepository, eventPublisher });
 const deactivateChannel = createDeactivateChannelUseCase({ channelRepository, eventPublisher });
+const teamDeliveryGuard = createTeamDeliveryGuard({ repository: controlRepository, runExclusive });
+const windowDeliveryGuard = createWhatsAppWindowGuard({ messageRepository });
 const sendMessage = createSendMessageUseCase({
   channelRepository,
   conversationRepository,
   messageRepository,
   channelProvider,
   eventPublisher,
-  deliveryGuard: createTeamDeliveryGuard({ repository: controlRepository, runExclusive }),
+  deliveryGuard: (input, deliver) => teamDeliveryGuard(input, () => windowDeliveryGuard(input, deliver)),
 });
 // Mejora post-Fase 8 (2026-09-08).
 const sendTemplateMessage = createSendTemplateMessageUseCase({

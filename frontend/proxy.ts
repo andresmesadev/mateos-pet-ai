@@ -2,8 +2,12 @@ import { auth } from "./auth";
 import { NextResponse } from "next/server";
 import { apiUrl, makeServerHeaders } from "./lib/api";
 import type { DashboardAccess } from "./lib/dashboard-access";
+import type { NextRequest, NextFetchEvent } from "next/server";
+import { rejectsPageAction } from "./lib/page-request-policy";
 
-export const proxy = auth(async (req) => {
+const authenticatedProxy = auth(async (req, event: NextFetchEvent) => {
+  // Select NextAuth's middleware overload, rather than its API-route overload.
+  void event;
   const path = req.nextUrl.pathname;
   const protectedPath = path.startsWith("/dashboard") || path.startsWith("/print");
   // With a custom auth callback, NextAuth's authorized=false does not perform
@@ -31,6 +35,20 @@ export const proxy = auth(async (req) => {
   } catch { return new NextResponse("El servidor de datos no está disponible. Reintenta para acceder.", { status: 503 }); }
 });
 
+export function proxy(req: NextRequest, event: NextFetchEvent) {
+  if (rejectsPageAction(req.method, req.nextUrl.pathname, req.headers)) {
+    return new NextResponse("Método no admitido en esta página.", {
+      status: 405, headers: { Allow: "GET, HEAD", "Cache-Control": "no-store" },
+    });
+  }
+  const path = req.nextUrl.pathname;
+  if (!path.startsWith("/dashboard") && !path.startsWith("/print") && path !== "/login") return NextResponse.next();
+  return authenticatedProxy(req, event);
+}
+
 export const config = {
-  matcher: ["/dashboard/:path*", "/print/:path*", "/login"],
+  matcher: [
+    "/((?!api(?:/|$)|_next(?:/|$)|favicon.ico$).*)",
+    { source: "/:path*", has: [{ type: "header", key: "next-action" }] },
+  ],
 };

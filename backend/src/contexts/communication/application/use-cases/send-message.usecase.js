@@ -46,7 +46,7 @@ function createSendMessageUseCase({
   eventPublisher,
   deliveryGuard = (_input, deliver) => deliver(),
 }) {
-  return async function execute({ tenantId, userId, phone, content, origin, conversationId = null, author = null, expectedVersion, preparedAt = null }) {
+  return async function execute({ tenantId, userId, phone, content, origin, conversationId = null, author = null, expectedVersion, preparedAt = null, purpose = null }) {
     if (!userId) {
       throw new InvalidMessageAttributesError("userId es obligatorio.");
     }
@@ -75,7 +75,7 @@ function createSendMessageUseCase({
       conversation = await conversationRepository.findOrCreateActiveForUser(userId, channel.id);
     }
 
-    const result = await deliveryGuard({ tenantId, userId, phone, origin, conversationId: conversation.id, author, expectedVersion, preparedAt }, async () => {
+    const result = await deliveryGuard({ tenantId, userId, phone, origin, purpose, channelType: channel.type, conversationId: conversation.id, author, expectedVersion, preparedAt }, async () => {
     const delivered = await channelProvider.send(channel.type, phone, content);
     if (!delivered) {
       throw new MessageDeliveryFailedError(`proveedor del canal "${channel.type}" no confirmó el envío`);

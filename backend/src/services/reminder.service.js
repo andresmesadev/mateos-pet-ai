@@ -6,6 +6,17 @@ const logger = require("../lib/logger");
 // en este archivo.
 const { sendMessage } = require("../contexts/communication");
 
+const sendReminderMessage = async (input) => {
+  const result = await sendMessage({ ...input, purpose: "reminder" });
+  if (result?.skipped || !result?.message) {
+    logger.info("[ReminderService] Reminder not marked sent", {
+      reason: result?.reason || "delivery_unconfirmed", tenantId: input.tenantId, userId: input.userId,
+    });
+    return false;
+  }
+  return true;
+};
+
 // Mejora post-Fase 8 (2026-09-08): mismo vocabulario de "wizard activo" que
 // usa conversation.service.js — importado del módulo hoja compartido
 // (domain/booking-steps.js), NO de conversation.service.js directamente.
@@ -420,13 +431,13 @@ const sendDewormingReminder = async (record) => {
   }
   const message = buildDewormingReminderMessage(record);
   try {
-    await sendMessage({
+    if (!(await sendReminderMessage({
       tenantId: record?.pet?.owner?.tenantId ?? null,
       userId,
       phone,
       content: message,
       origin: "sistema",
-    });
+    }))) return false;
   } catch (error) {
     logger.error("[ReminderService] Failed to send deworming reminder:", record.id, phone, error.message);
     return false;
@@ -613,13 +624,13 @@ const sendReminder = async (appointment) => {
 
   try {
 
-    await sendMessage({
+    if (!(await sendReminderMessage({
       tenantId: appointment?.tenantId ?? null,
       userId,
       phone,
       content: message,
       origin: "sistema",
-    });
+    }))) return false;
 
   } catch (error) {
 
@@ -685,13 +696,13 @@ const sendVaccineReminder = async (record, user) => {
 
   try {
 
-    await sendMessage({
+    if (!(await sendReminderMessage({
       tenantId: user?.tenantId ?? record?.pet?.owner?.tenantId ?? null,
       userId,
       phone,
       content: message,
       origin: "sistema",
-    });
+    }))) return false;
 
   } catch (error) {
 
@@ -730,13 +741,13 @@ const sendGroomingReminder = async (record) => {
   }
   const message = buildGroomingReminderMessage(record);
   try {
-    await sendMessage({
+    if (!(await sendReminderMessage({
       tenantId: record?.pet?.owner?.tenantId ?? null,
       userId,
       phone,
       content: message,
       origin: "sistema",
-    });
+    }))) return false;
   } catch (error) {
     logger.error("[ReminderService] Failed to send grooming reminder:", record.id, phone, error.message);
     return false;
@@ -871,13 +882,13 @@ const sendFollowUp = async (appointment) => {
 
   const message = buildFollowUpMessage(appointment);
   try {
-    await sendMessage({
+    if (!(await sendReminderMessage({
       tenantId: appointment?.tenantId ?? null,
       userId,
       phone,
       content: message,
       origin: "sistema",
-    });
+    }))) return false;
   } catch (error) {
     logger.error("[ReminderService] Failed to send follow-up:", appointment.id, phone, error.message);
     return false;
@@ -964,14 +975,14 @@ const sendAbandonedBookingReminder = async (conversation) => {
   }
   const message = buildAbandonedBookingReminderMessage(conversation);
   try {
-    await sendMessage({
+    if (!(await sendReminderMessage({
       tenantId: conversation?.tenantId ?? null,
       userId,
       conversationId: conversation?.id ?? null,
       phone,
       content: message,
       origin: "sistema",
-    });
+    }))) return false;
   } catch (error) {
     logger.error("[ReminderService] Failed to send abandoned booking reminder:", conversation.id, phone, error.message);
     return false;

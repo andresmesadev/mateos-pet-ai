@@ -44,5 +44,12 @@ const origin = 'https://app.nexoweb.co';
   const page=await fetch(origin+'/dashboard',{redirect:'manual',signal:AbortSignal.timeout(20_000)}); assert([302,307].includes(page.status)); assert(page.headers.get('location')?.includes('/login'));
   const anonymous=await fetch(origin+'/api/proxy/dashboard/cash/operational',{redirect:'manual',signal:AbortSignal.timeout(20_000)}); assert.equal(anonymous.status,401);
   console.log('Anonymous dashboard/proxy denied: redirect to login / HTTP 401');
+  for (const mode of ['header', 'body']) {
+    const body = new FormData(); body.set('$ACTION_ID_x', '');
+    const invalid = await fetch(origin+'/', { method: 'POST', body, redirect: 'manual', signal: AbortSignal.timeout(20_000),
+      ...(mode === 'header' ? { headers: { 'Next-Action': 'x' } } : {}) });
+    assert.equal(invalid.status,405,'Unsupported page action '+mode); await invalid.text();
+  }
+  console.log('Unsupported page action header/form rejected before parsing: HTTP 405');
   console.log('Release HTTPS smoke passed. No business writes or outgoing messages.');
 })().catch(error=>{console.error(error.message);process.exitCode=1;});

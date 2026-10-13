@@ -1,4 +1,8 @@
 class MessageRepositoryPort {
+  async findLatestIncomingAt(_userId, _tenantId) {
+    throw new Error("MessageRepositoryPort.findLatestIncomingAt no implementado");
+  }
+
   async create(_data) {
     throw new Error("MessageRepositoryPort.create no implementado");
   }
