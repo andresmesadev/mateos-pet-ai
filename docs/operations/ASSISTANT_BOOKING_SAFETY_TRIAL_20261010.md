@@ -70,6 +70,12 @@ El operador indicó que ahora tiene un solo número disponible. El recorrido se 
 
 Esta sección registra disponibilidad e instrucciones, no reservas creadas ni rechazo de reprogramación aprobado.
 
+**Primera reserva nueva verificada, 14:09:37 Colombia:** solicitud explícita de Akiles/veterinaria para el 14 a las 12 recibida a las 14:08:39 (`cmv720qvx00220itfghi3hydw`); revisión correcta a las 14:08:44 (`cmv720u9w00280itfme5db8d9`). «Sí, confirmo» a las 14:09:17 (`cmv721jwp002g0itfh7oircgf`) creó únicamente la cita `cmv721jxc002h0itf2r6jz0dr`, `confirmed`, Akiles/perro/`vet`, `2026-10-14T17:00:00Z` (12:00 Colombia). La confirmación final de las 14:09:18 (`cmv721kec002n0itfso2cd0fu`) coincide y contiene despedida.
+
+Sesión `completed`, Akiles, consulta veterinaria y nueva fecha/hora; recogida y dirección anteriores en `null`. El nuevo pedido no conservó el borrador de Matías/peluquería. Ocho trabajos desde las 14:06:09, todos `done/complete`, sin errores. Se pidió preparar Matías/veterinaria para el 14 a las 13 en el mismo chat; esa segunda reserva y el intento de reprogramación todavía no están certificados.
+
+GitHub y checkout de la VPS sincronizados en `3acc325` antes de esta consulta; solo documentación, sin reinicio ni reconstrucción. La observación de 2.46.5 continúa independiente de estos commits.
+
 | Caso | Estado | Evidencia |
 | --- | --- | --- |
 | Negación | Aprobada, incluida repetición final en 2.46.5 | El 13 de octubre a las 14:02 reconoció «No confirmo la cita» sin reofrecer ni crear reserva. |
