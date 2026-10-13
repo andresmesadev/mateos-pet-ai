@@ -27,7 +27,7 @@ El responsable recordó que el paso 8 ya estaba muy avanzado. Se retoma con **do
 1. **Recogida y negación en un mismo flujo:** repetir «Quiero que lo recojan en casa», comprobar pregunta y resumen de dirección, y terminar con «No confirmo la cita». La seguridad de dirección/negación ya pasó; falta la repetición de las frases corregidas sin bucles ni reserva.
 2. **Reprogramación a turno ocupado:** comprobar aviso claro y conservación de la cita original con la corrección desplegada; después cancelar únicamente las reservas de prueba y comprobar liberación. La limpieza forma parte de este recorrido, no es una tercera prueba independiente.
 
-Las pruebas aprobadas de días, festivos, horarios, reservas, concurrencia y cancelación conservan su evidencia. Estos dos recorridos siguen pendientes de resultados reales; agruparlos no significa darlos por aprobados. La observación de 48 horas pertenece al paso 9 y continúa por separado.
+Las pruebas aprobadas de días, festivos, horarios, reservas, concurrencia y cancelación conservan su evidencia. **Actualización del 13 de octubre, 14:02 Colombia:** el primer recorrido está aprobado; queda el segundo, incluida su limpieza. La observación de 48 horas pertenece al paso 9 y continúa por separado.
 
 ### Inicio del primer recorrido — 13 de octubre, 13:52 Colombia
 
@@ -53,12 +53,27 @@ Se pidió responder «Sí, acepto las 11:00» y, solo cuando pregunte la modalid
 
 **Recogida reconocida en WhatsApp, 13:57–13:59 Colombia:** «Sí, acepto las 11:00» llegó a las 13:57:46 y avanzó a la pregunta de modalidad a las 13:57:49, sin repetir la oferta. «Quiero que lo recojan en casa» llegó a las 13:59:07 y produjo la pregunta de dirección a las 13:59:10. Sesión `awaiting_domicilio_address`, Matías/perro/peluquería, 14 de octubre a las 11, recogida verdadera y dirección todavía vacía. Cero citas nuevas. Consulta desde las 13:55:55: 11 trabajos `done/complete`, sin errores; ambas respuestas con recibos `sent/delivered/read`. La variante «recojan» queda verificada con el canal/modelo reales.
 
-Se pidió la dirección ficticia «Calle 10 #20-30, barrio Centro» y, solo ante el resumen correcto, «No confirmo la cita». Si los datos no coinciden, detenerse en el resumen. Falta verificar ese último intercambio antes de cerrar el primer recorrido.
+Se pidió la dirección ficticia «Calle 10 #20-30, barrio Centro» y, solo ante el resumen correcto, «No confirmo la cita». El resultado real se verificó a las **14:02:29 de Colombia**:
+
+- Dirección recibida a las 14:01:32 (`cmv71rlep001a0itfwwe6qiay`). La revisión de las 14:01:36 (`cmv71rnxp001g0itfvjyasqnz`) mostró Matías, peluquería, 14/10/2026, 11:00 AM, recogida y la dirección ficticia exacta; indicó «Aún no está guardada».
+- «No confirmo la cita» llegó a las 14:02:12 (`cmv71sg40001o0itfxlkso8b0`). A las 14:02:14 (`cmv71shxu001u0itf3ke6ujev`) respondió: «De acuerdo, no he agendado la cita. Si quieres otro día, dime cuál. 🐾». No repitió la oferta ni avanzó como aceptación.
+- Cero citas del propietario para el 14 de octubre. La sesión sigue en `awaiting_confirmation`, con el borrador de Matías y la dirección; no se afirma que el borrador haya sido eliminado.
+- Los once trabajos consultados desde las 13:59:11 quedaron `done/complete`, sin errores. Tanto la revisión como el reconocimiento del rechazo tienen recibos `sent/delivered/read`.
+
+**Primer recorrido aprobado en 2.46.5:** aceptación del turno, variante «recojan», dirección en revisión y rechazo final coherente, sin crear reserva.
+
+### Preparación del segundo recorrido — 14:05–14:06 Colombia
+
+Consultas de solo lectura: cero citas para el 14 de octubre y veterinaria disponible a las 12 y a las 13 en el establecimiento `cmued7q6200001anzpo2y1qtz`. Las reservas históricas del 13 de octubre (`cmv2x4pox001m0in5qo5jt7ys` y `cmv2x4p84001a0in5l8nzn9of`) están en `no_show`; no se reutilizan ni se presentan como canceladas.
+
+El operador indicó que ahora tiene un solo número disponible. El recorrido se adapta a **Akiles/veterinaria a las 12 y Matías/veterinaria a las 13, miércoles 14**, en su mismo chat. Primero crear Akiles con consentimiento y verificar su ID; después crear Matías y verificar el suyo. Solo entonces seleccionar explícitamente Akiles e intentar moverlo a las 13, conservar ambas filas y cancelar exclusivamente las dos reservas nuevas mediante WhatsApp. Esto prueba destino ocupado; la concurrencia entre remitentes conserva su evidencia anterior y no se vuelve a certificar con un único número.
+
+Esta sección registra disponibilidad e instrucciones, no reservas creadas ni rechazo de reprogramación aprobado.
 
 | Caso | Estado | Evidencia |
 | --- | --- | --- |
-| Negación | Seguridad aprobada desde WhatsApp; reconocimiento final corregido y desplegado, repetición pendiente | Rechazo en oferta y en revisión final: cero citas nuevas. La respuesta final de 2.46.2 reofreció turno; se corrigió para reconocer la negación. |
-| Dirección de recogida | Validación previa y variante «recojan» aprobadas; revisión final actual pendiente | «Quiero que lo recojan en casa» avanzó a dirección el 13 de octubre, sin reserva y con datos correctos. Falta revisar el resumen actual y terminar con negación. |
+| Negación | Aprobada, incluida repetición final en 2.46.5 | El 13 de octubre a las 14:02 reconoció «No confirmo la cita» sin reofrecer ni crear reserva. |
+| Dirección de recogida | Aprobada, incluida variante «recojan» y revisión final en 2.46.5 | Dirección ficticia exacta en resumen de Matías, peluquería, 14/10 a las 11; rechazo final y cero reservas. No valida ubicación geográfica. |
 | Reprogramación a destino ocupado | Conservación aprobada; respuesta defectuosa corregida, repetición pendiente | El primer destino produjo saludo, sin mover ni duplicar citas. Corrección 2.46.4 desplegada; repetir rechazo y cancelar solo las dos citas nuevas. |
 
 La cola completa o una respuesta textual por sí solas no demuestran que la operación sea correcta. Cada caso debe relacionar mensajes, estado y agenda persistida; registrar también entrega, errores y limpieza de las citas de prueba.
