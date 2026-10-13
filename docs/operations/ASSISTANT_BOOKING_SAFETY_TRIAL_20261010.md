@@ -82,11 +82,31 @@ Ambas filas nuevas persisten por separado; Akiles conserva su ID y las 12. La nu
 
 Se pidió seleccionar la cita veterinaria de Akiles del miércoles 14 mediante solicitud explícita de reprogramación y, cuando pregunte destino, responder el mismo día a las 13. Esperar ante selección ambigua; no aceptar alternativas ni cancelar todavía. **Intento y conservación posterior pendientes de mensajes reales.**
 
+**Reprogramación a destino ocupado aprobada, 14:12:50 Colombia:** la solicitud de las 14:11:32 (`cmv724fqi003r0itfzjgjvc3o`) seleccionó Akiles/veterinaria, 14 a las 12. La respuesta de las 14:11:34 (`cmv724hzp003x0itfrw2imy7r`) mostró la original correcta y preguntó destino, aclarando que sigue reservada. El destino «El miércoles 14 de octubre a las 13:00» llegó a las 14:12:02 (`cmv7252z200450itf193zdlzi`). A las 14:12:04 (`cmv7254sj004b0itfpzj2zdsy`) rechazó la hora ocupada y ofreció alternativas, con «Tu cita original sigue reservada»; no produjo el saludo defectuoso anterior.
+
+Las dos filas conservan ID, fecha y estado `confirmed`: Akiles `cmv721jxc002h0itf2r6jz0dr` a las 12 y Matías `cmv722z0b003c0itful0yiy9w` a las 13, sin duplicados. Sesión `awaiting_date_time` con selección de la original de Akiles y sin turno nuevo aceptado. Ambos mensajes del asistente tienen recibos `sent/delivered/read`; ocho trabajos desde las 14:11:02, todos `done/complete`, sin errores.
+
+Se pidió cancelar primero únicamente la cita nueva de Akiles, con mascota/servicio/fecha/hora explícitos y consentimiento. Después se cancelará la de Matías y se comprobará liberación de las 12 y 13. **Limpieza pendiente: el paso 8 sigue abierto.**
+
+**Cancelación de Akiles verificada, 14:14:03 Colombia:** solicitud explícita a las 14:13:19 (`cmv726qsw004j0itfqmsgml67`); pidió confirmar la cita correcta a las 14:13:22 (`cmv726spl004p0itfz89y3mdc`). «Sí, cancela esa cita» a las 14:13:32 (`cmv72710o004x0itf1rybkegh`) produjo reconocimiento con despedida a las 14:13:35 (`cmv7272ri00530itfjcnjg6om`). Solo `cmv721jxc002h0itf2r6jz0dr` cambió a `cancelled`; Matías sigue `confirmed` a las 13. Respuestas `sent/delivered/read`; ocho trabajos desde las 14:12:50, todos `done/complete`, sin errores.
+
+La sesión quedó con paso `null` y todavía retiene `reschedule_appointment_id` de Akiles; no se afirma que esté vacía. Se pidió cancelar Matías con selección y consentimiento explícitos. Falta verificar esa segunda cancelación y disponibilidad efectiva de ambos turnos.
+
+### Incidente de limpieza — 14:14–14:15 Colombia
+
+La solicitud de cancelar Matías del 14 a las 13 llegó a las 14:14:56 (`cmv728tib005b0itf1vys7wnv`). A las 14:14:59 (`cmv728vwb005h0itfdz33l3ad`) el asistente respondió sobre cambiar la mascota de la reprogramación de Akiles, sin pedir consentimiento para cancelar Matías. Causa: selección antigua de Akiles retenida después de cancelarlo y guard de cambio de mascota antes del arbitraje de gestión.
+
+Consulta de las 14:15:18: Akiles `cancelled`, Matías `confirmed`, doce libre y trece ocupado. Cuatro trabajos `done/complete`, sin errores; respuesta defectuosa `sent/delivered/read`. No fue pérdida de mensaje ni caída del worker. El paso 8 continúa abierto; no cancelar Matías desde un script ni declarar la agenda limpia.
+
+Diseño acotado actualizado en [ADR 019](../decisions/019-asistente-contexto-y-operaciones-seguras.md). Regresión del diálogo real antes de corregir: **3 fallidas / 24 aprobadas**, exit 1. Después del ajuste inicial: **3 suites / 56 pruebas aprobadas**, exit 0, 2,885 s. Candidata **2.46.6**: gestión prioritaria sin sobrescribir el borrador con otra mascota, limpieza al cancelar la original y recuperación de selección inactiva en sesiones persistidas. Si la lista de citas alcanza el límite de 50, su ausencia no se toma como prueba de inactividad. No hay cambios de dominio, schema ni migraciones; verificación completa, publicación y repetición WhatsApp pendientes.
+
+El paso de retorno guardado solo se aplica mientras hay una gestión pendiente; un `management_resume_step: null` de una gestión anterior no reemplaza el paso del borrador activo. Las regresiones también comprueban que rechazar la cancelación de otra mascota conserva la reprogramación y que confirmarla solo cancela su ID. Seguimiento de validación/publicación en [corrección 2.46.6](../history/RELEASE_2_46_6_MANAGEMENT_STATE_20261013.md).
+
 | Caso | Estado | Evidencia |
 | --- | --- | --- |
 | Negación | Aprobada, incluida repetición final en 2.46.5 | El 13 de octubre a las 14:02 reconoció «No confirmo la cita» sin reofrecer ni crear reserva. |
 | Dirección de recogida | Aprobada, incluida variante «recojan» y revisión final en 2.46.5 | Dirección ficticia exacta en resumen de Matías, peluquería, 14/10 a las 11; rechazo final y cero reservas. No valida ubicación geográfica. |
-| Reprogramación a destino ocupado | Conservación aprobada; respuesta defectuosa corregida, repetición pendiente | El primer destino produjo saludo, sin mover ni duplicar citas. Corrección 2.46.4 desplegada; repetir rechazo y cancelar solo las dos citas nuevas. |
+| Reprogramación a destino ocupado | Rechazo y conservación aprobados en 2.46.5; limpieza pendiente | El 13 de octubre a las 14:12 rechazó destino ocupado y conservó los IDs de Akiles a las 12 y Matías a las 13 del día 14. Falta cancelar únicamente estas dos reservas y comprobar liberación. |
 
 La cola completa o una respuesta textual por sí solas no demuestran que la operación sea correcta. Cada caso debe relacionar mensajes, estado y agenda persistida; registrar también entrega, errores y limpieza de las citas de prueba.
 

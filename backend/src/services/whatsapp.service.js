@@ -8,6 +8,7 @@ const {
 const { getSession: getCachedSession, updateSession: updateCachedSession } = require("./memory.service");
 const { prepareBookingTurn, separateClientAndPet, isAcknowledgementOnly, selectCurrentPet, confirmsSelectedPet } = require("./booking-turn.service");
 const { buildBookingConfirmation } = require("./booking-message.service");
+const { classifyManagementRequest } = require("./assistant-protocol.service");
 const scheduling = require("./scheduling.service");
 const { findOrCreateUser, updateUserNameIfMissing } = require("./user.service");
 const { findPetByNameAndOwner, resolveAppointmentPetName } = require("./pet.service");
@@ -388,7 +389,9 @@ const processSingleIncomingMessage = async (parsed) => {
   const explicitTerms = typeof scheduling.extractExplicitSchedulingTerms === "function"
     ? scheduling.extractExplicitSchedulingTerms(parsed.text, turnNow)
     : { dateText: null, timeText: null };
-  const turn = prepareBookingTurn(previous, parsed.text, turnNow, {
+  const explicitManagement = classifyManagementRequest(parsed.text, null, previous);
+  const managementStep = [STEPS.AWAITING_APPOINTMENT_SELECTION, STEPS.AWAITING_MANAGEMENT_CONFIRM].includes(previous.step);
+  const turn = explicitManagement || managementStep ? { previous, freshRequest: false } : prepareBookingTurn(previous, parsed.text, turnNow, {
     ...explicitTerms,
     dateKey: explicitTerms.dateText ? scheduling.parseDateToKey(explicitTerms.dateText, turnNow) : null,
     hour: explicitTerms.timeText ? scheduling.parseTimeToHour(explicitTerms.timeText) : null,
@@ -723,13 +726,15 @@ const processSingleIncomingMessage = async (parsed) => {
     analysis = selectCurrentPet(previous, analysis, parsed.text);
   }
   const normalizedName = value => String(value || "").trim().toLocaleLowerCase("es");
-  if (previous.reschedule_appointment_id && ((analysis?.pet_name && normalizedName(analysis.pet_name) !== normalizedName(previous.pet_name)) ||
+  const managementRequest = classifyManagementRequest(parsed.text, analysis?.intent, previous);
+  const managementTurn = Boolean(managementRequest || managementStep);
+  if (!managementTurn && previous.reschedule_appointment_id && ((analysis?.pet_name && normalizedName(analysis.pet_name) !== normalizedName(previous.pet_name)) ||
       (analysis?.requested_service && previous.requested_service && analysis.requested_service !== previous.requested_service))) {
     return { received: true, processed: true, user, conversation, ...parsed, session: previous, escalationRequested: false,
       reply: `La reprogramación seleccionada es para ${previous.pet_name}. Cambiar mascota o servicio requiere una reserva nueva. Tu cita original sigue reservada; dime «Quiero una nueva cita» para empezar otra. 🐾` };
   }
-  if ((analysis?.pet_name && normalizedName(analysis.pet_name) !== normalizedName(previous.pet_name)) ||
-      (analysis?.requested_service && previous.requested_service && analysis.requested_service !== previous.requested_service)) {
+  if (!managementTurn && ((analysis?.pet_name && normalizedName(analysis.pet_name) !== normalizedName(previous.pet_name)) ||
+      (analysis?.requested_service && previous.requested_service && analysis.requested_service !== previous.requested_service))) {
     previous = { ...previous, pet_name: analysis.pet_name || previous.pet_name, pet_type: analysis.pet_type ?? null,
       step: null, scheduling_date_key: null, scheduling_hour: null, grooming_service: null,
       domicilio: null, domicilio_address: null };
@@ -748,7 +753,7 @@ const processSingleIncomingMessage = async (parsed) => {
   logger.info("[WhatsApp] Analysis intent:", analysis?.intent);
 
   const mergedAnalysis = mergeSessionData(previous, analysis);
-  if (previous.requested_service && !require("./assistant-protocol.service").classifyManagementRequest(parsed.text, analysis?.intent, previous)) {
+  if (previous.requested_service && !managementRequest) {
     // Once the original appointment is selected, a destination is input to
     // availability, not a new management command suggested by the model.
     if (["query_appointments", "greeting"].includes(mergedAnalysis.intent) ||
@@ -792,7 +797,9 @@ const processSingleIncomingMessage = async (parsed) => {
 
 
   const session = updateSession(parsed.from, {
-    ...mergedAnalysis,
+    // Management reads the extracted target, but only its explicit patch can
+    // change the booking draft. Cancelling another pet must not rewrite it.
+    ...(managementTurn ? previous : mergedAnalysis),
     step: result.step,
     ...(result.sessionPatch || {}),
     requires_human_attention: result.sessionPatch?.requires_human_attention === true || result.step === STEPS.HUMAN_TAKEOVER,

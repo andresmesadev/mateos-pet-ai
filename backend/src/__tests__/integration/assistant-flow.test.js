@@ -4,7 +4,7 @@ jest.mock("../../services/openai.service", () => ({ analyzeMessage: jest.fn(), g
 jest.mock("../../services/user.service", () => ({ findOrCreateUser: jest.fn().mockResolvedValue({ id: "owner", tenantId: "tenant", name: "Andrés" }), updateUserNameIfMissing: jest.fn() }));
 jest.mock("../../services/pet.service", () => ({ getUserPets: jest.fn().mockResolvedValue([{ name: "Akiles", type: "dog" }]), findPetByNameAndOwner: jest.fn().mockResolvedValue(null), resolveAppointmentPetName: jest.fn(async name => name) }));
 jest.mock("../../services/tenant.service", () => ({ getTenantByPhone: jest.fn().mockResolvedValue({ id: "tenant", active: true }) }));
-jest.mock("../../services/appointment.service", () => ({ ...jest.requireActual("../../services/appointment.service"), createAppointment: jest.fn(async data => ({ ...data, id: "new" })), checkAppointmentConflict: jest.fn().mockResolvedValue(false), getUserAppointments: jest.fn().mockResolvedValue([]) }));
+jest.mock("../../services/appointment.service", () => ({ ...jest.requireActual("../../services/appointment.service"), createAppointment: jest.fn(async data => ({ ...data, id: "new" })), cancelAppointment: jest.fn(), checkAppointmentConflict: jest.fn().mockResolvedValue(false), getUserAppointments: jest.fn().mockResolvedValue([]) }));
 jest.mock("../../services/availability-db.service", () => ({ findNextAvailableGroomingSlot: jest.fn().mockResolvedValue({ date: "2026-10-13", hour: 11 }), listAvailableSlotsForDate: jest.fn().mockResolvedValue([13]), isSlotAvailable: jest.fn().mockResolvedValue(true), suggestAvailableVetSlots: jest.fn().mockResolvedValue({ hours: [14] }) }));
 jest.mock("../../services/business-config.service", () => ({ getBusinessHours: jest.fn().mockResolvedValue(null) }));
 jest.mock("../../services/conversation-persistence.service", () => ({ findOrCreateConversation: jest.fn(), saveMessage: jest.fn().mockResolvedValue({}), findMessageByExternalId: jest.fn().mockResolvedValue(null), getConversationMessages: jest.fn().mockResolvedValue([]), syncConversationState: jest.fn().mockImplementation(id => require("../../services/memory.service").flushConversationSession(id)) }));
@@ -161,5 +161,53 @@ test.each(["Si por favor", "Sí, confirmo, gracias"])("polite confirmation saves
 test.each(["Sí por favor, pero para Matías", "Sí por favor, cuánto cuesta", "No, por favor", "Sí por favor a las 13"])("polite wording cannot authorize a correction or question: %s", async text => {
   start({ step: STEPS.AWAITING_CONFIRMATION, pet_name: "Akiles", pet_type: "dog", requested_service: "veterinary_consultation", scheduling_date_key: "2026-10-13", scheduling_hour: 12, domicilio: false });
   await processIncomingMessage(body(text));
+  expect(appointments.createAppointment).not.toHaveBeenCalled();
+});
+
+const originalVet = { id: "original", userId: "owner", tenantId: "tenant", petName: "Akiles", petType: "dog", serviceType: "vet", date: new Date("2026-10-13T17:00:00Z"), status: "confirmed" };
+const otherVet = { ...originalVet, id: "other", petName: "Matías", date: new Date("2026-10-13T18:00:00Z") };
+const rescheduling = { step: STEPS.AWAITING_DATE_TIME, pet_name: "Akiles", pet_type: "dog", requested_service: "veterinary_consultation", reschedule_appointment_id: "original", management_resume_step: null };
+
+test("actual cleanup incident: cancelling the original ends rescheduling and allows the other pet's cancellation", async () => {
+  start(rescheduling);
+  appointments.getUserAppointments.mockResolvedValue([originalVet, otherVet]);
+  await processIncomingMessage(body("Cancela mi cita veterinaria de Akiles del martes 13 de octubre a las 12:00"));
+  appointments.cancelAppointment.mockResolvedValue({ ...originalVet, status: "cancelled" });
+  const cancelled = await processIncomingMessage(body("Sí, cancela esa cita"));
+  expect(cancelled.session.reschedule_appointment_id).toBeNull();
+  expect(cancelled.session.step).toBeNull();
+  appointments.getUserAppointments.mockResolvedValue([otherVet]);
+  ai.analyzeMessage.mockResolvedValue({ intent: "cancel_appointment", pet_name: "Matías", requested_service: "veterinary_consultation" });
+  const next = await processIncomingMessage(body("Cancela mi cita veterinaria de Matías del martes 13 de octubre a las 13:00"));
+  expect(next.session.step).toBe(STEPS.AWAITING_MANAGEMENT_CONFIRM);
+  expect(next.session.management_appointment_id).toBe("other");
+  expect(appointments.cancelAppointment).toHaveBeenCalledTimes(1);
+  expect(appointments.cancelAppointment).toHaveBeenCalledWith("owner", "original", "tenant");
+  expect(appointments.createAppointment).not.toHaveBeenCalled();
+});
+
+test.each([true, false])("an explicit cancellation of another pet routes to management despite an old rescheduling selection (active=%s)", async active => {
+  start({ ...rescheduling, step: active ? STEPS.AWAITING_DATE_TIME : null });
+  appointments.getUserAppointments.mockResolvedValue(active ? [originalVet, otherVet] : [otherVet]);
+  ai.analyzeMessage.mockResolvedValue({ intent: "cancel_appointment", pet_name: "Matías", requested_service: "veterinary_consultation" });
+  const review = await processIncomingMessage(body("Cancela mi cita veterinaria de Matías del martes 13 de octubre a las 13:00"));
+  expect(review.session.step).toBe(STEPS.AWAITING_MANAGEMENT_CONFIRM);
+  expect(review.session.management_appointment_id).toBe("other");
+  expect(review.reply).not.toContain("Cambiar mascota o servicio");
+  expect(review.session.reschedule_appointment_id).toBe(active ? "original" : null);
+  if (active) expect(review.session.pet_name).toBe("Akiles");
+  expect(appointments.cancelAppointment).not.toHaveBeenCalled();
+  const rejected = await processIncomingMessage(body("No, conservarla"));
+  expect(appointments.cancelAppointment).not.toHaveBeenCalled();
+  expect(rejected.session.reschedule_appointment_id).toBe(active ? "original" : null);
+  expect(rejected.session.step).toBe(active ? STEPS.AWAITING_DATE_TIME : null);
+  // Repeating the explicit order still requires consent for the exact target.
+  await processIncomingMessage(body("Cancela mi cita veterinaria de Matías del martes 13 de octubre a las 13:00"));
+  appointments.cancelAppointment.mockResolvedValue({ ...otherVet, status: "cancelled" });
+  const cancelled = await processIncomingMessage(body("Sí, cancela esa cita"));
+  expect(appointments.cancelAppointment).toHaveBeenCalledTimes(1);
+  expect(appointments.cancelAppointment).toHaveBeenCalledWith("owner", "other", "tenant");
+  expect(cancelled.session.reschedule_appointment_id).toBe(active ? "original" : null);
+  if (active) expect(cancelled.session.pet_name).toBe("Akiles");
   expect(appointments.createAppointment).not.toHaveBeenCalled();
 });
