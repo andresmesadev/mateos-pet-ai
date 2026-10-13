@@ -4,13 +4,15 @@ const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
 const { readFileSync } = require('node:fs');
 const { setTimeout: sleep } = require('node:timers/promises');
-const { Pool } = require('pg');
-const { PrismaClient } = require('@prisma/client');
-const { PrismaPg } = require('@prisma/adapter-pg');
 const connectionString=process.env.CAPACITY_TEST_DATABASE_URL;
 assert(connectionString, 'Set CAPACITY_TEST_DATABASE_URL for the isolated capacity test');
 const url=new URL(connectionString);
 assert(url.hostname==='capacity-db' && url.pathname==='/capacity_test', 'Requires the internal capacity-db/capacity_test destination');
+// Reject destinations before loading backend dependencies; the guard also runs
+// in the frontend-only CI job without installing pg or generating Prisma.
+const { Pool } = require('pg');
+const { PrismaClient } = require('@prisma/client');
+const { PrismaPg } = require('@prisma/adapter-pg');
 const schema='capacity_'+randomUUID().replaceAll('-','');
 const admin=new Pool({ connectionString, max:2, connectionTimeoutMillis:5000 });
 const pool=new Pool({ connectionString, max:10, connectionTimeoutMillis:5000, options:'-c search_path='+schema });

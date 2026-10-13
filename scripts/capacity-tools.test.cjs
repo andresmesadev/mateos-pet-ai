@@ -14,7 +14,12 @@ test('HTTPS capacity tool really starts through stdin and fails closed without c
 });
 
 test('queue capacity tool cannot select production or reuse DATABASE_URL', () => {
-  const source=readFileSync(resolve(__dirname,'benchmark-inbound-capacity.cjs'),'utf8');
+  const source=`const Module=require('node:module');
+const load=Module._load;
+Module._load=function(id,...args){
+  if(['pg','@prisma/client','@prisma/adapter-pg'].includes(id))throw new Error('Backend dependency loaded before destination validation');
+  return load.call(this,id,...args);
+};\n` + readFileSync(resolve(__dirname,'benchmark-inbound-capacity.cjs'),'utf8');
   for(const destination of ['', 'postgresql://fixture:fixture@db:5432/mateos',
     'postgresql://fixture:fixture@capacity-db:5432/mateos']){
     const result=spawnSync(process.execPath,['-'],{ input:source,encoding:'utf8',timeout:15000,

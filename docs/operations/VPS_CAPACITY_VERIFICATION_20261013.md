@@ -88,3 +88,9 @@ Respaldo cifrado previo: `/var/backups/mateos-pet-ai/mateos-pet-ai-20261013T2019
 - Cola: `ec4c1528b72455017c3b8dc24524102008ac2bb7e127520736770a28655e2af0`.
 
 Evaluación de versión: el cambio funcional del cupo requiere patch **2.46.7**, declarado en código y lockfile. Herramientas no añaden dependencias ni entidades. Preservar la ventana 2.46.6 como incompleta antes de reinicio; iniciar observación separada de la candidata desplegada.
+
+Publicación de candidata: commit `29c5f15b2eabce42d02fc260054dac4f3cd781f8` en `main`; [CI 38462271951](https://github.com/andresmesadev/mateos-pet-ai/actions/runs/38462271951) en ejecución antes de despliegue.
+
+**Resultado de ese CI:** backend, cola PostgreSQL y administración PostgreSQL `success`; job frontend `failure` en `capacity-tools.test.cjs`: `pg` no está instalado en ese job. El benchmark importaba dependencias antes del guard de destino. Se adelanta el guard y la regresión prohíbe explícitamente cargar pg/Prisma para una URL rechazada. No se instalan dependencias backend innecesarias en frontend ni se salta la prueba. La candidata no se desplegó con ese CI fallido; la VPS siguió en 2.46.6. Publicación corregida y CI final pendientes.
+
+**Contraste de producción, 15:23:51 Colombia:** 106 entrantes y 127 recibos, todos `done/complete`; tres usuarios, once citas y 220 mensajes, mismas cifras de negocio que antes de las pruebas. Cero credenciales activas de profesionales (`StaffCredential`). La cuenta admin del entorno existe, pero no se presentan fixtures del benchmark como operadores reales. Antes de la cohorte se deben asignar cuentas propias a los dos/tres operadores: un login compartido conserva un solo cupo y una sola identidad auditada. Nombres, roles y permisos reales se acuerdan en preparación de cohorte, sin inventar personas ni enviar invitaciones desde esta prueba.
