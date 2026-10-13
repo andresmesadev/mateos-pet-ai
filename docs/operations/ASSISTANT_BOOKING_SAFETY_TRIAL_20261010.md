@@ -47,6 +47,10 @@ El operador debe esperar a la revisión de la respuesta antes de continuar. Desp
 
 Se solicitó al operador el primer mensaje. Este apartado registra preparación e instrucciones; no afirma que el mensaje llegó ni que el recorrido terminó. El segundo recorrido se prepara después, con horarios futuros comprobados y limpieza de sus reservas.
 
+**Primer intercambio verificado, 13:55–13:56 Colombia:** la solicitud llegó a las 13:55:50 (`cmv71k94300040itfbe68tjuj`). A las 13:55:54, el asistente ofreció mañana a las 11 para Matías (`cmv71kcdy000a0itfctt0ioi9`). Sesión `awaiting_grooming_slot_confirm`: Matías, `dog`, `bath_grooming`, `2026-10-14`, hora 11 y recogida todavía sin elegir. Cero citas del propietario para ese día. Cuatro trabajos desde la preparación, todos `done/complete`, sin errores; respuesta con ID de Meta y recibos `sent/delivered/read`.
+
+Se pidió responder «Sí, acepto las 11:00» y, solo cuando pregunte la modalidad, «Quiero que lo recojan en casa». Esperar en la pregunta de dirección para verificar la transición. Todavía no se declara aprobada la variante de recogida ni el rechazo final.
+
 | Caso | Estado | Evidencia |
 | --- | --- | --- |
 | Negación | Seguridad aprobada desde WhatsApp; reconocimiento final corregido y desplegado, repetición pendiente | Rechazo en oferta y en revisión final: cero citas nuevas. La respuesta final de 2.46.2 reofreció turno; se corrigió para reconocer la negación. |
