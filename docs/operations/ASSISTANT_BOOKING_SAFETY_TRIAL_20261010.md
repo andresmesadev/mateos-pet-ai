@@ -29,6 +29,24 @@ El responsable recordó que el paso 8 ya estaba muy avanzado. Se retoma con **do
 
 Las pruebas aprobadas de días, festivos, horarios, reservas, concurrencia y cancelación conservan su evidencia. Estos dos recorridos siguen pendientes de resultados reales; agruparlos no significa darlos por aprobados. La observación de 48 horas pertenece al paso 9 y continúa por separado.
 
+### Inicio del primer recorrido — 13 de octubre, 13:52 Colombia
+
+Preparación de solo lectura en la VPS: el miércoles **14 de octubre de 2026** es hábil, horario de peluquería 11–17, primer turno consecutivo disponible **11:00**. No hay citas del propietario para ese día. La sesión anterior conserva Akiles/veterinaria; la petición nueva debe seleccionar explícitamente Matías/peluquería. Las dos reservas antiguas del martes 13 aparecen `no_show`; no se consideran cancelaciones verificadas ni se reutilizan para el conflicto futuro.
+
+**Primer mensaje para enviar ahora, y después esperar:**
+
+> Quiero peluquería para mi perro Matías el miércoles 14 de octubre
+
+El operador debe esperar a la revisión de la respuesta antes de continuar. Después de comprobar mascota, servicio, fecha y turno, el recorrido será:
+
+1. Aceptar únicamente el turno ofrecido y correcto; eso permite seguir con la modalidad, todavía no confirmar una reserva.
+2. Responder exactamente «Quiero que lo recojan en casa» y comprobar que pida dirección.
+3. Dar la dirección ficticia «Calle 10 #20-30, barrio Centro» y comprobar el resumen, que debe incluirla.
+4. En la revisión final, responder **«No confirmo la cita»**. No enviar aceptación final con esa dirección ficticia.
+5. Verificar reconocimiento del rechazo, ausencia de bucle, sesión, cola, entrega y cero citas nuevas. La prueba de dirección insuficiente ya aprobada no se repite como escenario independiente.
+
+Se solicitó al operador el primer mensaje. Este apartado registra preparación e instrucciones; no afirma que el mensaje llegó ni que el recorrido terminó. El segundo recorrido se prepara después, con horarios futuros comprobados y limpieza de sus reservas.
+
 | Caso | Estado | Evidencia |
 | --- | --- | --- |
 | Negación | Seguridad aprobada desde WhatsApp; reconocimiento final corregido y desplegado, repetición pendiente | Rechazo en oferta y en revisión final: cero citas nuevas. La respuesta final de 2.46.2 reofreció turno; se corrigió para reconocer la negación. |
