@@ -20,6 +20,15 @@ La sesión de Matías está en `awaiting_grooming_slot_confirm`, peluquería, ma
 
 ## Resultados
 
+### Dos recorridos finales para retomar el paso 8
+
+El responsable recordó que el paso 8 ya estaba muy avanzado. Se retoma con **dos recorridos de comprobación final**, sin reiniciar la matriz completa:
+
+1. **Recogida y negación en un mismo flujo:** repetir «Quiero que lo recojan en casa», comprobar pregunta y resumen de dirección, y terminar con «No confirmo la cita». La seguridad de dirección/negación ya pasó; falta la repetición de las frases corregidas sin bucles ni reserva.
+2. **Reprogramación a turno ocupado:** comprobar aviso claro y conservación de la cita original con la corrección desplegada; después cancelar únicamente las reservas de prueba y comprobar liberación. La limpieza forma parte de este recorrido, no es una tercera prueba independiente.
+
+Las pruebas aprobadas de días, festivos, horarios, reservas, concurrencia y cancelación conservan su evidencia. Estos dos recorridos siguen pendientes de resultados reales; agruparlos no significa darlos por aprobados. La observación de 48 horas pertenece al paso 9 y continúa por separado.
+
 | Caso | Estado | Evidencia |
 | --- | --- | --- |
 | Negación | Seguridad aprobada desde WhatsApp; reconocimiento final corregido y desplegado, repetición pendiente | Rechazo en oferta y en revisión final: cero citas nuevas. La respuesta final de 2.46.2 reofreció turno; se corrigió para reconocer la negación. |
