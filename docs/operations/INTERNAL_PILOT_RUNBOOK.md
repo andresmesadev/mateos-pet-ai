@@ -70,17 +70,21 @@ Registrar p50/p95/máximo de creación del trabajo a respuesta y finalización p
 
 Ante un HTTP 429 inesperado en uso normal, backlog creciente, lease vencido, mensaje sin respuesta/entrega o mezcla de datos, detener la ampliación y diagnosticar. Una reserva incorrecta o duplicada exige detener el recorrido afectado. No aumentar cupos ni activar más workers para ocultar un fallo.
 
-### Acta del bloque (por completar con evidencia real)
+### Acta del bloque del 13 de octubre
+
+**Preflight del 13 de octubre, 17:58:19–17:58:29 Colombia:** dos muestras de solo lectura, RAM disponible mínima 10,63 GiB, disco libre mínimo 71,01 %, CPU observada máxima 2,75 %, hasta once conexiones cliente; cero trabajos pendientes/en revisión, leases vencidos, bloqueos, transacciones largas, deadlocks, OOM o reinicios. Respaldo existente `Result=success`, `ExecMainStatus=0`, terminado a las 15:19:19 Colombia; timer activo. Archivo agregado privado `.cache/capacity/pilot-preflight-2.46.7-20261013.jsonl`. Esto es preparación, no veinte minutos de uso humano. El responsable indicó que prepararía las tres sesiones; se solicitó confirmar su apertura y enviar una consulta de horarios desde WhatsApp. A las 17:57:54 aún no había llegado ese mensaje ni trabajos nuevos durante los treinta minutos anteriores. Inicio y carga real siguen pendientes; no iniciar ni cerrar el bloque por esa intención de preparación.
 
 | Dato | Resultado |
 | --- | --- |
-| Inicio/fin Colombia y versión | Pendiente |
-| Operadores con cuentas distintas y permisos comprobados | Dos accesos de ejemplo habilitados y comprobados por HTTPS; administrador existente. Ingreso humano y uso simultáneo pendientes |
-| Remitentes verificados y solicitudes reales | Pendiente |
-| Recursos, latencias, cola y recibos | Pendiente |
-| Errores de autorización, 429 inesperados y datos mezclados | Pendiente |
-| Citas de prueba y limpieza comprobada | Pendiente |
-| Decisión de alcance y cierre del paso 2 | Abierto; no inferir cierre de los ensayos aislados |
+| Inicio/fin Colombia y versión | 18:00:21–18:20:21, 2.46.7; 81 muestras y veinte minutos completos |
+| Operadores con cuentas distintas y permisos comprobados | Dos accesos de ejemplo y administrador existente; ingreso HTTPS previo y confirmación humana de perfiles correctos y navegación sin errores en tres sesiones |
+| Remitentes verificados y solicitudes reales | Un remitente; saludo y consulta de horarios. No ráfaga de cinco remitentes |
+| Recursos, latencias, cola y recibos | 10,61 GiB disponibles como mínimo; CPU máxima 11,00 %, hasta once conexiones; dos trabajos en 2,7–3,7 s, recibos correlacionados, sin bloqueos o leases vencidos observados |
+| Errores de autorización, 429 inesperados y datos mezclados | 243 HTTP 200 y cero firmas de error en logs; responsable no reportó cambio de cuenta ni errores. Límite: Nginx no registra identidad por solicitud |
+| Citas de prueba y limpieza comprobada | Este bloque consultó horarios y salud; no solicitó reservas nuevas ni sustituyó la limpieza del paso 8 |
+| Decisión de alcance y cierre del paso 2 | Ensayo ligero aprobado; paso 2 abierto para contrastar la carga real propuesta de cinco participantes |
+
+Evidencia, huellas y límites en [ensayo interno de capacidad](INTERNAL_PILOT_CAPACITY_TRIAL_20261013.md). La solicitud inicial declarada no llegó a la VPS; el saludo nuevo y la repetición de horarios sí llegaron y sus respuestas quedaron leídas. No hay evidencia para atribuir la ausencia inicial a una demora del motor. No repetir el paso 8 por este resultado.
 
 **Observación independiente al preparar esta guía:** 23 muestras de 2.46.7, desde las 15:33:35 hasta las 17:23:35 del 13 de octubre, sin muestras fallidas. Son 1 hora y 50 minutos; no 48 horas completas. La ventana prevista termina el 15 de octubre a las 15:33:35 si la captura mantiene continuidad.
 
