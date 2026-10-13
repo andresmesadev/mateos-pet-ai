@@ -1,69 +1,61 @@
-> **⚠️ Borrador — requiere revisión legal antes de publicarse.** Este documento fue redactado con base en el comportamiento real del sistema (facturación vía Stripe, suspensión automática por falta de pago, aislamiento por establecimiento), no es una plantilla genérica. Aun así, no reemplaza la revisión de un abogado antes de entrar en vigencia. Los campos entre corchetes `[ ]` deben completarse antes de publicar. El sistema se encuentra hoy en etapa **Alpha** — sin uso real de producción todavía — y estos términos deben revisarse otra vez antes de invitar al primer usuario externo.
+# Condiciones de uso — piloto interno de Mateos Pet AI
 
-# Términos de Servicio
+**Versión:** 1.0, preparada el 13 de octubre de 2026. **Copia:** plantilla pública; identidad y contacto completos en la versión privada. No habilita contratación comercial o beta externa.
 
-**Última actualización:** [fecha de publicación]
-**Prestador del servicio:** [Nombre completo / nombre comercial], persona natural, con domicilio en Colombia. Puedes contactarnos en [correo de contacto].
+## 1. Prestador y alcance
 
-Al usar NexoVet ("la Plataforma"), aceptas estos Términos de Servicio. Si no estás de acuerdo, no debes usar la Plataforma.
+Prestador: **{{RESPONSABLE}}**, persona natural, **{{CIUDAD}}, {{PAIS}}**. Dirección: **{{DIRECCION}}**. Soporte/privacidad: **{{CORREO}}**, **{{TELEFONO}}**.
 
----
+Solo pruebas internas con adultos invitados, un establecimiento y escenarios ficticios. Se conservan PostgreSQL en la VPS y el número de prueba de Meta. Las personas usan sus cuentas o identidades de ejemplo asignadas; no se presentan estas últimas como cuentas personales de terceros.
 
-## 1. Qué es la Plataforma
+Se entregan estas condiciones junto con la [política](politica-de-privacidad.md) y el [acuerdo](acuerdo-piloto-interno.md). Se registra aceptación expresa; preparar archivos o navegar no la acredita.
 
-NexoVet es un software como servicio (SaaS) para veterinarias y peluquerías caninas/felinas, que permite gestionar agenda, staff, finanzas y comunicación con clientes a través de WhatsApp y de un asistente conversacional con inteligencia artificial. Cada negocio ("el Establecimiento") opera de forma aislada e independiente dentro de la Plataforma.
+## 2. Funciones y límites
 
-## 2. Cuentas y suscripción
+Agenda, consultas/peluquería ficticias, WhatsApp, separación de mascotas/clientes, permisos y recorridos simulados de caja/inventario. Se contrastan horarios por servicio, excepciones, confirmaciones, cancelaciones y registros reales de la agenda del ensayo.
 
-- El Establecimiento se registra y accede a la Plataforma mediante credenciales administradas por su equipo.
-- El acceso a la Plataforma está sujeto al pago de una suscripción recurrente, procesada por **Stripe**. Si la suscripción no está al día, el acceso del Establecimiento puede suspenderse automáticamente hasta que se regularice el pago.
-- El Establecimiento es responsable de mantener la confidencialidad de sus credenciales de acceso y de toda actividad que ocurra bajo su cuenta.
+La IA puede interpretar o responder incorrectamente. No sustituye al veterinario, no es canal de emergencias y no autoriza atención, diagnóstico o tratamiento real en estas pruebas. Las reglas del producto no se modifican para hacer pasar un ensayo.
 
-## 3. Uso aceptable
+## 3. Costes, disponibilidad y soporte
 
-El Establecimiento se compromete a:
+Estas pruebas no habilitan suscripción de pago ni cargos automáticos al participante. No se activa Stripe ni se piden tarjetas. Una futura oferta requiere condiciones y aceptación independientes; aquí no se fijan precios futuros.
 
-- Usar la Plataforma únicamente para la gestión legítima de su negocio de salud y bienestar animal.
-- No usar el canal de WhatsApp integrado para enviar mensajes no solicitados (spam) a números que no hayan interactuado previamente con el negocio.
-- No intentar acceder a datos de otro Establecimiento, ni a funciones de la Plataforma para las que no tiene autorización.
-- Ser responsable de la veracidad de la información que registra sobre sus clientes y mascotas.
+No hay SLA ni soporte permanente. Puede haber errores, mantenimiento e interrupciones; el responsable comunica ventanas de prueba/soporte al programarlas. Los respaldos reducen riesgos, sin garantizar recuperación instantánea o ausencia de pérdida.
 
-## 4. El Cliente Final
+WhatsApp depende de Meta, números habilitados para pruebas y restricciones de mensajería. `done` no garantiza entrega: se contrastan recibos. Los recordatorios fuera de ventana requieren una plantilla apta y validación del recorrido antes de usarlos.
 
-Las personas que interactúan con un Establecimiento a través de WhatsApp o del Portal del Cliente ("Clientes Finales") no tienen una relación contractual directa con nosotros — su relación es con el Establecimiento que eligieron. El tratamiento de sus datos personales se rige por nuestra [Política de Privacidad](./politica-de-privacidad.md).
+## 4. Cuentas
 
-## 5. Disponibilidad del servicio
+Cada perfil mantiene sus permisos de administración, veterinaria o peluquería. No compartir el login administrador, suplantar integrantes ni publicar contraseñas. Ante identidad inesperada o mezcla de datos, detener el recorrido e informar.
 
-La Plataforma se encuentra actualmente en una etapa temprana de desarrollo (**Alpha**). Esto significa que:
+Revocar acceso conserva ficha e historial que deban revisarse; no equivale a borrado automático de toda información.
 
-- No garantizamos un nivel de disponibilidad (SLA) determinado.
-- Pueden ocurrir interrupciones, errores o cambios en el funcionamiento sin aviso previo mientras dure esta etapa.
-- Antes de una etapa de disponibilidad general, comunicaremos explícitamente el nivel de servicio y soporte que se ofrecerá.
+## 5. Conducta de prueba
 
-## 6. Propiedad intelectual
+- Usar clientes, mascotas, direcciones, notas, cobros e inventario ficticios. No aportar clientes reales, menores, salud de personas, documentos, tarjetas o secretos.
+- Usar números propios o de participantes autorizados, sin campañas o mensajes masivos.
+- No cruzar establecimientos, retirar evidencia o repetir una escritura incierta.
+- Revisar mascota, servicio, fecha, hora y recogida antes de confirmar. Las reservas simuladas no generan prestaciones reales.
+- Comunicar incidentes con evidencia mínima y alias, sin conversaciones completas de terceros.
 
-El software, la marca, el diseño y la arquitectura de la Plataforma son propiedad de [Nombre completo / nombre comercial]. Los datos que el Establecimiento ingresa (información de sus clientes, mascotas, servicios y finanzas) le pertenecen a él — la Plataforma es un medio para gestionarlos, no su dueña.
+El recorrido delimita las operaciones consentidas. La autorización de datos se registra aparte; no implica aceptar todas las funciones presentes o futuras.
 
-## 7. Terminación
+## 6. Responsabilidades y derechos
 
-- El Establecimiento puede cancelar su suscripción en cualquier momento desde el panel de facturación.
-- Podemos suspender o terminar el acceso de un Establecimiento si incumple estos Términos, sin perjuicio de otros recursos legales disponibles.
-- Al terminar la relación, el Establecimiento puede solicitar la exportación de sus datos dentro de [plazo a definir] días.
+El responsable organiza pruebas, habilita accesos, registra incidentes y atiende sus compromisos. El participante sigue las instrucciones y comunica fallos. La etapa experimental no exonera al prestador de obligaciones legales ni implica renuncia a derechos irrenunciables; no existe una exención general de toda responsabilidad por fallos de software o IA.
 
-## 8. Limitación de responsabilidad
+Se respetan los derechos y licencias del software y de componentes de terceros. Participar no cede derechos sobre datos personales ni autoriza publicar testimonios o usar el nombre en marketing. Otro uso de material aportado requiere una base y autorización independientes.
 
-En la medida permitida por la ley, no somos responsables por daños indirectos, pérdida de ingresos, o decisiones de negocio tomadas con base en la información generada por el asistente conversacional con inteligencia artificial. El Establecimiento es responsable de validar la información clínica y de agenda antes de actuar sobre ella.
+Las solicitudes de datos siguen el [procedimiento](procedimiento-privacidad-piloto.md). No se relegan a un ticket de soporte sin sus plazos.
 
-## 9. Cambios a estos Términos
+## 7. Retiro y cierre
 
-Podemos actualizar estos Términos de Servicio. Si los cambios son sustanciales, te lo notificaremos a través de la Plataforma o del canal de contacto que tengamos registrado.
+Puedes retirarte y solicitar revocación de acceso y revisión de datos. El responsable puede detener un recorrido por seguridad o cerrar el piloto, comunicando motivo y conservando evidencia mínima. No se altera silenciosamente una cita real para ocultar un fallo.
 
-## 10. Ley aplicable
+Se registran cierre, reservas simuladas, accesos, copias y tareas pendientes. Los datos mínimos se gestionan para eliminación/anonimización hasta treinta días después del cierre, con las excepciones justificadas de la política. Exportación/supresión son actuaciones supervisadas; no se promete un botón integral o una purga automática inexistente.
 
-Estos Términos se rigen por las leyes de la República de Colombia.
+## 8. Cambios y marco
 
-## 11. Contacto
+Se conserva la versión entregada/aceptada. Cambios del ensayo se comunican antes de aplicarlos; nuevos públicos, finalidades o proveedores requieren revisar acuerdo y política. El marco previsto es Colombia, sin excluir recursos ante autoridades o derechos legales.
 
-[Nombre completo / nombre comercial]
-[correo de contacto]
-[ciudad, Colombia]
+La aceptación individual aún debe registrarse. Código operativo en VPS no significa disponibilidad general ni oferta comercial aprobada.
