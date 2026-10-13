@@ -51,10 +51,14 @@ Se solicitó al operador el primer mensaje. Este apartado registra preparación 
 
 Se pidió responder «Sí, acepto las 11:00» y, solo cuando pregunte la modalidad, «Quiero que lo recojan en casa». Esperar en la pregunta de dirección para verificar la transición. Todavía no se declara aprobada la variante de recogida ni el rechazo final.
 
+**Recogida reconocida en WhatsApp, 13:57–13:59 Colombia:** «Sí, acepto las 11:00» llegó a las 13:57:46 y avanzó a la pregunta de modalidad a las 13:57:49, sin repetir la oferta. «Quiero que lo recojan en casa» llegó a las 13:59:07 y produjo la pregunta de dirección a las 13:59:10. Sesión `awaiting_domicilio_address`, Matías/perro/peluquería, 14 de octubre a las 11, recogida verdadera y dirección todavía vacía. Cero citas nuevas. Consulta desde las 13:55:55: 11 trabajos `done/complete`, sin errores; ambas respuestas con recibos `sent/delivered/read`. La variante «recojan» queda verificada con el canal/modelo reales.
+
+Se pidió la dirección ficticia «Calle 10 #20-30, barrio Centro» y, solo ante el resumen correcto, «No confirmo la cita». Si los datos no coinciden, detenerse en el resumen. Falta verificar ese último intercambio antes de cerrar el primer recorrido.
+
 | Caso | Estado | Evidencia |
 | --- | --- | --- |
 | Negación | Seguridad aprobada desde WhatsApp; reconocimiento final corregido y desplegado, repetición pendiente | Rechazo en oferta y en revisión final: cero citas nuevas. La respuesta final de 2.46.2 reofreció turno; se corrigió para reconocer la negación. |
-| Dirección de recogida | Validación/revisión aprobadas; variante de solicitud corregida y desplegada, repetición pendiente | Rechaza «No sé todavía», muestra dirección ficticia completa y exige consentimiento. «Que lo recojan» no se reconocía; corrección 2.46.3 publicada, falta repetir esa frase. |
+| Dirección de recogida | Validación previa y variante «recojan» aprobadas; revisión final actual pendiente | «Quiero que lo recojan en casa» avanzó a dirección el 13 de octubre, sin reserva y con datos correctos. Falta revisar el resumen actual y terminar con negación. |
 | Reprogramación a destino ocupado | Conservación aprobada; respuesta defectuosa corregida, repetición pendiente | El primer destino produjo saludo, sin mover ni duplicar citas. Corrección 2.46.4 desplegada; repetir rechazo y cancelar solo las dos citas nuevas. |
 
 La cola completa o una respuesta textual por sí solas no demuestran que la operación sea correcta. Cada caso debe relacionar mensajes, estado y agenda persistida; registrar también entrega, errores y limpieza de las citas de prueba.
