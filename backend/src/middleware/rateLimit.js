@@ -1,4 +1,6 @@
 const rateLimit = require("express-rate-limit");
+const { ipKeyGenerator } = require("express-rate-limit");
+const { createHash } = require("node:crypto");
 
 const rateLimitMessage = "Demasiadas solicitudes, intenta más tarde";
 
@@ -14,7 +16,33 @@ const createLimiter = (max) =>
   });
 
 const testRateLimit = createLimiter(20);
-const dashboardRateLimit = createLimiter(60);
+const dashboardKey = (req) => {
+  const actor = req.actor;
+  const principal = typeof actor?.staffId === "string" && actor.staffId
+    ? ["staff", actor.staffId] : typeof actor?.email === "string" && actor.email
+      ? ["admin", actor.email.trim().toLowerCase()] : null;
+  if (!req.tenant || !principal) return "ip:" + ipKeyGenerator(req.ip);
+  return "actor:" + createHash("sha256").update(JSON.stringify([
+    req.tenant.tenantId ?? "central", ...principal,
+  ])).digest("hex");
+};
+const createDashboardRateLimits = () => ({
+  // Choosing the ingress ceiling never grants access; resolveTenant still
+  // authenticates token, establishment and staff session before the actor cap.
+  dashboardProxyRateLimit: rateLimit({
+    windowMs: 60 * 1000,
+    limit: req => typeof process.env.INTERNAL_API_SECRET === "string" && process.env.INTERNAL_API_SECRET &&
+      req.headers["x-internal-token"] === process.env.INTERNAL_API_SECRET ? 300 : 60,
+    standardHeaders: true, legacyHeaders: false,
+    handler: (_req, res) => res.status(429).send(rateLimitMessage),
+  }),
+  dashboardRateLimit: rateLimit({
+    windowMs: 60 * 1000, limit: 60, keyGenerator: dashboardKey,
+    standardHeaders: true, legacyHeaders: false,
+    handler: (_req, res) => res.status(429).send(rateLimitMessage),
+  }),
+});
+const { dashboardProxyRateLimit, dashboardRateLimit } = createDashboardRateLimits();
 const webhookRateLimit = createLimiter(100);
 // Superficies públicas sin autenticación (onboarding, billing) — hallazgo A5,
 // auditoría v2.1.0: eran los únicos mounts sin ninguna protección.
@@ -57,6 +85,8 @@ const clientAuthVerifyCodeRateLimit = rateLimit({
 module.exports = {
   testRateLimit,
   dashboardRateLimit,
+  dashboardProxyRateLimit,
+  createDashboardRateLimits,
   webhookRateLimit,
   publicRateLimit,
   publicApiRateLimit,

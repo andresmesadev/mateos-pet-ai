@@ -12,6 +12,7 @@ const parseWebhookBody = require("./middleware/parseWebhookBody");
 const {
   testRateLimit,
   dashboardRateLimit,
+  dashboardProxyRateLimit,
   webhookRateLimit,
   publicRateLimit,
   publicApiRateLimit,
@@ -74,7 +75,7 @@ const { resolveTenant } = require("./middleware/resolveTenant");
 const { requireInternalToken } = require("./middleware/requireInternalToken");
 const { apiKeyAuth } = require("./middleware/apiKeyAuth");
 const publicApiRoutes = require("./routes/public-api.routes");
-app.use("/api/dashboard", dashboardRateLimit, resolveTenant, dashboardRoutes);
+app.use("/api/dashboard", dashboardProxyRateLimit, resolveTenant, dashboardRateLimit, dashboardRoutes);
 app.use("/api/internal", publicRateLimit, requireInternalToken, require("./routes/staff-auth.routes"));
 // Superficies públicas sin autenticación — rate limit obligatorio (hallazgo A5)
 app.use("/api/billing", publicRateLimit, requireInternalToken, billingRouter);
