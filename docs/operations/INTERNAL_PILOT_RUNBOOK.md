@@ -43,6 +43,8 @@ Para cada caso registrar: fecha/hora UTC y Colombia, remitente de prueba identif
 
 La publicación activa es **2.46.7**. La [verificación de capacidad](VPS_CAPACITY_VERIFICATION_20261013.md) aprobó la preparación técnica; su cierre formal necesita uso real sostenido y cuentas propias. Hay tres fichas activas de personal (administración, peluquería y veterinaria). La comprobación de la VPS del 13 de octubre a las **17:25:17 Colombia** encontró cero credenciales individuales activas; el administrador conserva el ingreso del entorno. No interpretar la ausencia de `StaffCredential` del administrador como un fallo de su cuenta.
 
+**Actualización, 17:54:11 Colombia:** el responsable aclaró que las fichas solo tenían nombres y autorizó dos cuentas de ejemplo para ingresar. Se habilitaron sobre las fichas existentes de peluquería y veterinaria mediante la API administrativa autenticada, con correos ficticios y contraseñas aleatorias guardadas únicamente en un archivo local privado ignorado por Git. Ingreso HTTPS aprobado para ambas: identidad y tenant propios, `isSuperAdmin=false`, permisos de WhatsApp y de su área, sin administración ni finanzas; página operativa HTTP 200 y Administración restringida con HTTP 307 hacia inicio. Cero perfiles nuevos, cambios de rol o mensajes enviados. Se cerraron las sesiones individuales usadas por la herramienta. Estos accesos permiten el ensayo interno; no acreditan cuentas personales de una cohorte externa ni uso humano simultáneo todavía.
+
 ### Habilitar los accesos existentes
 
 1. El responsable confirma quiénes serán los dos/tres operadores y sus correos de ingreso. Reutilizar sus fichas si ya existen; no crear personas ficticias ni duplicar integrantes para presentar concurrencia real.
@@ -73,7 +75,7 @@ Ante un HTTP 429 inesperado en uso normal, backlog creciente, lease vencido, men
 | Dato | Resultado |
 | --- | --- |
 | Inicio/fin Colombia y versión | Pendiente |
-| Operadores con cuentas distintas y permisos comprobados | Pendiente de correos y habilitación |
+| Operadores con cuentas distintas y permisos comprobados | Dos accesos de ejemplo habilitados y comprobados por HTTPS; administrador existente. Ingreso humano y uso simultáneo pendientes |
 | Remitentes verificados y solicitudes reales | Pendiente |
 | Recursos, latencias, cola y recibos | Pendiente |
 | Errores de autorización, 429 inesperados y datos mezclados | Pendiente |
