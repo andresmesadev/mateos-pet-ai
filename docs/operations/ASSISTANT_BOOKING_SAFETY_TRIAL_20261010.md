@@ -1,6 +1,6 @@
 # Tres pruebas de seguridad de agenda desde WhatsApp
 
-**Fecha:** 10 de octubre de 2026, hora Colombia. **Versión al comenzar:** 2.46.1; versión vigente 2.46.5 publicada y desplegada tras la revisión del 13 de octubre. **Estado:** en ejecución interna supervisada. Continúa el paso 8; no certifica beta externa.
+**Fecha:** 10 de octubre de 2026, hora Colombia. **Versión al comenzar:** 2.46.1; versión vigente 2.46.6 publicada y desplegada el 13 de octubre, con CI completo aprobado. **Estado actualizado 13 de octubre, 14:34 Colombia:** los dos recorridos finales y su limpieza están aprobados; **paso 8 del plan de preparación completado**. No certifica beta externa ni estabilización de la versión vigente. Los pendientes en apartados anteriores son registros históricos; el cierre siguiente es el estado actual.
 
 **Seguimiento del 13 de octubre:** la ventana de salud de 2.46.4 sí completó 48 horas, 577 muestras sin fallos/huecos/reinicios. La [revisión independiente de estabilidad](PRODUCTION_STABILITY_48H_REVIEW_20261013.md) encontró dos recordatorios rechazados por Meta y 35 peticiones de acciones inválidas en frontend. No cierra el paso 9 operativo ni las pruebas de agenda de este informe. El 13 de octubre ya es hoy: revisar las citas y horarios antes de reutilizar las instrucciones históricas.
 
@@ -102,11 +102,30 @@ Diseño acotado actualizado en [ADR 019](../decisions/019-asistente-contexto-y-o
 
 El paso de retorno guardado solo se aplica mientras hay una gestión pendiente; un `management_resume_step: null` de una gestión anterior no reemplaza el paso del borrador activo. Las regresiones también comprueban que rechazar la cancelación de otra mascota conserva la reprogramación y que confirmarla solo cancela su ID. Seguimiento de validación/publicación en [corrección 2.46.6](../history/RELEASE_2_46_6_MANAGEMENT_STATE_20261013.md).
 
+**2.46.6 desplegada y recuperación real verificada, 14:31:19 Colombia:** CI final, 183 suites / 1.470 pruebas y cuatro jobs `success`; despliegue `c04c0bb`, exit 0, salud y smoke HTTPS correctos. La nueva solicitud de cancelar Matías llegó a las 14:30:48 (`cmv72t8ev00040impuhxwaq0m`). A las 14:30:52 (`cmv72tb15000a0imppy5y60ua`) pidió confirmar Matías/veterinaria, 14 a las 13. Sesión `awaiting_management_confirm`, ID exacto de Matías seleccionado y `reschedule_appointment_id: null`, sin borrador de Akiles. Cuatro trabajos completos, cero errores, respuesta `sent/delivered/read`. Recuperación aprobada; falta consentimiento y cancelación efectiva de Matías.
+
+### Cierre de los dos recorridos — 14:32–14:34 Colombia
+
+«Sí, cancela esa cita» llegó a las **14:31:27** (`cmv72u225000i0impp35z8k7q`). A las **14:31:29** (`cmv72u40a000o0impkxmg8zrw`) confirmó la cancelación de Matías/veterinaria del 14 a las 13, con despedida. Consulta de las **14:32:47**:
+
+| Cita de esta prueba | Estado final | Horario original | Disponibilidad efectiva |
+| --- | --- | --- | --- |
+| Akiles `cmv721jxc002h0itf2r6jz0dr` | `cancelled` | 14/10/2026 a las 12:00 | Libre |
+| Matías `cmv722z0b003c0itful0yiy9w` | `cancelled` | 14/10/2026 a las 13:00 | Libre |
+
+Los registros permanecen como historial; no se borraron filas. La sesión queda con paso `null` y todas las claves de reserva/gestión/reprogramación en `null`, sin selección residual. Las dos reservas históricas del 13 conservan `no_show`; no se modificaron como parte de esta limpieza.
+
+El proxy autenticado del calendario (`/api/proxy/dashboard/appointments/week?date=2026-10-14`) devolvió HTTP 200 a las **14:34:07** y ambos IDs `cancelled`, con sus fechas originales. Revisión de las **14:34:34** desde el arranque de 2.46.6: dos trabajos entrantes y seis recibos de entrega, todos `done/complete`, cero errores y leases vencidos. El mensaje final de cancelación tiene `sent/delivered/read`. Logs de backend/frontend: 99 líneas, cero firmas de error consultadas; es comprobación breve, no una ventana de 48 horas.
+
+**Paso 8 completado:** recogida con resumen y negación aprobadas; destino ocupado rechazado con conservación; incidente de estado residual reproducido, corregido, publicado/desplegado y recuperación aprobada en WhatsApp; ambas reservas nuevas canceladas por el propietario, turnos libres y dashboard coherente. Se conserva la evidencia histórica de los demás casos, sin atribuir simultaneidad exacta ni múltiples procesos a la prueba de dos remitentes anterior.
+
+El siguiente trabajo del plan es continuar el paso 9 con la ventana separada de 2.46.6 (13–15 de octubre, 14:30:40), junto con capacidad/carga representativa del paso 2 y documentación/cohorte pendientes. El número de prueba de Meta sigue vigente por decisión del operador; este cierre no abre automáticamente la beta externa.
+
 | Caso | Estado | Evidencia |
 | --- | --- | --- |
 | Negación | Aprobada, incluida repetición final en 2.46.5 | El 13 de octubre a las 14:02 reconoció «No confirmo la cita» sin reofrecer ni crear reserva. |
 | Dirección de recogida | Aprobada, incluida variante «recojan» y revisión final en 2.46.5 | Dirección ficticia exacta en resumen de Matías, peluquería, 14/10 a las 11; rechazo final y cero reservas. No valida ubicación geográfica. |
-| Reprogramación a destino ocupado | Rechazo y conservación aprobados en 2.46.5; limpieza pendiente | El 13 de octubre a las 14:12 rechazó destino ocupado y conservó los IDs de Akiles a las 12 y Matías a las 13 del día 14. Falta cancelar únicamente estas dos reservas y comprobar liberación. |
+| Reprogramación a destino ocupado | Aprobada, incluida limpieza y recuperación de sesión en 2.46.6 | Rechazo y conservación a las 14:12; solo las dos reservas nuevas canceladas por el chat, doce y trece libres, sesión limpia y dashboard verificado a las 14:34. |
 
 La cola completa o una respuesta textual por sí solas no demuestran que la operación sea correcta. Cada caso debe relacionar mensajes, estado y agenda persistida; registrar también entrega, errores y limpieza de las citas de prueba.
 
