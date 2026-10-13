@@ -76,6 +76,12 @@ Sesión `completed`, Akiles, consulta veterinaria y nueva fecha/hora; recogida y
 
 GitHub y checkout de la VPS sincronizados en `3acc325` antes de esta consulta; solo documentación, sin reinicio ni reconstrucción. La observación de 2.46.5 continúa independiente de estos commits.
 
+**Segunda reserva nueva verificada, 14:11:02 Colombia:** solicitud de Matías/perro/veterinaria para el 14 a las 13 a las 14:10:01 (`cmv722hkx002w0itf7nojndq5`); resumen correcto a las 14:10:03 (`cmv722jip00320itfgy3fjj27`). «Sí, confirmo» a las 14:10:23 (`cmv722yzu003a0itf5wt4ggmx`) creó la cita `cmv722z0b003c0itful0yiy9w`, `confirmed`, Matías/perro/`vet`, `2026-10-14T18:00:00Z` (13:00 Colombia). Confirmación correcta a las 14:10:24 (`cmv722zgd003i0itfenmhbmbv`), con despedida y atención en establecimiento.
+
+Ambas filas nuevas persisten por separado; Akiles conserva su ID y las 12. La nueva conversación de Matías (`cmv722hku002v0itfa6jaotin`) terminó `completed`, sin dirección ni recogida anteriores. Resumen y confirmación con recibos `sent/delivered/read`; ocho trabajos desde las 14:09:37, todos `done/complete`, sin errores.
+
+Se pidió seleccionar la cita veterinaria de Akiles del miércoles 14 mediante solicitud explícita de reprogramación y, cuando pregunte destino, responder el mismo día a las 13. Esperar ante selección ambigua; no aceptar alternativas ni cancelar todavía. **Intento y conservación posterior pendientes de mensajes reales.**
+
 | Caso | Estado | Evidencia |
 | --- | --- | --- |
 | Negación | Aprobada, incluida repetición final en 2.46.5 | El 13 de octubre a las 14:02 reconoció «No confirmo la cita» sin reofrecer ni crear reserva. |
