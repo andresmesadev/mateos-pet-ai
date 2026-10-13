@@ -1,8 +1,10 @@
 # Tres pruebas de seguridad de agenda desde WhatsApp
 
-**Fecha:** 10 de octubre de 2026, hora Colombia. **Versión al comenzar:** 2.46.1; versión vigente 2.46.4 publicada y desplegada. **Estado:** en ejecución interna supervisada. Continúa el paso 8; no certifica beta externa.
+**Fecha:** 10 de octubre de 2026, hora Colombia. **Versión al comenzar:** 2.46.1; versión vigente 2.46.5 publicada y desplegada tras la revisión del 13 de octubre. **Estado:** en ejecución interna supervisada. Continúa el paso 8; no certifica beta externa.
 
 **Seguimiento del 13 de octubre:** la ventana de salud de 2.46.4 sí completó 48 horas, 577 muestras sin fallos/huecos/reinicios. La [revisión independiente de estabilidad](PRODUCTION_STABILITY_48H_REVIEW_20261013.md) encontró dos recordatorios rechazados por Meta y 35 peticiones de acciones inválidas en frontend. No cierra el paso 9 operativo ni las pruebas de agenda de este informe. El 13 de octubre ya es hoy: revisar las citas y horarios antes de reutilizar las instrucciones históricas.
+
+Los hallazgos se corrigieron en [2.46.5](STABILITY_REMEDIATION_20261013.md): guard para los seis recordatorios y rechazo 405 de POST de páginas/acciones. CI con 1.467 pruebas, despliegue y smoke correctos. Comenzó una nueva observación; las pruebas humanas de este informe siguen pendientes y no se sustituyen por esa corrección.
 
 El responsable autorizó probar negación, dirección de recogida y conservación de cita ante reprogramación fallida. Los mensajes los envía el operador desde los números de prueba verificados; las comprobaciones del servidor son de solo lectura. No se insertan fixtures directamente en producción ni se envían mensajes fabricados desde scripts.
 

@@ -1,6 +1,6 @@
 # Correcciones de estabilidad — 13 de octubre de 2026
 
-**Candidata:** 2.46.5. **Estado:** implementación y verificación local; publicación, CI y despliegue pendientes. Autorización: el responsable pidió continuar con las acciones de la [revisión de las 48 horas](PRODUCTION_STABILITY_48H_REVIEW_20261013.md). Diseño acotado en [ADR 020](../decisions/020-estabilidad-notificaciones-y-post-de-paginas.md).
+**Versión:** 2.46.5. **Estado:** publicada y desplegada; CI completo y comprobaciones de producción aprobados. Nueva observación en curso. Autorización: el responsable pidió continuar con las acciones de la [revisión de las 48 horas](PRODUCTION_STABILITY_48H_REVIEW_20261013.md). Diseño acotado en [ADR 020](../decisions/020-estabilidad-notificaciones-y-post-de-paginas.md).
 
 ## Qué cambia y por qué
 
@@ -55,6 +55,16 @@ Respaldo cifrado previo: `/var/backups/mateos-pet-ai/mateos-pet-ai-20261013T1717
 
 ## Publicación y siguientes verificaciones
 
-Pendiente registrar commit, CI completo, despliegue y salud. Luego comprobar en la VPS el guard con los propietarios de los fallos mediante una consulta de lectura y un callback que nunca envía, más el smoke HTTPS de regresión. No generar recordatorios ficticios ni contactar clientes para simular esta verificación.
+Commit de código: `593c0e20ae9effb3a492c055b6bbf205ef0af938`, publicado en `main`. [CI 38437810198](https://github.com/andresmesadev/mateos-pet-ai/actions/runs/38437810198): `test`, `lint`, `inbound-postgres` y `administration-postgres`, todos `success`. Evidencia final real: **183 suites / 1.467 pruebas**, 12,384 s. La nueva prueba de PostgreSQL del historial entre hilos y aislamiento aparece aprobada en el job `administration-postgres`; los helpers y el build del frontend también pasaron.
 
-La ventana aprobada de 2.46.4 se preserva; 2.46.5 necesita su propia observación. El paso 9 sigue abierto hasta revisar esa ventana, tráfico y entregas. El paso 2 bajo carga y las pruebas humanas del paso 8 siguen pendientes. Se conserva PostgreSQL en la VPS y el número de prueba de Meta.
+Despliegue: `scripts/deploy.sh`, exit 0, `593c0e2`; backend y frontend reconstruidos, 46 migraciones aplicadas sin pendientes. Worker iniciado **13 de octubre a las 12:25:14 de Colombia**. Salud local **12:25:17**: versión 2.46.5, base/OpenAI/worker `ok`, cero fallos consecutivos. Los resets transitorios durante el reinicio se recuperaron mediante los reintentos del script. Dependencias de producción auditadas en CI; el tooling temporal de Prisma usado para construir aún mostró cuatro vulnerabilidades altas en instalación completa, y `/app/node_modules` se elimina de la imagen final. No se declara saneado ese tooling de desarrollo por esta corrección.
+
+Verificación posterior por HTTPS: exit 0; autenticación de administrador, 14 destinos HTTP 200, contratos de Caja/servicios/inventario aprobados, acceso anónimo HTTP 401 y parámetros ambiguos HTTP 400. Las dos peticiones inválidas de acción devolvieron **HTTP 405**. No escribió datos de negocio ni envió mensajes.
+
+Prueba de lectura del guard en la VPS a las **12:26:44** con los dos propietarios de los rechazos históricos: ventanas vencidas de 67,70 y 67,77 horas, ambos `skipped=true`, motivo `whatsapp_window_closed`, cero callbacks de proveedor. Message permaneció en **188 filas antes y después**. Cola: 90 trabajos entrantes y 79 recibos, todos `done/complete`. El callback de la simulación no puede enviar al canal; esta comprobación no certifica entrega de un recordatorio real futuro.
+
+Logs desde el nuevo arranque, incluido el smoke: backend 12 líneas y frontend 9; cero entradas de nivel error y cero excepciones de referencia inválida. Es una comprobación breve de la corrección, no 48 horas nuevas ni una atribución del origen de las peticiones históricas.
+
+Observador nuevo: `.cache/stability/ventana-2.46.5-20261013T172713Z.jsonl`, PID inicial **23752**. Inicio **13 de octubre a las 12:27:13**, final previsto **15 de octubre a las 12:27:13**, Colombia, condicionado a continuidad del equipo/proceso. Primera salud pública correcta, sin fallos consecutivos. No se crea una garantía de notificación automática. La ventana de 2.46.4 conserva su archivo y SHA-256 original; no se mezcla con esta versión ni se borra para ocultar sus dos rechazos.
+
+El paso 9 sigue abierto hasta revisar la nueva ventana, tráfico y entregas. Se corrigió el envío incompatible y se verificó la omisión segura; no se habilitó entrega de recordatorios fuera de ventana sin plantilla apta. El paso 2 bajo carga y las pruebas humanas del paso 8 siguen pendientes. Se conserva PostgreSQL en la VPS y el número de prueba de Meta. Al retomar el paso 8, revisar el estado de las citas fechadas para hoy y usar una fecha futura; no copiar automáticamente las instrucciones del 10 de octubre.

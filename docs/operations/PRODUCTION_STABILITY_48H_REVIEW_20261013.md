@@ -4,6 +4,8 @@
 
 **La ventana de salud de la infraestructura está aprobada. El paso 9 completo sigue abierto por dos fallos de entrega de recordatorios y por falta de una prueba representativa de carga.** El paso 8 conserva sus pruebas pendientes; esta revisión no lo ejecuta ni declara habilitada una beta externa.
 
+**Seguimiento posterior del 13 de octubre:** las correcciones se publicaron y desplegaron en 2.46.5, CI y 1.467 pruebas aprobados. Se comprobó la omisión segura de los recordatorios vencidos y el rechazo 405 de peticiones de acción antes del parsing. Ver [implementación, evidencia y nueva ventana](STABILITY_REMEDIATION_20261013.md). Las cifras siguientes describen la ventana histórica de 2.46.4, que permanece preservada.
+
 Versión observada y vigente: **2.46.4**. Código `ad422ed811ac22c3cf56e3a9695e2dd6240ba6ff`; checkout local y VPS `a322560adb87e4aee44015266c36e5c67e3a6ac7` al revisar, que añadió documentación sin cambiar el código. VPS limpia. Todas las comprobaciones del servidor fueron de lectura; no se enviaron mensajes, cambiaron citas, reiniciaron servicios ni modificaron credenciales.
 
 ## 1. Ventana terminada
