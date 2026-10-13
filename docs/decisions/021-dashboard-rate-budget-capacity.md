@@ -1,6 +1,6 @@
 # ADR 021 — Cupo de dashboard por identidad autenticada
 
-**Fecha:** 13 de octubre de 2026. **Estado:** diseño acotado para corregir el hallazgo del paso 2. El responsable indicó dos o tres operadores simultáneos. No agrega fases ni capacidades de negocio.
+**Fecha:** 13 de octubre de 2026. **Estado:** implementado en 2.46.7, CI completo y verificación de imagen/HTTPS aprobados. El responsable indicó dos o tres operadores simultáneos. No agrega fases ni capacidades de negocio. Evidencia en [capacidad de VPS](../operations/VPS_CAPACITY_VERIFICATION_20261013.md).
 
 ## Cinco etapas de diseño
 

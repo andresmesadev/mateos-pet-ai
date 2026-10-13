@@ -1,6 +1,6 @@
 # Paso 2 — Capacidad para el piloto interno
 
-**Inicio:** 13 de octubre de 2026, hora Colombia. **Base medida:** 2.46.6; corrección candidata 2.46.7. **Estado:** infraestructura/lecturas/cola aislada verificadas; cupo de operadores en publicación. Autorización: iniciar el paso 2 del plan de beta; conservar PostgreSQL en VPS y el número de prueba de Meta. El operador indicó dos o tres puestos simultáneos.
+**Inicio:** 13 de octubre de 2026, hora Colombia. **Base medida:** 2.46.6; corrección 2.46.7 publicada y desplegada. **Estado:** preparación técnica verificada; paso 2 abierto hasta contrastar tráfico real sostenido del piloto y cuentas propias de los operadores. Autorización: iniciar el paso 2 del plan de beta; conservar PostgreSQL en VPS y el número de prueba de Meta. El operador indicó dos o tres puestos simultáneos.
 
 ## Alcance y criterios previos
 
@@ -94,3 +94,43 @@ Publicación de candidata: commit `29c5f15b2eabce42d02fc260054dac4f3cd781f8` en 
 **Resultado de ese CI:** backend, cola PostgreSQL y administración PostgreSQL `success`; job frontend `failure` en `capacity-tools.test.cjs`: `pg` no está instalado en ese job. El benchmark importaba dependencias antes del guard de destino. Se adelanta el guard y la regresión prohíbe explícitamente cargar pg/Prisma para una URL rechazada. No se instalan dependencias backend innecesarias en frontend ni se salta la prueba. La candidata no se desplegó con ese CI fallido; la VPS siguió en 2.46.6. Publicación corregida y CI final pendientes.
 
 **Contraste de producción, 15:23:51 Colombia:** 106 entrantes y 127 recibos, todos `done/complete`; tres usuarios, once citas y 220 mensajes, mismas cifras de negocio que antes de las pruebas. Cero credenciales activas de profesionales (`StaffCredential`). La cuenta admin del entorno existe, pero no se presentan fixtures del benchmark como operadores reales. Antes de la cohorte se deben asignar cuentas propias a los dos/tres operadores: un login compartido conserva un solo cupo y una sola identidad auditada. Nombres, roles y permisos reales se acuerdan en preparación de cohorte, sin inventar personas ni enviar invitaciones desde esta prueba.
+
+## CI final y despliegue
+
+Revisión corregida `73cdaa77cc4eff63b44459447f774e0cd74325fb`, publicada en `main`. [CI 38462935146](https://github.com/andresmesadev/mateos-pet-ai/actions/runs/38462935146): cuatro jobs `success` (`test`, `lint`, `inbound-postgres`, `administration-postgres`). Evidencia real:
+
+```text
+Backend: 184 suites / 1.478 pruebas aprobadas, 14,174 s.
+Herramientas/contratos frontend: 134 pruebas, 134 pass, 0 fail.
+Contrato de caja: 3 pruebas, 3 pass.
+Administración PostgreSQL: 15 pruebas, 15 pass.
+Lint/build frontend, auditorías de dependencias de producción y cola PostgreSQL: success.
+```
+
+Observador de 2.46.6 identificado por PID/comando y detenido antes del despliegue. Archivo preservado `.cache/stability/ventana-2.46.6-20261013T193040Z.jsonl`: **12 muestras, 55 minutos, cero fallos/huecos/reinicios**, veredicto `incomplete`. No se agregan esas muestras a la ventana de 2.46.7 ni se presenta como observación de 48 horas. Despliegue del commit verificado en curso; comprobaciones de imagen/HTTPS y nueva observación pendientes.
+
+### Despliegue y verificación posteriores
+
+`scripts/deploy.sh`, **exit 0**, commit `73cdaa7`, backend reconstruido y frontend reutilizado. 46 migraciones sin pendientes. Worker iniciado **13 de octubre a las 15:31:15 Colombia**, salud local correcta a las 15:31:18. Resets/respuesta vacía del reinicio se recuperaron con los reintentos del script. Salud HTTPS a las **15:32:07**: versión 2.46.7, base/OpenAI/worker `ok`, cero fallos consecutivos.
+
+**Imagen desplegada, 15:33:29:** contenedor efímero `--network none`, CPU/RAM limitadas, filesystem de solo lectura con logs temporales. Resolver y limitadores reales; Prisma reemplazado por identidades de fixture dentro de ese proceso aislado. 75 lecturas de tres actores/una IP HTTP 200; completar 60 para un actor devuelve 429 en la siguiente; otro continúa con 200; token inválido comprobado antes de la carga devuelve 401. Cero llamadas externas/escrituras de producción. El primer intento no pudo crear el directorio de logs bajo filesystem de solo lectura; no se cuenta como aprobado. Se añadió únicamente un montaje temporal de logs del contenedor y la repetición terminó con exit 0; no se modificó el contenedor productivo para superar la prueba.
+
+Smoke HTTPS real, exit 0: login admin, 14 destinos HTTP 200, contratos caja/servicios/inventario, 400 en parámetros ambiguos, 401 anónimo y 405 en POST de páginas/acciones. No repetir 129 lecturas para presentar un ensayo distinto de diez operadores: sus cuentas reales aún no están asignadas. El ensayo original conserva su versión, datos y límites.
+
+La instalación temporal de tooling Prisma conserva cuatro vulnerabilidades altas, ya registradas antes; se retira `/app/node_modules` al construir. Dependencias de producción auditadas en CI y en la imagen, sin vulnerabilidades reportadas. Este ajuste no afirma sanear el tooling de desarrollo.
+
+Nueva observación: `.cache/stability/ventana-2.46.7-20261013T203334Z.jsonl`, PID inicial **34296**, primera muestra **13 de octubre a las 15:33:35 Colombia**, final previsto **15 de octubre a las 15:33:35**, sujeto a continuidad del equipo/proceso. La primera muestra es saludable. No garantiza notificación automática ni mezcla las ventanas anteriores.
+
+Contraste posterior **15:36:48–15:36:58**, dos muestras: RAM libre mínima 10,63 GiB, disco libre 71,01 %, una conexión cliente y cero locks, transacciones largas, pendientes, revisiones o leases vencidos. Sin OOM/reinicios en esos registros. Logs desde el arranque: cinco líneas y cero firmas de error consultadas. La repetición es breve y no se presenta como otra prueba sostenida. Se conserva la serie original de diez minutos sin mezclar versiones.
+
+## Decisión y pendientes concretos
+
+**Preparación técnica aprobada para un piloto acotado, no certificación de capacidad máxima.** La VPS actual tiene margen; no hay evidencia que exija contratar otra base o aumentar recursos ahora. Propuesta: un establecimiento, cinco participantes de WhatsApp verificados y dos/tres operadores con cuentas propias. El objetivo de 30 s aplica a una ráfaga de cinco mensajes con demora simulada de 4,5 s, no a cinco personas enviando mensajes ilimitados. Observar backlog y latencia antes de ampliar; diez mensajes lentos necesitaron 45 s sin pérdida.
+
+Para cerrar formalmente el paso 2:
+
+1. Asignar las cuentas reales de los operadores y comprobar sus permisos, sin compartir el login admin; coordinarlo con la preparación de cohorte del paso 10.
+2. Registrar un bloque de uso real sostenido con los participantes autorizados, manteniendo recursos/cola/tiempos agregados y recibos de entrega. La serie de diez minutos y el modelo de demoras no sustituyen esa medición.
+3. Contrastar latencias creación→respuesta y entregas reales con el objetivo acordado; si el backlog crece o se supera, reducir simultaneidad y revisar antes de ampliar. No activar múltiples workers sobre el motor actual por oportunidad.
+
+El paso 8 conserva su cierre; este cambio toca únicamente protección HTTP del dashboard. El paso 9 sigue la nueva versión y el paso 7 puede avanzar mientras se organiza el piloto. No se abre beta externa por esta medición.
