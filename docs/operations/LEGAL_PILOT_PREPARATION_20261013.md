@@ -1,6 +1,6 @@
 # Paso 7 — Revisión documental del piloto interno
 
-**Fecha:** 13 de octubre de 2026. **Base técnica:** 2.46.7. **Resultado:** paquete interno preparado y contrastado; cierre operativo pendiente, no beta externa autorizada.
+**Preparación:** 13 de octubre de 2026. **Cierre del alcance individual:** 14 de octubre de 2026. **Base técnica:** 2.46.7. **Resultado vigente:** paso 7 cerrado para pruebas internas individuales ficticias; no beta externa autorizada. El seguimiento cronológico conserva los estados previos.
 
 ## Decisiones del responsable
 
@@ -55,19 +55,19 @@ Revisión orientada a Colombia, no una aplicación automática de GDPR, HIPAA o 
 
 Se utilizó la guía **legal:compliance-check** de la sesión para la evaluación. Su recomendación de revisión especializada de evaluaciones legales no es una certificación obtenida. Este trabajo entrega material concreto y verificable para uso/revisión internos; antes de incorporar un establecimiento externo se revisa el alcance y sus condiciones. No se contrató servicio ni se comunicó con terceros.
 
-## Pendientes operativos concretos
+## Evidencias de cierre y obligaciones posteriores
 
-| Pendiente | Evidencia necesaria |
+| Criterio | Evidencia o actuación |
 | --- | --- |
 | Entrega y autorización individual | Responsable confirmó lectura 1.1 y alcance individual con datos ficticios. Las decisiones separadas de nuevos participantes se registrarán antes de incorporarlos; no hay otros participantes actuales |
-| Canal de solicitudes | Consulta y acuse recibidos; revisión técnica expresamente autorizada y respuesta final preparadas. Falta entrega de respuesta sustantiva; el asistente no envió correo en su nombre |
-| Consulta/rectificación y supresión acotada | Fixture aislado aprobado para rectificación, supresión, control entre establecimientos y reaplicación tras restaurar. Consulta propia técnica preparada con límites explícitos, entrega pendiente; no hay borrado productivo |
-| Condiciones de proveedores | Registro de condiciones efectivamente aplicables a las cuentas y cadena/roles de tratamiento; leer una página no acredita acuerdo completo |
+| Canal de solicitudes | Consulta, acuse y respuesta recibidos. Captura de respuesta a las 14:18, adjunto recibido/abierto confirmado por el usuario. El asistente no envió correo en su nombre |
+| Consulta/rectificación y supresión acotada | Fixture aislado aprobado para rectificación, supresión, control entre establecimientos y reaplicación tras restaurar. Consulta propia técnica entregada con límites explícitos; no hay borrado productivo |
+| Condiciones de proveedores al ampliar alcance | Revisar condiciones efectivamente aplicables a las cuentas y cadena/roles antes de incorporar terceros; leer una página no acredita acuerdo completo. Este cierre individual no certifica contratos o sistemas externos |
 | Cierre del piloto | Fecha real y revisión/ejecución al límite elegido; no inventar un cierre para borrar datos ahora |
 
 La purga automática local y una interfaz integral de consentimiento/solicitudes no se encontraron en el código: se documenta actuación manual, no se introduce trabajo de una fase futura por oportunidad. El producto no debe prometer automatización que falta. La inmutabilidad del dominio tampoco crea por sí sola una base legal para conservar datos personales.
 
-El paso 7 conserva abierto su cierre operativo; el paquete documental está completado. Pasos 2/9 continúan por sus propias evidencias; el paso 8 no se reabre. El número de prueba de Meta sigue vigente y no se incorpora Neon.
+El paso 7 queda cerrado para el piloto interno individual, con documentos y ensayo operacional completados. Pasos 2/9 continúan por sus propias evidencias; el paso 8 no se reabre. El número de prueba de Meta sigue vigente y no se incorpora Neon. Las incorporaciones futuras y el cierre real del piloto tienen sus propias obligaciones; no se dan por ejecutados aquí.
 
 ## Verificación
 
@@ -122,3 +122,9 @@ Verificación del registro de acuse: imagen/SHA-256 coinciden, acuse marcado env
 ### Preparación final y ensayo aislado — 14 de octubre
 
 Lectura 1.1 y alcance individual confirmados por el responsable. Revisión técnica acotada con autorización expresa por categorías/destino y ensayo PostgreSQL aislado aprobados. Respuesta final y adjunto preparados privadamente, aún no enviados. Evidencia, límites y decisiones en el [informe del ensayo](PRIVACY_MANUAL_DRILL_20261014.md). No hay nuevos participantes, firmas inventadas, borrado productivo o declaración de beta externa. El paso 7 conserva la entrega final y la revisión de cierre para el alcance individual.
+
+### Cierre del alcance individual — 14 de octubre, 14:18
+
+La captura de Gmail acredita recepción del cuerpo de la respuesta a las 14:18, según la interfaz y el contexto de Colombia. El solicitante confirmó separadamente que el adjunto llegó y se abre. Evidencia/huella y declaración guardadas privadamente. El responsable realizó el envío; no se atribuye al asistente. No se inspeccionaron cabeceras ni se compararon los bytes de la copia recibida con los del archivo preparado.
+
+Consulta entregada dentro del alcance técnico autorizado y paso 7 cerrado para pruebas individuales ficticias. No habilita terceros o beta externa, no certifica cumplimiento jurídico y no establece cierre del piloto completo. Se conservan backend 2.46.7, documentos 1.1 y archivos enviados sin modificarlos; no comienza por este cierre la retención posterior de treinta días.

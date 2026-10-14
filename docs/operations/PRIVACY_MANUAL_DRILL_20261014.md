@@ -1,6 +1,6 @@
 # Paso 7 — Ensayo manual de privacidad
 
-**Fecha:** 14 de octubre de 2026. **Base funcional:** 2.46.7. **Alcance:** piloto interno individual, con escenarios ficticios. **Resultado:** preparación técnica y ensayo aislado aprobados; entrega de la respuesta pendiente. No declara cierre completo del paso 7 ni beta externa.
+**Fecha:** 14 de octubre de 2026. **Base funcional:** 2.46.7. **Alcance:** piloto interno individual, con escenarios ficticios. **Resultado:** paso 7 cerrado para ese alcance, con respuesta y adjunto recibidos, preparación técnica y ensayo aislado aprobados. No habilita beta externa o participantes adicionales.
 
 ## Decisiones y evidencia
 
@@ -45,9 +45,11 @@ La rotación declarada en VPS es de catorce días; las copias independientes req
 
 El paquete 1.1 identifica Oracle, Meta/OpenAI y Hostinger y sus referencias oficiales. Esta revisión no certifica aceptación contractual de cada cuenta, eliminación en sus sistemas o ubicación exclusivamente colombiana de todo tratamiento. Antes de incorporar otras personas o establecimientos se revisan contratos/roles y el nuevo alcance; no se presume cumplido por leer una página. No hay nueva integración, contratación o cargo por este ensayo.
 
-## Pendiente humano concreto
+## Entrega y cierre del alcance individual
 
-Revisar el texto final y el adjunto privado preparados; el responsable envía la respuesta desde su buzón al canal confirmado del solicitante y aporta evidencia de recepción. El asistente no envía correo sin autorización explícita. Solo entonces se registra entrega de la consulta y se evalúa el cierre documental para este piloto individual.
+La captura aportada de Gmail muestra el cuerpo de la respuesta recibido el 14 de octubre a las **14:18**, hora interpretada en Colombia por el contexto de esta sesión. Se archivó privadamente con SHA-256. La imagen no muestra el adjunto: el solicitante confirmó por separado que el archivo indicado llegó y se puede abrir. No se afirma inspección de cabeceras ni verificación binaria del archivo recibido.
+
+Respuesta enviada por el responsable, no por herramientas del asistente. Consulta atendida dentro de las categorías y destino expresamente autorizados; lectura 1.1 y alcance individual registrados, ensayo aislado aprobado y evidencia conservada privadamente. Con ello se cierra el paso 7 para el piloto interno individual. Las obligaciones al incorporar terceros o ampliar alcance no se declaran cumplidas por este ensayo.
 
 La fecha de cierre del paso 7 no equivale al cierre efectivo del piloto ni inicia por sí sola la retención de treinta días. Aceptaciones de nuevos participantes se registran antes de incorporarlos, sin firmas por terceros o fechas retroactivas.
 
@@ -58,7 +60,13 @@ Se conserva backend 2.46.7 y documentos de condiciones 1.1: no hay nueva capacid
 ## Verificación técnica final
 
 - Ensayo SQL en esquema físico reproducido: rectificación, rechazo de eliminación insegura, supresión acotada, control de otro establecimiento, evento inmutable y reaplicación tras restaurar aprobados; limpieza del contenedor confirmada.
-- Copia final: coherencia de propietario/tenant, conversaciones y conteo completo de mensajes, fechas ISO de sesiones, contactos/mensajes/replies acotados y categorías excluidas ausentes. Cero campos técnicos secretos sin excluir. La respuesta sigue marcada no enviada.
+- Copia preparada: coherencia de propietario/tenant, conversaciones y conteo completo de mensajes, fechas ISO de sesiones, contactos/mensajes/replies acotados y categorías excluidas ausentes. Cero campos técnicos secretos sin excluir. Se conservó sin cambios el archivo preparado/enviado; la entrega efectiva consta por separado en el registro privado.
 - Ocho documentos públicos revisados: cero coincidencias de los contactos privados y cero enlaces locales rotos. `git check-ignore` confirmó exclusión de copia, texto del correo, resultados, DDL y ficha de participante. Cuerpo de correo sin instrucciones internas.
 - `npm run lint` en frontend: exit 0. `node --test scripts/capacity-tools.test.cjs scripts/observe-production.test.cjs scripts/copy-offsite-backup.test.cjs`: catorce aprobadas, cero fallidas, exit 0, 1.002,265 ms. `git diff --check`: exit 0.
 - Sin modificaciones de aplicación, schema, servicios productivos o datos de producción; solo evidencia y documentación. No se confunden estos tests técnicos con certificación jurídica, entrega de correo o eliminación en proveedores.
+
+### Verificación del cierre de entrega
+
+Evidencia de recepción y declaración del solicitante contrastadas con el registro: respuesta recibida a las 14:18 y adjunto recibido/abierto confirmado. SHA-256 de captura válido, archivo preparado/enviado conservado sin cambios y lectura/ensayo/limpieza aprobados. No se atribuye verificación binaria al adjunto recibido ni cierre al piloto completo.
+
+Ocho documentos públicos sin contactos privados ni enlaces locales rotos; evidencia, constancia y documentos leídos excluidos de Git. Lint frontend exit 0; catorce tests de capacidad/observación/copia independiente aprobados, cero fallidos, exit 0, 1.688,4905 ms; `git diff --check` exit 0. Las tres copias privadas leídas 1.1 se preservaron antes de actualizar su nota de evidencia; las condiciones siguen en 1.1 y el backend en 2.46.7, sin nueva release funcional.

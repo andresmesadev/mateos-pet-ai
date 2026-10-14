@@ -11,7 +11,7 @@
 
 ## Solicitudes
 
-Canal **{{CORREO}}**, responsable **{{RESPONSABLE}}**, contacto alterno **{{TELEFONO}}**. Recepción/seguimiento manuales. El 14 de octubre se comprobaron la llegada de la consulta de prueba y la recepción de su acuse. Revisión del alcance técnico expresamente autorizado y ensayo aislado completados; respuesta final preparada, entrega pendiente. Una petición por WhatsApp se traslada al responsable sin confiar exclusivamente en el bot.
+Canal **{{CORREO}}**, responsable **{{RESPONSABLE}}**, contacto alterno **{{TELEFONO}}**. Recepción/seguimiento manuales. El 14 de octubre se comprobaron consulta, acuse y respuesta final recibidos; el solicitante confirmó que el adjunto llegó y se abre. Revisión técnica autorizada y ensayo aislado completados: cierre operacional para el piloto individual. Una petición por WhatsApp se traslada al responsable sin confiar exclusivamente en el bot.
 
 | Paso | Acción |
 | --- | --- |
@@ -41,13 +41,13 @@ No se identificó un sistema integral de consentimiento/solicitudes en el códig
 
 Usar registros ficticios y una base aislada. No enviar comunicaciones en nombre de participantes desde esta preparación.
 
-| Comprobación | Evidencia requerida | Estado inicial |
+| Comprobación | Evidencia requerida | Estado del ensayo individual |
 | --- | --- | --- |
 | Recepción técnica del canal | Evidencia privada de mensaje recibido y acceso al buzón | Comprobada, 14 de octubre; hora mostrada 12:50 Colombia, sin inspección de cabeceras |
 | Consulta por el canal | Solicitud concreta del responsable recibida, registrada y con vencimiento | Recibida el 14 de octubre, hora mostrada 13:07 Colombia; alcance confirmado directamente por el responsable y límite interno conservador registrado |
 | Acuse de recepción | Comunicación del responsable recibida por el solicitante | Comprobada mediante captura privada, 14 de octubre, hora mostrada 13:24 Colombia; no equivale a respuesta sustantiva |
 | Información/autorización | Revisión del responsable y, al incorporar otra persona, dos decisiones separadas de ella | Responsable confirmó lectura 1.1 y alcance individual; no hay otros participantes actuales |
-| Consulta/rectificación | Respuesta privada acotada y corrección contrastada | Copia técnica autorizada preparada; rectificación ficticia verificada en base aislada; entrega final pendiente |
+| Consulta/rectificación | Respuesta privada acotada y corrección contrastada | Respuesta recibida el 14 de octubre a las 14:18 según captura; adjunto recibido/abierto confirmado por solicitante. Rectificación ficticia aprobada en base aislada |
 | Supresión/anonimización | Operación acotada probada, copias y excepciones documentadas | Supresión de fixture y reaplicación tras restaurar aprobadas; sin borrado productivo ni rutina universal |
 | Cierre/conservación | Fecha real y límite, inventario y acciones | Al cierre efectivo |
 
