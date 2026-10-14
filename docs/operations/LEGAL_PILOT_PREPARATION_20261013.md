@@ -60,7 +60,7 @@ Se utilizó la guía **legal:compliance-check** de la sesión para la evaluació
 | Pendiente | Evidencia necesaria |
 | --- | --- |
 | Entrega y autorización individual | Versión privada entregada y dos decisiones separadas por cada participante real. Una ficha anterior no acredita su autorización |
-| Canal de solicitudes | Recepción técnica comprobada el 14 de octubre con captura privada de mensaje genérico. Falta recibir la consulta concreta, registrar su vencimiento y responder; no se envió correo en nombre del responsable |
+| Canal de solicitudes | Consulta concreta recibida y registrada el 14 de octubre, alcance confirmado directamente por el responsable. Acuse y respuesta principal preparados; falta envío/recepción documentados e inventario extendido. No se envió correo en su nombre |
 | Consulta/rectificación y supresión acotada | Ensayo aislado según el procedimiento, incluidas memoria/logs/copias, sin alterar registros ajenos o inmutables a ciegas |
 | Condiciones de proveedores | Registro de condiciones efectivamente aplicables a las cuentas y cadena/roles de tratamiento; leer una página no acredita acuerdo completo |
 | Cierre del piloto | Fecha real y revisión/ejecución al límite elegido; no inventar un cierre para borrar datos ahora |
@@ -98,3 +98,15 @@ Estas comprobaciones validan preparación y exclusión de datos privados. La cap
 - Siete documentos públicos: cero coincidencias de nombre completo, dirección, correo y teléfono de contacto privados o del remitente de prueba; cero enlaces locales rotos. La consulta mantiene recepción/vencimiento nulos y respuesta no enviada.
 - `npm run lint` en frontend: exit 0. `node --test scripts/capacity-tools.test.cjs scripts/observe-production.test.cjs`: siete aprobadas, cero fallidas, exit 0, 1.124,9404 ms. `git diff --check`: exit 0 tras corregir una línea vacía adicional al final del plan.
 - Solo documentación y registros privados: ninguna modificación funcional, consulta/exportación de datos personales de la VPS o envío de correo por el asistente.
+
+### Recepción de la consulta concreta — 14 de octubre, 13:07
+
+Una segunda captura privada muestra ahora el texto de consulta del piloto en el buzón, sin asunto. La hora mostrada es 13:07, interpretada en Colombia por el contexto del equipo; no se verificaron cabeceras o autenticación del correo. El responsable confirmó directamente en esta sesión su cuenta administrativa y WhatsApp de pruebas. No se usa el acceso administrativo como autorización para exportar datos de otras personas.
+
+Se registraron evidencia/SHA-256, identidad y alcance, recepción y un límite interno conservador de respuesta: **27 de octubre de 2026**, diez días de lunes a viernes contando la recepción como día 1. El calendario privado conserva las diez fechas; no hay festivos en ese intervalo conforme a la [Ley 51 de 1983](https://www.cancilleria.gov.co/sites/default/files/Normograma/docs/ley_0051_1983.htm). Se elige ese límite temprano para no exceder el término de la [Ley 1581, artículo 14](https://www.cancilleria.gov.co/sites/default/files/Normograma/docs/ley_1581_2012.htm), sin extensión automática ni razón para demorar el ensayo.
+
+Lectura de PostgreSQL acotada al tenant y al único cliente del teléfono confirmado: ficha, mascotas, citas, conversaciones/mensajes, texto de memoria y fechas de sesiones. Lectura separada del correo configurado de su cuenta administrativa, excluyendo contraseñas y tokens. Copia y resumen legible conservados exclusivamente en la carpeta privada; no se seleccionaron conversaciones de otro cliente ni se modificó la base. El correo y la documentación privada no se enviaron a proveedores desde herramientas del asistente.
+
+Acuse y respuesta principal listos para revisión, **no enviados**. La búsqueda todavía no examina JSON de sesión, vectores numéricos, payloads completos, logs generales, contenido de respaldos o registros propios de proveedores; el resumen declara esa limitación y no se presenta como respuesta exhaustiva. El paso 7 permanece abierto para completar alcance/entrega, aceptaciones individuales y los demás ensayos del procedimiento. La preparación no acredita cumplimiento jurídico ni cierra por sí sola una consulta integral.
+
+Verificación de este seguimiento: siete documentos públicos sin coincidencias del contacto privado o del remitente; copia de mensajes completa para el perfil consultado, fechas de citas convertidas y contrastadas en Colombia, acuse/respuesta aún marcados no enviados. `git check-ignore` confirmó que textos completos, copia y captura quedan fuera de Git. Lint frontend exit 0; siete tests de herramientas/observación aprobados, cero fallidos, exit 0, 905,873 ms; `git diff --check` exit 0. Sin cambios de código, versión, migración, reinicio o eliminación.
