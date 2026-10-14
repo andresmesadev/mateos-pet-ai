@@ -59,9 +59,9 @@ Se utilizó la guía **legal:compliance-check** de la sesión para la evaluació
 
 | Pendiente | Evidencia necesaria |
 | --- | --- |
-| Entrega y autorización individual | Versión privada entregada y dos decisiones separadas por cada participante real. Una ficha anterior no acredita su autorización |
-| Canal de solicitudes | Consulta concreta recibida y registrada el 14 de octubre, alcance confirmado directamente por el responsable. Acuse enviado por él y recibido por el solicitante, con captura privada. Faltan revisión extendida y entrega de respuesta sustantiva; el asistente no envió correo en su nombre |
-| Consulta/rectificación y supresión acotada | Ensayo aislado según el procedimiento, incluidas memoria/logs/copias, sin alterar registros ajenos o inmutables a ciegas |
+| Entrega y autorización individual | Responsable confirmó lectura 1.1 y alcance individual con datos ficticios. Las decisiones separadas de nuevos participantes se registrarán antes de incorporarlos; no hay otros participantes actuales |
+| Canal de solicitudes | Consulta y acuse recibidos; revisión técnica expresamente autorizada y respuesta final preparadas. Falta entrega de respuesta sustantiva; el asistente no envió correo en su nombre |
+| Consulta/rectificación y supresión acotada | Fixture aislado aprobado para rectificación, supresión, control entre establecimientos y reaplicación tras restaurar. Consulta propia técnica preparada con límites explícitos, entrega pendiente; no hay borrado productivo |
 | Condiciones de proveedores | Registro de condiciones efectivamente aplicables a las cuentas y cadena/roles de tratamiento; leer una página no acredita acuerdo completo |
 | Cierre del piloto | Fecha real y revisión/ejecución al límite elegido; no inventar un cierre para borrar datos ahora |
 
@@ -118,3 +118,7 @@ El responsable aportó una captura de Gmail que muestra el acuse recibido a las 
 El recorrido de correo de esta prueba queda comprobado en ambos sentidos: consulta entrante y acuse recibido por el solicitante. No acredita entrega de respuesta sustantiva, aceptación de participantes ni disponibilidad continua del correo. El paso 7 sigue abierto por la revisión extendida, respuesta/entrega y los demás ensayos y aceptaciones individuales. Los próximos textos de correo se separan de instrucciones internas para facilitar su copia. No se enviaron mensajes desde herramientas del asistente.
 
 Verificación del registro de acuse: imagen/SHA-256 coinciden, acuse marcado enviado/recibido y respuesta sustantiva no enviada; siete documentos públicos sin contactos privados ni enlaces locales rotos. Evidencia y copias excluidas por `git check-ignore`. Lint frontend exit 0; siete tests de herramientas/observación aprobados, cero fallidos, exit 0, 902,7444 ms; `git diff --check` exit 0. Solo documentación: sin cambios funcionales, migraciones, reinicios o eliminación de datos.
+
+### Preparación final y ensayo aislado — 14 de octubre
+
+Lectura 1.1 y alcance individual confirmados por el responsable. Revisión técnica acotada con autorización expresa por categorías/destino y ensayo PostgreSQL aislado aprobados. Respuesta final y adjunto preparados privadamente, aún no enviados. Evidencia, límites y decisiones en el [informe del ensayo](PRIVACY_MANUAL_DRILL_20261014.md). No hay nuevos participantes, firmas inventadas, borrado productivo o declaración de beta externa. El paso 7 conserva la entrega final y la revisión de cierre para el alcance individual.
