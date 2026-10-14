@@ -60,7 +60,7 @@ Se utilizó la guía **legal:compliance-check** de la sesión para la evaluació
 | Pendiente | Evidencia necesaria |
 | --- | --- |
 | Entrega y autorización individual | Versión privada entregada y dos decisiones separadas por cada participante real. Una ficha anterior no acredita su autorización |
-| Canal de solicitudes | Prueba del responsable recibida en el correo designado, registrada y con vencimiento; no se envió correo en su nombre |
+| Canal de solicitudes | Recepción técnica comprobada el 14 de octubre con captura privada de mensaje genérico. Falta recibir la consulta concreta, registrar su vencimiento y responder; no se envió correo en nombre del responsable |
 | Consulta/rectificación y supresión acotada | Ensayo aislado según el procedimiento, incluidas memoria/logs/copias, sin alterar registros ajenos o inmutables a ciegas |
 | Condiciones de proveedores | Registro de condiciones efectivamente aplicables a las cuentas y cadena/roles de tratamiento; leer una página no acredita acuerdo completo |
 | Cierre del piloto | Fecha real y revisión/ejecución al límite elegido; no inventar un cierre para borrar datos ahora |
@@ -73,11 +73,13 @@ El paso 7 conserva abierto su cierre operativo; el paquete documental está comp
 
 ### Seguimiento del canal — 14 de octubre de 2026
 
-El responsable aclaró que aún no envió el mensaje de prueba. No hay evidencia de fallo de recepción, solicitud recibida, remitente, vencimiento o respuesta enviada. Se prepararon privadamente registro, instrucciones y borradores, sin enviar correo ni consultar/exportar datos personales de la VPS para esa solicitud.
+Inicialmente el responsable aclaró que aún no había enviado el mensaje de prueba. Se prepararon privadamente registro, instrucciones y borradores, sin enviar correo ni consultar/exportar datos personales de la VPS para esa solicitud.
+
+Posteriormente aportó una captura de Hostinger Mail que muestra un mensaje genérico recibido el 14 de octubre a las 12:50. Se interpreta la hora mostrada en Colombia por el contexto del equipo; no se inspeccionaron cabeceras originales ni autenticación del remitente. La captura se archivó privadamente con SHA-256 y un registro técnico separado. Esto acredita acceso al buzón y recepción de ese mensaje. No contiene el texto de consulta de datos: el registro de consulta mantiene recepción, identidad, vencimiento y respuesta pendientes, sin exportar datos de la VPS. No hay evidencia de fallo del buzón.
 
 Consulta DNS de solo lectura del dominio facilitado: MX `mx1.hostinger.com` (prioridad 5), `mx2.hostinger.com` (10); SPF `v=spf1 include:_spf.mail.hostinger.com ~all`. Coinciden con [los registros documentados por Hostinger](https://www.hostinger.com/support/4407237-hostinger-email-mx-records/). La ruta está configurada; no prueba que el buzón exista o sea accesible. No se modificaron DNS, planes o cuentas de correo.
 
-Se incorporó el canal de correo al inventario de destinos de la política y al aviso, condicionado a verificar buzón/recepción. Paquete documental actualizado a **1.1, 14 de octubre**, con referencias coherentes en los cuatro documentos; versión privada 1.0 preservada en `.cache/private/legal/versiones/1.0/`. No cambia el backend 2.46.7. El software no manda automáticamente los borradores de consulta. El paso 7 operativo continúa pendiente de envío real, recepción, identidad y respuesta documentadas. No se afirma una nueva aceptación de documentos por parte de participantes.
+Se incorporó el canal de correo al inventario de destinos de la política y al aviso. Paquete documental **1.1, 14 de octubre**, con referencias coherentes en los cuatro documentos; versión privada 1.0 preservada en `.cache/private/legal/versiones/1.0/`. La actualización de evidencia técnica conserva 1.1: no cambia finalidades ni condiciones. No cambia el backend 2.46.7. El software no manda automáticamente los borradores de consulta. El paso 7 operativo continúa pendiente de la consulta concreta, identidad y respuesta documentadas. No se afirma una nueva aceptación de documentos por parte de participantes.
 
 Verificación de 1.1: siete documentos públicos sin coincidencias del contacto privado; enlaces locales válidos; cuatro copias privadas completas sin variables y archivos 1.0 preservados. Registro de prueba sin recepción o vencimiento inventados. Lint exit 0; siete pruebas de herramientas/observación aprobadas, cero fallidas, exit 0, 362,385 ms; `git diff --check`, exit 0. Estas pruebas no acreditan funcionamiento del buzón ni cumplimiento jurídico.
 
@@ -88,4 +90,11 @@ Verificación de 1.1: siete documentos públicos sin coincidencias del contacto 
 - `git diff --check`: exit 0. Los cambios son documentales; no hay modificaciones en frontend/backend/schema, proveedores o servicios productivos.
 - Versionado evaluado: se conserva 2.46.7; no hay nueva capacidad funcional, migración o tag de release por este paquete de documentos.
 
-Estas comprobaciones validan preparación y exclusión de datos privados; no certifican cumplimiento jurídico, recepción del canal, supresión realizada ni aceptación de participantes. Las copias completas locales están listas para lectura/entrega interna y el procedimiento conserva sus comprobaciones operativas pendientes.
+Estas comprobaciones validan preparación y exclusión de datos privados. La captura acredita recepción técnica del mensaje observado, sin certificar cumplimiento jurídico, consulta respondida, supresión realizada o aceptación de participantes. Las copias completas locales están listas para lectura/entrega interna y el procedimiento conserva sus comprobaciones operativas pendientes.
+
+### Verificación de la evidencia de recepción — 14 de octubre
+
+- Captura y registro técnico privado excluidos por `git check-ignore`; remitente y contenido no publicados. Copias privadas actualizadas, sin cambiar la versión 1.1 o las condiciones del piloto.
+- Siete documentos públicos: cero coincidencias de nombre completo, dirección, correo y teléfono de contacto privados o del remitente de prueba; cero enlaces locales rotos. La consulta mantiene recepción/vencimiento nulos y respuesta no enviada.
+- `npm run lint` en frontend: exit 0. `node --test scripts/capacity-tools.test.cjs scripts/observe-production.test.cjs`: siete aprobadas, cero fallidas, exit 0, 1.124,9404 ms. `git diff --check`: exit 0 tras corregir una línea vacía adicional al final del plan.
+- Solo documentación y registros privados: ninguna modificación funcional, consulta/exportación de datos personales de la VPS o envío de correo por el asistente.

@@ -11,7 +11,7 @@
 
 ## Solicitudes
 
-Canal **{{CORREO}}**, responsable **{{RESPONSABLE}}**, contacto alterno **{{TELEFONO}}**. Recepción/seguimiento manuales; el correo facilitado no demuestra que se ensayó su recepción. Una petición por WhatsApp se traslada al responsable sin confiar exclusivamente en el bot.
+Canal **{{CORREO}}**, responsable **{{RESPONSABLE}}**, contacto alterno **{{TELEFONO}}**. Recepción/seguimiento manuales. El 14 de octubre se comprobó la recepción técnica de un mensaje genérico mediante captura privada; queda pendiente recibir la consulta de datos y documentar su respuesta. Una petición por WhatsApp se traslada al responsable sin confiar exclusivamente en el bot.
 
 | Paso | Acción |
 | --- | --- |
@@ -43,7 +43,8 @@ Usar registros ficticios y una base aislada. No enviar comunicaciones en nombre 
 
 | Comprobación | Evidencia requerida | Estado inicial |
 | --- | --- | --- |
-| Canal designado | Solicitud del responsable recibida, registrada y con vencimiento | Por ejecutar |
+| Recepción técnica del canal | Evidencia privada de mensaje recibido y acceso al buzón | Comprobada, 14 de octubre; hora mostrada 12:50 Colombia, sin inspección de cabeceras |
+| Consulta por el canal | Solicitud concreta del responsable recibida, registrada y con vencimiento | Pendiente del texto de consulta; el mensaje genérico no lo contiene |
 | Información/autorización | Versiones completas entregadas y dos decisiones separadas por persona | Por registrar |
 | Consulta/rectificación | Respuesta privada acotada sin otro titular y corrección contrastada | Por ensayar |
 | Supresión/anonimización | Inventario, operación acotada probada, copias y excepciones documentadas | Por ensayar; no ejecutada aquí |
