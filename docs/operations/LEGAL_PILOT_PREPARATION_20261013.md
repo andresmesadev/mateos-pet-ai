@@ -71,6 +71,16 @@ El paso 7 conserva abierto su cierre operativo; el paquete documental está comp
 
 ## Verificación
 
+### Seguimiento del canal — 14 de octubre de 2026
+
+El responsable aclaró que aún no envió el mensaje de prueba. No hay evidencia de fallo de recepción, solicitud recibida, remitente, vencimiento o respuesta enviada. Se prepararon privadamente registro, instrucciones y borradores, sin enviar correo ni consultar/exportar datos personales de la VPS para esa solicitud.
+
+Consulta DNS de solo lectura del dominio facilitado: MX `mx1.hostinger.com` (prioridad 5), `mx2.hostinger.com` (10); SPF `v=spf1 include:_spf.mail.hostinger.com ~all`. Coinciden con [los registros documentados por Hostinger](https://www.hostinger.com/support/4407237-hostinger-email-mx-records/). La ruta está configurada; no prueba que el buzón exista o sea accesible. No se modificaron DNS, planes o cuentas de correo.
+
+Se incorporó el canal de correo al inventario de destinos de la política y al aviso, condicionado a verificar buzón/recepción. Paquete documental actualizado a **1.1, 14 de octubre**, con referencias coherentes en los cuatro documentos; versión privada 1.0 preservada en `.cache/private/legal/versiones/1.0/`. No cambia el backend 2.46.7. El software no manda automáticamente los borradores de consulta. El paso 7 operativo continúa pendiente de envío real, recepción, identidad y respuesta documentadas. No se afirma una nueva aceptación de documentos por parte de participantes.
+
+Verificación de 1.1: siete documentos públicos sin coincidencias del contacto privado; enlaces locales válidos; cuatro copias privadas completas sin variables y archivos 1.0 preservados. Registro de prueba sin recepción o vencimiento inventados. Lint exit 0; siete pruebas de herramientas/observación aprobadas, cero fallidas, exit 0, 362,385 ms; `git diff --check`, exit 0. Estas pruebas no acreditan funcionamiento del buzón ni cumplimiento jurídico.
+
 - Cinco archivos privados revisados (README y cuatro documentos completos): cero variables pendientes y cero enlaces locales rotos. Siete archivos públicos del paquete/plan revisados: cero coincidencias de los datos de contacto facilitados.
 - Comprobación extendida sobre 1.331 rutas rastreadas por Git, leyendo sus archivos de texto aplicables: cero coincidencias de los valores suministrados de nombre completo, dirección, correo y teléfono normalizado. El contacto se conserva solo en archivos privados ignorados. No es una auditoría de cualquier dato personal imaginable o de todo el historial de Git.
 - `git check-ignore` confirmó exclusión de ficha y cuatro documentos privados, además del README privado. Las plantillas públicas mantienen seis variables intencionales; no se entregan como copias completas al participante.

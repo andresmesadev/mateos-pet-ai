@@ -1,6 +1,6 @@
 # Procedimiento manual de privacidad del piloto
 
-**Versión:** 1.0, 13 de octubre de 2026. Guía operativa; no añade una funcionalidad al motor/dashboard ni ejecuta cambios de datos.
+**Versión:** 1.1, 14 de octubre de 2026. Guía operativa; no añade una funcionalidad al motor/dashboard ni ejecuta cambios de datos.
 
 ## Incorporación
 

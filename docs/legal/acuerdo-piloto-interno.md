@@ -1,6 +1,6 @@
 # Acuerdo, aviso y autorización — piloto interno
 
-**Versión:** 1.0, 13 de octubre de 2026. Modelo para entrega y aceptación individual; no acredita firmas o autorizaciones existentes. Contacto completo en la copia privada.
+**Versión:** 1.1, 14 de octubre de 2026. Modelo para entrega y aceptación individual; no acredita firmas o autorizaciones existentes. Contacto completo en la copia privada.
 
 ## 1. Acuerdo de participación
 
@@ -16,13 +16,13 @@ Se comprueban perfiles, agenda y WhatsApp; caja/inventario solo simulados y dent
 
 Datos mínimos durante el piloto y hasta treinta días después de su cierre, con gestión documentada de eliminación/anonimización y copias. El acuerdo no exonera al prestador de obligaciones ni implica renuncia a derechos.
 
-Se entregan [condiciones](terminos-de-servicio.md) y [política](politica-de-privacidad.md), versión 1.0. Un nuevo público, finalidad o proveedor requiere revisar el alcance; no se aceptan por anticipado futuras condiciones comerciales.
+Se entregan [condiciones](terminos-de-servicio.md) y [política](politica-de-privacidad.md), versión 1.1. Un nuevo público, finalidad o proveedor requiere revisar el alcance; no se aceptan por anticipado futuras condiciones comerciales.
 
 ## 2. Aviso breve previo a la prueba
 
 > {{RESPONSABLE}} organiza el piloto interno de Mateos Pet AI. Trata nombre/alias, teléfono, correo de acceso, mensajes de prueba y registros técnicos para ejecutar y revisar pruebas, separar contexto y atender solicitudes. Usa clientes, mascotas y direcciones ficticios; no envíes menores, datos sensibles de personas ni datos de terceros. Tu teléfono o voz pueden identificarte aunque el escenario sea ficticio.
 >
-> Aplicación/PostgreSQL están en Oracle Cloud, Bogotá. Meta entrega mensajes y OpenAI recibe texto/contexto y audio si lo usas; esos servicios no se presumen limitados a Colombia. Hay copias cifradas y evidencias privadas bajo custodia del responsable. Plazo: duración del piloto y hasta treinta días tras su cierre, con gestión manual de eliminación/anonimización.
+> Aplicación/PostgreSQL están en Oracle Cloud, Bogotá. Meta entrega mensajes y OpenAI recibe texto/contexto y audio si lo usas; esos servicios no se presumen limitados a Colombia. El canal de correo de privacidad/soporte está dirigido a Hostinger Email, con buzón y recepción por validar. Hay copias cifradas y evidencias privadas bajo custodia del responsable. Plazo: duración del piloto y hasta treinta días tras su cierre, con gestión manual de eliminación/anonimización.
 >
 > Puedes consultar, corregir y solicitar revisión/supresión o revocar autorización cuando proceda. Contacto: {{CORREO}}, {{TELEFONO}}, {{DIRECCION}}, {{CIUDAD}}, {{PAIS}}. Lee la política completa antes de decidir. No autorizas publicidad o entrenamiento de modelos por iniciativa del equipo.
 
@@ -32,11 +32,11 @@ Entregar también un medio accesible para consultar la política completa. Puede
 
 **Aceptación de condiciones:**
 
-> Recibí y leí las condiciones y el acuerdo del piloto interno de Mateos Pet AI, versión 1.0. Entiendo su alcance ficticio, voluntario y experimental y acepto participar en las pruebas acordadas.
+> Recibí y leí las condiciones y el acuerdo del piloto interno de Mateos Pet AI, versión 1.1. Entiendo su alcance ficticio, voluntario y experimental y acepto participar en las pruebas acordadas.
 
 **Autorización de datos:**
 
-> Recibí la política y el aviso, versión 1.0. Autorizo a {{RESPONSABLE}} a tratar mis datos personales mínimos para identificarme, ejecutar y diagnosticar este piloto y atender solicitudes, con los proveedores y plazo informados. Conozco cómo ejercer mis derechos y no aportaré datos sensibles de personas o de terceros. No autorizo publicidad ni entrenamiento por iniciativa del equipo.
+> Recibí la política y el aviso, versión 1.1. Autorizo a {{RESPONSABLE}} a tratar mis datos personales mínimos para identificarme, ejecutar y diagnosticar este piloto y atender solicitudes, con los proveedores y plazo informados. Conozco cómo ejercer mis derechos y no aportaré datos sensibles de personas o de terceros. No autorizo publicidad ni entrenamiento por iniciativa del equipo.
 
 Se puede registrar mediante escrito o mensaje verificable después de informar. Conservar decisión exacta, fecha, titular y versión. No inferirla de un saludo, contraseña o aceptación de otra persona. Esta preparación no envía comunicaciones a participantes.
 

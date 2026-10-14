@@ -1,6 +1,6 @@
 # Paso 7 — Documentación del piloto interno
 
-**Actualizado:** 13 de octubre de 2026. **Alcance confirmado:** solo pruebas internas con datos ficticios. Identificadores reales de participantes siguen sujetos a tratamiento de datos.
+**Actualizado:** 14 de octubre de 2026. **Alcance confirmado:** solo pruebas internas con datos ficticios. Identificadores reales de participantes siguen sujetos a tratamiento de datos.
 
 ## Paquete
 
@@ -10,7 +10,7 @@
 4. [Procedimiento manual](procedimiento-privacidad-piloto.md).
 5. [Revisión y pendientes](../operations/LEGAL_PILOT_PREPARATION_20261013.md).
 
-Versiones 1.0. Responsable persona natural identificado por él mismo; contacto facilitado, Oracle Cloud Colombia Central confirmado y conservación mínima elegida hasta treinta días tras cierre. No se inventan NIT, persona jurídica, firmas o aceptación de terceros.
+Versiones 1.1. Responsable persona natural identificado por él mismo; contacto facilitado, Oracle Cloud Colombia Central confirmado y conservación mínima elegida hasta treinta días tras cierre. No se inventan NIT, persona jurídica, firmas o aceptación de terceros.
 
 ## Copias completas
 

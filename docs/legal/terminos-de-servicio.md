@@ -1,6 +1,6 @@
 # Condiciones de uso — piloto interno de Mateos Pet AI
 
-**Versión:** 1.0, preparada el 13 de octubre de 2026. **Copia:** plantilla pública; identidad y contacto completos en la versión privada. No habilita contratación comercial o beta externa.
+**Versión:** 1.1, preparada el 14 de octubre de 2026. **Copia:** plantilla pública; identidad y contacto completos en la versión privada. No habilita contratación comercial o beta externa.
 
 ## 1. Prestador y alcance
 

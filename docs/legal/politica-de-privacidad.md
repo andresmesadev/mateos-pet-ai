@@ -1,6 +1,6 @@
 # Política de tratamiento de datos — piloto interno de Mateos Pet AI
 
-**Versión:** 1.0, preparada el 13 de octubre de 2026. **Copia:** plantilla pública; contacto completo en la versión privada del responsable. No es una política publicada en la aplicación ni una autorización ya otorgada por participantes.
+**Versión:** 1.1, preparada el 14 de octubre de 2026. **Copia:** plantilla pública; contacto completo en la versión privada del responsable. No es una política publicada en la aplicación ni una autorización ya otorgada por participantes.
 
 ## 1. Responsable y alcance
 
@@ -37,14 +37,15 @@ No se solicitan datos sensibles de personas. Puedes no enviarlos, no usar audio,
 
 ## 5. Infraestructura y proveedores
 
-| Destino | Estado verificado el 13 de octubre | Información que puede recibir |
+| Destino | Configuración observada (VPS: 13 de octubre; DNS de correo: 14 de octubre) | Información que puede recibir |
 | --- | --- | --- |
 | Oracle Cloud Infrastructure, `sa-bogota-1` | VPS y PostgreSQL en Bogotá, Colombia | Base, archivos y logs alojados en esa infraestructura, con administración autorizada |
 | Meta / WhatsApp Cloud API | Canal de prueba configurado | Teléfono, perfil, mensajes/media y metadatos de entrega |
 | OpenAI API | Configurada | Texto e historial seleccionado, contexto de reserva/negocio, texto para índices semánticos y audios cuando se usan. Puede incluir nombres o dirección presentes en la prueba |
+| Hostinger Email | Ruta del dominio del canal de privacidad/soporte configurada mediante MX; buzón y recepción aún por validar | Remitente, contenido y metadatos de solicitudes cuando se envían al canal designado; no acceso al expediente de mascotas por este hecho |
 | Equipo local del responsable | Copia independiente cifrada y ensayos locales autorizados | Respaldos, bases de prueba y evidencias restringidas, excluidos de GitHub |
 
-La región de la VPS se verificó en metadatos de instancia; Oracle la identifica como [Colombia Central, Bogotá](https://docs.oracle.com/en-us/iaas/Content/General/Concepts/regions.htm). Esto no significa que Meta, OpenAI o sus proveedores procesen exclusivamente en Colombia.
+La región de la VPS se verificó en metadatos de instancia; Oracle la identifica como [Colombia Central, Bogotá](https://docs.oracle.com/en-us/iaas/Content/General/Concepts/regions.htm). Esto no significa que Meta, OpenAI, el correo o sus proveedores procesen exclusivamente en Colombia. Los [MX de Hostinger](https://www.hostinger.com/support/4407237-hostinger-email-mx-records/) identifican la ruta de correo; no acreditan existencia del buzón ni mensajes recibidos.
 
 Google Calendar, Stripe y Sentry no estaban configurados en esta VPS. Antes de activarlos se revisarán finalidad, datos y condiciones: Calendar puede recibir nombre/tipo de mascota y teléfono del dueño además del servicio/horario; Stripe, datos de facturación; Sentry, información de errores según su configuración. Su código existente no los convierte en proveedores activos de estas pruebas.
 
