@@ -11,7 +11,7 @@
 
 ## Solicitudes
 
-Canal **{{CORREO}}**, responsable **{{RESPONSABLE}}**, contacto alterno **{{TELEFONO}}**. Recepción/seguimiento manuales. El 14 de octubre se comprobaron la recepción técnica del buzón y la llegada de la consulta de prueba. Registro, alcance y búsqueda principal preparados privadamente; entrega de respuesta e inventario extendido pendientes. Una petición por WhatsApp se traslada al responsable sin confiar exclusivamente en el bot.
+Canal **{{CORREO}}**, responsable **{{RESPONSABLE}}**, contacto alterno **{{TELEFONO}}**. Recepción/seguimiento manuales. El 14 de octubre se comprobaron la llegada de la consulta de prueba y la recepción de su acuse en el correo del solicitante. Registro, alcance y búsqueda principal preparados privadamente; entrega de respuesta e inventario extendido pendientes. Una petición por WhatsApp se traslada al responsable sin confiar exclusivamente en el bot.
 
 | Paso | Acción |
 | --- | --- |
@@ -45,6 +45,7 @@ Usar registros ficticios y una base aislada. No enviar comunicaciones en nombre 
 | --- | --- | --- |
 | Recepción técnica del canal | Evidencia privada de mensaje recibido y acceso al buzón | Comprobada, 14 de octubre; hora mostrada 12:50 Colombia, sin inspección de cabeceras |
 | Consulta por el canal | Solicitud concreta del responsable recibida, registrada y con vencimiento | Recibida el 14 de octubre, hora mostrada 13:07 Colombia; alcance confirmado directamente por el responsable y límite interno conservador registrado |
+| Acuse de recepción | Comunicación del responsable recibida por el solicitante | Comprobada mediante captura privada, 14 de octubre, hora mostrada 13:24 Colombia; no equivale a respuesta sustantiva |
 | Información/autorización | Versiones completas entregadas y dos decisiones separadas por persona | Por registrar |
 | Consulta/rectificación | Respuesta privada acotada sin otro titular y corrección contrastada | Búsqueda principal y borradores preparados; inventario extendido, entrega y rectificación pendientes |
 | Supresión/anonimización | Inventario, operación acotada probada, copias y excepciones documentadas | Por ensayar; no ejecutada aquí |

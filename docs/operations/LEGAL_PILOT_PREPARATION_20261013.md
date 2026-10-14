@@ -60,7 +60,7 @@ Se utilizó la guía **legal:compliance-check** de la sesión para la evaluació
 | Pendiente | Evidencia necesaria |
 | --- | --- |
 | Entrega y autorización individual | Versión privada entregada y dos decisiones separadas por cada participante real. Una ficha anterior no acredita su autorización |
-| Canal de solicitudes | Consulta concreta recibida y registrada el 14 de octubre, alcance confirmado directamente por el responsable. Acuse y respuesta principal preparados; falta envío/recepción documentados e inventario extendido. No se envió correo en su nombre |
+| Canal de solicitudes | Consulta concreta recibida y registrada el 14 de octubre, alcance confirmado directamente por el responsable. Acuse enviado por él y recibido por el solicitante, con captura privada. Faltan revisión extendida y entrega de respuesta sustantiva; el asistente no envió correo en su nombre |
 | Consulta/rectificación y supresión acotada | Ensayo aislado según el procedimiento, incluidas memoria/logs/copias, sin alterar registros ajenos o inmutables a ciegas |
 | Condiciones de proveedores | Registro de condiciones efectivamente aplicables a las cuentas y cadena/roles de tratamiento; leer una página no acredita acuerdo completo |
 | Cierre del piloto | Fecha real y revisión/ejecución al límite elegido; no inventar un cierre para borrar datos ahora |
@@ -110,3 +110,11 @@ Lectura de PostgreSQL acotada al tenant y al único cliente del teléfono confir
 Acuse y respuesta principal listos para revisión, **no enviados**. La búsqueda todavía no examina JSON de sesión, vectores numéricos, payloads completos, logs generales, contenido de respaldos o registros propios de proveedores; el resumen declara esa limitación y no se presenta como respuesta exhaustiva. El paso 7 permanece abierto para completar alcance/entrega, aceptaciones individuales y los demás ensayos del procedimiento. La preparación no acredita cumplimiento jurídico ni cierra por sí sola una consulta integral.
 
 Verificación de este seguimiento: siete documentos públicos sin coincidencias del contacto privado o del remitente; copia de mensajes completa para el perfil consultado, fechas de citas convertidas y contrastadas en Colombia, acuse/respuesta aún marcados no enviados. `git check-ignore` confirmó que textos completos, copia y captura quedan fuera de Git. Lint frontend exit 0; siete tests de herramientas/observación aprobados, cero fallidos, exit 0, 905,873 ms; `git diff --check` exit 0. Sin cambios de código, versión, migración, reinicio o eliminación.
+
+### Acuse recibido — 14 de octubre, 13:24
+
+El responsable aportó una captura de Gmail que muestra el acuse recibido a las 13:24. La fecha corresponde al contexto de esta sesión; la hora es la mostrada en la interfaz, interpretada en Colombia, sin inspeccionar cabeceras. El registro privado marca el acuse enviado por el responsable y recibido; no asigna una hora de envío exacta a partir de la recepción. Captura/SHA-256 y borrador previo conservados privadamente.
+
+El recorrido de correo de esta prueba queda comprobado en ambos sentidos: consulta entrante y acuse recibido por el solicitante. No acredita entrega de respuesta sustantiva, aceptación de participantes ni disponibilidad continua del correo. El paso 7 sigue abierto por la revisión extendida, respuesta/entrega y los demás ensayos y aceptaciones individuales. Los próximos textos de correo se separan de instrucciones internas para facilitar su copia. No se enviaron mensajes desde herramientas del asistente.
+
+Verificación del registro de acuse: imagen/SHA-256 coinciden, acuse marcado enviado/recibido y respuesta sustantiva no enviada; siete documentos públicos sin contactos privados ni enlaces locales rotos. Evidencia y copias excluidas por `git check-ignore`. Lint frontend exit 0; siete tests de herramientas/observación aprobados, cero fallidos, exit 0, 902,7444 ms; `git diff --check` exit 0. Solo documentación: sin cambios funcionales, migraciones, reinicios o eliminación de datos.
