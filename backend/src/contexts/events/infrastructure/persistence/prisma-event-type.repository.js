@@ -6,8 +6,8 @@ class PrismaEventTypeRepository extends EventTypeRepositoryPort {
     return prisma.eventType.create({ data });
   }
 
-  async findByName(name) {
-    return prisma.eventType.findUnique({ where: { name } });
+  async findByName(name, ctx) {
+    return (ctx?.tx ?? prisma).eventType.findUnique({ where: { name } });
   }
 
   async deactivate(id) {

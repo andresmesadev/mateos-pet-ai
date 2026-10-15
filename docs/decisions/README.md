@@ -23,5 +23,6 @@ Se conservan los identificadores y archivos originales. Existen **dos ADR con n�
 | [016-venta-inventario-atomica.md](016-venta-inventario-atomica.md) | ADR 016 — Coordinar venta y stock en una confirmación atómica |
 | [017-reportes-comparacion-equivalente.md](017-reportes-comparacion-equivalente.md) | ADR 017 — Comparación y salida de Reportes |
 | [018-equipo-ausencias-capacidades-franjas.md](018-equipo-ausencias-capacidades-franjas.md) | ADR 018 — Corrección de ausencias, capacidades y jornadas partidas |
+| [022-empleados-operativos-canal-whatsapp.md](022-empleados-operativos-canal-whatsapp.md) | ADR 022 — Acceso de operadores a empleados operativos por WhatsApp (aceptado con Etapa 3; todavía no implementado) |
 
 Una fecha o estado en un ADR describe su aprobación. Para comprobar implementación/publicación posterior, consultar el [estado actual](../ESTADO_ACTUAL.md), los informes enlazados y las decisiones posteriores del mismo contexto.

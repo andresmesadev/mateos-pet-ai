@@ -34,6 +34,7 @@ function effectiveAccess(actor, modules) {
   if (known) navigation.push("/dashboard/conversations");
   if (cash) navigation.push("/dashboard/pos");
   if (capabilities.inventory_read) navigation.push("/dashboard/inventory");
+  if (capabilities.finance || capabilities.inventory_read) navigation.push("/dashboard/assistants");
   if (admin) navigation.push("/dashboard/settings", "/dashboard/staff", "/dashboard/services", "/dashboard/billing", "/dashboard/recuperacion", "/dashboard/churn", "/dashboard/opportunities", "/dashboard/reactivation", "/dashboard/revenue", "/dashboard/reports", "/dashboard/admin/tenants-overview");
   return { role, staffId: actor?.staffId ?? null, activeModules, accessPermissions: extras, capabilities, navigation: known ? navigation : [] };
 }

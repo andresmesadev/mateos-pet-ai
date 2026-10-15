@@ -2,8 +2,8 @@ const prisma = require("../../../../lib/prisma");
 const { FinancialPeriodRepositoryPort } = require("../../application/ports/financial-period-repository.port");
 
 class PrismaFinancialPeriodRepository extends FinancialPeriodRepositoryPort {
-  async findByRange(tenantId, periodStart, periodEnd) {
-    return prisma.financialPeriod.findFirst({
+  async findByRange(tenantId, periodStart, periodEnd, ctx) {
+    return (ctx?.tx ?? prisma).financialPeriod.findFirst({
       where: { ...(tenantId ? { tenantId } : {}), periodStart, periodEnd },
     });
   }

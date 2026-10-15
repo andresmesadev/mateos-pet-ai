@@ -18,6 +18,10 @@ class PrismaEventDeliveryRepository extends EventDeliveryRepositoryPort {
   // reescribe; el reintento solo aplica mientras el último intento conocido
   // haya sido un fallo).
   async findLastFailedForConsumer(domainEventId, consumer) {
+    const owned = await prisma.publicationIntent.findMany({
+      where: { domainEventId }, select: { domainEventId: true }, take: 1,
+    });
+    if (owned.length) return null;
     const last = await prisma.eventDelivery.findFirst({
       where: { domainEventId, consumer },
       orderBy: { createdAt: "desc" },
@@ -38,10 +42,17 @@ class PrismaEventDeliveryRepository extends EventDeliveryRepositoryPort {
 
     const seen = new Set();
     const pending = [];
+    const ids = [...new Set(deliveries.map(delivery => delivery.domainEventId))];
+    // Operational assistants own their notification lifecycle, including uncertain starts.
+    // Exclude every linked intent regardless of state; legacy events keep their old policy.
+    const intents = ids.length ? await prisma.publicationIntent.findMany({
+      where: { domainEventId: { in: ids } }, select: { domainEventId: true },
+    }) : [];
+    const owned = new Set(intents.map(intent => intent.domainEventId));
     for (const delivery of deliveries) {
       if (seen.has(delivery.domainEventId)) continue;
       seen.add(delivery.domainEventId);
-      if (delivery.status === "failed") {
+      if (delivery.status === "failed" && !owned.has(delivery.domainEventId)) {
         pending.push(delivery.domainEvent);
       }
     }

@@ -27,8 +27,9 @@ function buildInventoryReads({ unitOfWork, accessReader, clock = () => new Date(
         available: availableLot(l, today) ? l.balancePhysical : 0, expiresSoon: !!expiryKey(l) && expiryKey(l) > today && expiryKey(l) <= through })),
     };
   }
-  async function list({ tenantId, actor, query = {} }) {
-    return unitOfWork.run(async ctx => {
+  const read = (ctx, fn) => ctx?.tx ? fn(ctx) : unitOfWork.run(fn);
+  async function list({ tenantId, actor, query = {} }, ctx) {
+    return read(ctx, async ctx => {
       const access = await accessReader.readAccess({ tenantId, actor }, ctx);
       if (!access.capabilities.inventory_read) fail('ACCESS_DENIED', 'No tienes acceso al inventario.', 403);
       const permitted = usesFor(access);
@@ -70,8 +71,8 @@ function buildInventoryReads({ unitOfWork, accessReader, clock = () => new Date(
       return { data: rows.slice(0, limit).map(p => dto(p, access, today)), nextCursor: rows.length > limit ? Buffer.from(JSON.stringify({ version: 1, id: rows[limit - 1].id, scope: cursorScope })).toString('base64url') : null, today };
     });
   }
-  async function detail({ tenantId, actor, id }) {
-    return unitOfWork.run(async ctx => {
+  async function detail({ tenantId, actor, id }, ctx) {
+    return read(ctx, async ctx => {
       const access = await accessReader.readAccess({ tenantId, actor }, ctx);
       if (!access.capabilities.inventory_read) fail('ACCESS_DENIED', 'No tienes acceso al inventario.', 403);
       const p = await ctx.tx.inventoryProduct.findFirst({ where: { tenantId, id }, include: { lots: true } });
@@ -80,8 +81,8 @@ function buildInventoryReads({ unitOfWork, accessReader, clock = () => new Date(
       return dto(p, access, civilDateKey(clock()));
     });
   }
-  async function movements({ tenantId, actor, id, cursor }) {
-    return unitOfWork.run(async ctx => {
+  async function movements({ tenantId, actor, id, cursor }, ctx) {
+    return read(ctx, async ctx => {
       const access = await accessReader.readAccess({ tenantId, actor }, ctx);
       if (!access.capabilities.inventory_manage) fail('ACCESS_DENIED', 'El historial completo requiere administración.', 403);
       if (!await ctx.tx.inventoryProduct.findFirst({ where: { tenantId, id }, select: { id: true } })) fail('PRODUCT_NOT_FOUND', 'Producto no encontrado.', 404);
@@ -91,8 +92,8 @@ function buildInventoryReads({ unitOfWork, accessReader, clock = () => new Date(
       return { data: rows.slice(0, 100), nextCursor: rows.length > 100 ? rows[99].id : null };
     });
   }
-  async function context({ tenantId, actor }) {
-    return unitOfWork.run(async ctx => {
+  async function context({ tenantId, actor }, ctx) {
+    return read(ctx, async ctx => {
       const access = await accessReader.readAccess({ tenantId, actor }, ctx);
       if (!access.capabilities.inventory_read) fail('ACCESS_DENIED', 'No tienes acceso al inventario.', 403);
       return { scope: createHash('sha256').update(JSON.stringify([tenantId, access.principalKey, actor.sessionVersion ?? 0])).digest('hex') };

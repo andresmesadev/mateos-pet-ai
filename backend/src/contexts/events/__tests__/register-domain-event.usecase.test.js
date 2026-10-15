@@ -12,6 +12,32 @@ function buildDeps(overrides = {}) {
 }
 
 describe("registerDomainEvent — reactor genérico (Entregable 5.4)", () => {
+  test('certificación diferida conserva id estable y no invoca reactor', async () => {
+    const reactor = { notify: jest.fn() };
+    const deps = buildDeps({ reactor });
+    deps.domainEventRepository.findById = jest.fn().mockResolvedValue(null);
+    const ctx = { tx: {} };
+    const input = { id: 'intent-1', dispatch: 'deferred', tenantId: 't-1', eventTypeName: 'GastoRegistrado', payload: { expenseId: 'e' }, origin: 'Finanzas', occurredAt: '2026-10-14T12:00:00Z' };
+    const execute = createRegisterDomainEventUseCase(deps);
+    await execute(input, ctx);
+    expect(deps.domainEventRepository.create).toHaveBeenCalledWith(expect.objectContaining({ id: 'intent-1' }), ctx);
+    expect(reactor.notify).not.toHaveBeenCalled();
+  });
+
+  test('replay estricto recupera sin recertificar ni repetir el reactor', async () => {
+    const reactor = { notify: jest.fn() };
+    const deps = buildDeps({ reactor });
+    const previous = { id: 'intent-1', tenantId: 't-1', eventTypeId: 'et-1', payload: { nested: { b: 2, a: 1 } }, origin: 'Finanzas', occurredAt: new Date('2026-10-14T12:00:00Z') };
+    deps.domainEventRepository.findById = jest.fn().mockResolvedValue(previous);
+    const execute = createRegisterDomainEventUseCase(deps);
+    const input = { id: 'intent-1', dispatch: 'deferred', tenantId: 't-1', eventTypeName: 'GastoRegistrado', payload: { nested: { a: 1, b: 2 } }, origin: 'Finanzas', occurredAt: '2026-10-14T12:00:00Z' };
+    await expect(execute(input)).resolves.toEqual({ domainEvent: previous, replayed: true });
+    await expect(execute({ ...input, tenantId: 'other' })).rejects.toThrow(InvalidDomainEventAttributesError);
+    await expect(execute({ ...input, payload: { changed: true } })).rejects.toThrow(InvalidDomainEventAttributesError);
+    await expect(execute({ ...input, occurredAt: '2026-10-15T12:00:00Z' })).rejects.toThrow(InvalidDomainEventAttributesError);
+    expect(deps.domainEventRepository.create).not.toHaveBeenCalled();
+    expect(reactor.notify).not.toHaveBeenCalled();
+  });
   test("sin reactor inyectado, no falla (default no-op)", async () => {
     const execute = createRegisterDomainEventUseCase(buildDeps());
     await expect(

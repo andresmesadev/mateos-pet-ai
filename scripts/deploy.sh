@@ -27,5 +27,17 @@ done
   echo "Deploy stopped: backend health check did not recover." >&2
   exit 1
 }
+operator_ok=false
+for attempt in {1..10}; do
+  if docker compose exec -T backend node src/scripts/check-operator-channel.js; then
+    operator_ok=true
+    break
+  fi
+  sleep 2
+done
+[[ "$operator_ok" == true ]] || {
+  echo "Deploy stopped: private operator channel verification failed." >&2
+  exit 1
+}
 echo
 echo "Deploy complete: $(git rev-parse --short HEAD)"

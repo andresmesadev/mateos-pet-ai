@@ -1,6 +1,6 @@
 {
   "name": "mateos-pet-ai",
-  "version": "2.46.7",
+  "version": "2.48.0",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -9,7 +9,10 @@
     "test": "jest",
     "test:coverage": "jest --coverage",
     "test:watch": "jest --watch",
-    "test:postgres": "node --test tests/postgres/inbound-queue.test.cjs"
+    "test:postgres": "node --test tests/postgres/inbound-queue.test.cjs",
+    "test:operational:postgres": "node --test tests/postgres/operational-assistants.test.cjs",
+    "test:operator-whatsapp:postgres": "node --test tests/postgres/operator-whatsapp.test.cjs",
+    "check:operator-channel": "node src/scripts/check-operator-channel.js"
   },
   "repository": {
     "type": "git",

@@ -1,4 +1,11 @@
 const { InvalidDomainEventAttributesError, EventTypeNotFoundError, EventTypeNotActiveError } = require("../../domain/errors");
+const { isDeepStrictEqual } = require('node:util');
+
+function sameEnvelope(event, expected) {
+  return event.tenantId === expected.tenantId && event.eventTypeId === expected.eventTypeId &&
+    event.origin === expected.origin && new Date(event.occurredAt).getTime() === expected.occurredAt.getTime() &&
+    isDeepStrictEqual(JSON.parse(JSON.stringify(event.payload)), JSON.parse(JSON.stringify(expected.payload)));
+}
 
 /**
  * RegisterDomainEventUseCase — Operación (reactivo). Caso de uso 3 (Etapa 2).
@@ -28,7 +35,7 @@ function createRegisterDomainEventUseCase({
   eventPublisher,
   reactor = { notify: async () => {} },
 }) {
-  return async function execute({ tenantId, eventTypeName, payload, origin, occurredAt }, ctx) {
+  return async function execute({ id, dispatch, tenantId, eventTypeName, payload, origin, occurredAt }, ctx) {
     if (!tenantId) {
       throw new InvalidDomainEventAttributesError("tenantId es obligatorio (Invariante 4).");
     }
@@ -39,9 +46,23 @@ function createRegisterDomainEventUseCase({
       throw new InvalidDomainEventAttributesError("origin es obligatorio.");
     }
 
-    const eventType = await eventTypeRepository.findByName(eventTypeName);
+    if (dispatch !== undefined && dispatch !== 'deferred') throw new InvalidDomainEventAttributesError('dispatch no reconocido.');
+    if (id !== undefined && (typeof id !== 'string' || !id || dispatch !== 'deferred' || !occurredAt)) {
+      throw new InvalidDomainEventAttributesError('La identidad estable exige certificación diferida y fecha explícita.');
+    }
+    const eventDate = occurredAt ? new Date(occurredAt) : new Date();
+    if (!Number.isFinite(eventDate.getTime())) throw new InvalidDomainEventAttributesError('occurredAt no es válido.');
+    const eventType = await eventTypeRepository.findByName(eventTypeName, ctx);
     if (!eventType) {
       throw new EventTypeNotFoundError(eventTypeName);
+    }
+    const envelope = { tenantId, eventTypeId: eventType.id, payload: payload ?? null, origin: origin.trim(), occurredAt: eventDate };
+    if (id) {
+      const previous = await domainEventRepository.findById(id, ctx);
+      if (previous) {
+        if (!sameEnvelope(previous, envelope)) throw new InvalidDomainEventAttributesError('La identidad del evento pertenece a otro contenido.');
+        return { domainEvent: previous, replayed: true };
+      }
     }
     if (!eventType.active) {
       throw new EventTypeNotActiveError(eventTypeName);
@@ -49,16 +70,15 @@ function createRegisterDomainEventUseCase({
 
     const domainEvent = await domainEventRepository.create(
       {
-        tenantId,
-        eventTypeId: eventType.id,
-        payload: payload ?? null,
-        origin: origin.trim(),
-        occurredAt: occurredAt ? new Date(occurredAt) : new Date(),
+        ...envelope,
+        ...(id ? { id } : {}),
       },
       ctx
     );
 
     await eventPublisher.publish("EventoDeDominioRegistrado", { domainEvent });
+
+    if (dispatch === 'deferred') return { domainEvent, replayed: false };
 
     try {
       await reactor.notify({ domainEvent, eventTypeName, payload }, ctx);

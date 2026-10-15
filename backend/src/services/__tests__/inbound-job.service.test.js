@@ -1,6 +1,7 @@
 jest.mock("../../lib/prisma", () => ({
   inboundJob: { findUnique: jest.fn(), findFirst: jest.fn(), create: jest.fn(), updateMany: jest.fn() },
   $transaction: jest.fn(),
+  $queryRaw: jest.fn(),
 }));
 
 const prisma = require("../../lib/prisma");
@@ -196,14 +197,11 @@ describe("markInboundJobFailed", () => {
 describe("lease and safe recovery", () => {
   test("expone el próximo intento persistido sin hacer polling", async () => {
     const nextAttemptAt = new Date("2026-09-18T22:30:00.000Z");
-    prisma.inboundJob.findFirst.mockResolvedValue({ nextAttemptAt });
+    prisma.$queryRaw.mockResolvedValue([{ nextAttemptAt }]);
 
     await expect(getNextInboundAttemptAt()).resolves.toEqual(nextAttemptAt);
-    expect(prisma.inboundJob.findFirst).toHaveBeenCalledWith({
-      where: { status: "received", attempts: { lt: MAX_ATTEMPTS } },
-      orderBy: [{ nextAttemptAt: "asc" }, { createdAt: "asc" }],
-      select: { nextAttemptAt: true },
-    });
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(prisma.$queryRaw.mock.calls[0][0].join(' ')).toContain('"resolvedOrdinal"+1');
   });
 
   test.each(["processing", "sending"])("%s incierto nunca se reencola", async (phase) => {

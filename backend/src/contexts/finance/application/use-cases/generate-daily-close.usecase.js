@@ -22,8 +22,9 @@ function createGenerateDailyCloseUseCase({
   completedAppointmentsReader,
   dailyCloseRepository,
   eventPublisher,
+  businessDayGate,
 }) {
-  return async function execute({ tenantId, date }) {
+  return async function execute({ tenantId, date }, ctx) {
     if (!tenantId) {
       throw new MissingTenantError();
     }
@@ -32,16 +33,17 @@ function createGenerateDailyCloseUseCase({
     const { start, end } = civilDayBounds(ymd);
     const label = civilDateLabel(ymd);
 
-    const existing = await dailyCloseRepository.findByDate(tenantId, label);
+    if (businessDayGate) await businessDayGate.acquire(tenantId, ymd, ctx);
+    const existing = await dailyCloseRepository.findByDate(tenantId, label, ctx);
     if (existing) {
       throw new DuplicateDailyCloseError(ymd);
     }
 
     const [charges, expenses, commissions, completedAppointments] = await Promise.all([
-      transactionRepository.listByDateRange(tenantId, start, end),
-      expenseRepository.listByDateRange(tenantId, start, end),
-      commissionReader.listByDateRange(tenantId, start, end),
-      completedAppointmentsReader.listCompletedInRange(tenantId, start, end),
+      transactionRepository.listByDateRange(tenantId, start, end, ctx),
+      expenseRepository.listByDateRange(tenantId, start, end, ctx),
+      commissionReader.listByDateRange(tenantId, start, end, ctx),
+      completedAppointmentsReader.listCompletedInRange(tenantId, start, end, ctx),
     ]);
 
     const chargedAppointmentIds = new Set(
@@ -65,7 +67,7 @@ function createGenerateDailyCloseUseCase({
         expenseTotal: summary.expenseTotal,
         netAmount: summary.netAmount,
         staffBreakdown: summary.staffBreakdown,
-      });
+      }, ctx);
     } catch (err) {
       if (err && err.code === "UNIQUE_DAILY_CLOSE_VIOLATION") {
         throw new DuplicateDailyCloseError(ymd);
@@ -73,7 +75,7 @@ function createGenerateDailyCloseUseCase({
       throw err;
     }
 
-    await eventPublisher.publish("CierreDíaGenerado", { dailyClose });
+    await (ctx?.eventPublisher ?? eventPublisher).publish("CierreDíaGenerado", { dailyClose });
 
     return { dailyClose };
   };

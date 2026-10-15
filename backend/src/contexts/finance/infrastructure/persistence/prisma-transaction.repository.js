@@ -17,8 +17,8 @@ class PrismaTransactionRepository extends TransactionRepositoryPort {
 
   // Solo el ingreso ACTIVO cuenta (Etapa 4 del Puente): las anuladas quedan
   // para trazabilidad, nunca para consolidación.
-  async listByDateRange(tenantId, dateStart, dateEnd) {
-    return prisma.transaction.findMany({
+  async listByDateRange(tenantId, dateStart, dateEnd, ctx) {
+    return (ctx?.tx ?? prisma).transaction.findMany({
       where: {
         ...(tenantId ? { tenantId } : {}),
         status: "active",

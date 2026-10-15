@@ -117,9 +117,16 @@ const { CertifyingDomainEventPublisher } = require('./shared/events/certifying-d
 const { buildConfirmPosSale } = require('../application/workflows/pos/confirm-pos-sale');
 const inventory = buildInventoryContext({ unitOfWork, eventPublisher: new CertifyingDomainEventPublisher({ registerDomainEvent: events.registerDomainEvent, originContext: 'Inventario' }) });
 const confirmPosSale = buildConfirmPosSale({ inventory: inventory.commands, finance, repository: inventory.repository, accessReader: inventory.accessReader, unitOfWork });
+const { buildOperationalContext } = require('./agents/operational');
+const { buildOperatorChannel } = require('../application/operator-channel');
+const operatorChannel = buildOperatorChannel({ prisma: require('../lib/prisma'), accessReader: inventory.accessReader,
+  buildOperational: operatorAccess => buildOperationalContext({ prisma: require('../lib/prisma'), unitOfWork, finance, inventory, events, operatorAccess }) });
+const operationalAssistants = operatorChannel.operational;
 
 module.exports = {
   inventory,
+  operationalAssistants,
+  operatorChannel,
   confirmPosSale,
   dispatcher,
   completeAppointment: agenda.completeAppointment,

@@ -18,9 +18,9 @@ class PrismaDailyCloseRepository extends DailyCloseRepositoryPort {
     });
   }
 
-  async create(data) {
+  async create(data, ctx) {
     try {
-      return await prisma.dailyClose.create({ data });
+      return await (ctx?.tx ?? prisma).dailyClose.create({ data });
     } catch (err) {
       if (isUniqueDateViolation(err)) {
         const wrapped = new Error("Violación del índice único de DailyClose");
@@ -31,8 +31,8 @@ class PrismaDailyCloseRepository extends DailyCloseRepositoryPort {
     }
   }
 
-  async listByDateRange(tenantId, dateStart, dateEnd) {
-    return prisma.dailyClose.findMany({
+  async listByDateRange(tenantId, dateStart, dateEnd, ctx) {
+    return (ctx?.tx ?? prisma).dailyClose.findMany({
       where: {
         ...(tenantId ? { tenantId } : {}),
         date: { gte: dateStart, lte: dateEnd },

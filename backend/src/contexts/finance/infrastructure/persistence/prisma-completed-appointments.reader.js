@@ -5,8 +5,8 @@ const prisma = require("../../../../lib/prisma");
  * lectura, no una dependencia estructural; precedente: CommissionReaderPort.
  */
 class PrismaCompletedAppointmentsReader {
-  async listCompletedInRange(tenantId, dateStart, dateEnd) {
-    return prisma.appointment.findMany({
+  async listCompletedInRange(tenantId, dateStart, dateEnd, ctx) {
+    return (ctx?.tx ?? prisma).appointment.findMany({
       where: {
         ...(tenantId ? { tenantId } : {}),
         status: "completed",

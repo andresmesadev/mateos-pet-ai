@@ -6,8 +6,8 @@ class PrismaDigitalEmployeeRepository extends DigitalEmployeeRepositoryPort {
     return prisma.digitalEmployee.create({ data });
   }
 
-  async findById(id) {
-    return prisma.digitalEmployee.findUnique({ where: { id } });
+  async findById(id, ctx) {
+    return (ctx?.tx ?? prisma).digitalEmployee.findUnique({ where: { id } });
   }
 
   async pause(id) {

@@ -56,10 +56,18 @@ const retryEventDelivery = createRetryEventDeliveryMechanism({
 });
 const listDomainEventsAwaitingRetry = createListDomainEventsAwaitingRetryMechanism({ eventDeliveryRepository });
 
+// Internal postcommit delivery: never creates another certificate and never accepts a tx.
+async function notifyCertifiedEvent({ id }) {
+  const domainEvent = await domainEventRepository.findById(id);
+  if (!domainEvent) throw new Error('Certified domain event not found');
+  return domainEventReactor.notify({ domainEvent, eventTypeName: domainEvent.eventType.name, payload: domainEvent.payload });
+}
+
 module.exports = {
   registerEventType,
   deactivateEventType,
   registerDomainEvent,
+  notifyCertifiedEvent,
   getEventCatalog,
   listDomainEvents,
   listEventDeliveries,

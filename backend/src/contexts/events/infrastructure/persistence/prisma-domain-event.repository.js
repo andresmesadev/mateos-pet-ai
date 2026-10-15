@@ -7,8 +7,8 @@ class PrismaDomainEventRepository extends DomainEventRepositoryPort {
     return client.domainEvent.create({ data });
   }
 
-  async findById(id) {
-    return prisma.domainEvent.findUnique({ where: { id } });
+  async findById(id, ctx) {
+    return (ctx?.tx ?? prisma).domainEvent.findUnique({ where: { id }, include: { eventType: { select: { name: true } } } });
   }
 
   async listByFilters({ tenantId, eventTypeName, dateStart, dateEnd }) {

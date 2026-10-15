@@ -1,5 +1,5 @@
 class FinancialPeriodRepositoryPort {
-  async findByRange(_tenantId, _periodStart, _periodEnd) {
+  async findByRange(_tenantId, _periodStart, _periodEnd, _ctx) {
     throw new Error("FinancialPeriodRepositoryPort.findByRange no implementado");
   }
   async create(_data) {

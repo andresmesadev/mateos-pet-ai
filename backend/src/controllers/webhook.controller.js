@@ -7,7 +7,7 @@ const { recordDeliveryReceipts } = require("../services/whatsapp-delivery-receip
 // ejecuta el pipeline real (contexts/receptionist → whatsapp.service.js),
 // exactamente el mismo que corría aquí antes de este entregable — sin
 // duplicar ni un fragmento de su lógica.
-const { enqueueInboundJob } = require("../services/inbound-job.service");
+const { enqueueInboundJob, enqueueOperatorJob } = require("../services/inbound-job.service");
 const { requestInboundDrain } = require("../jobs/inbound-message.job");
 
 const verifyWebhook = (req, res, next) => {
@@ -32,6 +32,7 @@ const verifyWebhook = (req, res, next) => {
 const receiveWebhook = async (req, res, next) => {
   try {
     await recordDeliveryReceipts(req.body);
+    const internal = await require('../contexts').operatorChannel.ingress(req.body, enqueueOperatorJob);
     // parseIncomingMessage (no processIncomingMessage) solo para obtener un
     // wamid con el que encolar de forma idempotente — no ejecuta ningún
     // efecto secundario. Payload sin ningún mensaje soportado: nada que
@@ -39,15 +40,17 @@ const receiveWebhook = async (req, res, next) => {
     const parsed = typeof parseIncomingMessages === "function" ? parseIncomingMessages(req.body) : [parseIncomingMessage(req.body)].filter(Boolean);
 
     if (!parsed.length) {
+      if (internal.created) requestInboundDrain();
       return res.sendStatus(200);
     }
 
     // wamid ausente (no debería ocurrir con Meta real, pero un payload de
     // prueba podría no traerlo): se sintetiza una clave con remitente+hora
     // para no perder el mensaje, al costo de no poder deduplicar ese caso.
-    let createdAny = false;
+    let createdAny = internal.created;
     // Una entrada durable por mensaje: un duplicado no descarta sus hermanos.
     for (const item of parsed) {
+      if (internal.handled.has(item.wamid)) continue;
       let payload = req.body;
       if (Array.isArray(req.body?.entry)) {
         const entry = req.body.entry.find(e => e.changes?.some(c => c.value?.messages?.some(m => m.id === item.wamid && m.from === item.from)));

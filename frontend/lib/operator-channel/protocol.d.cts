@@ -1,0 +1,12 @@
+export type Claim = { v: number; keyVersion: string; purpose: string; operationId: string; nonce: string; issuedAt: string; expiresAt: string; body: Record<string, unknown> };
+export type Envelope = Claim & { signature: string };
+export function canonical(value: unknown): unknown;
+export function encode(value: unknown): string;
+export function digest(value: unknown): string;
+export function config(env?: NodeJS.ProcessEnv): { enabled: boolean; key: string; keyVersion: string };
+export function mac(key: string, purpose: string, value: unknown): string;
+export function equal(a: unknown, b: unknown): boolean;
+export function principal(email: string): string;
+export function token(): string;
+export function sign(key: string, keyVersion: string, purpose: string, body: Record<string, unknown>, ttl?: number, at?: Date, operationId?: string): Envelope;
+export function verify(key: string, keyVersion: string, envelope: unknown, purpose: string, ttl?: number, at?: Date): Claim;

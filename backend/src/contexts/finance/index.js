@@ -14,6 +14,8 @@ const { PrismaCommissionReader } = require("./infrastructure/persistence/prisma-
 const { PrismaCompletedAppointmentsReader } = require("./infrastructure/persistence/prisma-completed-appointments.reader");
 const { FinanceDomainEventsPublisher } = require("./infrastructure/events/finance-domain-events.publisher");
 const { PrismaUnitOfWork } = require("../shared/persistence/prisma-unit-of-work");
+const { PrismaBusinessDayGate } = require("../shared/persistence/prisma-business-day-gate");
+const { transactionalCommand } = require("../shared/persistence/transactional-events");
 const events = require("../events");
 
 const {
@@ -39,18 +41,18 @@ const completedAppointmentsReader = new PrismaCompletedAppointmentsReader();
 const eventPublisher = new FinanceDomainEventsPublisher({ registerDomainEvent: events.registerDomainEvent });
 const unitOfWork = new PrismaUnitOfWork();
 
-const registerExpense = createRegisterExpenseUseCase({ expenseRepository, dailyCloseRepository, eventPublisher });
-const voidExpense = createVoidExpenseUseCase({ expenseRepository, dailyCloseRepository, eventPublisher });
+function buildTransactionalFinance({ eventPublisher: publisher = eventPublisher, unitOfWork: work = unitOfWork, businessDayGate = new PrismaBusinessDayGate() } = {}) {
+  const deps = { expenseRepository, dailyCloseRepository, eventPublisher: publisher, businessDayGate };
+  const wrap = command => transactionalCommand(command, { unitOfWork: work, eventPublisher: publisher });
+  return {
+    registerExpense: wrap(createRegisterExpenseUseCase(deps)),
+    voidExpense: wrap(createVoidExpenseUseCase(deps)),
+    generateDailyClose: wrap(createGenerateDailyCloseUseCase({ ...deps, transactionRepository, commissionReader, completedAppointmentsReader })),
+  };
+}
+const { registerExpense, voidExpense, generateDailyClose } = buildTransactionalFinance();
 const recordChargeOnAppointmentCompleted = createRecordChargeOnAppointmentCompletedUseCase({
   transactionRepository,
-  eventPublisher,
-});
-const generateDailyClose = createGenerateDailyCloseUseCase({
-  transactionRepository,
-  expenseRepository,
-  commissionReader,
-  completedAppointmentsReader,
-  dailyCloseRepository,
   eventPublisher,
 });
 const generateFinancialPeriod = createGenerateFinancialPeriodUseCase({
@@ -77,6 +79,7 @@ const { PrismaPosReferencesReader } = require('./infrastructure/persistence/pris
 const registerManualSale = createRegisterManualSaleUseCase({ transactionRepository, referencesReader: new PrismaPosReferencesReader(), guardManualSaleLink, dailyCloseRepository });
 
 module.exports = {
+  buildTransactionalFinance,
   registerManualSale,
   registerExpense,
   voidExpense,

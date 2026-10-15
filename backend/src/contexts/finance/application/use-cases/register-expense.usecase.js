@@ -21,8 +21,8 @@ const VALID_CATEGORIES = ["supplies", "utilities", "rent", "salary", "equipment"
  * @param {import("../ports/daily-close-repository.port").DailyCloseRepositoryPort} deps.dailyCloseRepository
  * @param {import("../ports/domain-event-publisher.port").DomainEventPublisherPort} deps.eventPublisher
  */
-function createRegisterExpenseUseCase({ expenseRepository, dailyCloseRepository, eventPublisher }) {
-  return async function execute({ tenantId, amount, category, responsible, date, description, paymentMethod, notes }) {
+function createRegisterExpenseUseCase({ expenseRepository, dailyCloseRepository, eventPublisher, businessDayGate }) {
+  return async function execute({ tenantId, amount, category, responsible, date, description, paymentMethod, notes }, ctx) {
     if (!tenantId) {
       throw new MissingTenantError();
     }
@@ -40,7 +40,8 @@ function createRegisterExpenseUseCase({ expenseRepository, dailyCloseRepository,
     if (!Number.isFinite(expenseDate.getTime())) throw new InvalidExpenseAttributesError("la fecha del gasto no es válida.");
     const ymd = civilDateKey(expenseDate);
 
-    const existingClose = await dailyCloseRepository.findByDate(tenantId, civilDateLabel(ymd));
+    if (businessDayGate) await businessDayGate.acquire(tenantId, ymd, ctx);
+    const existingClose = await dailyCloseRepository.findByDate(tenantId, civilDateLabel(ymd), ctx);
     if (existingClose) {
       throw new DailyCloseAlreadyExistsForDateError(ymd);
     }
@@ -55,9 +56,9 @@ function createRegisterExpenseUseCase({ expenseRepository, dailyCloseRepository,
       ...(description !== undefined ? { description } : {}),
       ...(paymentMethod !== undefined ? { paymentMethod } : {}),
       ...(notes !== undefined ? { notes } : {}),
-    });
+    }, ctx);
 
-    await eventPublisher.publish("GastoRegistrado", { expense });
+    await (ctx?.eventPublisher ?? eventPublisher).publish("GastoRegistrado", { expense });
 
     return { expense };
   };

@@ -21,6 +21,7 @@ const {
 const errorHandler = require("./middlewares/error.middleware");
 const { startReminderJob } = require("./jobs/reminder.job");
 const { startEventDeliveryRetryJob } = require("./jobs/event-delivery-retry.job");
+const { startOperationalAssistantEventsJob } = require("./jobs/operational-assistant-events.job");
 const { startInboundMessageJob } = require("./jobs/inbound-message.job");
 const { startAbandonedConversationJob } = require("./jobs/abandoned-conversation.job");
 const { startAppointmentNoShowJob } = require("./jobs/appointment-no-show.job");
@@ -77,6 +78,7 @@ const { apiKeyAuth } = require("./middleware/apiKeyAuth");
 const publicApiRoutes = require("./routes/public-api.routes");
 app.use("/api/dashboard", dashboardProxyRateLimit, resolveTenant, dashboardRateLimit, dashboardRoutes);
 app.use("/api/internal", publicRateLimit, requireInternalToken, require("./routes/staff-auth.routes"));
+app.use("/api/internal/operator-authority", publicRateLimit, requireInternalToken, require("./routes/operator-authority.routes"));
 // Superficies públicas sin autenticación — rate limit obligatorio (hallazgo A5)
 app.use("/api/billing", publicRateLimit, requireInternalToken, billingRouter);
 app.use("/api/onboarding", publicRateLimit, onboardingRoutes);
@@ -90,6 +92,7 @@ app.listen(PORT, () => {
   logger.info("Servidor iniciado", { port: PORT, env: process.env.NODE_ENV || "development" });
   startReminderJob();
   startEventDeliveryRetryJob();
+  startOperationalAssistantEventsJob();
   startInboundMessageJob();
   startAbandonedConversationJob();
   startAppointmentNoShowJob();

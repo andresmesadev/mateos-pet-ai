@@ -1,0 +1,215 @@
+// Proyección de diseño, NO reemplaza prisma/schema.prisma.
+// Fronteras legacy reducidas: conservar todos sus demás campos al integrar.
+// Checks, triggers y deferral se especifican en digital-employees-physical-schema.md.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Tenant {
+  id       String @id @default(cuid())
+  requests OperationalRequest[]
+}
+
+model DigitalEmployee {
+  id             String @id @default(cuid())
+  tenantId       String?
+  specialization String
+  status         String @default("activo")
+  tasks          AgentTask[]
+  requests       OperationalRequest[]
+  @@unique([tenantId, id], map: "DE_tenant_id_key")
+}
+
+model AgentTask {
+  id                String @id @default(cuid())
+  digitalEmployeeId String
+  status            String @default("en_proceso")
+  employee          DigitalEmployee @relation(fields: [digitalEmployeeId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  decisions         AgentDecision[]
+  requests          OperationalRequest[]
+  @@unique([digitalEmployeeId, id], map: "AT_employee_id_key")
+}
+
+model AgentDecision {
+  id          String @id @default(cuid())
+  agentTaskId String
+  task        AgentTask @relation(fields: [agentTaskId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  receipts    ExecutionReceipt[]
+  @@unique([agentTaskId, id], map: "AD_task_id_key")
+}
+
+model Expense {
+  id       String @id @default(cuid())
+  tenantId String?
+  receipts ExecutionReceipt[]
+  @@unique([tenantId, id], map: "Expense_tenant_id_key")
+}
+
+model InventoryOperation {
+  id           String @id @default(cuid())
+  tenantId     String
+  principalKey String @db.VarChar(256)
+  kind         String @db.VarChar(40)
+  requestKey   String @db.Uuid
+  receipts     ExecutionReceipt[]
+  @@unique([tenantId, principalKey, id], map: "IO_principal_id_key")
+}
+
+model DomainEvent {
+  id       String @id @default(cuid())
+  tenantId String
+  intents  PublicationIntent[]
+  @@unique([tenantId, id], map: "Event_tenant_id_key")
+}
+
+model OperationalRequest {
+  id                  String @id @default(uuid())
+  tenantId            String
+  principalKey        String @db.VarChar(256)
+  requestId           String @db.Uuid
+  employeeId          String
+  taskId              String @unique(map: "OR_task_key")
+  contractVersion     Int
+  canonicalVersion    Int
+  inputMode           String @db.VarChar(16)
+  canonicalInput      Json
+  inputHash           String @db.Char(64)
+  state               String @default("pendiente") @db.VarChar(24)
+  claimGeneration     BigInt @default(0)
+  claimOwner          String? @db.Uuid
+  claimUntil          DateTime? @db.Timestamptz(3)
+  attemptCount        Int @default(0)
+  resultCode          String? @db.VarChar(64)
+  result              Json?
+  lastErrorCode       String? @db.VarChar(80)
+  createdAt           DateTime @db.Timestamptz(3)
+  updatedAt           DateTime @db.Timestamptz(3)
+  tenant              Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  employee            DigitalEmployee @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  task                AgentTask @relation(fields: [employeeId, taskId], references: [digitalEmployeeId, id], onDelete: Restrict, onUpdate: Restrict)
+  actions             OperationalAction[]
+  intents             PublicationIntent[]
+  @@unique([tenantId, principalKey, requestId], map: "OR_request_key")
+  @@unique([tenantId, principalKey, id, taskId], map: "OR_scope_task_key")
+  @@index([tenantId, principalKey, createdAt, id], map: "OR_owner_page_idx")
+  @@index([state, claimUntil, id], map: "OR_claim_idx")
+}
+
+model OperationalAction {
+  id                  String @id @default(uuid())
+  tenantId            String
+  principalKey        String @db.VarChar(256)
+  requestId           String @unique(map: "OA_request_key")
+  taskId              String
+  kind                String @db.VarChar(24)
+  state               String @db.VarChar(16)
+  currentRevision     Int
+  executionKey        String @unique(map: "OA_execution_key") @db.Uuid
+  terminalReason      String? @db.VarChar(80)
+  createdAt           DateTime @db.Timestamptz(3)
+  closedAt            DateTime? @db.Timestamptz(3)
+  request             OperationalRequest @relation(fields: [tenantId, principalKey, requestId, taskId], references: [tenantId, principalKey, id, taskId], onDelete: Restrict, onUpdate: Restrict)
+  revisions           ActionRevision[] @relation("AllActionRevisions")
+  current             ActionRevision @relation("CurrentActionRevision", fields: [tenantId, principalKey, id, currentRevision], references: [tenantId, principalKey, actionId, number], onDelete: Restrict, onUpdate: Restrict, map: "OA_current_revision_fk")
+  receipts            ExecutionReceipt[]
+  @@unique([tenantId, principalKey, id], map: "OA_scope_key")
+  @@unique([tenantId, principalKey, id, taskId, kind], map: "OA_receipt_scope_key")
+  @@index([tenantId, principalKey, state, createdAt, id], map: "OA_owner_page_idx")
+}
+
+model ActionRevision {
+  id                  String @id @default(uuid())
+  tenantId            String
+  principalKey        String @db.VarChar(256)
+  actionId            String
+  number              Int
+  contractVersion     Int
+  canonicalVersion    Int
+  validationState     String @db.VarChar(16)
+  payload             Json
+  missingFields       Json
+  preview             Json
+  productContext      Json?
+  payloadHash         String @db.Char(64)
+  createdAt           DateTime @db.Timestamptz(3)
+  expiresAt           DateTime? @db.Timestamptz(3)
+  action              OperationalAction @relation("AllActionRevisions", fields: [tenantId, principalKey, actionId], references: [tenantId, principalKey, id], onDelete: Restrict, onUpdate: Restrict)
+  currentFor          OperationalAction[] @relation("CurrentActionRevision")
+  receipts            ExecutionReceipt[]
+  @@unique([tenantId, principalKey, actionId, number], map: "AR_number_key")
+  @@index([validationState, expiresAt, actionId], map: "AR_expiry_idx")
+}
+
+model ExecutionReceipt {
+  id                   String @id @default(uuid())
+  tenantId             String
+  principalKey         String @db.VarChar(256)
+  actionId             String @unique(map: "ER_action_key")
+  taskId               String
+  kind                 String @db.VarChar(24)
+  revisionNumber       Int
+  payloadHash          String @db.Char(64)
+  executionKey         String @unique(map: "ER_execution_key") @db.Uuid
+  contractVersion      Int
+  decisionId           String @unique(map: "ER_decision_key")
+  expenseId            String? @unique(map: "ER_expense_key")
+  inventoryOperationId String? @unique(map: "ER_inventory_key")
+  actorName            String @db.VarChar(160)
+  actorRole            String @db.VarChar(32)
+  resultVersion        Int
+  result               Json
+  confirmedAt          DateTime @db.Timestamptz(3)
+  action               OperationalAction @relation(fields: [tenantId, principalKey, actionId, taskId, kind], references: [tenantId, principalKey, id, taskId, kind], onDelete: Restrict, onUpdate: Restrict)
+  revision             ActionRevision @relation(fields: [tenantId, principalKey, actionId, revisionNumber], references: [tenantId, principalKey, actionId, number], onDelete: Restrict, onUpdate: Restrict)
+  decision             AgentDecision @relation(fields: [taskId, decisionId], references: [agentTaskId, id], onDelete: Restrict, onUpdate: Restrict)
+  expense              Expense? @relation(fields: [tenantId, expenseId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  inventoryOperation   InventoryOperation? @relation(fields: [tenantId, principalKey, inventoryOperationId], references: [tenantId, principalKey, id], onDelete: Restrict, onUpdate: Restrict)
+  intents              PublicationIntent[]
+  @@unique([tenantId, principalKey, id], map: "ER_scope_key")
+  @@index([tenantId, principalKey, confirmedAt, id], map: "ER_owner_page_idx")
+}
+
+model PublicationIntent {
+  id                  String @id @default(uuid())
+  tenantId            String
+  principalKey        String @db.VarChar(256)
+  requestId           String
+  taskId              String
+  receiptId           String?
+  causeKey            String @db.VarChar(200)
+  ordinal             Int
+  eventName           String @db.VarChar(100)
+  origin              String @db.VarChar(80)
+  payload             Json
+  occurredAt          DateTime @db.Timestamptz(3)
+  canonicalVersion    Int
+  envelopeHash        String @db.Char(64)
+  certificationState  String @default("pendiente") @db.VarChar(24)
+  domainEventId       String? @unique(map: "PI_event_key")
+  claimGeneration     BigInt @default(0)
+  claimOwner          String? @db.Uuid
+  claimUntil          DateTime? @db.Timestamptz(3)
+  certificationTries  BigInt @default(0)
+  nextAttemptAt       DateTime @db.Timestamptz(3)
+  certificationError  String? @db.VarChar(80)
+  certifiedAt         DateTime? @db.Timestamptz(3)
+  notificationState   String @default("no_iniciada") @db.VarChar(24)
+  notificationId      String? @unique(map: "PI_notification_key") @db.Uuid
+  notificationStarted DateTime? @db.Timestamptz(3)
+  notificationEnded   DateTime? @db.Timestamptz(3)
+  notificationCode    String? @db.VarChar(80)
+  notificationEvidence Json?
+  createdAt           DateTime @db.Timestamptz(3)
+  updatedAt           DateTime @db.Timestamptz(3)
+  request             OperationalRequest @relation(fields: [tenantId, principalKey, requestId, taskId], references: [tenantId, principalKey, id, taskId], onDelete: Restrict, onUpdate: Restrict)
+  receipt             ExecutionReceipt? @relation(fields: [tenantId, principalKey, receiptId], references: [tenantId, principalKey, id], onDelete: Restrict, onUpdate: Restrict)
+  event               DomainEvent? @relation(fields: [tenantId, domainEventId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  @@unique([requestId, causeKey, ordinal], map: "PI_emission_key")
+  @@index([certificationState, nextAttemptAt, claimUntil, id], map: "PI_certify_idx")
+  @@index([notificationState, certifiedAt, id], map: "PI_notify_idx")
+  @@index([tenantId, principalKey, requestId, createdAt, id], map: "PI_owner_idx")
+}

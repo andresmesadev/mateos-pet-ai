@@ -10,7 +10,7 @@ const SPECIALIZATIONS = [
 
 class DigitalEmployeeRepositoryPort {
   async create(_data) { throw new Error("DigitalEmployeeRepositoryPort.create no implementado"); }
-  async findById(_id) { throw new Error("DigitalEmployeeRepositoryPort.findById no implementado"); }
+  async findById(_id, _ctx) { throw new Error("DigitalEmployeeRepositoryPort.findById no implementado"); }
   async pause(_id) { throw new Error("DigitalEmployeeRepositoryPort.pause no implementado"); }
   async reactivate(_id) { throw new Error("DigitalEmployeeRepositoryPort.reactivate no implementado"); }
   async list(_tenantId) { throw new Error("DigitalEmployeeRepositoryPort.list no implementado"); }

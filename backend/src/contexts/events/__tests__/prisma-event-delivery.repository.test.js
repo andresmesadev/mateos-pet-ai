@@ -4,7 +4,8 @@
  * consumidor, sin conocer de antemano el domainEventId.
  */
 jest.mock("../../../lib/prisma", () => ({
-  eventDelivery: { findMany: jest.fn() },
+  eventDelivery: { findMany: jest.fn(), findFirst: jest.fn() },
+  publicationIntent: { findMany: jest.fn().mockResolvedValue([]) },
 }));
 
 const prisma = require("../../../lib/prisma");
@@ -13,6 +14,23 @@ const { PrismaEventDeliveryRepository } = require("../infrastructure/persistence
 beforeEach(() => jest.clearAllMocks());
 
 describe("findDomainEventsAwaitingRetry", () => {
+  test('la recuperación genérica directa tampoco reenvía eventos propios', async () => {
+    prisma.publicationIntent.findMany.mockResolvedValueOnce([{ domainEventId: 'owned' }]);
+    await expect(new PrismaEventDeliveryRepository().findLastFailedForConsumer('owned', 'Automatizaciones')).resolves.toBeNull();
+    expect(prisma.eventDelivery.findFirst).not.toHaveBeenCalled();
+  });
+  test("excluye intenciones propias independientemente de su estado y conserva legacy", async () => {
+    prisma.eventDelivery.findMany.mockResolvedValue([
+      { domainEventId: 'owned', status: 'failed', domainEvent: { id: 'owned' } },
+      { domainEventId: 'legacy', status: 'failed', domainEvent: { id: 'legacy' } },
+    ]);
+    prisma.publicationIntent.findMany.mockResolvedValueOnce([{ domainEventId: 'owned' }]);
+    const pending = await new PrismaEventDeliveryRepository().findDomainEventsAwaitingRetry('Automatizaciones');
+    expect(pending.map(event => event.id)).toEqual(['legacy']);
+    expect(prisma.publicationIntent.findMany).toHaveBeenCalledWith({
+      where: { domainEventId: { in: ['owned', 'legacy'] } }, select: { domainEventId: true },
+    });
+  });
   test("retorna solo los Eventos cuya última entrega es 'failed'", async () => {
     prisma.eventDelivery.findMany.mockResolvedValue([
       // de-2: más reciente es "delivered" → no debe aparecer, aunque tuvo un fallo antes.

@@ -381,6 +381,10 @@ Definir las reglas que hacen que el sistema actúe solo, sin intervención human
 
 ### 9. Contexto: Empleados Digitales
 
+**Especializaciones operativas aprobadas — 2026-10-14.** El Asistente Financiero y el Asistente de Administración e Inventario son especializaciones de Empleado Digital dentro de este contexto. Consultan los contratos existentes de Finanzas e Inventario y preparan, respectivamente, gastos y entradas. El operador autenticado revisa y confirma una propuesta concreta antes de cualquier registro. La misma confirmación recupera su recibo original; nunca crea una segunda operación. La solicitud recuperable, sus revisiones inmutables, el recibo y la intención de publicación son soporte técnico de Tarea y Decisión, sin crear otro contexto ni duplicar saldos, movimientos o gastos. Tenant y operador delimitan cada atención. Diseño aprobado en las [cinco etapas](digital-employees-physical-schema.md); [implementación y evidencia local](../history/ENTREGABLE_EMPLEADOS_OPERATIVOS_COMPLETION_REPORT.md).
+
+**Ampliación de canal aprobada e implementada localmente — 2026-10-15.** Los mismos empleados operativos atienden al propietario y al personal autorizado por WhatsApp mediante identidad verificada, modo negocio separado y confirmación explícita. La atención conserva dueño, Tenant, revisión y recibo al cambiar entre dashboard y WhatsApp; no agrega operaciones de negocio ni permisos. Están aprobadas [Etapa 1](operational-employees-whatsapp-functional-definition.md), [Etapa 2](operational-employees-whatsapp-use-cases.md), [Etapa 3](operational-employees-whatsapp-technical-design.md), [Etapa 4](operational-employees-whatsapp-persistence-model.md) y [Etapa 5](operational-employees-whatsapp-physical-schema.md). La función permanece deshabilitada por defecto; [evidencia y límites locales](../history/ENTREGABLE_EMPLEADOS_OPERATIVOS_WHATSAPP_COMPLETION_REPORT.md).
+
 **Objetivo**  
 Representar a los agentes de IA como entidades del sistema con responsabilidades, estado y auditoría. Los Empleados Digitales son trabajadores del OS, no el OS en sí mismo.
 
@@ -426,8 +430,8 @@ Ser la capa de abstracción entre el dominio y los canales externos. Ningún otr
 **Entidades principales**
 
 - **Canal** — Un medio de comunicación disponible: WhatsApp, Email, Dashboard (notificación interna), Portal del Cliente, SMS. Cada canal tiene sus capacidades (texto, audio, imagen, documentos) y sus restricciones.
-- **Mensaje** — Una comunicación enviada o recibida. Tiene canal, origen (cliente, agente, sistema), destino, contenido, estado de entrega y marca de tiempo.
-- **Conversación** — El hilo de mensajes entre el sistema y un cliente a través de un canal en un período de tiempo. Una conversación tiene un estado (activa, en espera de respuesta humana, cerrada) y puede estar asignada a un empleado digital o a un humano.
+- **Mensaje** — Una comunicación enviada o recibida. Tiene canal, origen (cliente, agente, sistema), destino, contenido, estado de entrega y marca de tiempo. Ampliación aprobada e implementada localmente el 2026-10-15: también comprende mensajes de un operador interno verificado; no se representan como mensajes de un cliente ficticio. La representación técnica privada es `OperatorMessage`.
+- **Conversación** — El hilo de mensajes entre el sistema y un cliente a través de un canal en un período de tiempo. Una conversación tiene un estado (activa, en espera de respuesta humana, cerrada) y puede estar asignada a un empleado digital o a un humano. Ampliación aprobada e implementada localmente el 2026-10-15: una atención interna tiene como participante al operador verificado y queda separada de la conversación de cliente, aunque compartan número. No expone datos internos en el historial, memoria ni bandeja de clientes. `Conversation` conserva su cliente obligatorio; `OperatorThread` representa la atención privada sin inventar clientes. Ver [definición aprobada](operational-employees-whatsapp-functional-definition.md).
 - **Atención humana compartida (2026-10-01, ADR 014)** — La asignación humana se persiste con identidad, nombre, rol y versión. Solo el responsable responde; un administrador puede asumir explícitamente una conversación ajena. Devolver a la IA libera esa asignación. Cada nuevo mensaje manual conserva la identidad autenticada de su autor; el histórico sin autor identificado no se atribuye retroactivamente. Veterinario, recepción y peluquero utilizan la bandeja según sus responsabilidades; el administrador conserva acceso clínico y administrativo en una sola identidad. Es implementación de la asignación ya conceptualizada, sin nuevas reglas de Agenda o Finanzas.
 - **Notificación** — Un mensaje saliente generado por el sistema (no en respuesta a algo). Puede ser resultado de una automatización, de un empleado digital, o de una acción manual del equipo.
 - **Plantilla de Mensaje** — Textos reutilizables con variables del dominio. "Hola {nombre}, te recordamos tu cita para {mascota} el {fecha} a las {hora}."
@@ -436,6 +440,7 @@ Ser la capa de abstracción entre el dominio y los canales externos. Ningún otr
 - Recibir mensajes entrantes de cualquier canal y enrutarlos al empleado digital o humano apropiado
 - Enviar notificaciones y mensajes salientes por el canal correcto para cada cliente
 - Mantener el historial de comunicaciones vinculado al cliente
+- Ampliación funcional aceptada el 2026-10-15, pendiente de implementación: mantener también el historial interno vinculado al operador y Tenant autorizados, sin trasladarlo al cliente ni conceder autoridad a partir de un teléfono de contacto. Toda entrega privada requiere acceso vigente del destinatario.
 - Aislar completamente la lógica de cada canal del resto del dominio
 
 **Eventos que produce**
@@ -685,6 +690,14 @@ Staff conserva cuatro perfiles de acceso: administrador, recepción y caja, vete
 `Pet.operationalAlerts` contiene indicaciones de manejo compartidas con recepción y peluquería. No reinterpreta ni publica las notas clínicas existentes. Las nuevas operaciones de cobro y ajuste de precio conservan una instantánea de la identidad autenticada; no se atribuye autor a filas históricas sin evidencia. Los ítems de venta distinguen servicio, producto y legado, sin alterar la resolución única de precios ni las comisiones inmutables.
 
 Diseño funcional, casos de uso, arquitectura, persistencia y esquema físico: [Perfiles y módulos](team-business-access.md).
+
+### Vinculación de operadores a canales — ampliación funcional aceptada el 2026-10-15
+
+El propietario con su acceso administrativo real y el personal con cuenta propia pueden vincular una dirección de canal verificada y revocable dentro de un Establecimiento. La vinculación demuestra control desde el dashboard y el teléfono; `Staff.phone`, el nombre de perfil o una sesión de cliente no prueban autorización. No añade permisos, no convierte al propietario global en Staff ni le concede una vista de varios Tenant por WhatsApp. Un número no representa ambiguamente dos operadores en el mismo Tenant y canal receptor.
+
+El vínculo habilita acceso interno solo mientras la identidad y sus permisos siguen vigentes; desactivar la cuenta o revocarlo bloquea también respuestas privadas pendientes. La identidad autenticada original conserva la propiedad de solicitudes y recibos entre canales. Equipo aporta la identidad del personal; la autoridad administrativa actual aporta la del propietario. Su ubicación técnica y persistencia no se eligen con esta definición conceptual.
+
+**Estado:** extensión aprobada en las cinco etapas: [definición](operational-employees-whatsapp-functional-definition.md), [casos de uso](operational-employees-whatsapp-use-cases.md), [arquitectura](operational-employees-whatsapp-technical-design.md), [persistencia](operational-employees-whatsapp-persistence-model.md) y [esquema físico](operational-employees-whatsapp-physical-schema.md), con [ADR 022 aceptado](../decisions/022-empleados-operativos-canal-whatsapp.md). Implementación local 2.48.0, deshabilitada por defecto y sin habilitación productiva; [evidencia](../history/ENTREGABLE_EMPLEADOS_OPERATIVOS_WHATSAPP_COMPLETION_REPORT.md).
 
 ### Evolución explícita del alcance de Pet shop (2026-10-02)
 

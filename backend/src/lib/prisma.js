@@ -3,6 +3,7 @@ require("dotenv").config();
 const { PrismaClient } = require("@prisma/client");
 const { PrismaPg } = require("@prisma/adapter-pg");
 const { Pool } = require("pg");
+const { prismaPoolConfig } = require("./prisma-pool-config");
 
 const globalForPrisma = global;
 
@@ -11,9 +12,7 @@ const globalForPrisma = global;
  * Una sola instancia + pool compartidos en desarrollo (nodemon).
  */
 function createPrismaClient() {
-  const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-  });
+  const pool = new Pool(prismaPoolConfig(process.env.DATABASE_URL));
   const adapter = new PrismaPg(pool);
   return new PrismaClient({ adapter });
 }

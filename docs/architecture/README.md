@@ -14,6 +14,7 @@ Revisión de cierre del frontend: [diagnóstico original](FRONTEND_CIERRE_REVISI
 | Área | Referencia |
 | --- | --- |
 | Perfiles y áreas del negocio | [Equipo y acceso](team-business-access.md) |
+| Asistentes Financiero y de Administración e Inventario | [Casos de uso](digital-employees-use-cases.md), [arquitectura](digital-employees-technical-design.md), [persistencia](digital-employees-persistence-model.md), [esquema físico](digital-employees-physical-schema.md), [cierre local](../history/ENTREGABLE_EMPLEADOS_OPERATIVOS_COMPLETION_REPORT.md) |
 | Clientes y mascotas | [Mantenimiento del dashboard](contacts-dashboard-maintenance.md) |
 | Historia clínica | [Correcciones y trazabilidad](clinical-history-corrections.md) |
 | Peluquería | [Atenciones e historial](grooming-dashboard.md) |
@@ -26,3 +27,7 @@ Revisión de cierre del frontend: [diagnóstico original](FRONTEND_CIERRE_REVISI
 Los archivos `inventory-schema-draft.prisma` e `inventory-migration-draft.sql` son evidencia del diseño aprobado, no el esquema ni la migración de producción. El SQL sigue siendo consumido por `scripts/validate-inventory-schema-draft.cjs`; se conserva su ubicación. El esquema ejecutable está en `prisma/schema.prisma` y las migraciones en `prisma/migrations/`.
 
 Las propuestas concluidas se consultan en [historial de diseños](../history/designs/README.md). Los diagramas de un commit anterior se consultan en [diagramas históricos](../history/diagrams/README.md).
+
+## Empleados operativos por WhatsApp — implementación local
+
+- Empleados operativos por WhatsApp: [Etapa 1](operational-employees-whatsapp-functional-definition.md), [Etapa 2](operational-employees-whatsapp-use-cases.md), [Etapa 3](operational-employees-whatsapp-technical-design.md), [ADR 022](../decisions/022-empleados-operativos-canal-whatsapp.md), [Etapa 4](operational-employees-whatsapp-persistence-model.md) y [Etapa 5](operational-employees-whatsapp-physical-schema.md) aprobados. Implementación local 2.48.0; [evidencia, configuración y límites](../history/ENTREGABLE_EMPLEADOS_OPERATIVOS_WHATSAPP_COMPLETION_REPORT.md).

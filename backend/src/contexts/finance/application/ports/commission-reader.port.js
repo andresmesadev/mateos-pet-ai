@@ -5,7 +5,7 @@
  */
 class CommissionReaderPort {
   /** @returns {Promise<Array<{staffId:?string, resolvedPrice:any, staffShare:any, businessShare:any, completedAt:Date, appointmentId:string}>>} */
-  async listByDateRange(_tenantId, _dateStart, _dateEnd) {
+  async listByDateRange(_tenantId, _dateStart, _dateEnd, _ctx) {
     throw new Error("CommissionReaderPort.listByDateRange no implementado");
   }
 }

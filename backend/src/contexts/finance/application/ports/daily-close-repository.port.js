@@ -1,8 +1,8 @@
 class DailyCloseRepositoryPort {
-  async findByDate(_tenantId, _date) {
+  async findByDate(_tenantId, _date, _ctx) {
     throw new Error("DailyCloseRepositoryPort.findByDate no implementado");
   }
-  async create(_data) {
+  async create(_data, _ctx) {
     throw new Error("DailyCloseRepositoryPort.create no implementado");
   }
   async listByDateRange(_tenantId, _dateStart, _dateEnd) {

@@ -3,7 +3,7 @@
 const { test, before, after, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
-const { readFileSync } = require('node:fs');
+const { readFileSync, readdirSync } = require('node:fs');
 const { resolve } = require('node:path');
 const { spawn } = require('node:child_process');
 const { Pool } = require('pg');
@@ -18,7 +18,7 @@ if (!['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) || !/test/i.test
 }
 const schema = `inbound_test_${randomUUID().replaceAll('-', '')}`;
 const admin = new Pool({ connectionString });
-const pool = new Pool({ connectionString, options: `-c search_path=${schema}` });
+const pool = new Pool({ connectionString, options: `-c search_path=${schema},public -c timezone=UTC` });
 const prisma = new PrismaClient({ adapter: new PrismaPg(pool, { schema }) });
 // Inject the real, explicitly isolated client before loading the service. This
 // prevents lib/prisma from loading dotenv or opening a production connection.
@@ -28,6 +28,12 @@ let legacyRows;
 
 before(async () => {
   await admin.query(`CREATE SCHEMA "${schema}"`);
+  const migrations = resolve(__dirname, '../../../prisma/migrations');
+  const recovery = '20260915170000_inbound_job_recovery';
+  const names = readdirSync(migrations).filter(name => /^\d/.test(name)).sort();
+  // Current Prisma reads include additive channel fields. Exercise a real
+  // upgrade of this isolated schema, preserving the original 8.2 fixture.
+  for (const name of names.filter(name => name < recovery)) await pool.query(readFileSync(resolve(migrations,name,'migration.sql'),'utf8'));
   const sql = readFileSync(resolve(__dirname, '../../../prisma/migrations/20260915170000_inbound_job_recovery/migration.sql'), 'utf8');
   // Exercise an existing 8.2 installation as well as the CREATE TABLE path.
   const split = sql.indexOf('ALTER TABLE');
@@ -38,6 +44,7 @@ before(async () => {
            ('legacy-new','whatsapp','legacy-3','{}','received',0),
            ('legacy-done','whatsapp','legacy-4','{}','done',1)`);
   await pool.query(sql.slice(split));
+  for (const name of names.filter(name => name > recovery)) await pool.query(readFileSync(resolve(migrations,name,'migration.sql'),'utf8'));
   legacyRows = await prisma.inboundJob.findMany({ orderBy: { id: 'asc' } });
 });
 after(async () => {

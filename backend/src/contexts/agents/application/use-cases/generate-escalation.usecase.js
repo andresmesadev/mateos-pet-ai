@@ -7,22 +7,22 @@ const { AgentTaskNotFoundError, AgentTaskAlreadyClosedError, InvalidEscalationAt
  * (Decisión Diferida, Etapa 1/2).
  */
 function createGenerateEscalationUseCase({ agentTaskRepository, escalationRepository, eventPublisher }) {
-  return async function execute({ agentTaskId, context, assignedStaffId = null }) {
+  return async function execute({ agentTaskId, context, assignedStaffId = null }, ctx) {
     if (!context) {
       throw new InvalidEscalationAttributesError("context es obligatorio.");
     }
-    const task = await agentTaskRepository.findById(agentTaskId);
+    const task = await agentTaskRepository.findById(agentTaskId, ctx);
     if (!task) throw new AgentTaskNotFoundError(agentTaskId);
     if (task.status !== "en_proceso") throw new AgentTaskAlreadyClosedError(agentTaskId, task.status);
 
-    await agentTaskRepository.escalate(agentTaskId);
+    await agentTaskRepository.escalate(agentTaskId, ctx);
     const escalation = await escalationRepository.create({
       agentTaskId,
       assignedStaffId: assignedStaffId ?? null,
       context,
       status: "pendiente",
-    });
-    await eventPublisher.publish("EscalaciónGenerada", { escalation, tenantId: task.digitalEmployee?.tenantId ?? null });
+    }, ctx);
+    await (ctx?.eventPublisher ?? eventPublisher).publish("EscalaciónGenerada", { escalation, tenantId: task.digitalEmployee?.tenantId ?? null });
     return { escalation };
   };
 }

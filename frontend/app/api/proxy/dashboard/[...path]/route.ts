@@ -35,6 +35,20 @@ async function handler(
   }
 
   const { path } = await context.params;
+  if (path[0] === "operational-assistants" && !["GET", "HEAD"].includes(req.method)) {
+    const origin = req.headers.get("origin");
+    // Next can construct nextUrl with its internal hostname behind a reverse
+    // proxy. The public origin comes from server configuration, never headers.
+    let expectedOrigin: string;
+    try {
+      expectedOrigin = new URL(process.env.AUTH_URL || process.env.NEXTAUTH_URL || req.nextUrl.origin).origin;
+    } catch {
+      return NextResponse.json({ error: "Origen del dashboard no configurado correctamente." }, { status: 503 });
+    }
+    if ((origin && origin !== expectedOrigin) || req.headers.get("sec-fetch-site") === "cross-site") {
+      return NextResponse.json({ error: "Origen de solicitud no permitido." }, { status: 403 });
+    }
+  }
   const isSuperAdmin = session.user.isSuperAdmin ?? false;
 
   // Single-tenant mode: backend resolves tenant from SINGLE_TENANT_ID env.
@@ -115,6 +129,7 @@ async function handler(
     headers: {
       "Content-Type":
         response.headers.get("Content-Type") ?? "application/json",
+      ...(path[0] === "operational-assistants" ? { "Cache-Control": "no-store" } : {}),
     },
   });
 }

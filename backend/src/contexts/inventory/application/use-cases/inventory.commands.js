@@ -3,6 +3,7 @@ const { InventoryError, fail, integer, cents, amount, text, key, dateOnly, expir
 const { civilDateKey, civilDayBounds } = require('../../../shared/business-day');
 const { serviceModule } = require('../../../../services/dashboard-access.service');
 const { resolveProductPrice } = require('../../../../services/domain/price-resolver.service');
+const { serializationConflict, yieldRetry } = require('../../../shared/persistence/postgres-retry');
 
 const KINDS = new Set(['create_product', 'update_product', 'set_product_active', 'register_entry', 'adjust_stock', 'register_consumption', 'correct_consumption', 'confirm_pos_sale', 'return_sale_items']);
 const EVENTS = { create_product: 'ProductoRegistrado', update_product: 'ProductoActualizado', set_product_active: 'ProductoActualizado', register_entry: 'EntradaDeInventarioRegistrada', adjust_stock: 'AjusteDeInventarioRegistrado', register_consumption: 'ConsumoDeInventarioRegistrado', correct_consumption: 'ConsumoDeInventarioCorregido', confirm_pos_sale: 'SalidaPorVentaRegistrada', return_sale_items: 'DevolucionDeInventarioRegistrada' };
@@ -44,7 +45,7 @@ function buildInventoryCommands({ repository: repo, accessReader, unitOfWork, ev
       return result(operation, access, ctx);
     });
   }
-  async function run({ tenantId, actor, kind, operationKey, command }, execute) {
+  async function run({ tenantId, actor, kind, operationKey, command }, execute, integration) {
     const reqKey = requestKey(operationKey);
     if (!command || typeof command !== 'object' || Array.isArray(command)) fail('INVALID_COMMAND', 'Datos de operación inválidos.', 400);
     if (command.tenantId !== undefined || command.actor !== undefined || command.principalKey !== undefined) fail('INVALID_IDENTITY', 'La identidad y el establecimiento se obtienen de la sesión.', 400);
@@ -53,28 +54,35 @@ function buildInventoryCommands({ repository: repo, accessReader, unitOfWork, ev
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         const committed = await unitOfWork.run(async ctx => {
+          // Internal hooks are never taken from HTTP input and run afresh on every retry.
+          const prepared = await integration?.before?.(ctx);
+          if (prepared?.recovered) return { response: prepared.recovered, replayed: true };
           const access = await accessReader.readAccess({ tenantId, actor }, ctx);
           requireKind(access, kind);
           identity = { tenantId, principalKey: access.principalKey, kind, requestKey: reqKey };
           const previous = await repo.findOperation(identity, ctx);
           if (previous) {
             if (previous.payloadHash !== payloadHash) fail('OPERATION_CONTENT_CHANGED', 'La clave ya pertenece a otra operación. Revisa el resultado antes de continuar.', 409);
-            return { response: await result(previous, access, ctx), replayed: true };
+            const response = await result(previous, access, ctx);
+            if (integration?.after) await integration.after(response, null, ctx);
+            return { response, replayed: true };
           }
           const now = clock();
           const operation = { id: randomUUID(), ...identity, contractVersion: 1, payloadHash, ...access.snapshot, confirmedAt: now };
           const state = { tenantId, access, now, today: civilDateKey(now), operation, ctx, ordinal: 0, changed: new Set() };
           const evidence = await execute(state);
           for (const productId of state.changed) await repo.bumpStock(tenantId, productId, ctx);
-          return { response: await result({ ...operation, ...evidence }, access, ctx), replayed: false, publishesStockEvent: kind !== 'confirm_pos_sale' || state.changed.size > 0 };
+          const response = await result({ ...operation, ...evidence }, access, ctx);
+          const publishesStockEvent = kind !== 'confirm_pos_sale' || state.changed.size > 0;
+          const event = publishesStockEvent ? { name: EVENTS[kind], payload: { tenantId, operationId: response.operationId, kind } } : null;
+          if (integration?.after) await integration.after(response, event, ctx);
+          return { response, replayed: false, publishesStockEvent };
         }, { isolationLevel: 'Serializable', maxWait: 10000, timeout: 20000 });
-        if (!committed.replayed && committed.publishesStockEvent) await eventPublisher?.publish(EVENTS[kind], { tenantId, operationId: committed.response.operationId, kind });
+        if (!integration && !committed.replayed && committed.publishesStockEvent) await eventPublisher?.publish(EVENTS[kind], { tenantId, operationId: committed.response.operationId, kind });
         return { ...committed.response, replayed: committed.replayed };
       } catch (error) {
         const unique = error.code === 'P2002' && (String(error.meta?.target).includes('requestKey') || String(error.meta?.constraint).includes('InventoryOperation_request_key'));
-        const pgCode = error.meta?.code ?? error.meta?.driverAdapterError?.cause?.originalCode;
-        const serializableConflict = error.code === 'P2034' || (error.code === 'P2010' && ['40001', '40P01'].includes(pgCode));
-        if (serializableConflict || unique) { if (attempt < 2) continue; fail('OPERATION_BUSY', 'La operación sigue en disputa. Consulta su resultado y reintenta con la misma clave.', 409); }
+        if (serializationConflict(error) || unique) { if (attempt < 2) { await yieldRetry(attempt); continue; } fail('OPERATION_BUSY', 'La operación sigue en disputa. Consulta su resultado y reintenta con la misma clave.', 409); }
         if (error.code === 'P2002') fail('DUPLICATE_CODE', 'Ese código, lote o devolución ya está registrado. Actualiza y revisa.', 409);
         throw error;
       }
@@ -145,14 +153,16 @@ function buildInventoryCommands({ repository: repo, accessReader, unitOfWork, ev
       return evidence;
     });
   }
-  async function entry(input) {
+  async function entry(input, integration) {
+    if (integration && (typeof integration.before !== 'function' || typeof integration.after !== 'function' || typeof integration.validateProduct !== 'function')) throw new Error('Inventory integration requires before, validateProduct and after hooks');
     return run(input, async state => {
       await repo.lockProducts(state.tenantId, [input.command.productId], state.ctx);
       const p = await product(state, input.command.productId, true);
+      if (integration) await integration.validateProduct(p, state.ctx);
       const evidence = await start(state, 'movements');
       await addEntry(state, p, input.command);
       return evidence;
-    });
+    }, integration);
   }
   async function adjust(input) {
     return run(input, async state => {

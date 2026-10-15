@@ -1,13 +1,13 @@
 const { AgentTaskNotFoundError, AgentTaskAlreadyClosedError } = require("../../domain/errors");
 
 function createCompleteAgentTaskUseCase({ agentTaskRepository, eventPublisher }) {
-  return async function execute({ agentTaskId, result = null }) {
-    const task = await agentTaskRepository.findById(agentTaskId);
+  return async function execute({ agentTaskId, result = null }, ctx) {
+    const task = await agentTaskRepository.findById(agentTaskId, ctx);
     if (!task) throw new AgentTaskNotFoundError(agentTaskId);
     if (task.status !== "en_proceso") throw new AgentTaskAlreadyClosedError(agentTaskId, task.status);
 
-    const completed = await agentTaskRepository.complete(agentTaskId, result);
-    await eventPublisher.publish("TareaCompletada", { task: completed, tenantId: task.digitalEmployee?.tenantId ?? null });
+    const completed = await agentTaskRepository.complete(agentTaskId, result, ctx);
+    await (ctx?.eventPublisher ?? eventPublisher).publish("TareaCompletada", { task: completed, tenantId: task.digitalEmployee?.tenantId ?? null });
     return { task: completed };
   };
 }

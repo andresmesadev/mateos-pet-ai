@@ -1,6 +1,7 @@
 const cron = require("node-cron");
 const { processIncomingMessage } = require("../contexts/receptionist");
 const { sendMessage } = require("../contexts/communication");
+const operatorChannel = () => require('../contexts').operatorChannel;
 const {
   claimNextInboundJob, markInboundJobDone, markInboundJobFailed,
   checkpointInboundJob, renewInboundJobLease, recoverExpiredInboundJobs,
@@ -77,8 +78,11 @@ const processOneJob = async () => {
       job = await checkpointInboundJob(job, "processing");
       await assertLease();
       const preparedAt = new Date().toISOString();
-      const result = await processIncomingMessage(job.payload);
-      const replies = prepareReplies(result, preparedAt);
+      let replies;
+      if (job.envelopeVersion === 2) {
+        const routed = await operatorChannel().process(job); job = routed.job;
+        replies = routed.replies || (routed.customerPayload ? prepareReplies(await processIncomingMessage(routed.customerPayload), preparedAt) : []);
+      } else replies = prepareReplies(await processIncomingMessage(job.payload), preparedAt);
       job = await checkpointInboundJob(job, replies.length ? "ready" : "complete", { replies, replyCursor: 0 });
     }
     if (job.phase === "ready") {
@@ -89,7 +93,14 @@ const processOneJob = async () => {
       }
       while (job.replyCursor < job.replies.length) {
         job = await checkpointInboundJob(job, "sending");
-        await sendOneReply(job.replies[job.replyCursor], assertLease);
+        const reply = job.replies[job.replyCursor];
+        if (job.envelopeVersion === 2 && reply.deliveryId) {
+          let result;
+          for (let i = 0; i < 4; i++) { await assertLease(); result = await operatorChannel().delivery.send(reply.deliveryId); if (result.state !== 'rejected') break; }
+          if (!['accepted','blocked'].includes(result?.state)) throw new Error('OPERATOR_DELIVERY_REQUIRES_REVIEW');
+        } else if (job.envelopeVersion === 2 || process.env.OPERATOR_WHATSAPP_ENABLED === 'true') {
+          await operatorChannel().guardCustomerReply(job, reply, () => sendOneReply(reply, assertLease));
+        } else await sendOneReply(reply, assertLease);
         const replyCursor = job.replyCursor + 1;
         job = await checkpointInboundJob(job, replyCursor === job.replies.length ? "complete" : "ready", { replyCursor });
       }
@@ -97,10 +108,10 @@ const processOneJob = async () => {
     }
     await markInboundJobDone(job);
   } catch (error) {
-    console.error("[InboundMessageJob] Job interrupted:", job.id, error.message);
+    console.error("[InboundMessageJob] Job interrupted:", job.id, job.envelopeVersion === 2 ? 'OPERATOR_JOB_INTERRUPTED' : error.message);
     if (!(error instanceof InboundLeaseLostError)) {
       await markInboundJobFailed(job, error).catch((markError) =>
-        console.error("[InboundMessageJob] Could not record failure:", job.id, markError.message));
+        console.error("[InboundMessageJob] Could not record failure:", job.id, job.envelopeVersion === 2 ? 'OPERATOR_FAILURE_NOT_RECORDED' : markError.message));
     }
   } finally {
     clearInterval(heartbeat);
@@ -113,6 +124,8 @@ let draining = null;
 let rerunRequested = false;
 let followUpTimer = null;
 let followUpAt = null;
+let stopped = false;
+let cronTask = null;
 
 const drainInboundJobs = () => {
   if (draining) return draining;
@@ -120,8 +133,9 @@ const drainInboundJobs = () => {
     markInboundRunStarted();
     try {
       await recoverExpiredInboundJobs();
+      if (process.env.OPERATOR_WHATSAPP_ENABLED === 'true') await operatorChannel().maintain();
       let processed = 0;
-      while (processed < 50 && await processOneJob()) processed += 1;
+      while (!stopped && processed < 50 && await processOneJob()) processed += 1;
       markInboundRunSucceeded(processed);
       return processed;
     } catch (error) {
@@ -133,6 +147,7 @@ const drainInboundJobs = () => {
 };
 
 const scheduleFollowUp = (nextAttemptAt) => {
+  if (stopped) return;
   if (!nextAttemptAt) {
     if (followUpTimer) clearTimeout(followUpTimer);
     followUpTimer = null;
@@ -154,6 +169,7 @@ const scheduleFollowUp = (nextAttemptAt) => {
 };
 
 const requestInboundDrain = () => {
+  if (stopped) return Promise.resolve(0);
   if (draining) {
     rerunRequested = true;
     return draining;
@@ -161,6 +177,7 @@ const requestInboundDrain = () => {
 
   const run = drainInboundJobs();
   run.then(async () => {
+    if (stopped) return;
     if (rerunRequested) {
       rerunRequested = false;
       requestInboundDrain();
@@ -174,13 +191,20 @@ const requestInboundDrain = () => {
 };
 
 const startInboundMessageJob = () => {
+  stopped = false;
   const schedules = getOperationalSchedules();
   startInboundWorkerHealth({
     expectedIntervalMs: 15 * 60 * 1000,
   });
-  cron.schedule(schedules.inboundRecovery, requestInboundDrain);
+  cronTask = cron.schedule(schedules.inboundRecovery, requestInboundDrain);
   requestInboundDrain();
   console.log(`[InboundMessageJob] Event-driven with recovery sweep (${schedules.mode}: ${schedules.inboundRecovery})`);
 };
 
-module.exports = { startInboundMessageJob, requestInboundDrain, drainInboundJobs, processOneJob };
+const stopInboundMessageJob = async () => {
+  stopped = true; rerunRequested = false;
+  if (followUpTimer) clearTimeout(followUpTimer);
+  followUpTimer = null; followUpAt = null; cronTask?.stop(); cronTask = null;
+  if (draining) await draining;
+};
+module.exports = { startInboundMessageJob, stopInboundMessageJob, requestInboundDrain, drainInboundJobs, processOneJob };

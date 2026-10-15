@@ -9,8 +9,8 @@ function dayStart(date) {
  * Lectura pura de un hecho ya congelado — no recalcula nada.
  */
 function createGetDailyCloseUseCase({ dailyCloseRepository }) {
-  return async function execute({ tenantId, date }) {
-    const dailyClose = await dailyCloseRepository.findByDate(tenantId ?? null, dayStart(date));
+  return async function execute({ tenantId, date }, ctx) {
+    const dailyClose = await dailyCloseRepository.findByDate(tenantId ?? null, dayStart(date), ctx);
     if (!dailyClose) {
       throw new DailyCloseNotFoundError(date);
     }

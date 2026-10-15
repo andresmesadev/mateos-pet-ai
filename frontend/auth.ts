@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 
 import { authConfig } from "./auth.config";
+import { canonicalAdminEmail, verifyAdminCredential } from "./lib/operator-channel/admin-auth";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -18,16 +19,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const password = credentials?.password?.toString();
 
         const adminEmail = process.env.ADMIN_EMAIL?.trim();
-        const adminPassword = process.env.ADMIN_PASSWORD;
 
         if (!email || !password) {
           return null;
         }
 
-        if (adminEmail && adminPassword && email.toLowerCase() === adminEmail.toLowerCase() && password === adminPassword) {
+        const verifiedAdmin = verifyAdminCredential(email, password);
+        if (verifiedAdmin) {
           return {
             id: "admin",
-            email: adminEmail,
+            email: verifiedAdmin,
             name: "Administrador",
             tenantId: null,
             isSuperAdmin: true,
@@ -37,7 +38,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         // El administrador conserva su acceso exclusivo incluso si comparte
         // accidentalmente correo con una cuenta del staff.
-        if (adminEmail && email.toLowerCase() === adminEmail.toLowerCase()) return null;
+        if (adminEmail && canonicalAdminEmail(email) === canonicalAdminEmail(adminEmail)) return null;
 
         const secret = process.env.INTERNAL_API_SECRET;
         if (!secret) return null;

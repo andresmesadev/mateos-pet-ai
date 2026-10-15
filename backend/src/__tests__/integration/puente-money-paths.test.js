@@ -25,6 +25,8 @@ jest.mock("../../lib/prisma", () => {
     service: { findFirst: jest.fn(), findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
   };
   client.$transaction = jest.fn(async (fn) => fn(client));
+  // Expense/close now share a PostgreSQL advisory gate inside their real UOW.
+  client.$queryRaw = jest.fn().mockResolvedValue([{ locked: 1 }]);
   return client;
 });
 

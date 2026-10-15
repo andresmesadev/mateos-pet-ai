@@ -1,12 +1,14 @@
 # Estado actual del proyecto
 
-Fecha de corte documental: **8 de octubre de 2026**. Este documento orienta la lectura; no sustituye el Plan Maestro, el modelo de dominio ni los ADR.
+Fecha de corte documental original: **8 de octubre de 2026**. Actualización puntual del **15 de octubre**: implementación local de asistentes operativos y su canal privado de WhatsApp en 2.48.0. Las publicaciones históricas conservan su fecha y evidencia; no se verificó producción en esta actualización. Este documento orienta la lectura; no sustituye el Plan Maestro, el modelo de dominio ni los ADR.
 
 ## Publicación y trabajo local
 
 | Ámbito | Estado respaldado por evidencia |
 | --- | --- |
-| Versión declarada del backend | `2.45.0`, en `backend/package.json` y salud de producción; [publicación certificada](history/RELEASE_2_45_0_VPS_20261008.md). |
+| Versión declarada del backend local | `2.48.0`, en `backend/package.json`; el endpoint de salud toma esa misma versión. No publicada por esta entrega. [Entrega local por WhatsApp](history/ENTREGABLE_EMPLEADOS_OPERATIVOS_WHATSAPP_COMPLETION_REPORT.md). |
+| Asistentes operativos | Financiero y Administración/Inventario implementados y comprobados localmente, con confirmación humana y recuperación por recibo. [Evidencia y límites](history/ENTREGABLE_EMPLEADOS_OPERATIVOS_COMPLETION_REPORT.md). |
+| Canal privado de operadores por WhatsApp | Implementado localmente: vinculación verificada, sesiones revocables, selección de empleado y confirmación nativa. Deshabilitado por defecto; sin envíos reales. [Validación y límites](history/ENTREGABLE_EMPLEADOS_OPERATIVOS_WHATSAPP_COMPLETION_REPORT.md). |
 | Última publicación documentada | [2.45.0 — Dashboard unificado](history/RELEASE_2_45_0_VPS_20261008.md), publicada y comprobada el 8 de octubre, hora de Colombia: CI verde, respaldo cifrado, 14 destinos HTTPS y conteos conservados. |
 | Inicio, navegación y continuidad de trabajo | Mejoras publicadas en 2.45.0, después de la [revisión general del dashboard](history/REVISION_GENERAL_DASHBOARD_20261008.md). |
 | Correcciones finales del frontend | Recuperación del pago, pendientes de todas las fechas, seguimiento clínico con reintento y bloqueo del precio durante el guardado publicados en 2.45.0. [Evidencia y límites del cierre local](history/FRONTEND_CIERRE_AJUSTES_20261008.md). La comprobación manual con zoom real y lector de pantalla continúa sin certificar. |

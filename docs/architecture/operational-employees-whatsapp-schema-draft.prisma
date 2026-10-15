@@ -1,0 +1,525 @@
+// DESIGN ONLY. Do not use this file for db push, migrate, or client generation.
+// Existing models below are minimal projections, not replacement definitions.
+// Checks, partial indexes, deferred FKs and triggers: physical-schema.md.
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+}
+
+model OperatorAuthority {
+  id                   String @id @default(uuid())
+  issuer               String @unique @db.VarChar(64)
+  bootId               String @db.Uuid
+  epoch                BigInt
+  credentialEpoch      BigInt @default(1)
+  principalKey         String @db.VarChar(256)
+  credentialGeneration String @db.Char(64)
+  keyVersion           String @db.VarChar(32)
+  state                String @db.VarChar(16)
+  registeredAt         DateTime @db.Timestamptz(3)
+  updatedAt            DateTime @db.Timestamptz(3)
+  subjects             OperatorSubject[]
+  proofs               OperatorProof[]
+}
+
+model OperatorProof {
+  id              String @id @default(uuid())
+  issuer          String @db.VarChar(64)
+  kind            String @db.VarChar(24)
+  purpose         String @db.VarChar(32)
+  tenantId        String?
+  principalKey    String? @db.VarChar(256)
+  authorityId     String?
+  authorityEpoch  BigInt?
+  credentialEpoch BigInt?
+  generationHash  String? @db.Char(64)
+  operationId     String @db.Uuid
+  nonceDigest     String? @db.Char(64)
+  keyVersion      String @db.VarChar(32)
+  bindingHash     String @db.Char(64)
+  issuedAt        DateTime @db.Timestamptz(3)
+  expiresAt       DateTime @db.Timestamptz(3)
+  consumedAt      DateTime? @db.Timestamptz(3)
+  result          Json?
+  digestErasedAt  DateTime? @db.Timestamptz(3)
+  tenant          Tenant? @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  authority       OperatorAuthority? @relation(fields: [authorityId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  starts          OperatorLinkChallenge[] @relation("ChallengeStartProof")
+  activations     OperatorLinkChallenge[] @relation("ChallengeActivationProof")
+  windows         OperatorAuthorization[]
+  @@unique([issuer, kind, operationId], map: "OPF_operation_key")
+  @@unique([issuer, kind, nonceDigest], map: "OPF_nonce_key")
+  @@index([expiresAt, id], map: "OPF_expiry_idx")
+}
+
+model OperatorSubject {
+  id               String @id @default(uuid())
+  tenantId         String
+  principalKey     String @db.VarChar(256)
+  kind             String @db.VarChar(16)
+  staffSourceId    String?
+  authorityId      String?
+  credentialEpoch  BigInt @default(1)
+  permissionEpoch  BigInt @default(1)
+  state            String @db.VarChar(16)
+  createdAt        DateTime @db.Timestamptz(3)
+  updatedAt        DateTime @db.Timestamptz(3)
+  tenant           Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  authority        OperatorAuthority? @relation(fields: [authorityId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  challenges       OperatorLinkChallenge[]
+  links            OperatorLink[]
+  work             OperatorInboundWork[]
+  reviews          OperatorReview[]
+  @@unique([tenantId, principalKey], map: "OS_principal_key")
+  @@unique([tenantId, principalKey, id], map: "OS_scope_key")
+  @@unique([tenantId, staffSourceId], map: "OS_staff_source_key")
+}
+
+model OperatorChannelRoute {
+  id             String @id @default(uuid())
+  tenantId       String
+  channelId      String
+  provider       String @db.VarChar(16)
+  receiver       String @db.VarChar(64)
+  version        BigInt @default(1)
+  configHash     String @db.Char(64)
+  state          String @default("disabled") @db.VarChar(16)
+  createdAt      DateTime @db.Timestamptz(3)
+  updatedAt      DateTime @db.Timestamptz(3)
+  tenant         Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  channel        Channel @relation(fields: [channelId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  challenges     OperatorLinkChallenge[]
+  links          OperatorLink[]
+  participants   OperatorParticipant[]
+  threads        OperatorThread[]
+  deliveries     OperatorDelivery[]
+  @@unique([tenantId, id], map: "OCR_scope_key")
+  @@index([provider, receiver, state], map: "OCR_receiver_idx")
+}
+
+model OperatorLinkChallenge {
+  id                 String @id @default(uuid())
+  tenantId           String
+  principalKey       String @db.VarChar(256)
+  subjectId          String
+  routeId            String
+  routeVersion       BigInt
+  phone              String @db.VarChar(16)
+  credentialEpoch    BigInt
+  adminGeneration    String? @db.Char(64)
+  codeDigest         String? @db.Char(64)
+  keyVersion         String @db.VarChar(32)
+  startProofId       String @unique(map: "OLC_start_proof_key")
+  activationProofId  String? @unique(map: "OLC_activation_proof_key")
+  phoneProofJobId    String? @unique(map: "OLC_phone_proof_key")
+  replacesLinkId     String?
+  state              String @db.VarChar(24)
+  failedAttempts     Int @default(0)
+  createdAt          DateTime @db.Timestamptz(3)
+  expiresAt          DateTime @db.Timestamptz(3)
+  provedAt           DateTime? @db.Timestamptz(3)
+  finishedAt         DateTime? @db.Timestamptz(3)
+  digestErasedAt     DateTime? @db.Timestamptz(3)
+  subject            OperatorSubject @relation(fields: [tenantId, principalKey, subjectId], references: [tenantId, principalKey, id], onDelete: Restrict, onUpdate: Restrict)
+  route              OperatorChannelRoute @relation(fields: [tenantId, routeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  startProof         OperatorProof @relation("ChallengeStartProof", fields: [startProofId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  activationProof    OperatorProof? @relation("ChallengeActivationProof", fields: [activationProofId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  phoneProof         InboundJob? @relation("ChallengePhoneProof", fields: [phoneProofJobId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  replacesLink       OperatorLink? @relation("ChallengeReplacement", fields: [tenantId, principalKey, replacesLinkId], references: [tenantId, principalKey, id], onDelete: Restrict, onUpdate: Restrict)
+  producedLinks      OperatorLink[] @relation("LinkChallenge")
+  @@unique([tenantId, principalKey, id], map: "OLC_scope_key")
+  @@index([tenantId, principalKey, createdAt], map: "OLC_rate_idx")
+  @@index([state, expiresAt, id], map: "OLC_expiry_idx")
+}
+
+model OperatorLink {
+  id                   String @id @default(uuid())
+  tenantId             String
+  principalKey         String @db.VarChar(256)
+  subjectId            String
+  routeId              String
+  phone                String @db.VarChar(16)
+  challengeId          String @unique(map: "OL_challenge_key")
+  credentialEpoch      BigInt
+  adminGeneration      String? @db.Char(64)
+  state                String @db.VarChar(16)
+  version              BigInt @default(1)
+  currentAuthorizationId String?
+  createdAt            DateTime @db.Timestamptz(3)
+  closedAt             DateTime? @db.Timestamptz(3)
+  closeReason          String? @db.VarChar(64)
+  subject              OperatorSubject @relation(fields: [tenantId, principalKey, subjectId], references: [tenantId, principalKey, id], onDelete: Restrict, onUpdate: Restrict)
+  route                OperatorChannelRoute @relation(fields: [tenantId, routeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  challenge            OperatorLinkChallenge @relation("LinkChallenge", fields: [tenantId, principalKey, challengeId], references: [tenantId, principalKey, id], onDelete: Restrict, onUpdate: Restrict)
+  replacementChallenges OperatorLinkChallenge[] @relation("ChallengeReplacement")
+  authorizations       OperatorAuthorization[] @relation("LinkAuthorizations")
+  currentAuthorization OperatorAuthorization? @relation("CurrentAuthorization", fields: [tenantId, principalKey, id, currentAuthorizationId], references: [tenantId, principalKey, linkId, id], onDelete: Restrict, onUpdate: Restrict, map: "OL_current_auth_fk")
+  threads              OperatorThread[]
+  sessions             OperatorSession[]
+  @@unique([tenantId, principalKey, id], map: "OL_scope_key")
+  @@index([tenantId, principalKey, createdAt, id], map: "OL_owner_idx")
+}
+
+model OperatorAuthorization {
+  id                String @id @default(uuid())
+  tenantId          String
+  principalKey      String @db.VarChar(256)
+  linkId            String
+  number            BigInt
+  proofId           String @unique(map: "OAZ_proof_key")
+  credentialEpoch   BigInt
+  adminGeneration   String? @db.Char(64)
+  routeVersion      BigInt
+  issuedAt          DateTime @db.Timestamptz(3)
+  expiresAt         DateTime @db.Timestamptz(3)
+  link              OperatorLink @relation("LinkAuthorizations", fields: [tenantId, principalKey, linkId], references: [tenantId, principalKey, id], onDelete: Restrict, onUpdate: Restrict)
+  proof             OperatorProof @relation(fields: [proofId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  currentFor        OperatorLink[] @relation("CurrentAuthorization")
+  sessions          OperatorSession[]
+  @@unique([tenantId, principalKey, linkId, number], map: "OAZ_number_key")
+  @@unique([tenantId, principalKey, linkId, id], map: "OAZ_link_scope_key")
+}
+
+model OperatorParticipant {
+  id                String @id @default(uuid())
+  tenantId          String
+  routeId           String
+  phone             String @db.VarChar(16)
+  mode              String @default("customer") @db.VarChar(16)
+  modeVersion       BigInt @default(0)
+  admittedOrdinal   BigInt @default(0)
+  resolvedOrdinal   BigInt @default(0)
+  currentSessionId  String?
+  blockedReason     String? @db.VarChar(64)
+  updatedAt         DateTime @db.Timestamptz(3)
+  route             OperatorChannelRoute @relation(fields: [tenantId, routeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  sessions          OperatorSession[] @relation("ParticipantSessions")
+  currentSession    OperatorSession? @relation("CurrentOperatorSession", fields: [tenantId, id, currentSessionId], references: [tenantId, participantId, id], onDelete: Restrict, onUpdate: Restrict, map: "OPT_current_session_fk")
+  jobs              InboundJob[]
+  deliveries        OperatorDelivery[]
+  @@unique([tenantId, routeId, phone], map: "OPT_address_key")
+  @@unique([tenantId, routeId, id], map: "OPT_route_scope_key")
+  @@unique([tenantId, id], map: "OPT_scope_key")
+}
+
+model OperatorThread {
+  id                String @id @default(uuid())
+  tenantId          String
+  principalKey      String @db.VarChar(256)
+  linkId            String @unique(map: "OTH_link_key")
+  routeId           String
+  state             String @db.VarChar(16)
+  version           BigInt @default(1)
+  selectedEmployeeId String?
+  selectedActionId  String?
+  taskContext       Json?
+  createdAt         DateTime @db.Timestamptz(3)
+  closedAt          DateTime? @db.Timestamptz(3)
+  link              OperatorLink @relation(fields: [tenantId, principalKey, linkId], references: [tenantId, principalKey, id], onDelete: Restrict, onUpdate: Restrict)
+  route             OperatorChannelRoute @relation(fields: [tenantId, routeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  selectedEmployee  DigitalEmployee? @relation(fields: [tenantId, selectedEmployeeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  selectedAction    OperationalAction? @relation(fields: [tenantId, principalKey, selectedActionId], references: [tenantId, principalKey, id], onDelete: Restrict, onUpdate: Restrict)
+  sessions          OperatorSession[]
+  messages          OperatorMessage[]
+  @@unique([tenantId, principalKey, id], map: "OTH_scope_key")
+}
+
+model OperatorSession {
+  id                String @id @default(uuid())
+  tenantId          String
+  principalKey      String @db.VarChar(256)
+  linkId            String
+  authorizationId   String
+  participantId     String
+  threadId          String
+  credentialEpoch   BigInt
+  routeVersion      BigInt
+  modeVersion       BigInt
+  openedOrdinal     BigInt
+  lastActivityOrdinal BigInt
+  state             String @db.VarChar(16)
+  openedAt          DateTime @db.Timestamptz(3)
+  lastActivityAt    DateTime @db.Timestamptz(3)
+  idleExpiresAt     DateTime @db.Timestamptz(3)
+  absoluteExpiresAt DateTime @db.Timestamptz(3)
+  closedAt          DateTime? @db.Timestamptz(3)
+  closeReason       String? @db.VarChar(64)
+  link              OperatorLink @relation(fields: [tenantId, principalKey, linkId], references: [tenantId, principalKey, id], onDelete: Restrict, onUpdate: Restrict)
+  authorization     OperatorAuthorization @relation(fields: [tenantId, principalKey, linkId, authorizationId], references: [tenantId, principalKey, linkId, id], onDelete: Restrict, onUpdate: Restrict)
+  participant       OperatorParticipant @relation("ParticipantSessions", fields: [tenantId, participantId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  currentFor        OperatorParticipant[] @relation("CurrentOperatorSession")
+  thread            OperatorThread @relation(fields: [tenantId, principalKey, threadId], references: [tenantId, principalKey, id], onDelete: Restrict, onUpdate: Restrict)
+  messages          OperatorMessage[]
+  work              OperatorInboundWork[]
+  reviews           OperatorReview[]
+  interactions      OperatorInteraction[]
+  deliveries        OperatorDelivery[]
+  jobs              InboundJob[] @relation("JobOperatorSession")
+  @@unique([tenantId, principalKey, id], map: "OSS_scope_key")
+  @@unique([tenantId, participantId, id], map: "OSS_participant_scope_key")
+  @@index([state, idleExpiresAt, id], map: "OSS_expiry_idx")
+}
+
+model OperatorMessage {
+  id                  String @id @default(uuid())
+  tenantId            String
+  principalKey        String @db.VarChar(256)
+  threadId            String
+  sessionId           String
+  incomingJobId       String? @unique(map: "OM_incoming_key")
+  direction           String @db.VarChar(8)
+  actorKind           String @db.VarChar(16)
+  actorName           String @db.VarChar(160)
+  content             Json
+  accessClass         String @db.VarChar(24)
+  accessProjection    Json
+  permissionEpoch     BigInt
+  tenantAccessEpoch   BigInt
+  createdAt           DateTime @db.Timestamptz(3)
+  thread              OperatorThread @relation(fields: [tenantId, principalKey, threadId], references: [tenantId, principalKey, id], onDelete: Restrict, onUpdate: Restrict)
+  session             OperatorSession @relation(fields: [tenantId, principalKey, sessionId], references: [tenantId, principalKey, id], onDelete: Restrict, onUpdate: Restrict)
+  incoming            InboundJob? @relation("OperatorIncomingMessage", fields: [incomingJobId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  reviews             OperatorReview[]
+  interactions        OperatorInteraction[]
+  deliveries          OperatorDelivery[]
+  @@unique([tenantId, principalKey, id], map: "OM_scope_key")
+  @@index([tenantId, principalKey, threadId, createdAt, id], map: "OM_history_idx")
+}
+
+model OperatorInboundWork {
+  id                  String @id @default(uuid())
+  tenantId            String
+  principalKey        String @db.VarChar(256)
+  subjectId           String
+  sessionId           String
+  jobId               String
+  stepKey             String @db.VarChar(64)
+  kind                String @db.VarChar(24)
+  inputHash           String @db.Char(64)
+  requestKey          String? @db.Uuid
+  operationalRequestId String?
+  actionId            String?
+  expectedRevision    Int?
+  state               String @db.VarChar(16)
+  result              Json?
+  createdAt           DateTime @db.Timestamptz(3)
+  resolvedAt          DateTime? @db.Timestamptz(3)
+  subject             OperatorSubject @relation(fields: [tenantId, principalKey, subjectId], references: [tenantId, principalKey, id], onDelete: Restrict, onUpdate: Restrict)
+  session             OperatorSession @relation(fields: [tenantId, principalKey, sessionId], references: [tenantId, principalKey, id], onDelete: Restrict, onUpdate: Restrict)
+  job                 InboundJob @relation(fields: [jobId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  operationalRequest  OperationalRequest? @relation(fields: [operationalRequestId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  action              OperationalAction? @relation(fields: [tenantId, principalKey, actionId], references: [tenantId, principalKey, id], onDelete: Restrict, onUpdate: Restrict)
+  @@unique([jobId, stepKey], map: "OIW_step_key")
+  @@unique([tenantId, principalKey, requestKey], map: "OIW_request_key")
+  @@index([tenantId, principalKey, createdAt, id], map: "OIW_owner_idx")
+}
+
+model OperatorReview {
+  id                String @id @default(uuid())
+  tenantId          String
+  principalKey      String @db.VarChar(256)
+  subjectId         String
+  kind              String @db.VarChar(8)
+  actionId          String
+  revision          Int
+  basisId           String?
+  sessionId         String?
+  messageId         String?
+  payloadHash       String @db.Char(64)
+  previewHash       String @db.Char(64)
+  permissionEpoch   BigInt
+  tenantAccessEpoch BigInt
+  createdAt         DateTime @db.Timestamptz(3)
+  expiresAt         DateTime? @db.Timestamptz(3)
+  subject           OperatorSubject @relation(fields: [tenantId, principalKey, subjectId], references: [tenantId, principalKey, id], onDelete: Restrict, onUpdate: Restrict)
+  actionRevision    ActionRevision @relation(fields: [tenantId, principalKey, actionId, revision], references: [tenantId, principalKey, actionId, number], onDelete: Restrict, onUpdate: Restrict)
+  basis             OperatorReview? @relation("ReviewBasis", fields: [tenantId, principalKey, basisId], references: [tenantId, principalKey, id], onDelete: Restrict, onUpdate: Restrict)
+  displays          OperatorReview[] @relation("ReviewBasis")
+  session           OperatorSession? @relation(fields: [tenantId, principalKey, sessionId], references: [tenantId, principalKey, id], onDelete: Restrict, onUpdate: Restrict)
+  message           OperatorMessage? @relation(fields: [tenantId, principalKey, messageId], references: [tenantId, principalKey, id], onDelete: Restrict, onUpdate: Restrict)
+  interactions      OperatorInteraction[]
+  @@unique([tenantId, principalKey, id], map: "ORV_scope_key")
+}
+
+model OperatorInteraction {
+  id                String @id @default(uuid())
+  tenantId          String
+  principalKey      String @db.VarChar(256)
+  sessionId         String
+  messageId         String
+  reviewId          String?
+  kind              String @db.VarChar(24)
+  actionId          String?
+  expectedRevision  Int?
+  productId         String?
+  selectionContext  Json?
+  tokenDigest       String @unique(map: "OI_token_key") @db.Char(64)
+  keyVersion        String @db.VarChar(32)
+  modeVersion       BigInt
+  routeVersion      BigInt
+  permissionEpoch   BigInt
+  tenantAccessEpoch BigInt
+  state             String @db.VarChar(16)
+  expiresAt         DateTime @db.Timestamptz(3)
+  offeredAt         DateTime? @db.Timestamptz(3)
+  providerMessageId String?
+  consumedAt        DateTime? @db.Timestamptz(3)
+  receiptId         String?
+  resultReference   Json?
+  createdAt         DateTime @db.Timestamptz(3)
+  session           OperatorSession @relation(fields: [tenantId, principalKey, sessionId], references: [tenantId, principalKey, id], onDelete: Restrict, onUpdate: Restrict)
+  message           OperatorMessage @relation(fields: [tenantId, principalKey, messageId], references: [tenantId, principalKey, id], onDelete: Restrict, onUpdate: Restrict)
+  review            OperatorReview? @relation(fields: [tenantId, principalKey, reviewId], references: [tenantId, principalKey, id], onDelete: Restrict, onUpdate: Restrict)
+  action            OperationalAction? @relation(fields: [tenantId, principalKey, actionId], references: [tenantId, principalKey, id], onDelete: Restrict, onUpdate: Restrict)
+  product           InventoryProduct? @relation(fields: [tenantId, productId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  receipt           ExecutionReceipt? @relation(fields: [tenantId, principalKey, receiptId], references: [tenantId, principalKey, id], onDelete: Restrict, onUpdate: Restrict)
+  @@unique([tenantId, principalKey, id], map: "OI_scope_key")
+  @@index([state, expiresAt, id], map: "OI_expiry_idx")
+}
+
+model OperatorDelivery {
+  id                 String @id @default(uuid())
+  tenantId           String
+  principalKey       String? @db.VarChar(256)
+  routeId            String
+  routeVersion       BigInt
+  participantId      String
+  sessionId          String?
+  messageId          String? @unique(map: "OD_message_key")
+  sourceJobId        String
+  replyOrdinal       Int
+  kind               String @db.VarChar(16)
+  controlCode        String? @db.VarChar(40)
+  modeVersion        BigInt
+  permissionEpoch    BigInt?
+  tenantAccessEpoch  BigInt?
+  state              String @db.VarChar(16)
+  claimGeneration    BigInt @default(0)
+  claimOwner         String? @db.Uuid
+  claimUntil         DateTime? @db.Timestamptz(3)
+  attemptCount       Int @default(0)
+  providerMessageId  String?
+  acceptedAt         DateTime? @db.Timestamptz(3)
+  blockedReason      String? @db.VarChar(64)
+  lastErrorCode      String? @db.VarChar(64)
+  createdAt          DateTime @db.Timestamptz(3)
+  updatedAt          DateTime @db.Timestamptz(3)
+  route              OperatorChannelRoute @relation(fields: [tenantId, routeId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  participant        OperatorParticipant @relation(fields: [tenantId, routeId, participantId], references: [tenantId, routeId, id], onDelete: Restrict, onUpdate: Restrict)
+  session            OperatorSession? @relation(fields: [tenantId, principalKey, sessionId], references: [tenantId, principalKey, id], onDelete: Restrict, onUpdate: Restrict)
+  message            OperatorMessage? @relation(fields: [tenantId, principalKey, messageId], references: [tenantId, principalKey, id], onDelete: Restrict, onUpdate: Restrict)
+  source             InboundJob @relation(fields: [sourceJobId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  audit              OperatorAudit[]
+  @@unique([sourceJobId, replyOrdinal], map: "OD_reply_key")
+  @@unique([routeId, providerMessageId], map: "OD_provider_key")
+  @@index([state, claimUntil, id], map: "OD_claim_idx")
+  @@index([tenantId, principalKey, createdAt, id], map: "OD_owner_idx")
+}
+
+model OperatorAudit {
+  id                String @id @default(uuid())
+  tenantId          String?
+  ownerPrincipalKey String? @db.VarChar(256)
+  actorKind         String @db.VarChar(24)
+  actorPrincipalKey String? @db.VarChar(256)
+  eventCode         String @db.VarChar(48)
+  causeKey          String @unique(map: "OAU_cause_key") @db.Char(64)
+  deliveryId        String?
+  attemptNumber     Int?
+  evidence          Json
+  createdAt         DateTime @db.Timestamptz(3)
+  tenant            Tenant? @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  delivery          OperatorDelivery? @relation(fields: [deliveryId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  @@index([tenantId, ownerPrincipalKey, createdAt, id], map: "OAU_owner_idx")
+}
+
+// EXISTING MODEL PROJECTIONS: preserve all other production fields/relations.
+model Tenant {
+  id                  String @id
+  operatorAccessEpoch BigInt @default(1) // Only new scalar on this projection.
+  proofs              OperatorProof[]
+  subjects            OperatorSubject[]
+  operatorRoutes      OperatorChannelRoute[]
+  operatorAudit       OperatorAudit[]
+}
+model Channel {
+  id             String @id
+  operatorRoutes OperatorChannelRoute[]
+}
+model DigitalEmployee {
+  id       String @id
+  tenantId String?
+  selectedThreads OperatorThread[]
+  @@unique([tenantId, id], map: "DE_tenant_id_key")
+}
+model InventoryProduct {
+  id       String @id
+  tenantId String
+  selections OperatorInteraction[]
+  @@unique([tenantId, id])
+}
+model InboundJob {
+  id                 String @id
+  provider           String
+  providerEventId    String
+  status             String @default("received")
+  phase              String @default("pending")
+  attempts           Int @default(0)
+  leaseExpiresAt     DateTime?
+  envelopeVersion    Int @default(1)
+  channelTenantId    String?
+  channelRouteId     String?
+  channelParticipantId String?
+  channelOrdinal    BigInt?
+  channelRouteVersion BigInt?
+  channelInputHash  String? @db.Char(64)
+  channelResultKind String? @db.VarChar(16)
+  channelPrincipalKey String? @db.VarChar(256)
+  channelSessionId  String?
+  channelModeVersion BigInt?
+  channelClaimGeneration BigInt @default(0)
+  channelClaimOwner  String? @db.Uuid
+  channelParticipant OperatorParticipant? @relation(fields: [channelTenantId, channelRouteId, channelParticipantId], references: [tenantId, routeId, id], onDelete: Restrict, onUpdate: Restrict)
+  channelSession    OperatorSession? @relation("JobOperatorSession", fields: [channelTenantId, channelPrincipalKey, channelSessionId], references: [tenantId, principalKey, id], onDelete: Restrict, onUpdate: Restrict)
+  phoneProofs       OperatorLinkChallenge[] @relation("ChallengePhoneProof")
+  operatorIncoming  OperatorMessage[] @relation("OperatorIncomingMessage")
+  operatorWork      OperatorInboundWork[]
+  operatorDeliveries OperatorDelivery[]
+  @@unique([provider, providerEventId])
+  @@unique([channelParticipantId, channelOrdinal], map: "IJ_operator_ordinal_key")
+}
+model OperationalRequest {
+  id           String @id
+  tenantId     String
+  principalKey String @db.VarChar(256)
+  requestId    String @db.Uuid
+  channelWork  OperatorInboundWork[]
+  @@unique([tenantId, principalKey, requestId], map: "OR_request_key")
+}
+model OperationalAction {
+  id           String @id
+  tenantId     String
+  principalKey String @db.VarChar(256)
+  selectedBy   OperatorThread[]
+  channelWork  OperatorInboundWork[]
+  interactions OperatorInteraction[]
+  @@unique([tenantId, principalKey, id], map: "OA_scope_key")
+}
+model ActionRevision {
+  id           String @id
+  tenantId     String
+  principalKey String @db.VarChar(256)
+  actionId     String
+  number       Int
+  reviews      OperatorReview[]
+  @@unique([tenantId, principalKey, actionId, number], map: "AR_number_key")
+}
+model ExecutionReceipt {
+  id           String @id
+  tenantId     String
+  principalKey String @db.VarChar(256)
+  interactions OperatorInteraction[]
+  @@unique([tenantId, principalKey, id], map: "ER_scope_key")
+}

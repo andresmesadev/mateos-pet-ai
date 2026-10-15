@@ -32,6 +32,11 @@ function links(text) {
   }
   return found;
 }
+function literalDocReferences(text) {
+  // A URL's /docs/ path is not a repository-relative file reference.
+  const localText = text.replace(/\bhttps?:\/\/[^\s<>"'`)\]]+/gi, ' ');
+  return [...new Set([...localText.matchAll(/\bdocs\/[\w./-]+\.(?:md|sql|prisma|json|html|png)\b/g)].map((match) => match[0]))];
+}
 function inspect() {
   const docs = walk(path.join(root, 'docs')).sort();
   const repository = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], { cwd: root, encoding: 'utf8' }).split('\0').filter(Boolean);
@@ -54,7 +59,7 @@ function inspect() {
   for (const file of [...new Set([...docs, ...repository])]) {
     if (!/\.(md|[cm]?js|tsx?|json|ya?ml|prisma|sql)$/.test(file) || !fs.existsSync(path.join(root, file))) continue;
     const text = fs.readFileSync(path.join(root, file), 'utf8');
-    const references = new Set([...text.matchAll(/\bdocs\/[\w./-]+\.(?:md|sql|prisma|json|html|png)\b/g)].map((match) => match[0]));
+    const references = literalDocReferences(text);
     for (const target of references) {
       if (!fs.existsSync(path.join(root, target))) missingDocReferences.push({ file, target });
     }
@@ -92,4 +97,4 @@ if (require.main === module) {
   console.log(JSON.stringify(result, null, 2));
   process.exitCode = result.broken.length || result.missingDocReferences.length || result.nonPortableLocalLinks.length || result.catalogueErrors.length ? 1 : 0;
 }
-module.exports = { links, localTarget, inspect };
+module.exports = { links, localTarget, literalDocReferences, inspect };

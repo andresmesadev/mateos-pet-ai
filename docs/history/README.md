@@ -10,6 +10,14 @@ Los informes conservan hechos, aprobaciones, comandos, resultados y límites de 
 
 ## Evidencia reciente
 
+- [Empleados operativos — ajustes previos a publicación aplicados, 15 de octubre](EMPLEADOS_OPERATIVOS_AJUSTES_PREPUBLICACION_20261015.md), después de la [revisión de cuatro hallazgos](EMPLEADOS_OPERATIVOS_REVISION_PREPUBLICACION_20261015.md).
+
+- [Empleados operativos por WhatsApp — entrega local 2.48.0](ENTREGABLE_EMPLEADOS_OPERATIVOS_WHATSAPP_COMPLETION_REPORT.md), [revisión de cierre](ENTREGABLE_EMPLEADOS_OPERATIVOS_WHATSAPP_GATE_REVIEW.md).
+
+- [Prueba interna de empleados con OpenAI real — 15 de octubre](PRUEBA_INTERNA_EMPLEADOS_20261015.md).
+
+- [Empleados operativos — implementación local del 15 de octubre, 2.47.0](ENTREGABLE_EMPLEADOS_OPERATIVOS_COMPLETION_REPORT.md).
+
 - [Publicación 2.45.0 — Dashboard unificado](RELEASE_2_45_0_VPS_20261008.md).
 - [Ajustes finales del frontend y comprobaciones de cierre — 8 de octubre](FRONTEND_CIERRE_AJUSTES_20261008.md).
 - [Formularios secundarios e integración autenticada — 8 de octubre](FORMULARIOS_SECUNDARIOS_INTEGRACION_20261008.md).

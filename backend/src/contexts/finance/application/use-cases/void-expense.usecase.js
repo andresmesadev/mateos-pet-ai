@@ -17,13 +17,13 @@ const { civilDateKey, civilDateLabel } = require("../../../shared/business-day")
  * @param {import("../ports/daily-close-repository.port").DailyCloseRepositoryPort} deps.dailyCloseRepository
  * @param {import("../ports/domain-event-publisher.port").DomainEventPublisherPort} deps.eventPublisher
  */
-function createVoidExpenseUseCase({ expenseRepository, dailyCloseRepository, eventPublisher }) {
-  return async function execute({ tenantId, expenseId, reason }) {
+function createVoidExpenseUseCase({ expenseRepository, dailyCloseRepository, eventPublisher, businessDayGate }) {
+  return async function execute({ tenantId, expenseId, reason }, ctx) {
     if (!reason || !reason.trim()) {
       throw new InvalidExpenseAttributesError("reason es obligatorio para anular un gasto.");
     }
 
-    const expense = await expenseRepository.findById(expenseId);
+    let expense = await expenseRepository.findById(expenseId, ctx);
     if (!expense || (tenantId && expense.tenantId !== tenantId)) {
       throw new ExpenseNotFoundError(expenseId);
     }
@@ -32,7 +32,13 @@ function createVoidExpenseUseCase({ expenseRepository, dailyCloseRepository, eve
     }
 
     const ymd = civilDateKey(expense.date);
-    const existingClose = await dailyCloseRepository.findByDate(expense.tenantId ?? null, civilDateLabel(ymd));
+    if (businessDayGate) {
+      await businessDayGate.acquire(expense.tenantId, ymd, ctx);
+      expense = await expenseRepository.findById(expenseId, ctx);
+      if (!expense || (tenantId && expense.tenantId !== tenantId)) throw new ExpenseNotFoundError(expenseId);
+      if (expense.status === "voided") throw new ExpenseAlreadyVoidedError(expenseId);
+    }
+    const existingClose = await dailyCloseRepository.findByDate(expense.tenantId ?? null, civilDateLabel(ymd), ctx);
     if (existingClose) {
       throw new DailyCloseAlreadyExistsForDateError(ymd);
     }
@@ -40,9 +46,9 @@ function createVoidExpenseUseCase({ expenseRepository, dailyCloseRepository, eve
     const voided = await expenseRepository.void(expenseId, {
       voidedAt: new Date(),
       voidReason: reason,
-    });
+    }, ctx);
 
-    await eventPublisher.publish("GastoAnulado", { expense: voided });
+    await (ctx?.eventPublisher ?? eventPublisher).publish("GastoAnulado", { expense: voided });
 
     return { expense: voided };
   };

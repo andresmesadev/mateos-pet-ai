@@ -5,14 +5,14 @@ const { AgentTaskNotFoundError, AgentTaskAlreadyClosedError, InvalidAgentDecisio
  * Invariante §9: DecisiónRegistrada se produce siempre, sin excepción.
  */
 function createRegisterAgentDecisionUseCase({ agentTaskRepository, agentDecisionRepository, eventPublisher }) {
-  return async function execute({ agentTaskId, input, reasoning, action }) {
+  return async function execute({ agentTaskId, input, reasoning, action }, ctx) {
     if (!reasoning || !reasoning.trim()) {
       throw new InvalidAgentDecisionAttributesError("reasoning es obligatorio.");
     }
     if (!action || !action.trim()) {
       throw new InvalidAgentDecisionAttributesError("action es obligatorio.");
     }
-    const task = await agentTaskRepository.findById(agentTaskId);
+    const task = await agentTaskRepository.findById(agentTaskId, ctx);
     if (!task) throw new AgentTaskNotFoundError(agentTaskId);
     if (task.status !== "en_proceso") throw new AgentTaskAlreadyClosedError(agentTaskId, task.status);
 
@@ -21,8 +21,8 @@ function createRegisterAgentDecisionUseCase({ agentTaskRepository, agentDecision
       input: input ?? null,
       reasoning: reasoning.trim(),
       action: action.trim(),
-    });
-    await eventPublisher.publish("DecisiónRegistrada", { decision, tenantId: task.digitalEmployee?.tenantId ?? null });
+    }, ctx);
+    await (ctx?.eventPublisher ?? eventPublisher).publish("DecisiónRegistrada", { decision, tenantId: task.digitalEmployee?.tenantId ?? null });
     return { decision };
   };
 }

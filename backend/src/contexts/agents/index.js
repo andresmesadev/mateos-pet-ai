@@ -59,7 +59,18 @@ const getPendingEscalations = createGetPendingEscalationsUseCase({ escalationRep
 // (p. ej. `listDomainEventsAwaitingRetry` de 5.1).
 const getAutonomyLimit = digitalEmployeeRepository.getAutonomyLimit.bind(digitalEmployeeRepository);
 
+// Same lifecycle rules, with a transaction-local publisher for operational assistants.
+function buildAgentAudit({ eventPublisher: publisher = eventPublisher } = {}) {
+  return {
+    startAgentTask: createStartAgentTaskUseCase({ digitalEmployeeRepository, agentTaskRepository, eventPublisher: publisher }),
+    registerAgentDecision: createRegisterAgentDecisionUseCase({ agentTaskRepository, agentDecisionRepository, eventPublisher: publisher }),
+    completeAgentTask: createCompleteAgentTaskUseCase({ agentTaskRepository, eventPublisher: publisher }),
+    generateEscalation: createGenerateEscalationUseCase({ agentTaskRepository, escalationRepository, eventPublisher: publisher }),
+  };
+}
+
 module.exports = {
+  buildAgentAudit,
   registerDigitalEmployee,
   pauseDigitalEmployee,
   reactivateDigitalEmployee,

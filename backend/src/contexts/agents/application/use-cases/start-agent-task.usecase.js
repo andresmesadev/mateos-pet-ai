@@ -5,11 +5,11 @@ const { DigitalEmployeeNotFoundError, DigitalEmployeeNotActiveError, InvalidAgen
  * Sin invocador real en este entregable (mismo estatus que Eventos 3.0).
  */
 function createStartAgentTaskUseCase({ digitalEmployeeRepository, agentTaskRepository, eventPublisher }) {
-  return async function execute({ digitalEmployeeId, origin }) {
+  return async function execute({ digitalEmployeeId, origin }, ctx) {
     if (!origin || !origin.trim()) {
       throw new InvalidAgentTaskAttributesError("origin es obligatorio.");
     }
-    const employee = await digitalEmployeeRepository.findById(digitalEmployeeId);
+    const employee = await digitalEmployeeRepository.findById(digitalEmployeeId, ctx);
     if (!employee) throw new DigitalEmployeeNotFoundError(digitalEmployeeId);
     if (employee.status !== "activo") throw new DigitalEmployeeNotActiveError(digitalEmployeeId);
 
@@ -17,8 +17,8 @@ function createStartAgentTaskUseCase({ digitalEmployeeRepository, agentTaskRepos
       digitalEmployeeId,
       origin: origin.trim(),
       status: "en_proceso",
-    });
-    await eventPublisher.publish("TareaIniciada", { task, tenantId: employee.tenantId });
+    }, ctx);
+    await (ctx?.eventPublisher ?? eventPublisher).publish("TareaIniciada", { task, tenantId: employee.tenantId });
     return { task };
   };
 }

@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
-const { links, localTarget } = require('./check-docs.cjs');
+const { links, localTarget, literalDocReferences } = require('./check-docs.cjs');
 
 test('reads portable links, images and reference definitions with their line', () => {
   assert.deepEqual(links('# Guide\n[Page](./page.md#section)\n![Capture](<shots/example image.png>)\n[ref]: ../README.md'), [
@@ -26,4 +26,18 @@ test('decodes file names and removes query and fragment before checking existenc
 });
 test('root-relative links resolve inside the repository', () => {
   assert.equal(localTarget('/README.md', ['docs', 'history', 'report.md'].join('/')), path.resolve(__dirname, '../README.md'));
+});
+
+test('does not flag the docs path of an external source as a missing repository file', () => {
+  const sample = '[PostgreSQL](https://www.postgresql.org/docs/18/ddl-constraints.html)\n'
+    + 'https://www.postgresql.org/docs/18/sql-createtrigger.html\n'
+    + '"https://example.com/docs/remote.md"\n';
+  assert.deepEqual(literalDocReferences(sample), []);
+});
+
+test('keeps genuine literal repository references next to external sources', () => {
+  const missingReference = ['docs', 'missing.md'].join('/');
+  const sample = '[Source](https://example.com/docs/remote.md) `docs/architecture/domain-model-v1.md`\n'
+    + '// ' + missingReference + '\nconst reference = "docs/architecture/domain-model-v1.md";';
+  assert.deepEqual(literalDocReferences(sample), ['docs/architecture/domain-model-v1.md', missingReference]);
 });

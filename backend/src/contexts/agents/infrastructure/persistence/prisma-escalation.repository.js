@@ -2,8 +2,8 @@ const prisma = require("../../../../lib/prisma");
 const { EscalationRepositoryPort } = require("../../application/ports/escalation-repository.port");
 
 class PrismaEscalationRepository extends EscalationRepositoryPort {
-  async create(data) {
-    return prisma.escalation.create({ data });
+  async create(data, ctx) {
+    return (ctx?.tx ?? prisma).escalation.create({ data });
   }
 
   async findById(id) {

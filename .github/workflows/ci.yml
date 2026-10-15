@@ -96,6 +96,46 @@ jobs:
           npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
       - run: npm --prefix backend run test:postgres
 
+  operational-employees-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: mirror.gcr.io/pgvector/pgvector@sha256:1d50c689b0a6511b9ea0a15615281c81a59fd04a08eb35057ec8646fb3a2118a
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: operational_test_ci
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d operational_test_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:55432/operational_test_ci
+      OPERATIONAL_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:55432/operational_test_ci
+      OPENAI_API_KEY: test-only-not-a-real-key
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+      - run: npm ci
+      - run: npm --prefix backend ci
+      - name: Generate Prisma clients and apply migrations
+        run: |
+          npx prisma generate
+          (cd backend && npx prisma generate --schema ../prisma/schema.prisma)
+          npx prisma migrate deploy
+      - name: Verify operational employees and private WhatsApp against PostgreSQL
+        run: node --test --test-concurrency=1 backend/tests/postgres/operational-assistants.test.cjs backend/tests/postgres/operator-whatsapp.test.cjs
+
   lint:
     runs-on: ubuntu-latest
 

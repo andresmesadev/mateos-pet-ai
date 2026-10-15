@@ -2,7 +2,7 @@ class DomainEventRepositoryPort {
   async create(_data, _ctx) {
     throw new Error("DomainEventRepositoryPort.create no implementado");
   }
-  async findById(_id) {
+  async findById(_id, _ctx) {
     throw new Error("DomainEventRepositoryPort.findById no implementado");
   }
   async listByFilters(_filters) {

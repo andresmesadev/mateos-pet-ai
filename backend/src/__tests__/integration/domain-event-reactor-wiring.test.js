@@ -19,6 +19,9 @@ jest.mock("../../contexts/staff", () => ({
 
 jest.mock("../../contexts/finance", () => ({
   recordChargeOnAppointmentCompleted: jest.fn(),
+  // The integration root now composes operational assistants as well; this
+  // reactor-only test does not execute their financial commands.
+  buildTransactionalFinance: jest.fn().mockReturnValue({}),
 }));
 
 jest.mock("../../contexts/automation", () => ({

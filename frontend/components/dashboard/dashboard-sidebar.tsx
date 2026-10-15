@@ -22,6 +22,7 @@ import {
   Stethoscope,
   Scissors,
   Package,
+  Bot,
   type LucideIcon,
 } from "lucide-react";
 
@@ -53,6 +54,7 @@ const SECTIONS: NavSection[] = [
     items: [
       { href: "/dashboard/pos", label: "Punto de venta", icon: Wallet, alsoActiveOn: ["/dashboard/revenue"] },
       { href: "/dashboard/inventory", label: "Inventario", icon: Package },
+      { href: "/dashboard/assistants", label: "Asistentes", icon: Bot },
       { href: "/dashboard/recuperacion", label: "Seguimiento de clientes", icon: HeartPulse, alsoActiveOn: ["/dashboard/churn", "/dashboard/opportunities", "/dashboard/reactivation"] },
       { href: "/dashboard/settings", label: "Administración", icon: Settings, alsoActiveOn: ["/dashboard/services", "/dashboard/staff", "/dashboard/billing", "/dashboard/admin"] },
     ],

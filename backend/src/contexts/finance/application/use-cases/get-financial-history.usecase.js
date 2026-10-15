@@ -23,12 +23,12 @@ function createGetFinancialHistoryUseCase({
   expenseRepository,
   commissionReader,
 }) {
-  return async function execute({ tenantId, rangeStart, rangeEnd }) {
+  return async function execute({ tenantId, rangeStart, rangeEnd }, ctx) {
     const start = new Date(rangeStart);
     const end = new Date(rangeEnd);
     const expectedDates = enumerateDates(start, end);
 
-    const dailyCloses = await dailyCloseRepository.listByDateRange(tenantId ?? null, start, end);
+    const dailyCloses = await dailyCloseRepository.listByDateRange(tenantId ?? null, start, end, ctx);
     const byDate = new Map(dailyCloses.map((d) => [d.date.toISOString().slice(0, 10), d]));
 
     const days = await Promise.all(
@@ -40,9 +40,9 @@ function createGetFinancialHistoryUseCase({
 
         const { start: dayStart, end: dayEnd } = civilDayBounds(ymd);
         const [charges, expenses, commissions] = await Promise.all([
-          transactionRepository.listByDateRange(tenantId ?? null, dayStart, dayEnd),
-          expenseRepository.listByDateRange(tenantId ?? null, dayStart, dayEnd),
-          commissionReader.listByDateRange(tenantId ?? null, dayStart, dayEnd),
+          transactionRepository.listByDateRange(tenantId ?? null, dayStart, dayEnd, ctx),
+          expenseRepository.listByDateRange(tenantId ?? null, dayStart, dayEnd, ctx),
+          commissionReader.listByDateRange(tenantId ?? null, dayStart, dayEnd, ctx),
         ]);
         const preview = summarizeDay({ charges, expenses, commissions });
 

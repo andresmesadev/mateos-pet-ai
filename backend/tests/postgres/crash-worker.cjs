@@ -8,7 +8,7 @@ const schema = process.env.INBOUND_TEST_SCHEMA;
 if (!['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) ||
     !/test/i.test(url.pathname) || !/^inbound_test_[a-f0-9]{32}$/.test(schema)) process.exit(2);
 const prisma = new PrismaClient({ adapter: new PrismaPg(new Pool({
-  connectionString: url.toString(), options: `-c search_path=${schema}`,
+  connectionString: url.toString(), options: `-c search_path=${schema},public -c timezone=UTC`,
 }), { schema }) });
 require.cache[require.resolve('../../src/lib/prisma')] = { exports: prisma };
 const { claimNextInboundJob, checkpointInboundJob } = require('../../src/services/inbound-job.service');

@@ -8,7 +8,7 @@ class TransactionRepositoryPort {
   async createSystemCharge(_data) {
     throw new Error("TransactionRepositoryPort.createSystemCharge no implementado");
   }
-  async listByDateRange(_tenantId, _dateStart, _dateEnd) {
+  async listByDateRange(_tenantId, _dateStart, _dateEnd, _ctx) {
     throw new Error("TransactionRepositoryPort.listByDateRange no implementado");
   }
 }
