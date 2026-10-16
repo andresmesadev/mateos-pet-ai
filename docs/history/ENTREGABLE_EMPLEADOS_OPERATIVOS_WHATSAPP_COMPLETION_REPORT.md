@@ -2,6 +2,8 @@
 
 Fecha: 15 de octubre de 2026, Colombia. Versión local: **2.48.0**. **Implementación y validación local completadas.** Este informe no certifica producción.
 
+**Publicación posterior:** [2.48.0 desplegada y comprobada el 16 de octubre](RELEASE_2_48_0_VPS_20261016.md), con el canal privado apagado. Las restricciones de autorización de este informe describen el alcance local original y fueron ampliadas por la autorización explícita de commit, push y despliegue registrada en la publicación.
+
 Correcciones posteriores autorizadas: [ajustes previos a publicación y evidencia final](EMPLEADOS_OPERATIVOS_AJUSTES_PREPUBLICACION_20261015.md). Los conteos de este informe conservan la primera validación; el nuevo informe documenta recuperación tras vencimiento, límites nativos, ruta privada y CI.
 
 ## Autorización y alcance

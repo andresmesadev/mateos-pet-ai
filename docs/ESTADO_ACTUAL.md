@@ -1,15 +1,15 @@
 # Estado actual del proyecto
 
-Fecha de corte documental original: **8 de octubre de 2026**. Actualización puntual del **15 de octubre**: implementación local de asistentes operativos y su canal privado de WhatsApp en 2.48.0. Las publicaciones históricas conservan su fecha y evidencia; no se verificó producción en esta actualización. Este documento orienta la lectura; no sustituye el Plan Maestro, el modelo de dominio ni los ADR.
+Fecha de corte documental original: **8 de octubre de 2026**. Actualización del **16 de octubre**: asistentes operativos y soporte privado de WhatsApp publicados en **2.48.0**, con el canal privado deshabilitado. [Certificación productiva](history/RELEASE_2_48_0_VPS_20261016.md). Las publicaciones históricas conservan su fecha y evidencia. Este documento orienta la lectura; no sustituye el Plan Maestro, el modelo de dominio ni los ADR.
 
 ## Publicación y trabajo local
 
 | Ámbito | Estado respaldado por evidencia |
 | --- | --- |
-| Versión declarada del backend local | `2.48.0`, en `backend/package.json`; el endpoint de salud toma esa misma versión. No publicada por esta entrega. [Entrega local por WhatsApp](history/ENTREGABLE_EMPLEADOS_OPERATIVOS_WHATSAPP_COMPLETION_REPORT.md). |
-| Asistentes operativos | Financiero y Administración/Inventario implementados y comprobados localmente, con confirmación humana y recuperación por recibo. [Evidencia y límites](history/ENTREGABLE_EMPLEADOS_OPERATIVOS_COMPLETION_REPORT.md). |
-| Canal privado de operadores por WhatsApp | Implementado localmente: vinculación verificada, sesiones revocables, selección de empleado y confirmación nativa. Deshabilitado por defecto; sin envíos reales. [Validación y límites](history/ENTREGABLE_EMPLEADOS_OPERATIVOS_WHATSAPP_COMPLETION_REPORT.md). |
-| Última publicación documentada | [2.45.0 — Dashboard unificado](history/RELEASE_2_45_0_VPS_20261008.md), publicada y comprobada el 8 de octubre, hora de Colombia: CI verde, respaldo cifrado, 14 destinos HTTPS y conteos conservados. |
+| Versión declarada y productiva del backend | `2.48.0`, en `backend/package.json` y salud de la VPS. [Publicación y evidencia](history/RELEASE_2_48_0_VPS_20261016.md). |
+| Asistentes operativos | Financiero y Administración/Inventario publicados en el dashboard, con confirmación humana y recuperación por recibo. [Validación local](history/ENTREGABLE_EMPLEADOS_OPERATIVOS_COMPLETION_REPORT.md), [certificación productiva de lectura](history/RELEASE_2_48_0_VPS_20261016.md). |
+| Canal privado de operadores por WhatsApp | Infraestructura publicada: vinculación verificada, sesiones revocables, selección de empleado y confirmación nativa. **Deshabilitado en producción**; sin prueba real de Meta en esta entrega. [Validación y límites](history/RELEASE_2_48_0_VPS_20261016.md). |
+| Última publicación documentada | [2.48.0 — Empleados operativos](history/RELEASE_2_48_0_VPS_20261016.md), 16 de octubre: CI aprobado, respaldo cifrado verificado, seis migraciones, HTTPS autenticado y conteos conservados. |
 | Inicio, navegación y continuidad de trabajo | Mejoras publicadas en 2.45.0, después de la [revisión general del dashboard](history/REVISION_GENERAL_DASHBOARD_20261008.md). |
 | Correcciones finales del frontend | Recuperación del pago, pendientes de todas las fechas, seguimiento clínico con reintento y bloqueo del precio durante el guardado publicados en 2.45.0. [Evidencia y límites del cierre local](history/FRONTEND_CIERRE_AJUSTES_20261008.md). La comprobación manual con zoom real y lector de pantalla continúa sin certificar. |
 | Inventario y Seguimiento de clientes | Publicados en [2.43.0](history/RELEASE_2_43_0_VPS_20261005.md), después de la implementación y migración de Inventario en [2.42.0](history/RELEASE_2_42_0_VPS_20261005.md). |

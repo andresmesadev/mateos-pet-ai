@@ -10,6 +10,8 @@ Los informes conservan hechos, aprobaciones, comandos, resultados y límites de 
 
 ## Evidencia reciente
 
+- [Publicación 2.48.0 — empleados operativos y canal privado preparado, 16 de octubre](RELEASE_2_48_0_VPS_20261016.md): desplegada, comprobada y con WhatsApp privado deshabilitado.
+
 - [Empleados operativos — ajustes previos a publicación aplicados, 15 de octubre](EMPLEADOS_OPERATIVOS_AJUSTES_PREPUBLICACION_20261015.md), después de la [revisión de cuatro hallazgos](EMPLEADOS_OPERATIVOS_REVISION_PREPUBLICACION_20261015.md).
 
 - [Empleados operativos por WhatsApp — entrega local 2.48.0](ENTREGABLE_EMPLEADOS_OPERATIVOS_WHATSAPP_COMPLETION_REPORT.md), [revisión de cierre](ENTREGABLE_EMPLEADOS_OPERATIVOS_WHATSAPP_GATE_REVIEW.md).
