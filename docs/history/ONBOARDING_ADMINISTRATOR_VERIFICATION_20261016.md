@@ -1,6 +1,6 @@
 # Registro del primer administrador — verificación local
 
-**16 de octubre de 2026, Colombia. Versión local: 2.49.0. Sin commit, push, tag o despliegue en esta tarea. Producción conserva 2.48.0 y su observación de estabilidad.**
+**16 de octubre de 2026, Colombia. Validación local previa de 2.49.0.** Después de esta revisión, el responsable autorizó commit, push y despliegue. La publicación en VPS y la nueva observación están documentadas en la [certificación productiva](RELEASE_2_49_0_VPS_20261016.md); las pruebas y límites de esta página corresponden al trabajo local anterior.
 
 ## Problema y resultado
 
@@ -70,6 +70,6 @@ fail 0
 
 El bump menor 2.48.0 → **2.49.0** refleja el alta administrativa utilizable y su compatibilidad con operación sin canal. Backend y lockfile coinciden; salud obtiene la versión del paquete. No se crea tag oficial ni se presenta la versión local como desplegada.
 
-Para publicar: CI Linux, copia de seguridad y migración antes de servir el nuevo código, seguido del smoke autenticado en la VPS. Requiere coordinar el reinicio con la ventana de estabilidad vigente: no conservar una certificación de continuidad si se reinicia la aplicación. No se cambió producción en esta tarea.
+Condiciones de publicación: CI Linux, copia de seguridad y migración antes de servir el nuevo código, seguido del smoke autenticado en la VPS. El reinicio exige conservar incompleta la captura anterior y abrir una nueva ventana. Esa publicación se ejecutó posteriormente con autorización explícita; consultar su certificación vinculada arriba.
 
 No se implementó proveedor de correo, verificación de propiedad o recuperación por email; escribir un correo no lo certifica. No se habilitó contratación pública ni se revisó aceptación legal para una beta comercial. Los límites del adaptador público se comparten por IP de salida del servidor Next; no se afirma capacidad de altas masivas. La primera jornada real mantiene sus requisitos operativos/documentales y la revisión de configuración de servicios/equipo.
