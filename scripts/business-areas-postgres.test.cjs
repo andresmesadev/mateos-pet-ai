@@ -48,13 +48,24 @@ test("PostgreSQL: siete combinaciones, navegación real por perfil, aislamiento 
     assert.deepEqual((await prisma.tenant.findUniqueOrThrow({ where: { id: ids[0] } })).activeModules, ["veterinary", "grooming", "retail"]);
     console.log("PASS: 7 combinaciones persistidas, 4 perfiles comprobados, tenant ajeno e historial intactos, selección vacía rechazada.");
   } finally {
-    await prisma.$transaction(async (tx) => {
-      await tx.appointment.deleteMany({ where: { tenantId: { in: created } } });
-      await tx.pet.deleteMany({ where: { tenantId: { in: created } } });
-      await tx.user.deleteMany({ where: { tenantId: { in: created } } });
-      await tx.tenant.deleteMany({ where: { id: { in: created } } });
-    });
-    assert.equal(await prisma.tenant.count({ where: { id: { in: ids } } }), 0);
-    await prisma.$disconnect();
+    try {
+      await prisma.$transaction(async (tx) => {
+        await tx.appointment.deleteMany({ where: { tenantId: { in: created } } });
+        await tx.pet.deleteMany({ where: { tenantId: { in: created } } });
+        await tx.user.deleteMany({ where: { tenantId: { in: created } } });
+        // Module changes now leave immutable access audit. Keep that fixture's
+        // root until the disposable database is removed, rather than deleting
+        // history or weakening its foreign key to make cleanup pass.
+        const audited = await tx.operatorAudit.findMany({ where: { tenantId: { in: created } }, select: { tenantId: true }, distinct: ['tenantId'] });
+        const retained = audited.map(row => row.tenantId);
+        await tx.tenant.updateMany({ where: { id: { in: retained } }, data: { active: false } });
+        await tx.tenant.deleteMany({ where: { id: { in: created, notIn: retained } } });
+      });
+      const remaining = await prisma.tenant.findMany({ where: { id: { in: ids } }, select: { id: true, active: true } });
+      for (const tenant of remaining) {
+        assert.equal(tenant.active, false);
+        assert.ok(await prisma.operatorAudit.count({ where: { tenantId: tenant.id } }));
+      }
+    } finally { await prisma.$disconnect(); }
   }
 });
