@@ -195,6 +195,22 @@ describe("resolveTenant middleware", () => {
   // Entregable 4.4 — Facturación / Habilitación Comercial: Tenant.active como
   // única fuente de verdad de suspensión comercial, sin excepciones.
 
+  test("new administrator retains authenticated tenant even in a single-tenant installation", async () => {
+    process.env.SINGLE_TENANT_ID = "original-clinic";
+    prisma.staffCredential.findFirst.mockResolvedValue({ staffId: "new-admin", staff: { role: "admin", name: "Nueva administradora" } });
+    const req = makeReq({ "x-staff-id": "new-admin", "x-tenant-id": "new-clinic", "x-staff-session-version": "1", "x-super-admin": "true" });
+    const next = jest.fn(); const res = makeRes();
+    await resolveTenant(req, res, next);
+    expect(next).toHaveBeenCalled();
+    expect(req.tenant).toEqual({ isSuperAdmin: false, tenantId: "new-clinic", viewAllTenants: false });
+    expect(prisma.staffCredential.findFirst.mock.calls[0][0].where.staff.tenantId).toBe("new-clinic");
+    expect(req.actor.type).toBe("admin");
+    prisma.staffCredential.findFirst.mockResolvedValue(null);
+    const forged = makeRes(); const denied = jest.fn();
+    await resolveTenant(makeReq({ ...req.headers, "x-tenant-id": "original-clinic" }), forged, denied);
+    expect(forged._status).toBe(403); expect(denied).not.toHaveBeenCalled();
+  });
+
   test("8. Tenant.active === false → 402, no continúa", async () => {
     process.env.NODE_ENV = "production";
     process.env.INTERNAL_API_SECRET = "mysecret";

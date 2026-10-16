@@ -67,6 +67,7 @@ Representar la identidad y configuración del establecimiento que opera la plata
 
 - **Establecimiento** — La entidad central. Tiene nombre, tipo (clínica veterinaria, centro veterinario, peluquería canina, peluquería felina), configuración regional (zona horaria, moneda, país) y módulos activos.
 - **Contacto del establecimiento** — Puede incluir un teléfono de contacto opcional y editable. Es parte de su identidad, independiente del identificador técnico del canal de WhatsApp; actualizarlo no cambia la recepción de mensajes (aclaración aprobada, 2026-10-06).
+- **Alta autónoma y acceso administrativo** — El registro de un nuevo establecimiento crea también el primer integrante de Staff con perfil administrador y credencial individual, limitado a ese establecimiento. No concede administración global ni reclama registros anteriores por nombre o correo. Conectar WhatsApp es posterior y opcional: un establecimiento puede operar desde dashboard sin identificador de canal. Corrección solicitada el 2026-10-16; [diseño del recorrido y persistencia](self-service-administrator-registration.md).
 - **Módulo** — Una capacidad del sistema que el establecimiento puede activar o desactivar. Cada módulo activo habilita contextos adicionales.
 - **Configuración del Negocio** — Los parámetros operativos del establecimiento: horarios generales y por tipo de servicio, días hábiles, duración estándar de los servicios, reglas de split de comisiones, mensajes de bienvenida.
 

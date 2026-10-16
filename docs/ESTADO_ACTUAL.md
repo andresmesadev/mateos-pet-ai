@@ -4,6 +4,8 @@ Fecha de corte documental original: **8 de octubre de 2026**. Actualización del
 
 ## Publicación y trabajo local
 
+**Corrección local posterior, 16 de octubre — 2.49.0 sin publicar:** nuevo [registro autónomo del administrador](architecture/self-service-administrator-registration.md), con negocio, credencial individual e ingreso al dashboard sin exigir WhatsApp. El alta crea un establecimiento nuevo; no reemplaza el administrador ni el Tenant productivos conservados. Requiere una migración que permite identificador de canal nulo. [Comprobaciones y límites locales](history/ONBOARDING_ADMINISTRATOR_VERIFICATION_20261016.md). Producción continúa en 2.48.0; esta corrección no abre la beta ni modifica la ventana de observación de la VPS.
+
 | Ámbito | Estado respaldado por evidencia |
 | --- | --- |
 | Versión declarada y productiva del backend | `2.48.0`, en `backend/package.json` y salud de la VPS. [Publicación y evidencia](history/RELEASE_2_48_0_VPS_20261016.md). |

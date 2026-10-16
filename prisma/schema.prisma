@@ -597,7 +597,7 @@ model Tenant {
   id        String   @id @default(cuid())
   name      String
   slug      String   @unique
-  phone     String   @unique
+  phone     String?  @unique // Identificador técnico del canal, ausente hasta conectar WhatsApp.
   email     String?
   plan      String   @default("free")
   active    Boolean  @default(true)

@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -28,21 +29,17 @@ export function LoginForm() {
     const email = String(formData.get("email") ?? "").trim();
     const password = String(formData.get("password") ?? "");
 
-    const result = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
-
-    setLoading(false);
-
-    if (result?.error) {
-      setError("Email o contraseña incorrectos.");
-      return;
-    }
-
-    router.push("/dashboard");
-    router.refresh();
+    try {
+      const result = await signIn("credentials", { email, password, redirect: false });
+      if (!result || result.error) {
+        setError("Correo o contraseña incorrectos.");
+        return;
+      }
+      router.push("/dashboard");
+      router.refresh();
+    } catch {
+      setError("No pudimos iniciar sesión. Comprueba tu conexión y vuelve a intentarlo.");
+    } finally { setLoading(false); }
   }
 
   return (
@@ -50,7 +47,7 @@ export function LoginForm() {
       <CardHeader>
         <CardTitle>Iniciar sesión</CardTitle>
         <CardDescription>
-          Acceso del equipo de Mateos Pet AI
+          Ingresa con tu cuenta de administrador o del equipo
         </CardDescription>
       </CardHeader>
 
@@ -58,14 +55,14 @@ export function LoginForm() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <label htmlFor="email" className="text-sm font-medium">
-              Email
+              Correo electrónico
             </label>
             <Input
               id="email"
               name="email"
               type="email"
               autoComplete="email"
-              placeholder="admin@mateospet.com"
+              placeholder="nombre@tunegocio.com"
               required
               disabled={loading}
             />
@@ -95,6 +92,10 @@ export function LoginForm() {
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Entrando…" : "Entrar"}
           </Button>
+          <p className="text-center text-sm text-muted-foreground">
+            ¿Tu negocio aún no tiene cuenta?{" "}
+            <Link href="/onboarding" className="font-medium text-primary underline underline-offset-4">Crear mi cuenta</Link>
+          </p>
         </form>
       </CardContent>
     </Card>

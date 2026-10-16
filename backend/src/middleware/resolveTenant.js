@@ -11,7 +11,8 @@
  * Sets req.tenant = { isSuperAdmin: boolean, tenantId: string | null, viewAllTenants: boolean }
  *
  * Special modes:
- *   SINGLE_TENANT_ID env  → always use that tenantId, skip token check
+ *   SINGLE_TENANT_ID env  → legacy administrator fallback; Staff keeps its
+ *                          explicit tenant after credential validation
  *   NODE_ENV=test         → skip token check, read headers directly
  *
  * Entregable 4.4 (Fase 4) — Facturación / Habilitación Comercial: rechaza
@@ -61,12 +62,12 @@ async function resolveTenant(req, res, next) {
     }
   }
 
-  // Single-tenant mode: siempre usa el tenant configurado, pero solo tras
-  // pasar el chequeo del token — antes se evaluaba primero y se saltaba
-  // toda autenticación.
+  // A Staff session carries its own tenant; membership and revocation are
+  // still checked below. SINGLE_TENANT_ID remains the legacy admin fallback.
   const singleTenantId = process.env.SINGLE_TENANT_ID;
   if (singleTenantId) {
-    req.tenant = { isSuperAdmin: false, tenantId: singleTenantId, viewAllTenants: false };
+    const staffTenant = req.headers["x-staff-id"] && req.headers["x-tenant-id"];
+    req.tenant = { isSuperAdmin: false, tenantId: staffTenant || singleTenantId, viewAllTenants: false };
     return checkActiveAndContinue(req, res, next);
   }
 
