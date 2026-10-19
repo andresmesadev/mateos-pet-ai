@@ -68,7 +68,7 @@ function AppointmentDetailContent({ appointment, onClose, onUpdated, readOnly = 
     if (!skipConfirmation && nextStatus === "in_progress" && previousDayArrival && !await confirm("Esta llegada corresponde a un día anterior. ¿Confirmas que sí se prestó la atención y vas a completar su historia clínica?")) return;
     if (!skipConfirmation && ["cancelled", "no_show", "completed"].includes(nextStatus)) {
       const question = nextStatus === "completed"
-        ? "¿Finalizar esta atención? El cobro quedará pendiente hasta confirmar el pago en Caja."
+        ? `¿Finalizar esta atención? El cobro quedará pendiente hasta confirmar el pago en Caja.${appointment.serviceCategory === "grooming" || appointment.serviceType === "grooming" ? " La entrega física se registra por separado en Peluquería." : ""}`
         : nextStatus === "no_show"
           ? "¿Marcar esta cita como no asistida?"
           : "¿Cancelar esta cita? Esta acción no se puede deshacer.";

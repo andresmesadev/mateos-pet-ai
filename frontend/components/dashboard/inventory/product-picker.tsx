@@ -6,6 +6,7 @@ import { proxyUrl } from "@/lib/api";
 import { useTenant } from "@/lib/use-tenant";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { formatPosMoney } from "@/lib/pos-checkout";
 import type { InventoryProduct, ProductUse } from "@/lib/inventory";
 
@@ -123,7 +124,7 @@ export function ProductPicker({ use, onSelect, resetAfterSelect = false, inputId
         {use === "retail" && <strong className="shrink-0 text-sm tabular-nums">{formatPosMoney(product.salePrice ?? 0)}</strong>}
       </button>)}
     </div>
-    {!busy && !error && !rows.length && <p className="text-sm text-muted-foreground">No hay productos para esta búsqueda. Administración puede registrarlos en Inventario.</p>}
+    {!busy && !error && !rows.length && <div className="space-y-2 text-sm text-muted-foreground"><p>No hay productos para esta búsqueda.</p>{use === "retail" ? <><p>Para aparecer aquí, el producto debe tener el uso Venta y un precio de venta. También puede conservar Veterinaria o Peluquería.</p><Link href={`/dashboard/inventory${tenant ? `?tenant=${encodeURIComponent(tenant)}` : ""}`} className="inline-flex min-h-11 items-center font-semibold text-primary underline underline-offset-4">Revisar producto en Inventario</Link></> : <p>Administración puede registrarlos en Inventario.</p>}</div>}
     <div className="flex flex-wrap gap-2">{cursor && <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => setPage(cursor)}>Ver siguientes productos</Button>}{page && <Button type="button" size="sm" variant="ghost" onClick={() => setPage("")}>Volver al inicio</Button>}</div>
     </>}
     {message && <p role="status" className="text-sm font-medium text-primary">{message}</p>}

@@ -1,0 +1,95 @@
+const assert = require('node:assert/strict');
+const path = require('node:path');
+
+module.exports = async function verifyCashClose({ prisma, base, context, page, output, check, tenantId }) {
+  const product = await prisma.inventoryProduct.create({ data: { tenantId, name: 'Vacuna de ensayo', category: 'Vacunas', internalCode: 'TEST-VACCINE', internalCodeKey: 'test-vaccine', presentation: 'Dosis', uses: ['veterinary'], referenceCost: 5000, salePrice: null, lotPolicy: 'untracked' } });
+  const lot = await prisma.inventoryLot.create({ data: { tenantId, productId: product.id, groupKind: 'untracked', balancePhysical: 11, firstReceivedAt: new Date() } });
+  await page.goto(base + '/dashboard/pos?tab=venta');
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.getByRole('button', { name: 'Productos', exact: true }).click();
+  await page.locator('#pos-product-search').fill('Vacuna de ensayo');
+  await page.getByRole('link', { name: 'Revisar producto en Inventario', exact: true }).waitFor();
+  assert.equal(await page.getByRole('option').count(), 0);
+  await page.goto(base + '/dashboard/inventory');
+  await page.getByRole('button', { name: product.name, exact: true }).click();
+  await page.getByRole('button', { name: 'Configurar venta', exact: true }).click();
+  await page.locator('#product-use-retail').check();
+  await page.locator('#product-salePrice').fill('25000');
+  const configured = page.waitForResponse(response => response.url().includes('/inventory/products/' + product.id) && response.request().method() === 'PATCH');
+  await page.getByRole('button', { name: 'Guardar cambios', exact: true }).click();
+  assert.equal((await configured).status(), 200);
+  const updated = await prisma.inventoryProduct.findUniqueOrThrow({ where: { id: product.id } });
+  assert(updated.uses.includes('veterinary') && updated.uses.includes('retail'));
+  assert.equal(Number(updated.salePrice), 25000);
+  await page.goto(base + '/dashboard/pos?tab=venta');
+  await page.getByRole('button', { name: 'Productos', exact: true }).click();
+  await page.locator('#pos-product-search').fill('Vacuna de ensayo');
+  await page.getByRole('option').filter({ hasText: product.name }).click();
+  await page.getByRole('button', { name: 'Recibí el valor exacto', exact: true }).click();
+  const paid = page.waitForResponse(response => response.request().method() === 'POST' && response.url().includes('/dashboard/transactions'));
+  await page.getByRole('button', { name: 'Confirmar cobro', exact: true }).click();
+  assert.equal((await paid).status(), 201);
+  assert.equal((await prisma.inventoryLot.findUniqueOrThrow({ where: { id: lot.id } })).balancePhysical, 10);
+  assert.equal(await prisma.inventoryMovement.count({ where: { tenantId, productId: product.id, kind: 'sale' } }), 1);
+  check('veterinary-only product is explained in POS; Configure sale enables retail with price, keeps veterinary use and one real test payment removes one unit');
+
+  const date = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
+  const secondGroomer = await prisma.staff.findFirstOrThrow({ where: { tenantId, name: 'Segunda peluquera' } });
+  const ready = await prisma.appointment.findFirstOrThrow({ where: { tenantId, staffId: secondGroomer.id, status: 'completed', groomingDeliveredAt: null } });
+  const paymentsBeforeDelivery = await prisma.transaction.count({ where: { tenantId } });
+  await page.goto(base + '/dashboard/peluqueria?view=all&date=' + date);
+  await page.getByText('Terminar el servicio deja la mascota lista para entrega.', { exact: false }).waitFor();
+  const visit = page.locator('article').filter({ hasText: 'Segunda peluquera' });
+  await visit.getByRole('button', { name: 'Registrar entrega', exact: true }).click();
+  const delivered = page.waitForResponse(response => response.request().method() === 'POST' && response.url().includes(`/grooming/appointments/${ready.id}/delivery`));
+  await page.getByRole('button', { name: 'Confirmar entrega al propietario', exact: true }).click();
+  assert.equal((await delivered).status(), 200);
+  assert((await prisma.appointment.findUniqueOrThrow({ where: { id: ready.id } })).groomingDeliveredAt);
+  assert.equal(await prisma.transaction.count({ where: { tenantId } }), paymentsBeforeDelivery);
+  check('completed service explicitly explains pending physical delivery; confirming handover records it without creating another payment');
+  await page.goto(base + '/dashboard/pos?tab=caja&date=' + date);
+  const panel = page.getByRole('region', { name: 'Cierre del día y comisiones', exact: true });
+  await panel.getByRole('button', { name: 'Cerrar día', exact: true }).waitFor();
+  await panel.getByText('Saldo tras reservar comisiones', { exact: true }).waitFor();
+  await panel.locator('summary').click();
+  for (const period of ['day', 'week', 'fortnight', 'month']) {
+    await panel.getByLabel('Período de comisiones', { exact: true }).selectOption(period);
+    const queried = page.waitForResponse(response => response.url().includes('/financial-history?from=') && response.request().method() === 'GET');
+    await panel.getByRole('button', { name: 'Consultar comisiones', exact: true }).click();
+    assert.equal((await queried).status(), 200);
+    await panel.getByRole('list', { name: 'Comisiones del período', exact: true }).waitFor();
+  }
+  for (const width of [320, 390, 1440]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await panel.scrollIntoViewIfNeeded();
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.screenshot({ path: path.join(output, '40-cash-close-commissions.png'), fullPage: true, animations: 'disabled' });
+  const commissionsBefore = await prisma.commission.count({ where: { tenantId } });
+  const expensesBefore = await prisma.expense.count({ where: { tenantId } });
+  const dropped = base + '/api/proxy/dashboard/daily-close';
+  await page.route(dropped, async route => {
+    if (route.request().method() !== 'POST') return route.continue();
+    const response = await route.fetch();
+    assert.equal(response.status(), 201, await response.text());
+    await route.abort('failed');
+  }, { times: 1 });
+  await panel.getByRole('button', { name: 'Cerrar día', exact: true }).click();
+  await page.getByRole('button', { name: 'Confirmar cierre del día', exact: true }).click();
+  await panel.getByRole('button', { name: 'Día cerrado', exact: true }).waitFor();
+  assert.equal(await prisma.dailyClose.count({ where: { tenantId, date: new Date(date + 'T00:00:00Z') } }), 1);
+  assert.equal(await prisma.commission.count({ where: { tenantId } }), commissionsBefore);
+  assert.equal(await prisma.expense.count({ where: { tenantId } }), expensesBefore);
+  await page.reload();
+  await page.getByRole('button', { name: 'Día cerrado', exact: true }).waitFor();
+  const history = await (await context.request.get(base + `/api/proxy/dashboard/financial-history?from=${date}&to=${date}`)).json();
+  const close = await prisma.dailyClose.findFirstOrThrow({ where: { tenantId, date: new Date(date + 'T00:00:00Z') } });
+  const total = close.staffBreakdown.reduce((sum, row) => sum + Math.round(Number(row.staffShare) * 100), 0) / 100;
+  assert.equal(history.days[0].closed, true);
+  assert.equal(history.days[0].staffCommissionTotal, total);
+  assert.equal(history.days[0].netAfterCommissions, (Math.round(Number(close.netAmount) * 100) - Math.round(total * 100)) / 100);
+  assert.equal((await context.request.post(base + '/api/proxy/dashboard/daily-close', { data: { date } })).status(), 409);
+  check('cash closes once and recovers a dropped reply, persists official snapshot across reload, reserves staff share automatically and creates no fictitious expense/payment/commission; daily/weekly/fortnight/month views fit mobile');
+};

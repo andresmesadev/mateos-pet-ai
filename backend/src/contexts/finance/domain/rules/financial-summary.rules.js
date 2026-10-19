@@ -62,4 +62,12 @@ function summarizePeriod(dailyCloses) {
   };
 }
 
-module.exports = { summarizeDay, summarizePeriod };
+// Reserva del profesional, distinta del dinero efectivamente pagado.
+// Un día cerrado usa exclusivamente su snapshot; netAmount conserva su
+// significado histórico (ingresos recibidos menos gastos registrados).
+function commissionReserve(summary) {
+  const cents = (summary.staffBreakdown ?? []).reduce((sum, row) => sum + Math.round(Number(row.staffShare) * 100), 0);
+  return { staffCommissionTotal: cents / 100, netAfterCommissions: (Math.round(Number(summary.netAmount) * 100) - cents) / 100 };
+}
+
+module.exports = { summarizeDay, summarizePeriod, commissionReserve };

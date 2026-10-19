@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 // Entregable Puente — Finanzas: Períodos Financieros e Historial (casos 5, 7, 8).
 const { generateFinancialPeriod, getFinancialPeriod, getFinancialHistory } = require("../../contexts/finance");
+const { commissionReserve } = require('../../contexts/finance/domain/rules/financial-summary.rules');
 const {
   IncompleteFinancialPeriodError,
   DuplicateFinancialPeriodError,
@@ -111,6 +112,7 @@ router.get("/financial-history", async (req, res) => {
               expenseTotal: Number(d.dailyClose.expenseTotal),
               netAmount: Number(d.dailyClose.netAmount),
               staffBreakdown: d.dailyClose.staffBreakdown,
+              ...commissionReserve(d.dailyClose),
             }
           : {
               date: d.date,
@@ -119,6 +121,7 @@ router.get("/financial-history", async (req, res) => {
               expenseTotal: d.preview.expenseTotal,
               netAmount: d.preview.netAmount,
               staffBreakdown: d.preview.staffBreakdown,
+              ...commissionReserve(d.preview),
             }
       ),
     });

@@ -20,6 +20,7 @@ import { validHistoryRange } from "@/lib/pos-history";
 import { EXPENSE_CATEGORY_LABELS, type ExpenseCategory } from "@/lib/expenses";
 import { getPetEmoji } from "@/lib/pets";
 import { CashboxExpenses, type CashboxExpense } from "./cashbox-expenses";
+import { DailyClosePanel } from "./daily-close-panel";
 
 type CashboxTransaction = {
   id: string;
@@ -169,13 +170,14 @@ export async function CashboxView({ date, tenant }: { date?: string; tenant?: st
         <div className={`flex flex-col gap-2 rounded-xl border p-5 ${net >= 0 ? "border-primary/20 bg-primary/5 text-primary" : "border-amber-500/20 bg-amber-500/5 text-amber-700"}`}>
           <div className="flex items-center gap-2">
             <Minus className="h-4 w-4" />
-            <p className="text-sm font-medium">Diferencia del día</p>
+            <p className="text-sm font-medium">Saldo de movimientos</p>
           </div>
           <p className="break-words text-3xl font-bold tabular-nums tracking-tight">{formatPosMoney(net)}</p>
           <p className="text-xs">Ingresos − gastos</p>
         </div>
       </div>
-      <details className="text-xs leading-relaxed text-muted-foreground"><summary className="cursor-pointer font-medium">Cómo se calcula el resumen</summary><p className="mt-2">Incluye los ingresos y gastos registrados de todos los medios de pago. Los servicios completados cuentan como ingresos aunque su método de pago esté por revisar. Esta diferencia no representa el efectivo físico de la caja ni la utilidad del negocio.</p></details>
+      <DailyClosePanel key={`${tenant ?? "current"}:${effectiveDate}`} date={effectiveDate} tenant={tenant} />
+      <details className="text-xs leading-relaxed text-muted-foreground"><summary className="cursor-pointer font-medium">Cómo se calcula el resumen</summary><p className="mt-2">Incluye ingresos recibidos por fecha de pago y gastos registrados de todos los medios de pago. Las citas pendientes de pago no suman ingreso. El saldo de movimientos no representa el efectivo físico ni la utilidad contable. La reserva de comisiones se muestra separada y no confirma su pago al profesional.</p></details>
 
       {/* Desglose por método + categoría */}
       {(!isToday || data.expenses.length > 0) && <div className={`grid gap-4 ${!isToday ? "md:grid-cols-2" : ""}`}>

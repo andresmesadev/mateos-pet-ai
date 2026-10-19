@@ -128,6 +128,7 @@ export function GroomingView({ initialVisits, initialHasMore, initialError, tena
 
   if (!continuity.ready) return <p role="status">Preparando filtros de Peluquería…</p>;
   return <div className="space-y-5">
+    <p className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-950">Terminar el servicio deja la mascota lista para entrega. Registra la entrega cuando el propietario la reciba; confirmar el pago en Caja es un paso independiente.</p>
     <div className="flex flex-wrap items-center justify-between gap-3"><p className="max-w-xl text-sm text-muted-foreground">Recibe la mascota, registra el baño o corte y confirma su entrega al propietario.</p><Button disabled={!access?.capabilities.schedule} onClick={() => setNewOpen(true)}><CalendarPlus className="size-4" /> Nueva cita</Button></div>
     <section className="overflow-hidden rounded-2xl border bg-white shadow-sm" aria-labelledby="grooming-list-title">
       <div className="space-y-4 border-b p-5 sm:p-6">

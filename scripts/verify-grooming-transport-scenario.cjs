@@ -9,6 +9,7 @@ module.exports = async function verifyTransport({ prisma, base, context, page, o
     { name: 'LiquidaciónGenerada', originContext: 'Staff' },
     { name: 'CobroRegistrado', originContext: 'Finanzas' },
     { name: 'CobroLiquidado', originContext: 'Finanzas' },
+    { name: 'CierreDíaGenerado', originContext: 'Finanzas' },
     { name: 'ServicioCreado', originContext: 'Servicios' },
   ], skipDuplicates: true });
   await page.goto(base + '/dashboard/settings?tab=localizacion');
@@ -626,4 +627,5 @@ module.exports = async function verifyTransport({ prisma, base, context, page, o
   assert.equal((await completedChoice).status(), 200);
   assert.equal((await prisma.commission.findFirstOrThrow({ where: { appointmentId: undecided.id, status: 'active' } })).staffId, second.id);
   check('two eligible groomers trigger the existing choice dialog; selecting one resumes start and the completed appointment credits that groomer');
+  await require('./verify-cash-close-scenario.cjs')({ prisma, base, context, page, output, check, tenantId });
 };

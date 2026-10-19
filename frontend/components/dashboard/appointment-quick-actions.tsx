@@ -31,7 +31,7 @@ export function AppointmentQuickActions({ appointment, onUpdated }: { appointmen
     lock.current = true;
     try {
       if (!skipConfirmation && action.status === "in_progress" && previousDay && !await confirm("Esta llegada pertenece a un día anterior. ¿Confirmas que hubo atención y vas a regularizar su registro?")) return;
-      if (!skipConfirmation && action.status === "completed" && !await confirm(`¿Finalizar la atención de ${appointment.petName}?`)) return;
+      if (!skipConfirmation && action.status === "completed" && !await confirm(`¿Finalizar la atención de ${appointment.petName}? El pago se confirma en Caja.${appointment.serviceCategory === "grooming" || appointment.serviceType === "grooming" ? " La entrega de la mascota se registra por separado en Peluquería." : ""}`)) return;
       setBusy(true); setError("");
       const complete = action.status === "completed";
       const response = await fetch(proxyUrl(`/api/dashboard/appointments/${appointment.id}${complete ? "/complete" : ""}${tenantQuery(tenant)}`), {

@@ -84,7 +84,7 @@ export function DailyCloseSheet() {
         className="h-8 text-xs font-medium border-teal-500/40 text-teal-700 hover:bg-teal-500/10 hover:text-teal-300"
         onClick={openSheet}
       >
-        Cerrar día
+        Resumen del día
       </Button>
 
       {open && (
