@@ -6,6 +6,7 @@ import { WEEK_DAYS } from "@/lib/business-hours-editor";
 import { availabilityError, memberFormError, suggestedStaffWeek, TEAM_ROLES, type Availability, type StaffMember, type TimeWindow } from "@/lib/team-editor";
 import { proxyUrl } from "@/lib/api";
 import { tenantQuery, useTenant } from "@/lib/use-tenant";
+import { TeamPermissionFields } from './team-permission-fields';
 
 export type EditorSignals = { onDirtyChange: (dirty: boolean) => void; onSavingChange: (saving: boolean) => void; onCanSaveChange?: (ready: boolean) => void };
 export async function teamRequest(path: string, tenant: string | null, method: string, body?: unknown) {
@@ -18,16 +19,17 @@ function useSignals(dirty: boolean, busy: boolean, { onDirtyChange, onSavingChan
   useEffect(() => { onDirtyChange(dirty); return () => onDirtyChange(false); }, [dirty, onDirtyChange]);
   useEffect(() => { onSavingChange(busy); return () => onSavingChange(false); }, [busy, onSavingChange]);
 }
-export function MemberEditor({ member, onSaved, ...signals }: EditorSignals & { member?: StaffMember; onSaved: (member: StaffMember) => void }) {
+export function MemberEditor({ member, activeModules, onSaved, ...signals }: EditorSignals & { member?: StaffMember; activeModules?: string[]; onSaved: (member: StaffMember) => void }) {
   const initial = { name: member?.name ?? "", role: member?.role ?? "vet", phone: member?.phone ?? "", email: member?.email ?? "" };
   const [form, setForm] = useState(initial), [busy, setBusy] = useState(false), [error, setError] = useState("");
-  const lock = useRef(false), tenant = useTenant(), dirty = JSON.stringify(form) !== JSON.stringify(initial);
+  const [permissions, setPermissions] = useState<string[]>([]);
+  const lock = useRef(false), tenant = useTenant(), dirty = JSON.stringify(form) !== JSON.stringify(initial) || (!member && permissions.length > 0);
   useSignals(dirty, busy, signals);
   async function save(event: React.FormEvent) {
     event.preventDefault(); const invalid = memberFormError(form); if (invalid) { setError(invalid); return; }
     if (lock.current) return; lock.current = true; setBusy(true); setError("");
     try {
-      const result = await teamRequest("/api/dashboard/staff" + (member ? "/" + member.id : ""), tenant, member ? "PATCH" : "POST", { name: form.name.trim(), role: form.role, phone: form.phone.trim() || null, email: form.email.trim() || null });
+      const result = await teamRequest("/api/dashboard/staff" + (member ? "/" + member.id : ""), tenant, member ? "PATCH" : "POST", { name: form.name.trim(), role: form.role, phone: form.phone.trim() || null, email: form.email.trim() || null, ...(!member ? { accessPermissions: form.role === 'admin' ? [] : permissions } : {}) });
       if (!result?.id) throw new Error("La respuesta no confirmó el guardado. Actualiza el equipo antes de intentarlo de nuevo.");
       onSaved({ ...member, ...result });
     } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo guardar la ficha."); }
@@ -38,6 +40,7 @@ export function MemberEditor({ member, onSaved, ...signals }: EditorSignals & { 
     <label className="block space-y-1.5 text-sm font-semibold">Perfil<select className="h-11 w-full rounded-xl border border-input bg-background px-3 font-normal" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>{TEAM_ROLES.map(role => <option key={role.value} value={role.value}>{role.label}</option>)}</select></label>
     <p className="rounded-xl bg-muted/50 p-3 text-sm text-muted-foreground">{TEAM_ROLES.find(role => role.value === form.role)?.description}</p>
     <div className="grid gap-4 sm:grid-cols-2"><label className="space-y-1.5 text-sm font-semibold">Teléfono (opcional)<Input type="tel" value={form.phone} maxLength={40} onChange={e => setForm({ ...form, phone: e.target.value })} /></label><label className="space-y-1.5 text-sm font-semibold">Correo de contacto (opcional)<Input type="email" maxLength={254} value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></label></div>
+    {!member && <TeamPermissionFields role={form.role} selected={permissions} onChange={values => { setError(''); setPermissions(values); }} activeModules={activeModules} disabled={busy} />}
     <p className="text-sm text-muted-foreground">La ficha identifica al integrante en las atenciones. Su cuenta de ingreso se configura en Acceso.</p>
   </fieldset>{error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</p>}<Button type="submit" disabled={busy || (member ? !dirty : !form.name.trim())}>{busy ? "Guardando…" : member ? "Guardar ficha" : "Crear integrante"}</Button></form>;
 }

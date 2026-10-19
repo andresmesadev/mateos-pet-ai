@@ -54,7 +54,7 @@ test("crea una cita manual con referencias validadas en el tenant autenticado", 
     where: { id: "pet-1", ownerId: "user-1", tenantId: "tenant-a" },
   }));
   expect(isSlotAvailable).toHaveBeenCalledWith({
-    dateKey: body.dateKey, hour: 11, serviceType: "vet", tenantId: "tenant-a",
+    dateKey: body.dateKey, hour: 11, serviceType: "vet", tenantId: "tenant-a", manual: true,
   });
   expect(createAppointment).toHaveBeenCalledWith(expect.objectContaining({
     tenantId: "tenant-a", userId: "user-1", petId: "pet-1", serviceId: "svc-1", serviceType: "vet",
@@ -81,11 +81,19 @@ test("maneja la reserva simultánea del mismo horario", async () => {
   expect(response.status).toBe(409);
 });
 
+test('a reception entered today after its scheduled time is saved as arrived and policy is server-controlled', async () => {
+  buildAppointmentDateTime.mockReturnValue(new Date(Date.now() - 3600000));
+  const response = await request(appFor()).post('/api/dashboard/appointments').send({ ...body, manual: false, status: 'no_show' });
+  expect(response.status).toBe(201);
+  expect(isSlotAvailable).toHaveBeenCalledWith(expect.objectContaining({ manual: true, tenantId: 'tenant-a' }));
+  expect(createAppointment).toHaveBeenCalledWith(expect.objectContaining({ status: 'arrived' }));
+});
+
 test("acepta una consulta veterinaria a y media sin perder los minutos", async () => {
   const response = await request(appFor()).post("/api/dashboard/appointments").send({ ...body, hour: 10.5 });
   expect(response.status).toBe(201);
   expect(isSlotAvailable).toHaveBeenCalledWith({
-    dateKey: body.dateKey, hour: 10.5, serviceType: "vet", tenantId: "tenant-a",
+    dateKey: body.dateKey, hour: 10.5, serviceType: "vet", tenantId: "tenant-a", manual: true,
   });
   expect(buildAppointmentDateTime).toHaveBeenCalledWith(body.dateKey, 10.5);
 });
@@ -96,7 +104,7 @@ test("peluquería permite un turno a y media validado por disponibilidad", async
   });
   const response = await request(appFor()).post("/api/dashboard/appointments").send({ ...body, hour: 10.5 });
   expect(response.status).toBe(201);
-  expect(isSlotAvailable).toHaveBeenCalledWith({ dateKey: body.dateKey, hour: 10.5, serviceType: "grooming", tenantId: "tenant-a" });
+  expect(isSlotAvailable).toHaveBeenCalledWith({ dateKey: body.dateKey, hour: 10.5, serviceType: "grooming", tenantId: "tenant-a", manual: true });
   expect(buildAppointmentDateTime).toHaveBeenCalledWith(body.dateKey, 10.5);
 });
 
@@ -116,7 +124,7 @@ test("lista solo los horarios del servicio activo en el tenant autenticado", asy
     where: { id: "svc-1", tenantId: "tenant-a", active: true },
   }));
   expect(listAvailableSlotsForDate).toHaveBeenCalledWith({
-    dateKey: body.dateKey, serviceType: "vet", tenantId: "tenant-a",
+    dateKey: body.dateKey, serviceType: "vet", tenantId: "tenant-a", manual: true,
   });
 });
 

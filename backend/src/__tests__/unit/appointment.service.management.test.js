@@ -44,3 +44,13 @@ test("successful move updates same ID under lock and excludes itself from availa
   expect(tx.$queryRaw).toHaveBeenCalled();
   expect(tx.appointment.update.mock.calls[0][0].where).toMatchObject({ id: "a1", userId: "owner", tenantId: "tenant", date: original.date });
 });
+
+test('grooming reschedule checks a 20-minute conflict window under the existing transaction lock', async () => {
+  const grooming = { ...original, serviceType: 'grooming' };
+  prisma.appointment.findFirst.mockResolvedValue(grooming);
+  availability.isSlotAvailable.mockResolvedValue(true);
+  const tx = { $queryRaw: jest.fn(), appointment: { findFirst: jest.fn().mockResolvedValueOnce(grooming).mockResolvedValueOnce(null), update: jest.fn().mockResolvedValue({ ...grooming, date: options.date }) } };
+  prisma.$transaction.mockImplementation(fn => fn(tx));
+  await rescheduleAppointment(options);
+  expect(tx.appointment.findFirst.mock.calls[1][0].where.date).toEqual({ gt: new Date(options.date.getTime() - 1200000), lt: new Date(options.date.getTime() + 1200000) });
+});

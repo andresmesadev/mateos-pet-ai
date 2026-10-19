@@ -1,0 +1,11 @@
+# Asignación automática del peluquero único
+
+2026-10-17. Petición explícita del responsable durante el ensayo de Agenda: no preguntar quién atendió si hay un solo peluquero; elegir cuando existen varias opciones.
+
+1. Función: reservar e iniciar peluquería sin un selector redundante cuando solo hay un candidato habilitado. Mostrar el nombre asignado en Agenda. Un único candidato disponible se asigna automáticamente; dos o más requieren elección al iniciar/cerrar si todavía no hay responsable.
+2. Casos: creación desde dashboard, llegada/inicio de citas antiguas sin asignación y cierre residual sin responsable. Conservar una asignación explícita y la autoasignación propia del profesional autenticado. Nunca elegir otro Tenant, un retirado, un profesional de otra área, fuera de horario, ausente, sin capacidad del servicio o con cruce. Sin candidatos disponibles se conserva la reserva pendiente de asignar; para iniciar/cerrar grooming el equipo debe resolver la disponibilidad. No modificar citas históricas cerradas.
+3. Arquitectura: reutilizar `assignmentReason`, locks y reglas de Staff; un único selector backend devuelve el candidato inequívoco o pide elección. El dashboard reutiliza sus comandos de reserva/PATCH/cierre y ofrece el selector solo ante varias opciones; las lecturas no escriben. El cierre usa el mismo contexto transaccional para asignar antes de generar comisión y cobro. No cambia el motor conversacional ni reparte servicios entre varios peluqueros.
+4. Persistencia: `Appointment.staffId` existente, con comparación de estado/fecha/servicio al escribir y revalidación tras el lock del profesional. La asignación se conserva en el evento de completado; comisión mantiene sus reglas. Sin redistribuciones ni migración de registros anteriores.
+5. Esquema y validación: sin migración. Pruebas de cero/uno/varios candidatos, Tenant, servicio, ausencias y cruces; PostgreSQL real y navegador para reserva, llegada/inicio, nombre visible y elección con dos profesionales. Lint, build, regresiones completas. Pendiente de publicar con el lote menor.
+
+Decisiones diferidas: reparto por carga, varios responsables por cita y cambios del flujo conversacional no forman parte de esta petición. Dos candidatos ya constituyen una elección; no se selecciona arbitrariamente el primero de una lista.

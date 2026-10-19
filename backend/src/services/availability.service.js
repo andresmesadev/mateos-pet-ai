@@ -34,7 +34,7 @@ const VET_END_HOUR_EXCLUSIVE = 17;
 /** Duración típica consulta (minutos): informativa para logs. */
 const VET_SLOT_DURATION_MINUTES = 45;
 
-/** Peluquería: slots cada 1 hora desde las 11. Último inicio antes del cierre. */
+/** Ventana de peluquería por defecto; la cadencia vive en reservation-slot. */
 const GROOMING_FIRST_HOUR = 11;
 const GROOMING_LAST_START_HOUR = 16;
 
@@ -75,14 +75,15 @@ const resolveDayConfig = (dateKey, businessHours, serviceType) => {
   if (!businessHours || typeof businessHours !== "object") return null;
   const dayKey = DAY_KEYS[getDayOfWeekFromKey(dateKey)];
   const serviceEntry = businessHours.services?.[serviceType]?.[dayKey];
-  const entry = serviceEntry ?? businessHours[dayKey];
-  if (!entry || typeof entry !== "object" || typeof entry.active !== "boolean") {
-    return null;
+  for (const entry of [serviceEntry, businessHours[dayKey]]) {
+    if (!entry || typeof entry !== "object" || typeof entry.active !== "boolean") continue;
+    const openHour = parseHourFromTimeString(entry.open);
+    const closeHour = parseHourFromTimeString(entry.close);
+    if (entry.active === false) return { active: false, openHour, closeHour };
+    if (openHour === null || closeHour === null || openHour >= closeHour) continue;
+    return { active: true, openHour, closeHour };
   }
-  const openHour = parseHourFromTimeString(entry.open);
-  const closeHour = parseHourFromTimeString(entry.close);
-  if (openHour === null || closeHour === null) return null;
-  return { active: entry.active, openHour, closeHour };
+  return null;
 };
 
 /**

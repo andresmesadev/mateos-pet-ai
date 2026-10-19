@@ -1,4 +1,6 @@
 "use client";
+import { useGroomerSelection } from './use-groomer-selection';
+import { AppointmentPaymentLink } from './appointment-payment-link';
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -94,6 +96,7 @@ export function GroomingView({ initialVisits, initialHasMore, initialError, tena
     setNotesVisit((current) => current?.id === updated.id ? updated : current);
   }
 
+  const groomerSelection = useGroomerSelection(updateVisit);
   async function advance(visit: GroomingVisit, action: "confirmed" | "arrived" | "in_progress" | "complete" | "delivery") {
     setBusy(visit.id);
     setActionError(null);
@@ -106,7 +109,8 @@ export function GroomingView({ initialVisits, initialHasMore, initialError, tena
         method: ["complete", "delivery"].includes(action) ? "POST" : "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(["complete", "delivery"].includes(action) ? {} : { status: action }),
       });
-      const payload = await response.json() as Partial<GroomingVisit> & { error?: string };
+      const payload = await response.json() as Partial<GroomingVisit> & { error?: string; code?: string; choices?: { id: string; name: string }[] };
+      if (!response.ok && groomerSelection.ask(visit, payload, () => void advance(visit, action))) { setConfirm(null); return; }
       if (!response.ok) throw new Error(payload.error ?? "Intenta de nuevo.");
       updateVisit({ ...visit, ...payload } as GroomingVisit);
       setConfirm(null);
@@ -174,6 +178,7 @@ export function GroomingView({ initialVisits, initialHasMore, initialError, tena
             {visit.status === "arrived" && !priorArrival && <Button size="sm" disabled={Boolean(busy)} onClick={() => { setActionError(null); setNotesVisit(visit); }}><Scissors className="size-3.5" />Preparar atención</Button>}
             {visit.status === "in_progress" && <Button size="sm" disabled={Boolean(busy) || !own} onClick={() => { setActionError(null); setConfirm({ visit, action: "complete" }); }}>Terminar servicio</Button>}
             {visit.status === "completed" && !visit.groomingDeliveredAt && <Button size="sm" disabled={Boolean(busy) || !own} onClick={() => { setActionError(null); setConfirm({ visit, action: "delivery" }); }}><CheckCheck className="size-3.5" />Registrar entrega</Button>}
+            <AppointmentPaymentLink appointment={visit} />
             {(expired || priorArrival) && <Button variant="outline" size="sm" asChild><Link href={agendaHref}>Revisar en Agenda</Link></Button>}
             </div>
             {editable && (!visit.staffId || visit.finalPrice == null) && <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">{access?.capabilities.schedule && !visit.staffId && <Button variant="outline" className="min-h-11" disabled={Boolean(busy) || staffLoading || staffError} onClick={() => setAssignmentVisit(visit)}>Asignar peluquero</Button>}{access?.capabilities.appointmentPrice && visit.finalPrice == null && <Button variant="outline" className="min-h-11" disabled={Boolean(busy)} onClick={() => { setPriceEditing(true); setDetailVisit(visit); }}>Colocar precio</Button>}</div>}
@@ -183,10 +188,11 @@ export function GroomingView({ initialVisits, initialHasMore, initialError, tena
       })}</div>}
       {!loading && result.hasMore && <p role="status" className="border-t p-4 text-sm text-amber-900">Se muestran hasta 100 citas. Precisa el nombre en la búsqueda para ver las restantes.</p>}
     </section>
+    {groomerSelection.dialog}
     {newOpen && access?.capabilities.schedule && <NewAppointmentDialog initialDate={date} serviceCategory="grooming" onClose={() => setNewOpen(false)} onCreated={() => { setNewOpen(false); setRefresh((value) => value + 1); }} />}
     {detailVisit && <AppointmentDetailDialog appointment={detailVisit} startInPriceEdit={priceEditing} onClose={() => setDetailVisit(null)} onUpdated={(updated: TodayAppointment) => { updateVisit({ ...detailVisit, ...updated }); setRefresh((value) => value + 1); }} />}
     {assignmentVisit && <GroomingAssignmentDialog visit={assignmentVisit} staff={staff} tenantId={tenantId} onClose={() => setAssignmentVisit(null)} onSaved={(updated) => { updateVisit(updated); setAssignmentVisit(null); setNotice(`Peluquero de ${updated.petName} actualizado.`); }} />}
     {notesVisit && <GroomingNotesDialog key={notesVisit.id} visit={notesVisit} tenantId={tenantId} starting={Boolean(busy)} startError={actionError} onStart={(access?.capabilities.administration || (access?.staffId && (!notesVisit.staffId || notesVisit.staffId === access.staffId))) && notesVisit.status === "arrived" && groomingStage(notesVisit, today) !== "Por revisar" ? () => void advance(notesVisit, "in_progress") : undefined} onClose={() => setNotesVisit(null)} onSaved={(updated) => { updateVisit(updated); setNotice(`Notas de ${updated.petName} guardadas.`); }} />}
-    {confirm && <GroomingCloseDialog visit={confirm.visit} action={confirm.action} busy={Boolean(busy)} error={actionError} onClose={() => setConfirm(null)} onConfirm={() => void advance(confirm.visit, confirm.action)} onResolve={(field) => { const visit = confirm.visit; setConfirm(null); setActionError(null); if (field === "staff") setAssignmentVisit(visit); else if (field === "price") { setPriceEditing(true); setDetailVisit(visit); } else setNotesVisit(visit); }} />}
+    {confirm && <GroomingCloseDialog visit={confirm.visit} singleGroomerName={!staffLoading && !staffError && staff.length === 1 ? staff[0].name : undefined} action={confirm.action} busy={Boolean(busy)} error={actionError} onClose={() => setConfirm(null)} onConfirm={() => void advance(confirm.visit, confirm.action)} onResolve={(field) => { const visit = confirm.visit; setConfirm(null); setActionError(null); if (field === "staff") setAssignmentVisit(visit); else if (field === "price") { setPriceEditing(true); setDetailVisit(visit); } else setNotesVisit(visit); }} />}
   </div>;
 }

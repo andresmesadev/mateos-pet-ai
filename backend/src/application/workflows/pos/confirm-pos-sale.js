@@ -1,13 +1,17 @@
 const { randomUUID } = require('node:crypto');
 const { fail } = require('../../../contexts/inventory/domain/policy');
-function buildConfirmPosSale({ inventory, finance, repository, accessReader, unitOfWork, clock = () => new Date() }) {
+const { CommissionDayClosedError, CommissionInActiveSettlementError } = require('../../../contexts/staff/domain/errors');
+function buildConfirmPosSale({ inventory, finance, staff, repository, accessReader, unitOfWork, clock = () => new Date() }) {
   return async function confirm({ tenantId, actor, operationKey, command }) {
     if (!command || command.tenantId !== undefined || command.actor !== undefined || command.principalKey !== undefined) fail('INVALID_IDENTITY', 'La identidad y el establecimiento se obtienen de la sesión.', 400);
+    if (command.appointmentCheckout !== undefined && typeof command.appointmentCheckout !== 'boolean') fail('INVALID_CHECKOUT', 'Tipo de cobro de cita inválido.', 400);
+    if (command.appointmentCheckout && !command.appointmentId) fail('INVALID_CHECKOUT', 'Selecciona la cita que vas a cobrar.', 400);
     const posted = command.items;
     if (!Array.isArray(posted) || !posted.length || posted.length > 100 || posted.some(i => !i || typeof i !== 'object')) fail('INVALID_ITEMS', 'Agrega entre 1 y 100 artículos.', 400);
     // Product snapshots are assembled by Inventory, never supplied by the browser.
-    const lines = posted.map(({ description, itemKind, quantity, unitPrice, productId, priceVersion }) => ({ description, itemKind, quantity, unitPrice, productId, priceVersion }));
+    const lines = posted.map(({ description, itemKind, quantity, unitPrice, productId, priceVersion, appointmentComponent }) => ({ description, itemKind, quantity, unitPrice, productId, priceVersion, appointmentComponent }));
     if (!operationKey) {
+      if (command.appointmentCheckout) fail('OPERATION_KEY_REQUIRED', 'El pago de la cita necesita una clave de operación.', 400);
       if (lines.some(i => i.productId)) fail('OPERATION_KEY_REQUIRED', 'Las ventas de catálogo necesitan una clave de operación.', 400);
       return unitOfWork.run(async ctx => {
         const access = await accessReader.readAccess({ tenantId, actor }, ctx);
@@ -17,8 +21,20 @@ function buildConfirmPosSale({ inventory, finance, repository, accessReader, uni
         return { transaction: await repository.sale(tenantId, transaction.id, ctx) };
       }, { isolationLevel: 'Serializable' });
     }
-    return inventory.run({ tenantId, actor, operationKey, kind: 'confirm_pos_sale', command }, async state => {
+    let checkoutEvents = [], confirmedPayment;
+    const result = await inventory.run({ tenantId, actor, operationKey, kind: 'confirm_pos_sale', command }, async state => {
+      checkoutEvents = []; confirmedPayment = null;
       const prepared = await inventory.prepareSale(state, lines.map(i => ({ ...i, itemKind: i.itemKind ?? (state.access.capabilities.services ? 'service' : 'product') })));
+      if (command.appointmentCheckout) {
+        const local = { ...state.ctx, eventPublisher: { async publish(name, payload) { checkoutEvents.push({ name, payload }); } } };
+        const { transaction, servicePrice } = await finance.registerAppointmentSale({ tenantId, actor: state.access.snapshot, access: state.access, command, items: prepared, now: state.now }, local);
+        try { await staff.correctCheckoutCommission({ tenantId, appointmentId: command.appointmentId, servicePrice, actor: state.access.snapshot }, local); }
+        catch (error) { if (error instanceof CommissionDayClosedError || error instanceof CommissionInActiveSettlementError) fail('COMMISSION_CONSOLIDATED', error.message, 409); throw error; }
+        const evidence = await inventory.start(state, 'sale', { resultSaleId: transaction.id });
+        await inventory.sellLines(state, transaction.items);
+        confirmedPayment = transaction;
+        return evidence;
+      }
       const saleId = randomUUID();
       const evidence = await inventory.start(state, 'sale', { resultSaleId: saleId });
       const sale = await finance.registerManualSale({ tenantId, id: saleId, actor: state.access.snapshot, access: state.access,
@@ -26,6 +42,11 @@ function buildConfirmPosSale({ inventory, finance, repository, accessReader, uni
       await inventory.sellLines(state, sale.items);
       return evidence;
     });
+    if (!result.replayed && confirmedPayment) {
+      for (const event of checkoutEvents) await staff.publishCheckoutCorrection(event);
+      await finance.publishCheckoutPayment(confirmedPayment);
+    }
+    return result;
   };
 }
 module.exports = { buildConfirmPosSale };

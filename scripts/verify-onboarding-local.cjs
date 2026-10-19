@@ -68,6 +68,10 @@ async function main() {
       assert(!req.headers['x-internal-token'], 'Public adapter forwarded internal authority'); next();
     }, require('../backend/src/routes/onboarding.routes'));
     app.use('/api/internal', require('../backend/src/middleware/requireInternalToken').requireInternalToken, require('../backend/src/routes/staff-auth.routes'));
+    if (process.argv.includes('--team-permissions')) {
+      // Exercise Next's real billing authorization without calling Stripe.
+      app.get('/api/billing/status/:id', require('../backend/src/middleware/requireInternalToken').requireInternalToken, (req, res) => res.json({ tenantId: req.params.id }));
+    }
     app.use('/api/dashboard', require('../backend/src/middleware/resolveTenant').resolveTenant, require('../backend/src/routes/dashboard.routes'));
     backend = await new Promise(resolve => { const server = app.listen(0, '127.0.0.1', () => resolve(server)); });
     apiBase = 'http://127.0.0.1:' + backend.address().port;
@@ -215,11 +219,23 @@ async function main() {
     await mobile.getByRole('button', { name: 'Entrar', exact: true }).click();
     await mobile.waitForURL(base + '/dashboard', { timeout: 30000 });
     check('mobile customizes an occupied identifier; a failed auto-login preserves the account, prevents a second registration and recovers through real sign-in');
+    if (process.argv.includes('--team-permissions')) {
+      await require('./verify-team-permissions-scenario.cjs')({ prisma, base, browser, context, page, password, output, check });
+    }
+    if (process.argv.includes('--grooming-transport')) {
+      await require('./verify-grooming-transport-scenario.cjs')({ prisma, base, browser, context, page, output, check, tenantId: session.user.tenantId });
+    }
+    if (process.argv.includes('--client-pet-names')) {
+      await require('./verify-client-pet-names-scenario.cjs')({ prisma, base, context, page, output, check, tenantId: session.user.tenantId });
+    }
+    if (process.argv.includes('--new-owner-prices')) {
+      await require('./verify-new-owner-prices-scenario.cjs')({ prisma, base, context, page, output, check, tenantId: session.user.tenantId });
+    }
     await prisma.staffCredential.update({ where: { staffId: session.user.staffId }, data: { active: false } });
     assert.equal((await context.request.get(base + '/api/proxy/dashboard/access')).status(), 403);
     check('revoking the new administrator immediately blocks its existing session');
     assert.equal(errors.length, 0, errors.join('\n'));
-    console.log(`Onboarding integration: ${passed} passed, 0 failed. Local disposable data only; no jobs, messages or charges.`);
+    console.log(`Onboarding integration: ${passed} passed, 0 failed. Local disposable data only; no jobs, external messages or real charges.`);
     console.log('Screenshots: .cache/onboarding-verification/');
   } finally {
     await browser?.close();

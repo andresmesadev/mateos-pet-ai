@@ -84,7 +84,7 @@ export function StaffManager({ profile, onDirtyChange, onSavingChange }: Props) 
       })}</ul></section>;
     })}
     <Dialog open={panel !== null} onOpenChange={open => { if (!open) close(); }}><DialogContent className="flex max-h-[90dvh] w-[calc(100%-2rem)] max-w-3xl flex-col overflow-hidden" showClose={!saving}><DialogHeader className="pr-14"><DialogTitle>{title}</DialogTitle><DialogDescription>{panel?.kind === "new" ? "Crea la ficha antes de habilitar una cuenta de ingreso." : "Los cambios se aplican al integrante de este establecimiento."}</DialogDescription></DialogHeader><div className="overflow-y-auto p-5 sm:p-6">
-      {panel?.kind === "new" && <MemberEditor key="new" {...signals} onSaved={saved} />}
+      {panel?.kind === "new" && <MemberEditor key="new" {...signals} activeModules={profile?.activeModules} onSaved={saved} />}
       {panel?.kind === "services" && <TeamServicesEditor key={panel.member.id + "services"} {...signals} member={panel.member} onSaved={saved} />}
       {panel?.kind === "availability" && <TeamAvailability key={panel.member.id} {...signals} member={panel.member} />}
       {panel?.kind === "schedule" && <div className="mb-5"><TeamAvailability key={`preview-${panel.member.id}`} member={panel.member} preview /></div>}

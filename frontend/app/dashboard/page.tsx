@@ -31,7 +31,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       <section aria-labelledby="daily-overview-heading" className="space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="mb-1 text-xs font-semibold text-primary">Inicio · {ROLE_NAMES[access.role]}</p>
+            <p className="mb-1 text-xs font-semibold text-primary">Inicio · {ROLE_NAMES[access.professionalRole ?? access.role]}</p>
             <h2 id="daily-overview-heading" className="text-xl font-bold tracking-tight text-foreground md:text-2xl">Tu jornada de hoy</h2>
             <p className="mt-1 text-sm capitalize text-muted-foreground">{dateLabel} · Hora de Colombia</p>
           </div>

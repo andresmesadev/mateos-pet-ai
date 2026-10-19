@@ -47,7 +47,7 @@ function createChangeServicePriceUseCase({
   eventPublisher,
 }) {
   return async function execute({ serviceId, tenantId = null, target, newPrice }) {
-    if (newPrice == null || Number(newPrice) < 0) {
+    if (newPrice === undefined || (newPrice === null && target?.type !== "base") || (newPrice != null && (!Number.isFinite(Number(newPrice)) || Number(newPrice) < 0))) {
       throw new InvalidPriceError(newPrice);
     }
 

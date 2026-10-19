@@ -3,12 +3,19 @@
  */
 class AppointmentRepositoryPort {
   // Devuelve la cita con las relaciones necesarias para resolver su precio
-  // (pet.defaultGroomingPrice, service.basePrice, service.priceRules, service.category).
-  async findById(tenantId, appointmentId) {
+  // (precios de mascota/servicio y cita que cobra el transporte compartido).
+  // El adaptador transaccional ofrece lockAndFindById(tenantId, id, ctx)
+  // para releer esos datos bajo bloqueo antes de congelar el cobro.
+  async findById(tenantId, appointmentId, ctx) {
     throw new Error("AppointmentRepositoryPort.findById no implementado");
   }
+  // El profesional y la cita ya están bloqueados por la operación de cierre.
+  async assignStaff(tenantId, appointmentId, staffId, ctx) {
+    throw new Error('AppointmentRepositoryPort.assignStaff no implementado');
+  }
 
-  async markCompleted(appointmentId, endedAt, resolvedPrice, ctx) {
+  // resolvedPrice es peluquería; transportPrice opcional se congela separado.
+  async markCompleted(appointmentId, endedAt, resolvedPrice, ctx, transportPrice) {
     throw new Error("AppointmentRepositoryPort.markCompleted no implementado");
   }
 }

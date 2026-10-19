@@ -26,16 +26,14 @@ function NewClientContent({ onOpenChange, onCreated }: Props) {
   const { toast } = useToast();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const feedback = useFormFeedback();
-  const discard = useDialogEditGuard(Boolean(name || phone || email || notes), saving);
+  const discard = useDialogEditGuard(Boolean(name || phone || notes), saving);
 
   function reset() {
     setName("");
     setPhone("");
-    setEmail("");
     setNotes("");
   }
 
@@ -47,7 +45,7 @@ function NewClientContent({ onOpenChange, onCreated }: Props) {
       const res = await fetch(proxyUrl("/api/dashboard/clients"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, phone, email, notes }),
+        body: JSON.stringify({ name, phone, notes }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -115,21 +113,6 @@ function NewClientContent({ onOpenChange, onCreated }: Props) {
             </div>
             </FormSection>
             <FormAdditional>
-            <div className="space-y-1.5">
-              <label htmlFor="nc-email" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Correo electrónico (opcional)
-              </label>
-              <Input
-                id="nc-email"
-                value={email}
-                onChange={(e) => { setEmail(e.target.value); feedback.clearField("nc-email"); }}
-                aria-invalid={Boolean(feedback.errors["nc-email"])}
-                aria-describedby={feedback.errors["nc-email"] ? "nc-email-error" : undefined}
-                placeholder="email@ejemplo.com"
-                type="email"
-              />
-              <FieldError id="nc-email" message={feedback.errors["nc-email"]} />
-            </div>
             <div className="space-y-1.5">
               <label htmlFor="nc-notes" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Notas (opcional)

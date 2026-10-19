@@ -20,6 +20,8 @@ router.get("/cash/catalog", async (req, res) => {
     const tenantId = req.tenant.tenantId;
     if (!tenantId) return res.status(403).json({ error: "Selecciona un establecimiento." });
     const petId = req.query.petId;
+    if (req.query.additional !== undefined && req.query.additional !== '1') return res.status(400).json({ error: 'Consulta de adicionales no válida.' });
+    const additional = req.query.additional === '1';
     if (petId !== undefined && (typeof petId !== "string" || !petId)) return res.status(400).json({ error: "Mascota no válida." });
     const pet = petId ? await prisma.pet.findFirst({ where: { id: petId, tenantId }, select: { id: true, defaultGroomingPrice: true } }) : null;
     if (petId && !pet) return res.status(404).json({ error: "Mascota no encontrada en este establecimiento." });
@@ -31,7 +33,7 @@ router.get("/cash/catalog", async (req, res) => {
     return res.json(services.filter(service => moduleAllowsAppointment(req.access, { service })).map(service => {
       const resolution = resolvePrice({
         petAgreedPrice: service.priceRules?.[0]?.price ?? null,
-        petDefaultPrice: serviceModule({ service }) === "grooming" ? pet?.defaultGroomingPrice ?? null : null,
+        petDefaultPrice: !additional && serviceModule({ service }) === "grooming" ? pet?.defaultGroomingPrice ?? null : null,
         serviceBasePrice: service.basePrice,
       });
       return { id: service.id, name: service.name, category: service.category?.name, price: resolution.finalPrice, priceSource: resolution.source };
@@ -40,6 +42,25 @@ router.get("/cash/catalog", async (req, res) => {
     console.error("[Cash] Catalog failed:", error.message);
     return res.status(503).json({ error: "No se pudo cargar el catálogo de servicios." });
   }
+});
+router.get('/cash/appointments/:id/checkout', async (req, res) => {
+  try {
+    const tenantId = req.tenant.tenantId;
+    if (!tenantId || !req.access?.capabilities.cash) return res.status(403).json({ error: 'Caja no está habilitada.' });
+    const row = await prisma.appointment.findFirst({ where: { tenantId, id: req.params.id }, include: APPOINTMENT_INCLUDE });
+    if (!row || !moduleAllowsAppointment(req.access, row)) return res.status(404).json({ error: 'Cita no encontrada.' });
+    const appointment = mapAppointmentRow(row);
+    if (row.status !== 'completed' || appointment.payment?.status !== 'pending') return res.status(409).json({ error: 'Esta cita no tiene un pago pendiente. Consulta su comprobante en Caja.' });
+    const servicePrice = appointment.priceResolution.finalPrice;
+    const transportPrice = appointment.transport.price;
+    return res.json({ appointmentId: row.id, transactionId: appointment.payment.transactionId,
+      client: { id: row.userId, name: row.user?.name ?? null, phone: row.user?.phone ?? '', pets: row.petId ? [{ id: row.petId, name: appointment.petName, type: appointment.petType }] : [] },
+      petId: row.petId ?? '',
+      lines: [
+        { id: 'appointment-service', description: row.service?.name || row.serviceType || 'Servicio de la atención', quantity: '1', unitPrice: servicePrice == null ? '' : String(servicePrice), itemKind: 'service', appointmentComponent: 'service' },
+        ...(serviceModule(row) === 'grooming' ? [{ id: 'appointment-transport', description: 'Domicilio de peluquería', quantity: '1', unitPrice: transportPrice == null ? '' : String(transportPrice), itemKind: 'service', appointmentComponent: 'transport' }] : []),
+      ] });
+  } catch (error) { console.error('[Cash] Checkout read failed:', error.message); return res.status(503).json({ error: 'No se pudo preparar el cobro de la cita.' }); }
 });
 router.get("/workspace", async (req, res) => {
   try {
@@ -50,7 +71,7 @@ router.get("/workspace", async (req, res) => {
     }) : [];
     const appointments = rows.filter(row => moduleAllowsAppointment(req.access, row) &&
       (!["vet", "groomer"].includes(req.access.role) || serviceModule(row) === (req.access.role === "vet" ? "veterinary" : "grooming")))
-      .map(row => { const mapped = mapAppointmentRow(row); return req.access.capabilities.cash || req.access.capabilities.appointmentPrice ? mapped : { ...mapped, finalPrice: null, priceResolution: null }; });
+      .map(row => { const mapped = mapAppointmentRow(row); return req.access.capabilities.cash || req.access.capabilities.appointmentPrice ? mapped : { ...mapped, finalPrice: null, priceResolution: null, transport: { ...mapped.transport, price: null } }; });
     return res.json({ date, appointments, counts: {
       waiting: appointments.filter(a => a.status === "arrived").length,
       inProgress: appointments.filter(a => a.status === "in_progress").length,

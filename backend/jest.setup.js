@@ -18,6 +18,8 @@ process.env.DATABASE_URL =
   process.env.DATABASE_URL || "postgresql://test";
 
 require("dotenv").config();
+// Tests use mocked providers independently of a local operational pause.
+process.env.WHATSAPP_ENABLED = 'true';
 
 process.env.NODE_ENV = process.env.NODE_ENV || "test";
 process.env.LOG_LEVEL = process.env.LOG_LEVEL || "error";

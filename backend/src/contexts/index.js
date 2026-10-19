@@ -49,7 +49,7 @@ dispatcher.subscribe("CitaCompletada", async (payload, ctx) => {
     {
       tenantId: payload.tenantId,
       appointmentId: payload.appointmentId,
-      resolvedPrice: payload.resolvedPrice,
+      resolvedPrice: payload.totalPrice ?? payload.resolvedPrice,
       completedAt: payload.completedAt,
     },
     ctx
@@ -116,7 +116,7 @@ const { buildInventoryContext } = require('./inventory');
 const { CertifyingDomainEventPublisher } = require('./shared/events/certifying-domain-event-publisher');
 const { buildConfirmPosSale } = require('../application/workflows/pos/confirm-pos-sale');
 const inventory = buildInventoryContext({ unitOfWork, eventPublisher: new CertifyingDomainEventPublisher({ registerDomainEvent: events.registerDomainEvent, originContext: 'Inventario' }) });
-const confirmPosSale = buildConfirmPosSale({ inventory: inventory.commands, finance, repository: inventory.repository, accessReader: inventory.accessReader, unitOfWork });
+const confirmPosSale = buildConfirmPosSale({ inventory: inventory.commands, finance, staff, repository: inventory.repository, accessReader: inventory.accessReader, unitOfWork });
 const { buildOperationalContext } = require('./agents/operational');
 const { buildOperatorChannel } = require('../application/operator-channel');
 const operatorChannel = buildOperatorChannel({ prisma: require('../lib/prisma'), accessReader: inventory.accessReader,

@@ -11,6 +11,7 @@ import {
   Stethoscope,
   ChevronLeft,
   CalendarPlus,
+  PawPrint,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +28,7 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PetGroomingHistory } from "@/components/dashboard/pet-grooming-history";
+import { PetGroomingPrices } from "@/components/dashboard/pet-grooming-prices";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { OperationalPetSheet, OperationalAlerts } from "@/components/dashboard/operational-pet-sheet";
 import { useDashboardAccess } from "@/components/dashboard/dashboard-access-provider";
@@ -102,8 +104,6 @@ type PetProfileForm = {
   weight: string; sterilized: string; notes: string;
 };
 
-type AgreedPrice = { serviceId: string; serviceName: string; price: number };
-
 function PetMedicalSheetContent({
   pet,
   onRecordAdded,
@@ -118,12 +118,6 @@ function PetMedicalSheetContent({
   const canManageRecords = admin && Boolean(access?.capabilities.clinical);
   const { toast } = useToast();
   const tenant = useTenant();
-  const [agreedPrices, setAgreedPrices] = useState<AgreedPrice[]>([]);
-  const [pricesLoading, setPricesLoading] = useState(true);
-  const [pricesError, setPricesError] = useState<string | null>(null);
-  const [editingPriceService, setEditingPriceService] = useState<string | null>(null);
-  const [priceDraft, setPriceDraft] = useState("");
-  const [savingPrice, setSavingPrice] = useState(false);
   const [timeline, setTimeline]           = useState<PetTimelineData | null>(null);
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState<string | null>(null);
@@ -142,6 +136,7 @@ function PetMedicalSheetContent({
   const [petName, setPetName]             = useState(pet.name);
   const [ownerName, setOwnerName]         = useState(pet.owner?.name ?? "");
   const [ownerPhone, setOwnerPhone]       = useState(pet.owner?.phone ?? "");
+  const [operationalAlerts, setOperationalAlerts] = useState(pet.operationalAlerts ?? "");
   const [profileForm, setProfileForm]     = useState<PetProfileForm>({
     petName:    pet.name,
     ownerName:  pet.owner?.name ?? "",
@@ -164,10 +159,10 @@ function PetMedicalSheetContent({
     sterilized: profile.sterilized != null ? String(profile.sterilized) : "", notes: profile.notes ?? "",
   };
   const profileDirty = editingProfile && (Object.keys(savedProfile) as (keyof PetProfileForm)[]).some((field) => profileForm[field] !== savedProfile[field]);
-  const priceDirty = Boolean(editingPriceService && priceDraft !== String(agreedPrices.find((item) => item.serviceId === editingPriceService)?.price ?? ""));
   const recordDirty = Boolean(activeForm && (form.title || form.detail || form.date || nextDate));
-  const dirty = profileDirty || priceDirty || recordDirty;
-  const busy = saving || savingProfile || savingPrice;
+  const [groomingPriceEdit, setGroomingPriceEdit] = useState({ dirty: false, saving: false });
+  const dirty = profileDirty || recordDirty || groomingPriceEdit.dirty;
+  const busy = saving || savingProfile || groomingPriceEdit.saving;
   const discard = useDialogEditGuard(dirty, busy);
 
   const reloadTimeline = useCallback(async () => {
@@ -191,53 +186,6 @@ function PetMedicalSheetContent({
     })();
     return () => { cancelled = true; };
   }, [reloadTimeline]);
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        if (!admin) return;
-        const response = await fetch(proxyUrl(`/api/dashboard/pets/${pet.id}/prices${tenantQuery(tenant)}`), { cache: "no-store" });
-        if (!response.ok) throw new Error("No se pudieron cargar las tarifas acordadas.");
-        const prices = await response.json() as AgreedPrice[];
-        if (!cancelled) { setAgreedPrices(prices); setPricesError(null); }
-      } catch (cause) {
-        if (!cancelled) setPricesError(cause instanceof Error ? cause.message : "No se pudieron cargar las tarifas.");
-      } finally {
-        if (!cancelled) setPricesLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [pet.id, tenant, admin]);
-
-  async function saveAgreedPrice(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!editingPriceService) return;
-    const amount = Number(priceDraft);
-    if (!priceDraft.trim() || !Number.isFinite(amount) || amount < 0 || amount > 99999999.99 || Math.abs(amount * 100 - Math.round(amount * 100)) > 0.000001) {
-      setPricesError("Ingresa un precio válido en pesos.");
-      return;
-    }
-    setSavingPrice(true);
-    setPricesError(null);
-    try {
-      const response = await fetch(proxyUrl(`/api/dashboard/pets/${pet.id}/prices/${editingPriceService}${tenantQuery(tenant)}`), {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ price: amount }),
-      });
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(payload?.error || "Intenta de nuevo.");
-      setAgreedPrices((current) => current.map((item) => item.serviceId === editingPriceService ? { ...item, price: amount } : item));
-      setEditingPriceService(null);
-      setSavedAt(new Date());
-      toast("Tarifa de la mascota actualizada.", "success");
-    } catch (cause) {
-      setPricesError(cause instanceof Error ? cause.message : "No se pudo actualizar la tarifa.");
-    } finally {
-      setSavingPrice(false);
-    }
-  }
 
   function openForm(id: ActiveForm) {
     if (id === "consultation") { setShowConsultation(true); return; }
@@ -399,72 +347,79 @@ function PetMedicalSheetContent({
           <p className="mt-2 text-xs text-rose-800">Antecedentes registrados. El profesional debe confirmar su vigencia antes de la atención.</p>
         </section>}
         {error && <p role="alert" className="text-sm text-destructive">No se pudieron comprobar los antecedentes de alergias. Reintenta la carga del historial.</p>}
-        <section aria-label="Cuidados importantes" className={`rounded-xl border p-4 ${profile.notes ? "border-amber-200 bg-amber-50/60" : "bg-muted/30"}`}>
+        {(profile.notes || operationalAlerts.trim()) && <section aria-label="Cuidados importantes" className="rounded-xl border border-amber-200 bg-amber-50/60 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="flex items-center gap-2 font-semibold"><AlertCircle className="h-4 w-4 text-amber-700" />Cuidados importantes</h3><Button size="sm" variant="outline" disabled={busy || !admin} onClick={() => { if (!editingProfile) setProfileForm(savedProfile); setEditingProfile(true); setActiveTab("ficha"); }}>Editar cuidados</Button></div>
-          <p className="mt-2 whitespace-pre-wrap break-words text-sm">{profile.notes || "Todavía no hay observaciones registradas en la ficha."}</p>
-          <p className="mt-2 text-xs text-muted-foreground">Observaciones del equipo para tener en cuenta antes de una consulta, baño o corte.</p>
-        </section>
+          {operationalAlerts.trim() && <p className="mt-2 whitespace-pre-wrap break-words text-sm">{operationalAlerts}</p>}
+          {profile.notes && <p className="mt-2 whitespace-pre-wrap break-words text-sm">{profile.notes}</p>}
+        </section>}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-5">
-          <TabsList aria-label="Secciones de la ficha" className="grid h-auto! w-full grid-cols-2 gap-1 sm:grid-cols-4">
+          <TabsList aria-label="Secciones de la ficha" className={cn("grid h-auto! w-full grid-cols-2 gap-1", (admin || access?.capabilities.grooming) && "sm:grid-cols-3")}>
             <TabsTrigger value="ficha" className="min-h-11">Datos y cuidados</TabsTrigger>
             <TabsTrigger value="historial" className="min-h-11">Historial y citas</TabsTrigger>
             {(admin || access?.capabilities.grooming) && <TabsTrigger value="peluqueria" className="min-h-11">Peluquería</TabsTrigger>}
-            {admin && <TabsTrigger value="tarifas" className="min-h-11">Tarifas acordadas</TabsTrigger>}
           </TabsList>
           <TabsContent value="ficha" forceMount className="data-[state=inactive]:hidden">
-          <section className="mb-4 rounded-xl border bg-teal-50/40 p-4"><h3 className="font-semibold">Propietario</h3><p className="mt-1 text-sm">{ownerName || "Sin nombre registrado"}</p><p className="text-sm text-muted-foreground">{ownerPhone || "Sin teléfono registrado"}</p></section>
+          <section className="mb-4 rounded-xl border bg-teal-50/40 p-4"><h3 className="font-semibold">Propietario</h3><p className="mt-1 text-sm">{ownerName || "Sin nombre registrado"}</p><p className="text-sm text-muted-foreground">{ownerPhone || "Sin teléfono registrado"}</p><p className="mt-2 text-sm font-medium">Dirección</p><p className="break-words text-sm text-muted-foreground">{pet.owner?.address || "Sin dirección registrada en el cliente"}</p><p className="mt-2 text-sm font-medium">Barrio</p><p className="break-words text-sm text-muted-foreground">{pet.owner?.neighborhood || "Sin barrio registrado en el cliente"}</p></section>
         {/* Ficha */}
-        <div className="rounded-xl border border-black/[0.06] bg-card">
-          <div className="flex items-center justify-between border-b border-black/[0.04] px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Datos y cuidados de la mascota</p>
+        <div className="rounded-2xl border border-primary/15 bg-card [&_input]:h-11 [&_select]:h-11">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-5">
+            <h3 className="flex items-center gap-2 text-sm font-semibold"><PawPrint aria-hidden="true" className="h-4 w-4 text-primary" />Datos y cuidados de la mascota</h3>
             {admin && !editingProfile && (
-              <button
+              <Button variant="outline" size="sm" className="min-h-10"
                 type="button"
                   onClick={() => { setProfileForm(savedProfile); setEditingProfile(true); }}
-                className="text-xs text-primary hover:underline"
               >
                 Editar
-              </button>
+              </Button>
             )}
           </div>
 
-          {editingProfile ? (
-            <fieldset disabled={savingProfile} className="space-y-3 p-4">
+          {editingProfile && (
+            <fieldset disabled={savingProfile} aria-label="Identificación de la mascota" className="space-y-4 p-4 sm:p-5">
               {/* Identificación */}
+              <h3 className="text-sm font-semibold">Identificación</h3>
               <div className="grid grid-cols-1 gap-3">
                 <div className="space-y-1.5">
-                  <label htmlFor="pet-name" className="text-xs font-medium text-muted-foreground">Nombre de la mascota</label>
+                  <label htmlFor="pet-name" className="text-sm font-semibold">Nombre de la mascota</label>
                   <Input id="pet-name" value={profileForm.petName}
                     onChange={(e) => setProfileForm((f) => ({ ...f, petName: e.target.value }))}
                     placeholder="Ej. Max" />
                 </div>
               </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <label htmlFor="pet-owner-name" className="text-xs font-medium text-muted-foreground">Nombre del propietario</label>
+                  <label htmlFor="pet-owner-name" className="text-sm font-semibold">Nombre del propietario</label>
                   <Input id="pet-owner-name" value={profileForm.ownerName}
                     onChange={(e) => setProfileForm((f) => ({ ...f, ownerName: e.target.value }))}
                     placeholder="Ej. María López" />
                 </div>
                 <div className="space-y-1.5">
-                  <label htmlFor="pet-owner-phone" className="text-xs font-medium text-muted-foreground">Teléfono / WhatsApp</label>
-                  <Input id="pet-owner-phone" value={profileForm.ownerPhone}
+                  <label htmlFor="pet-owner-phone" className="text-sm font-semibold">Teléfono / WhatsApp</label>
+                  <Input id="pet-owner-phone" type="tel" value={profileForm.ownerPhone}
                     onChange={(e) => setProfileForm((f) => ({ ...f, ownerPhone: e.target.value }))}
                     placeholder="+57 300 000 0000" />
                 </div>
               </div>
-              <div className="border-t border-black/[0.06] pt-3">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Datos clínicos</p>
+              <p className="text-xs text-muted-foreground">Los datos del propietario se comparten con sus demás mascotas.</p>
+            </fieldset>
+          )}
+
+          {admin && <div className="px-4 py-3 sm:px-5"><PetGroomingPrices petId={pet.id} onEditStateChange={setGroomingPriceEdit} /></div>}
+
+          {editingProfile ? (
+            <fieldset disabled={savingProfile} aria-label="Datos clínicos" className="space-y-4 p-4 sm:p-5">
+              <div className="border-t border-border pt-4">
+                <h3 className="flex items-center gap-2 text-sm font-semibold"><Stethoscope aria-hidden="true" className="h-4 w-4 text-primary" />Datos clínicos</h3>
               </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <label htmlFor="pet-breed" className="text-xs font-medium text-muted-foreground">Raza</label>
+                  <label htmlFor="pet-breed" className="text-sm font-semibold">Raza</label>
                   <Input id="pet-breed" placeholder="Ej. Golden Retriever" value={profileForm.breed}
                     onChange={(e) => setProfileForm((f) => ({ ...f, breed: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <label htmlFor="pet-gender" className="text-xs font-medium text-muted-foreground">Sexo</label>
+                  <label htmlFor="pet-gender" className="text-sm font-semibold">Sexo</label>
                   <select id="pet-gender" value={profileForm.gender}
                     onChange={(e) => setProfileForm((f) => ({ ...f, gender: e.target.value }))}
                     className={SELECT_CLASS}>
@@ -474,17 +429,17 @@ function PetMedicalSheetContent({
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label htmlFor="pet-birth" className="text-xs font-medium text-muted-foreground">Fecha de nacimiento</label>
+                  <label htmlFor="pet-birth" className="text-sm font-semibold">Fecha de nacimiento</label>
                   <Input id="pet-birth" type="date" value={profileForm.birthDate}
                     onChange={(e) => setProfileForm((f) => ({ ...f, birthDate: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <label htmlFor="pet-weight" className="text-xs font-medium text-muted-foreground">Peso (kg)</label>
+                  <label htmlFor="pet-weight" className="text-sm font-semibold">Peso (kg)</label>
                   <Input id="pet-weight" type="number" step="0.1" min="0" placeholder="Ej. 12.5" value={profileForm.weight}
                     onChange={(e) => setProfileForm((f) => ({ ...f, weight: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
-                  <label htmlFor="pet-sterilized" className="text-xs font-medium text-muted-foreground">Esterilizado/a</label>
+                  <label htmlFor="pet-sterilized" className="text-sm font-semibold">Esterilizado/a</label>
                   <select id="pet-sterilized" value={profileForm.sterilized}
                     onChange={(e) => setProfileForm((f) => ({ ...f, sterilized: e.target.value }))}
                     className={SELECT_CLASS}>
@@ -493,23 +448,24 @@ function PetMedicalSheetContent({
                     <option value="false">No</option>
                   </select>
                 </div>
-                <div className="space-y-1.5">
-                  <label htmlFor="pet-notes" className="text-xs font-medium text-muted-foreground">Notas</label>
-                  <Textarea id="pet-notes" rows={5} placeholder="Cuidados, comportamiento o precauciones que el equipo debe tener en cuenta…" value={profileForm.notes}
+                <div className="space-y-2 border-t border-border pt-4 sm:col-span-2">
+                  <label htmlFor="pet-notes" className="text-sm font-semibold">Notas</label>
+                  <Textarea id="pet-notes" rows={3} className="min-h-24 resize-y bg-background/40 leading-relaxed" placeholder="Cuidados, comportamiento o precauciones que el equipo debe tener en cuenta…" value={profileForm.notes}
                     onChange={(e) => setProfileForm((f) => ({ ...f, notes: e.target.value }))} />
                 </div>
               </div>
-              <div className="flex gap-2 pt-1">
-                <Button size="sm" onClick={handleSaveProfile} disabled={savingProfile}>
-                  {savingProfile ? "Guardando…" : "Guardar ficha"}
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => discard(() => { setProfileForm(savedProfile); setEditingProfile(false); }, profileDirty)} disabled={savingProfile}>
+              <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
+                <Button className="min-h-11" variant="outline" onClick={() => discard(() => { setProfileForm(savedProfile); setEditingProfile(false); }, profileDirty)} disabled={savingProfile}>
                   Cancelar
+                </Button>
+                <Button className="min-h-11" onClick={handleSaveProfile} disabled={savingProfile}>
+                  {savingProfile ? "Guardando…" : "Guardar ficha"}
                 </Button>
               </div>
             </fieldset>
           ) : (
             <div className="divide-y divide-black/[0.04]">
+              <h3 className="flex items-center gap-2 px-4 py-4 text-sm font-semibold sm:px-5"><Stethoscope aria-hidden="true" className="h-4 w-4 text-primary" />Datos clínicos</h3>
               {(
                 [
                   profile.breed      ? ["Raza",           profile.breed] : null,
@@ -532,31 +488,7 @@ function PetMedicalSheetContent({
           )}
         </div>
 
-          </TabsContent>
-          <TabsContent value="tarifas" forceMount className="data-[state=inactive]:hidden">
-        <section className="rounded-xl border border-teal-200 bg-teal-50/40" aria-label="Tarifas de la mascota">
-          <div className="border-b border-teal-100 px-4 py-3">
-            <h3 className="text-sm font-semibold text-slate-900">Tarifas acordadas para {petName}</h3>
-            <p className="mt-0.5 text-xs text-slate-600">Cada valor corresponde a un servicio específico. Las subidas se aplican a próximas citas sin precio fijado; las citas cobradas conservan su importe.</p>
-          </div>
-          <div className="space-y-2 p-4">
-            {pricesLoading ? <p className="text-sm text-slate-600">Cargando tarifas…</p> : agreedPrices.length === 0 ? <p className="text-sm text-slate-600">Aún no hay tarifas propias. Puedes definir una desde el precio de una cita.</p> : agreedPrices.map((item) => (
-              <div key={item.serviceId} className="rounded-lg border border-teal-100 bg-white px-3 py-3">
-                {editingPriceService === item.serviceId ? (
-                  <form onSubmit={saveAgreedPrice} className="flex flex-wrap items-end gap-2">
-                    <div className="min-w-44 flex-1"><label htmlFor={`agreed-price-${item.serviceId}`} className="block text-xs font-medium text-slate-700">{item.serviceName} · nuevo precio (COP)</label><Input id={`agreed-price-${item.serviceId}`} type="number" inputMode="decimal" min="0" max="99999999.99" step="0.01" value={priceDraft} onChange={(event) => setPriceDraft(event.target.value)} required className="mt-1" /></div>
-                    <Button type="submit" size="sm" disabled={savingPrice}>{savingPrice ? "Guardando…" : "Guardar"}</Button>
-                    <Button type="button" size="sm" variant="outline" disabled={savingPrice} onClick={() => discard(() => { setEditingPriceService(null); setPricesError(null); }, priceDirty)}>Cancelar</Button>
-                  </form>
-                ) : (
-                  <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-sm font-semibold text-slate-900">{item.serviceName}</p><p className="text-sm text-slate-600">${item.price.toLocaleString("es-CO")}</p></div><Button type="button" size="sm" variant="outline" onClick={() => { setEditingPriceService(item.serviceId); setPriceDraft(String(item.price)); setPricesError(null); }}>Editar tarifa</Button></div>
-                )}
-              </div>
-            ))}
-            {pricesError && <p role="alert" className="text-sm text-red-700">{pricesError}</p>}
-          </div>
-        </section>
-
+          {editingProfile && <div className="mt-4"><OperationalAlerts pet={{ ...pet, operationalAlerts }} onSaved={value => { setOperationalAlerts(value); onRecordAdded?.(); }} /></div>}
           </TabsContent>
           <TabsContent value="peluqueria"><PetGroomingHistory petId={pet.id} appointments={timeline?.items ?? []} onSaved={() => { setSavedAt(new Date()); onRecordAdded?.(); }} /></TabsContent>
           <TabsContent value="historial" forceMount className="space-y-5 data-[state=inactive]:hidden">
@@ -663,7 +595,7 @@ export function PetMedicalSheet({ pet, open, onOpenChange, onRecordAdded, initia
         className="flex h-[92vh] w-full max-w-[95vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl"
       >
         {open && pet ? (
-          <><div className="px-5 pt-5"><OperationalAlerts pet={pet} onSaved={onRecordAdded} /></div><PetMedicalSheetContent key={`${pet.id}-${initialEdit}`} pet={pet} onRecordAdded={onRecordAdded} initialEdit={initialEdit} /></>
+          <PetMedicalSheetContent key={`${pet.id}-${initialEdit}`} pet={pet} onRecordAdded={onRecordAdded} initialEdit={initialEdit} />
         ) : null}
       </DialogContent>
     </ProtectedDialog>

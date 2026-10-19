@@ -23,6 +23,8 @@ export type DashboardPet = {
     id?: string;
     phone: string;
     name?: string | null;
+    address?: string | null;
+    neighborhood?: string | null;
   };
   _count: {
     medicalRecords: number;

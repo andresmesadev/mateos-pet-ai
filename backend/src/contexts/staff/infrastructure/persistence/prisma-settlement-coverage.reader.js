@@ -5,8 +5,8 @@ const prisma = require("../../../../lib/prisma");
  * ¿existe una Settlement activa cuyo período cubre este instante para este staff?
  */
 class PrismaSettlementCoverageReader {
-  async findActiveCovering(staffId, at) {
-    return prisma.settlement.findFirst({
+  async findActiveCovering(staffId, at, ctx) {
+    return (ctx?.tx ?? prisma).settlement.findFirst({
       where: {
         staffId,
         status: "active",

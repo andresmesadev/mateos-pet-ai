@@ -16,19 +16,20 @@ const {
  * @param {import("../ports/settlement-repository.port").SettlementRepositoryPort} deps.settlementRepository
  * @param {import("../ports/domain-event-publisher.port").DomainEventPublisherPort} deps.eventPublisher
  */
-function createGenerateSettlementUseCase({ staffRepository, commissionRepository, settlementRepository, eventPublisher }) {
-  return async function execute({ tenantId, staffId, periodStart, periodEnd }) {
-    const staff = await staffRepository.findById(staffId);
+function createGenerateSettlementUseCase({ staffRepository, commissionRepository, settlementRepository, eventPublisher, staffFinanceGate }) {
+  return async function execute({ tenantId, staffId, periodStart, periodEnd }, ctx) {
+    if (ctx && staffFinanceGate) await staffFinanceGate.acquire(tenantId, staffId, ctx);
+    const staff = await staffRepository.findById(staffId, ctx);
     if (!staff || (tenantId && staff.tenantId !== tenantId)) {
       throw new StaffNotFoundError(staffId);
     }
 
-    const existing = await settlementRepository.findActiveByStaffAndPeriod(staffId, periodStart, periodEnd);
+    const existing = await settlementRepository.findActiveByStaffAndPeriod(staffId, periodStart, periodEnd, ctx);
     if (existing) {
       throw new SettlementAlreadyExistsError(staffId, periodStart, periodEnd);
     }
 
-    const commissions = await commissionRepository.listByStaffAndPeriod(staffId, periodStart, periodEnd);
+    const commissions = await commissionRepository.listByStaffAndPeriod(staffId, periodStart, periodEnd, ctx);
     if (commissions.length === 0) {
       throw new NoCommissionsForPeriodError(staffId, periodStart, periodEnd);
     }
@@ -44,7 +45,7 @@ function createGenerateSettlementUseCase({ staffRepository, commissionRepository
         periodEnd: new Date(periodEnd),
         totalAmount: Math.round(totalAmount * 100) / 100,
         status: "active",
-      });
+      }, ctx);
     } catch (err) {
       if (err && err.code === "UNIQUE_SETTLEMENT_VIOLATION") {
         throw new SettlementAlreadyExistsError(staffId, periodStart, periodEnd);
@@ -52,7 +53,7 @@ function createGenerateSettlementUseCase({ staffRepository, commissionRepository
       throw err;
     }
 
-    await eventPublisher.publish("LiquidaciónGenerada", { settlement });
+    await (ctx?.eventPublisher ?? eventPublisher).publish("LiquidaciónGenerada", { settlement });
 
     return { settlement };
   };

@@ -21,7 +21,7 @@ import { FormDialogContent, FormDialogHeader, FormDialogBody, FormDialogFooter, 
 import { FieldError, FormSubmissionError, useFormFeedback } from "./form-feedback";
 import { submissionErrorMessage } from "@/lib/form-feedback";
 
-type Client = { id: string; name: string | null; phone: string };
+type Client = { id: string; name: string | null; phone: string; pets?: Pet[]; matchingPets?: Pet[] };
 type Pet = { id: string; name: string; type: string };
 type Service = {
   id: string;
@@ -67,7 +67,10 @@ function NewAppointmentContent({
   const [loadingServices, setLoadingServices] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const slotKey = `${tenant ?? ""}:${serviceId}:${staffId}:${dateKey}:${slotVersion}`;
+  const groomers = professionals.filter(item => item.active && item.role === 'groomer');
+  const singleGroomer = services.find(item => item.id === serviceId)?.category === 'grooming' && groomers.length === 1 && !staffError ? groomers[0] : null;
+  const effectiveStaffId = staffId || singleGroomer?.id || '';
+  const slotKey = `${tenant ?? ""}:${serviceId}:${effectiveStaffId}:${dateKey}:${slotVersion}`;
   const currentSlots = slotResult?.key === slotKey ? slotResult : null;
   const availableHours = currentSlots?.slots ?? [];
   const loadingSlots = Boolean(serviceId && dateKey && !currentSlots);
@@ -147,7 +150,7 @@ function NewAppointmentContent({
           if (!res.ok) throw new Error("No se pudieron buscar clientes");
           return res.json() as Promise<Client[]>;
         })
-        .then((rows) => setMatches(Array.isArray(rows) ? rows : []))
+        .then((rows) => { if (!controller.signal.aborted) setMatches(Array.isArray(rows) ? rows : []); })
         .catch((cause) => {
           if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "No se pudieron buscar clientes");
         });
@@ -158,7 +161,7 @@ function NewAppointmentContent({
   useEffect(() => {
     if (!serviceId || !dateKey) return;
     const controller = new AbortController();
-    const params = new URLSearchParams({ serviceId, dateKey, ...(staffId ? { staffId } : {}) });
+    const params = new URLSearchParams({ serviceId, dateKey, ...(effectiveStaffId ? { staffId: effectiveStaffId } : {}) });
     const tenantSuffix = tenantQuery(tenant).replace("?", "&");
     void fetch(proxyUrl(`/api/dashboard/appointments/available-slots?${params}${tenantSuffix}`), {
       cache: "no-store", signal: controller.signal,
@@ -181,9 +184,9 @@ function NewAppointmentContent({
         });
       });
     return () => controller.abort();
-  }, [serviceId, staffId, dateKey, tenant, slotVersion, slotKey]);
+  }, [serviceId, effectiveStaffId, dateKey, tenant, slotVersion, slotKey]);
 
-  async function selectClient(selected: Client) {
+  async function selectClient(selected: Client, selectedPetId?: string) {
     feedback.clearField("appointment-client");
     feedback.clearField("appointment-pet");
     setClient(selected);
@@ -197,7 +200,12 @@ function NewAppointmentContent({
       const res = await fetch(proxyUrl(`/api/dashboard/clients/${selected.id}${tenantQuery(tenant)}`), { cache: "no-store" });
       if (!res.ok) throw new Error("No se pudieron cargar las mascotas del cliente");
       const detail = await res.json() as { pets?: Pet[] };
-      setPets(detail.pets ?? []);
+      const ownerPets = detail.pets ?? [];
+      setPets(ownerPets);
+      if (selectedPetId) {
+        if (!ownerPets.some(pet => pet.id === selectedPetId)) throw new Error("La mascota ya no está vinculada a este propietario. Revisa su ficha antes de agendar.");
+        setPetId(selectedPetId);
+      } else if (ownerPets.length === 1) setPetId(ownerPets[0].id);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudieron cargar las mascotas");
     } finally {
@@ -220,7 +228,7 @@ function NewAppointmentContent({
       const res = await fetch(proxyUrl(`/api/dashboard/appointments${tenantQuery(tenant)}`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: client.id, petId, serviceId, dateKey, hour: Number(hour), ...(staffId ? { staffId } : {}) }),
+        body: JSON.stringify({ userId: client.id, petId, serviceId, dateKey, hour: Number(hour), ...(effectiveStaffId ? { staffId: effectiveStaffId } : {}) }),
       });
       if (!res.ok) {
         const payload = await res.json().catch(() => ({})) as { error?: string };
@@ -258,21 +266,32 @@ function NewAppointmentContent({
           <fieldset disabled={saving} className="min-w-0 space-y-6">
             <FormSection title="Cliente y mascota" description="Selecciona quién reserva y la mascota que recibirá la atención.">
             <div className="space-y-1.5">
-              <label htmlFor="appointment-client" className="text-sm font-semibold">Cliente</label>
+              <label htmlFor="appointment-client" className="text-sm font-semibold">Propietario o mascota</label>
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input id="appointment-client" value={query} autoComplete="off" disabled={loadingClient || saving} placeholder="Busca por nombre o teléfono" {...feedback.fieldProps("appointment-client")}
+                <Input id="appointment-client" value={query} autoComplete="off" disabled={loadingClient || saving} placeholder="Busca propietario, mascota o teléfono" {...feedback.fieldProps("appointment-client")}
                   onChange={(event) => { feedback.clearField("appointment-client"); setQuery(event.target.value); setClient(null); setPetId(""); setPets([]); setMatches([]); }} className="pl-9" />
               </div>
               <FieldError id="appointment-client" message={feedback.errors["appointment-client"]} />
               {!client && matches.length > 0 && (
-                <div className="max-h-40 overflow-y-auto rounded-lg border bg-background shadow-sm">
+                <div className="max-h-60 overflow-y-auto overscroll-contain rounded-lg border bg-background shadow-sm" aria-label="Resultados de propietarios y mascotas">
                   {matches.map((match) => (
-                    <button key={match.id} type="button" onClick={() => void selectClient(match)}
+                    <div key={match.id} className="border-b last:border-b-0">
+                    <button type="button" onClick={() => void selectClient(match)}
                       className="flex w-full flex-col px-3 py-2 text-left text-sm hover:bg-muted focus-visible:bg-muted">
                       <span className="font-semibold">{match.name ?? "Sin nombre"}</span>
                       <span className="text-xs text-muted-foreground">{match.phone}</span>
                     </button>
+                    <div className="flex flex-wrap gap-1 px-3 pb-2">
+                      {(match.matchingPets?.length ? match.matchingPets : match.pets ?? []).map(pet => (
+                        <button key={pet.id} type="button" aria-label={`Seleccionar ${pet.name} de ${match.name ?? match.phone}`}
+                          onClick={() => void selectClient(match, pet.id)}
+                          className="rounded-md border px-2 py-1 text-sm hover:bg-muted focus-visible:bg-muted">
+                          {pet.name} · {formatPetType(pet.type)}
+                        </button>
+                      ))}
+                    </div>
+                    </div>
                   ))}
                 </div>
               )}
@@ -289,7 +308,7 @@ function NewAppointmentContent({
               {client && !loadingClient && pets.length === 0 && <p className="text-xs text-amber-700">Este cliente todavía no tiene mascotas registradas.</p>}
             </div>
             </FormSection>
-            <FormSection title="Servicio y profesional" description="El profesional es opcional; la disponibilidad depende del servicio elegido.">
+            <FormSection title="Servicio y profesional" description="Si hay un solo peluquero, se asigna automáticamente según su disponibilidad.">
             <div className="space-y-1.5">
               <label htmlFor="appointment-service" className="text-sm font-semibold">Servicio</label>
               <select id="appointment-service" className={fieldClass} value={serviceId} {...feedback.fieldProps("appointment-service")} onChange={(event) => { feedback.clearField("appointment-service"); feedback.clearField("appointment-hour"); setServiceId(event.target.value); setStaffId(""); setHour(""); }} disabled={loadingServices} required>
@@ -299,7 +318,7 @@ function NewAppointmentContent({
               <FieldError id="appointment-service" message={feedback.errors["appointment-service"]} />
               {!loadingServices && services.length === 0 && <p className="text-xs text-amber-700">No hay servicios con cita activos.</p>}
             </div>
-            <div className="space-y-1.5">
+            {singleGroomer ? <div className="rounded-xl bg-accent/50 p-3 text-sm"><p className="font-semibold">Peluquero responsable: {singleGroomer.name}</p><p className="mt-1 text-xs text-muted-foreground">Asignación automática. Se muestran sus horarios disponibles.</p></div> : <div className="space-y-1.5">
               <label htmlFor="appointment-professional" className="text-sm font-semibold">Profesional responsable <span className="font-normal text-muted-foreground">(opcional)</span></label>
               <select id="appointment-professional" value={staffId} className={fieldClass} disabled={!serviceId} onChange={event => { setStaffId(event.target.value); setHour(""); }}>
                 <option value="">Sin asignar · revisar después</option>
@@ -307,7 +326,7 @@ function NewAppointmentContent({
               </select>
               <p className="text-xs text-muted-foreground">Al elegir un profesional se muestran sus turnos compatibles con el servicio, sus ausencias y las demás atenciones.</p>
               {staffError && <p className="text-xs text-amber-800">{staffError}</p>}
-            </div>
+            </div>}
             </FormSection>
             <FormSection title="Fecha y hora" description="Horarios en hora de Colombia. La disponibilidad se confirma al guardar.">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -328,7 +347,7 @@ function NewAppointmentContent({
             <div aria-live="polite" className="text-xs text-muted-foreground">
               {currentSlots?.error ? <span className="text-red-700">{currentSlots.error} <button type="button" className="font-semibold underline" onClick={() => setSlotVersion((version) => version + 1)}>Reintentar</button></span>
                 : serviceId && dateKey && !loadingSlots && availableHours.length === 0 ? "No hay turnos disponibles ese día. Prueba otra fecha."
-                  : "Solo se muestran turnos disponibles para el servicio y la fecha elegidos. La disponibilidad se confirma al guardar."}
+                  : "Horarios libres según el área o el horario habitual del centro. Puedes registrar las llegadas de hoy: si la hora ya pasó, la cita quedará como llegada."}
             </div>
             </FormSection>
             {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p>}

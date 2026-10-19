@@ -67,7 +67,7 @@ const VETERINARY_APPOINTMENT_FILTER = {
 
 function mapForActor(req, row) {
   const mapped = mapAppointmentRow(row);
-  return (req.access ? !req.access.capabilities.cash && !req.access.capabilities.appointmentPrice : req.actor?.type === "vet") ? { ...mapped, hasResolvedPrice: mapped.finalPrice != null, finalPrice: null, priceResolution: null } : mapped;
+  return (req.access ? !req.access.capabilities.cash && !req.access.capabilities.appointmentPrice : req.actor?.type === "vet") ? { ...mapped, hasResolvedPrice: mapped.finalPrice != null, finalPrice: null, priceResolution: null, transport: { ...mapped.transport, price: null } } : mapped;
 }
 
 async function resolveVetAppointment(id, tenantId) {
@@ -366,7 +366,7 @@ router.get("/appointments/available-slots", async (req, res) => {
     const bucket = { veterinary: "vet", grooming: "grooming" }[service.category?.name];
     if (!bucket) return res.status(422).json({ error: "Este servicio no admite reserva de horario" });
 
-    let slots = await listAvailableSlotsForDate({ dateKey, serviceType: bucket, tenantId });
+    let slots = await listAvailableSlotsForDate({ dateKey, serviceType: bucket, tenantId, manual: true });
     if (staffId) {
       const available = [];
       for (const hour of slots) if (!await assignmentReason(prisma, { staffId, tenantId, service, date: buildAppointmentDateTime(dateKey, hour) })) available.push(hour);
@@ -416,15 +416,17 @@ router.post("/appointments", async (req, res) => {
     }
     const bucket = { veterinary: "vet", grooming: "grooming" }[service.category?.name];
     if (!bucket) return res.status(422).json({ error: "Este servicio no admite reserva de horario" });
-    const available = await isSlotAvailable({ dateKey, hour: Number(hour), serviceType: bucket, tenantId });
+    const available = await isSlotAvailable({ dateKey, hour: Number(hour), serviceType: bucket, tenantId, manual: true });
     if (!available) return res.status(409).json({ error: "El horario no está disponible para este servicio" });
 
+    const appointmentDate = buildAppointmentDateTime(dateKey, Number(hour));
     const appointment = await createAppointment({
-      tenantId, userId, petId, serviceId, ...(staffId ? { staffId } : {}),
+      tenantId, userId, petId, serviceId, autoAssignGroomer: true, ...(staffId ? { staffId } : {}),
       petName: pet.name, petType: pet.type,
       serviceType: bucket,
-      date: buildAppointmentDateTime(dateKey, Number(hour)),
-      status: "confirmed",
+      date: appointmentDate,
+      status: appointmentDate.getTime() <= Date.now() ? "arrived" : "confirmed",
+      ...(req.body.transport !== undefined ? { transport: req.body.transport, canConfirmTransport: Boolean(req.access?.capabilities.appointmentPrice || req.access?.capabilities.administration) } : {}),
     });
     return res.status(201).json({ id: appointment.id, date: appointment.date, status: appointment.status });
   } catch (error) {
@@ -432,6 +434,7 @@ router.post("/appointments", async (req, res) => {
     if (error instanceof SlotAlreadyBookedError) {
       return res.status(409).json({ error: "El horario acaba de ser reservado. Elige otro." });
     }
+    if (error.code === 'GROOMING_TRANSPORT') return res.status(error.status).json({ error: error.message });
     console.error("[Dashboard] Create appointment error:", error);
     return res.status(500).json({ error: "No se pudo crear la cita" });
   }
@@ -461,6 +464,7 @@ router.post("/appointments/:id/complete", async (req, res) => {
       tenantId,
       appointmentId: req.params.id,
       completedAt,
+      actingStaffId: req.actor?.type === 'groomer' ? req.actor.staffId : undefined,
     });
 
     const full = await prisma.appointment.findUnique({
@@ -486,6 +490,7 @@ router.post("/appointments/:id/complete", async (req, res) => {
     res.json(mapForActor(req, full));
   } catch (error) {
     if (error instanceof AppointmentNotFoundError) return res.status(404).json({ error: error.message });
+    if (['STAFF_UNAVAILABLE', 'STAFF_SELECTION_REQUIRED'].includes(error.code)) return res.status(error.status).json({ error: error.message, code: error.code, choices: error.choices });
     if (error instanceof InvalidStatusTransitionError) return res.status(422).json({ error: error.message });
     if (error instanceof UnresolvedPriceError) return res.status(422).json({ error: error.message });
     console.error("[Dashboard] Complete appointment error:", error);
@@ -507,6 +512,9 @@ router.patch("/appointments/:id/agreed-price", async (req, res) => {
       where: tenantId ? { id: req.params.id, tenantId } : { id: req.params.id },
     });
     if (!appointment) return res.status(404).json({ error: ERRORS.NOT_FOUND("Cita") });
+    if (appointment.transportMode && appointment.transportMode !== "none") {
+      return res.status(422).json({ error: "Esta atención tiene domicilio. Ajusta por separado el precio de peluquería y el domicilio; las tarifas de la mascota se configuran en su ficha." });
+    }
     if (["completed", "cancelled", "no_show"].includes(appointment.status)) {
       return res.status(422).json({ error: "No se puede cambiar el precio de una cita cerrada." });
     }
@@ -521,11 +529,12 @@ router.patch("/appointments/:id/agreed-price", async (req, res) => {
       newPrice: amount,
     });
 
-    const updated = await prisma.appointment.update({
-      where: { id: appointment.id },
+    const changed = await prisma.appointment.updateMany({
+      where: { id: appointment.id, tenantId: appointment.tenantId, status: appointment.status, transportMode: appointment.transportMode ?? "none" },
       data: { finalPrice: amount, ...actorSnapshot(req.actor, "price") },
-      include: APPOINTMENT_INCLUDE,
     });
+    if (changed.count !== 1) return res.status(409).json({ error: "La atención cambió. La tarifa de la mascota quedó guardada; actualiza la cita antes de modificar su cobro." });
+    const updated = await prisma.appointment.findUnique({ where: { id: appointment.id }, include: APPOINTMENT_INCLUDE });
     res.json(mapForActor(req, updated));
   } catch (error) {
     if (error instanceof ServiceNotFoundError || error instanceof PriceRuleTargetNotFoundError) {
@@ -553,6 +562,7 @@ router.patch("/appointments/:id", async (req, res) => {
       where: tenantId ? { id, tenantId } : { id },
     });
     if (!existing) return res.status(404).json({ error: ERRORS.NOT_FOUND("Cita") });
+    if (existing.transportMode && existing.transportMode !== 'none' && serviceId !== undefined && serviceId !== existing.serviceId) return res.status(422).json({ error: 'Revisa y retira el domicilio antes de cambiar el servicio de esta atención.' });
     if (req.actor?.type === "vet") {
       const clinicalAppointment = await resolveVetAppointment(id, tenantId);
       const validation = validateVetAppointment(clinicalAppointment);
@@ -633,14 +643,21 @@ router.patch("/appointments/:id", async (req, res) => {
       Object.assign(data, actorSnapshot(req.actor, "price"));
     }
 
-    const assignmentId = staffId !== undefined ? data.staffId : (data.staffId || (serviceId !== undefined ? existing.staffId : null));
+    const automatic = !existing.staffId && staffId === undefined && !data.staffId && ['arrived', 'in_progress'].includes(status) && require('../../services/dashboard-access.service').serviceModule(existing) === 'grooming';
+    let assignmentId = staffId !== undefined ? data.staffId : (data.staffId || (serviceId !== undefined ? existing.staffId : null));
     const selectedServiceId = serviceId !== undefined ? data.serviceId : existing.serviceId;
     // La disponibilidad se validó con esta combinación de servicio y profesional.
     // Si otra operación la cambia, la asignación debe volver a validarse.
-    const assignmentSnapshot = assignmentId || staffId !== undefined || serviceId !== undefined
+    const assignmentSnapshot = automatic || assignmentId || staffId !== undefined || serviceId !== undefined
       ? { staffId: existing.staffId, serviceId: existing.serviceId }
       : {};
     async function write(db) {
+    if (existing.transportMode && existing.transportMode !== 'none') {
+      await db.$queryRaw`SELECT id FROM "Appointment" WHERE id = ${id} AND "tenantId" = ${tenantId} FOR UPDATE`;
+      const current = await db.appointment.findFirst({ where: { id, tenantId } });
+      if (['completed', 'cancelled', 'no_show'].includes(current.status) && (finalPrice !== undefined || status !== undefined)) return res.status(409).json({ error: 'La atención ya se cerró. Actualiza la agenda.' });
+      if (['cancelled', 'no_show'].includes(status) && await db.appointment.count({ where: { tenantId, transportSharedWithId: id, status: { notIn: ['cancelled', 'no_show'] } } })) return res.status(422).json({ error: 'Este domicilio cubre otras citas. Reasigna sus traslados antes de cancelar.' });
+    }
     let updated;
     if (["pending", "confirmed"].includes(existing.status) && ["confirmed", "arrived"].includes(status)) {
       // El barrido de ausencias puede correr al mismo tiempo. Solo avanzar si
@@ -658,7 +675,7 @@ router.patch("/appointments/:id", async (req, res) => {
       });
       if (claim.count !== 1) return res.status(409).json({ error: "Otro profesional acaba de iniciar esta atención. Actualiza la lista." });
       updated = await db.appointment.findUnique({ where: { id }, include: APPOINTMENT_INCLUDE });
-    } else if (assignmentId || staffId !== undefined || serviceId !== undefined) {
+    } else if (automatic || assignmentId || staffId !== undefined || serviceId !== undefined) {
       const changed = await db.appointment.updateMany({ where: { id, tenantId: existing.tenantId, status: existing.status, staffId: existing.staffId, serviceId: existing.serviceId, date: existing.date }, data });
       if (changed.count !== 1) throw new (require('../../services/staff-scheduling.service').StaffUnavailableError)('La cita cambió mientras se reasignaba. Actualiza la agenda.');
       updated = await db.appointment.findUnique({ where: { id }, include: APPOINTMENT_INCLUDE });
@@ -667,15 +684,19 @@ router.patch("/appointments/:id", async (req, res) => {
     }
     return updated;
     }
-    const updated = assignmentId ? await withStaffLock(assignmentId, async tx => {
+    const updated = automatic ? await prisma.$transaction(async tx => {
+      assignmentId = await require('../../services/staff-scheduling.service').uniqueGroomer(tx, { tenantId, date: existing.date, serviceId: selectedServiceId, serviceType: existing.serviceType, appointmentId: id }, status === 'in_progress');
+      if (assignmentId) data.staffId = assignmentId;
+      return write(tx);
+    }) : assignmentId ? await withStaffLock(assignmentId, async tx => {
       const service = selectedServiceId ? await tx.service.findFirst({ where: { id: selectedServiceId, tenantId }, include: { category: true } }) : null;
       await assertStaffAssignment(tx, { staffId: assignmentId, tenantId, date: existing.date, service, serviceType: existing.serviceType, appointmentId: id });
       return write(tx);
-    }) : await write(prisma);
+    }) : existing.transportMode && existing.transportMode !== 'none' ? await prisma.$transaction(tx => write(tx)) : await write(prisma);
     if (res.headersSent) return;
     res.json(mapForActor(req, updated));
   } catch (error) {
-    if (error.code === 'STAFF_UNAVAILABLE') return res.status(error.status).json({ error: error.message });
+    if (['STAFF_UNAVAILABLE', 'STAFF_SELECTION_REQUIRED'].includes(error.code)) return res.status(error.status).json({ error: error.message, code: error.code, choices: error.choices });
     console.error("[Dashboard] Patch appointment error:", error);
     if (error.code === "P2025") return res.status(404).json({ error: "Not found" });
     res.status(500).json({ error: "Internal server error" });

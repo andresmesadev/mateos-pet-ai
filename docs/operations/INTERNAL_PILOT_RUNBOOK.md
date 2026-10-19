@@ -1,8 +1,12 @@
 # Procedimiento y medición del piloto interno
 
 **Estado:** preparado para completar y ejecutar; no certifica una beta externa.
-**Actualizado:** 13 de octubre de 2026.
+**Actualizado:** 16 de octubre de 2026. Foco siguiente: [beta operativa en la veterinaria propia](OWN_CLINIC_BETA_REVIEW_20261016.md). Los ensayos y cuentas de ejemplo del 13 conservan sus límites; no acreditan autorización para datos ni operaciones reales.
 **Marco:** [plan vigente](CLOSED_BETA_READINESS_PLAN_20260919.md) y [aplicación de la revisión](VIABILITY_IMPROVEMENT_EXECUTION_20261009.md).
+
+**Puesta en marcha propia:** completar privadamente el [acta y listas de jornada](OWN_CLINIC_STARTUP_WORKSHEET.md). Financiero y Administración/Inventario están registrados desde el 16 de octubre; la [aplicación actual](OWN_CLINIC_BETA_APPLICATION_20261016.md) documenta su comprobación y la observación nueva de 48 h en la VPS. Su finalización y la aceptación humana siguen pendientes.
+
+**Alcance actual posterior:** [arranque limpio solo dashboard](DASHBOARD_ONLY_CLEAN_START_20261016.md). Sin datos operativos anteriores ni WhatsApp activo; revisión de servicios y personal antes de copiarlos. Los ensayos de mensajes/cuentas descritos abajo son históricos y no deben ejecutarse en la base nueva. La ventana vigente comienza el 16 a las 10:25 Colombia.
 
 ## Alcance y responsables
 
@@ -41,7 +45,7 @@ Para cada caso registrar: fecha/hora UTC y Colombia, remitente de prueba identif
 
 ## Preparación de cuentas y capacidad: paso 2
 
-La publicación activa es **2.46.7**. La [verificación de capacidad](VPS_CAPACITY_VERIFICATION_20261013.md) aprobó la preparación técnica; su cierre formal necesita uso real sostenido y cuentas propias. Hay tres fichas activas de personal (administración, peluquería y veterinaria). La comprobación de la VPS del 13 de octubre a las **17:25:17 Colombia** encontró cero credenciales individuales activas; el administrador conserva el ingreso del entorno. No interpretar la ausencia de `StaffCredential` del administrador como un fallo de su cuenta.
+La publicación activa es **2.48.0**, con [certificación productiva](../history/RELEASE_2_48_0_VPS_20261016.md) y WhatsApp privado apagado. Los ensayos siguientes corresponden a **2.46.7**: la [verificación de capacidad](VPS_CAPACITY_VERIFICATION_20261013.md) aprobó la preparación técnica; su cierre formal necesita uso real sostenido y cuentas propias del alcance acordado. Hay tres fichas de personal (administración, peluquería y veterinaria). La comprobación histórica del 13 de octubre a las **17:25:17 Colombia** encontró cero credenciales individuales activas; se habilitaron dos de ejemplo después, como consta abajo. No interpretar la ausencia de `StaffCredential` del administrador como un fallo de su cuenta.
 
 **Actualización, 17:54:11 Colombia:** el responsable aclaró que las fichas solo tenían nombres y autorizó dos cuentas de ejemplo para ingresar. Se habilitaron sobre las fichas existentes de peluquería y veterinaria mediante la API administrativa autenticada, con correos ficticios y contraseñas aleatorias guardadas únicamente en un archivo local privado ignorado por Git. Ingreso HTTPS aprobado para ambas: identidad y tenant propios, `isSuperAdmin=false`, permisos de WhatsApp y de su área, sin administración ni finanzas; página operativa HTTP 200 y Administración restringida con HTTP 307 hacia inicio. Cero perfiles nuevos, cambios de rol o mensajes enviados. Se cerraron las sesiones individuales usadas por la herramienta. Estos accesos permiten el ensayo interno; no acreditan cuentas personales de una cohorte externa ni uso humano simultáneo todavía.
 
@@ -57,7 +61,7 @@ El cupo HTTP es de **60 solicitudes por minuto por identidad y establecimiento**
 
 ### Bloque de uso real propuesto
 
-Coordinar un bloque inicial de **20 minutos**, con dos/tres cuentas distintas y los números verificados realmente disponibles. El alcance técnico propuesto es un establecimiento y hasta cinco participantes de WhatsApp. Antes de comenzar, registrar el número real de personas y remitentes; si solo hay un número, se puede ensayar el uso del dashboard, pero no presentar ese resultado como carga de cinco remitentes.
+Coordinar un bloque inicial de **20 minutos**, con las cuentas personales distintas y canales incluidos en la primera jornada. Registrar cuántas personas y remitentes participarán realmente; cinco remitentes no es un requisito universal. Si solo hay un número autorizado, se puede ensayar el uso del dashboard y ese canal, sin presentar el resultado como carga de cinco remitentes.
 
 | Momento | Acción y evidencia |
 | --- | --- |
@@ -133,3 +137,5 @@ El suplente debe poder localizar el respaldo, verificarlo y ensayar restauració
 ## Decisión al concluir
 
 Consolidar los casos de agenda, ventana de salud, capacidad, incidencias, aceptación del frontend y mediciones. Si falta evidencia, mantener el punto abierto. Una beta externa requiere las condiciones 1–9 del plan, incluido el paso de WhatsApp que sigue aplazado por decisión del operador.
+
+Para la veterinaria propia, decidir apertura por las áreas y canales acordados en el acta: una línea empresarial aplazada no convierte el dashboard en inutilizable, pero tampoco habilita atención automática a todos los clientes desde el número de prueba. Registrar qué se usa y qué queda a cargo del equipo.

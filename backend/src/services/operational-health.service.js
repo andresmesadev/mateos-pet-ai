@@ -1,6 +1,7 @@
 const DEFAULT_INTERVAL_MS = 15 * 60 * 1000;
 const STALE_GRACE_MS = 10 * 60 * 1000;
 const STALLED_RUN_MS = 10 * 60 * 1000;
+const { isWhatsAppEnabled } = require('../lib/whatsapp-runtime');
 
 const initialState = () => ({
   startedAt: null,
@@ -46,7 +47,9 @@ const getInboundWorkerHealth = ({ now = Date.now() } = {}) => {
   let status = "ok";
   let healthy = true;
 
-  if (!inboundWorker.startedAt) {
+  if (!isWhatsAppEnabled()) {
+    status = 'paused';
+  } else if (!inboundWorker.startedAt) {
     status = "not_started";
     healthy = false;
   } else if (inboundWorker.runningSince && now - inboundWorker.runningSince > STALLED_RUN_MS) {

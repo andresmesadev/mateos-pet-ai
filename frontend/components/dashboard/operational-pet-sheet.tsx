@@ -5,24 +5,27 @@ import { Button } from "@/components/ui/button";
 import { proxyUrl } from "@/lib/api";
 import { tenantQuery, useTenant } from "@/lib/use-tenant";
 import { type DashboardPet, formatPetType } from "@/lib/pets";
-export function OperationalAlerts({ pet, onSaved }: { pet: DashboardPet; onSaved?: () => void }) {
+import { useDialogEditGuard } from "./protected-dialog";
+export function OperationalAlerts({ pet, onSaved }: { pet: DashboardPet; onSaved?: (text: string) => void }) {
   const [text, setText] = useState(pet.operationalAlerts ?? ""), [busy, setBusy] = useState(false), [message, setMessage] = useState("");
   const tenant = useTenant();
+  const [saved, setSaved] = useState(pet.operationalAlerts ?? "");
+  useDialogEditGuard(text !== saved, busy);
   async function save() {
     setBusy(true); setMessage("");
     try {
       const response = await fetch(proxyUrl("/api/dashboard/pets/" + pet.id + tenantQuery(tenant)), { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ operationalAlerts: text }) });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error ?? "No se pudo guardar");
-      setMessage("Alertas operativas guardadas."); onSaved?.();
+      setSaved(text); setMessage("Alertas operativas guardadas."); onSaved?.(text);
     } catch (cause) { setMessage(cause instanceof Error ? cause.message : "No se pudo guardar"); }
     finally { setBusy(false); }
   }
-  return <section className="space-y-3 rounded-xl border border-amber-200 bg-amber-50/50 p-4"><h3 className="font-semibold">Alertas para el manejo</h3><p className="text-sm text-muted-foreground">Indicaciones que debe conocer el equipo al recibir o cuidar a la mascota. El diagnóstico y el tratamiento se registran en la historia clínica.</p><label className="block text-sm"><span className="sr-only">Alertas operativas de {pet.name}</span><textarea className="mt-2 w-full rounded-lg border bg-white p-3" rows={3} maxLength={2000} placeholder="Ej. Se asusta con el secador; evitar sujetar por la pata derecha." value={text} onChange={event => setText(event.target.value)} /></label><Button size="sm" disabled={busy} onClick={() => void save()}>{busy ? "Guardando…" : "Guardar alertas"}</Button>{message && <p role="status" className="text-sm">{message}</p>}</section>;
+  return <section className="space-y-3 rounded-xl border border-amber-200 bg-amber-50/50 p-4"><h3 className="font-semibold">Alertas para el manejo</h3><p className="text-sm text-muted-foreground">Indicaciones que debe conocer el equipo al recibir o cuidar a la mascota. El diagnóstico y el tratamiento se registran en la historia clínica.</p><label className="block text-sm"><span className="sr-only">Alertas operativas de {pet.name}</span><textarea aria-label={`Alertas operativas de ${pet.name}`} className="mt-2 w-full rounded-lg border bg-white p-3" rows={3} maxLength={2000} placeholder="Ej. Se asusta con el secador; evitar sujetar por la pata derecha." value={text} onChange={event => setText(event.target.value)} /></label><Button type="button" size="sm" disabled={busy} onClick={() => void save()}>{busy ? "Guardando…" : "Guardar alertas"}</Button>{message && <p role="status" className="text-sm">{message}</p>}</section>;
 }
 export function OperationalPetSheet({ pet, open, onOpenChange, onUpdated }: { pet: DashboardPet | null; open: boolean; onOpenChange: (open: boolean) => void; onUpdated?: () => void }) {
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl"><DialogHeader><DialogTitle>Ficha de {pet?.name}</DialogTitle><DialogDescription>Datos de identificación y manejo de la mascota.</DialogDescription></DialogHeader>
-    {pet && <><dl className="grid gap-4 rounded-xl border p-4 text-sm sm:grid-cols-2"><div><dt className="text-muted-foreground">Mascota</dt><dd className="font-semibold">{pet.name} · {formatPetType(pet.type)}</dd></div><div><dt className="text-muted-foreground">Raza</dt><dd>{pet.breed || "Sin registrar"}</dd></div><div><dt className="text-muted-foreground">Propietario</dt><dd>{pet.owner.name || "Sin nombre"}</dd></div><div><dt className="text-muted-foreground">Teléfono</dt><dd>{pet.owner.phone}</dd></div></dl><OperationalPetBasics key={pet.id} pet={pet} onUpdated={onUpdated} /><OperationalAlerts key={pet.id + "-alerts"} pet={pet} onSaved={onUpdated} /></>}
+    {pet && <><dl className="grid gap-4 rounded-xl border p-4 text-sm sm:grid-cols-2"><div><dt className="text-muted-foreground">Mascota</dt><dd className="font-semibold">{pet.name} · {formatPetType(pet.type)}</dd></div><div><dt className="text-muted-foreground">Raza</dt><dd>{pet.breed || "Sin registrar"}</dd></div><div><dt className="text-muted-foreground">Propietario</dt><dd>{pet.owner.name || "Sin nombre"}</dd></div><div><dt className="text-muted-foreground">Teléfono</dt><dd>{pet.owner.phone}</dd></div><div className="sm:col-span-2"><dt className="text-muted-foreground">Dirección y barrio</dt><dd className="break-words">{pet.owner.address || "Sin dirección registrada en el cliente"}</dd></div></dl><OperationalPetBasics key={pet.id} pet={pet} onUpdated={onUpdated} /><OperationalAlerts key={pet.id + "-alerts"} pet={pet} onSaved={onUpdated} /></>}
   </DialogContent></Dialog>;
 }
 function OperationalPetBasics({ pet, onUpdated }: { pet: DashboardPet; onUpdated?: () => void }) {

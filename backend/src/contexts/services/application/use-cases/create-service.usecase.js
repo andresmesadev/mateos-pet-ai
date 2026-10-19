@@ -1,4 +1,5 @@
 const { isCategoryEnabled } = require("../../domain/rules/service-category.rules");
+const { validateReservationDuration } = require("../../domain/rules/service-attributes.rules");
 const {
   ServiceCategoryNotEnabledError,
   DuplicateServiceNameError,
@@ -21,12 +22,10 @@ function createCreateServiceUseCase({
   businessConfigReader,
   eventPublisher,
 }) {
-  return async function execute({ tenantId, name, categoryId, duration, basePrice }) {
-    if (!duration || duration <= 0) {
-      throw new InvalidServiceAttributesError("La duración estándar debe ser mayor a cero.");
-    }
-    if (basePrice == null || Number(basePrice) < 0) {
-      throw new InvalidServiceAttributesError("El precio base no puede ser nulo ni negativo.");
+  return async function execute({ tenantId, name, categoryId, duration, basePrice = null, requiresAppointment = true }) {
+    validateReservationDuration(duration, requiresAppointment);
+    if (basePrice != null && (!Number.isFinite(Number(basePrice)) || Number(basePrice) < 0)) {
+      throw new InvalidServiceAttributesError("El precio base debe ser no negativo o quedar pendiente.");
     }
 
     const category = await serviceCategoryReader.findById(categoryId);
@@ -50,6 +49,7 @@ function createCreateServiceUseCase({
       categoryId,
       duration,
       basePrice,
+      ...(requiresAppointment === false ? { requiresAppointment: false } : {}),
       active: true,
     });
 

@@ -9,7 +9,9 @@ const { civilDayBounds, civilDateLabel, civilDateKey } = require("../../../share
  * Expense activos + Commission activas (leídas, no recalculadas).
  *
  * Invariante ADR 007-D2: el cierre se rechaza si alguna cita completada del día
- * no tiene su cobro de sistema — un evento puede perderse; un cierre incompleto
+ * no tiene su obligación de cobro activa, pagada o pendiente (ADR 024).
+ * Los ingresos consolidados usan únicamente la fecha real de pago.
+ * Un evento puede perderse; un cierre incompleto
  * no puede existir. Es una lectura puntual de consistencia, no una dependencia
  * estructural hacia Agenda.
  *
@@ -51,7 +53,7 @@ function createGenerateDailyCloseUseCase({
         .filter((c) => c.origin === "system_appointment_completed" && c.appointmentId)
         .map((c) => c.appointmentId)
     );
-    const missing = completedAppointments.filter((a) => !chargedAppointmentIds.has(a.id)).map((a) => a.id);
+    const missing = completedAppointments.filter((a) => a.hasSystemCharge === false || (a.hasSystemCharge === undefined && !chargedAppointmentIds.has(a.id))).map((a) => a.id);
     if (missing.length > 0) {
       throw new IncompleteDailyCloseError(ymd, missing);
     }

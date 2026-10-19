@@ -38,13 +38,8 @@ module.exports = async function verify({ login, origin, errors, directory, calls
       await page.locator('#op-phone').fill('0000000002');
       await submitOwner(); await page.waitForFunction(() => document.activeElement?.id.startsWith('pet-name-'));
       await page.locator('input[id^="pet-name-"]').fill('Luna Prueba');
-      await page.locator('#new-owner-pets-form summary').click();
-      await page.locator('#op-email').fill('correo-incompleto');
-      await page.locator('#new-owner-pets-form summary').click();
-      await submitOwner(); await focused('op-email');
-      assert.equal(await page.locator('#new-owner-pets-form details').getAttribute('open'), '');
-      assert.match(await page.locator('#op-email-error').innerText(), /correo válido/);
-      await page.locator('#op-email').fill('prueba@fixture.invalid');
+      assert.equal(await page.locator('#new-owner-pets-form summary').count(), 0);
+      await page.locator('#op-phone-alt').fill('0000000003 / 0000000004');
       await page.getByRole('button', { name: 'Agregar otra mascota' }).click();
       await submitOwner();
       const second = page.locator('input[id^="pet-name-"]').nth(1);
@@ -68,7 +63,7 @@ module.exports = async function verify({ login, origin, errors, directory, calls
       await page.getByRole('button', { name: 'Cancelar', exact: true }).last().click();
       await page.getByRole('alertdialog').waitFor();
       await page.getByRole('button', { name: 'Seguir editando', exact: true }).click();
-      assert.equal(await page.locator('#op-email').inputValue(), 'prueba@fixture.invalid');
+      assert.equal(await page.locator('#op-phone-alt').inputValue(), '0000000003 / 0000000004');
       await noOverflow();
       await page.screenshot({ path: path.join(directory, `feedback-save-error-${width}.png`), fullPage: true });
       await page.getByRole('button', { name: 'Cancelar', exact: true }).last().click();

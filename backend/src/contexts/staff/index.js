@@ -16,6 +16,9 @@ const { PrismaServiceCategoryReader } = require("./infrastructure/persistence/pr
 const { PrismaBusinessConfigReader } = require("./infrastructure/persistence/prisma-business-config.reader");
 const { StaffDomainEventsPublisher } = require("./infrastructure/events/staff-domain-events.publisher");
 const events = require("../events");
+const { PrismaStaffFinanceGate } = require('../shared/persistence/prisma-staff-finance-gate');
+const { PrismaUnitOfWork } = require('../shared/persistence/prisma-unit-of-work');
+const { transactionalCommand } = require('../shared/persistence/transactional-events');
 
 const {
   createRegisterStaffUseCase,
@@ -62,12 +65,13 @@ const recordCommissionOnAppointmentCompleted = createRecordCommissionOnAppointme
   businessConfigReader,
   eventPublisher,
 });
-const generateSettlement = createGenerateSettlementUseCase({
+const generateSettlement = transactionalCommand(createGenerateSettlementUseCase({
   staffRepository,
   commissionRepository,
   settlementRepository,
   eventPublisher,
-});
+  staffFinanceGate: new PrismaStaffFinanceGate(),
+}), { unitOfWork: new PrismaUnitOfWork(), eventPublisher });
 const resolveStaffAvailability = createResolveStaffAvailabilityUseCase({
   staffRepository,
   staffCapabilityRepository,
@@ -89,8 +93,13 @@ const voidCommission = createVoidCommissionUseCase({
   dailyCloseReader: new PrismaDailyCloseReader(),
   eventPublisher,
 });
+const { createCorrectCheckoutCommissionUseCase } = require('./application/use-cases/correct-checkout-commission.usecase');
+const { PrismaBusinessDayGate } = require('../shared/persistence/prisma-business-day-gate');
+const correctCheckoutCommission = createCorrectCheckoutCommissionUseCase({ commissionRepository, voidCommission, businessDayGate: new PrismaBusinessDayGate(), staffFinanceGate: new PrismaStaffFinanceGate() });
 
 module.exports = {
+  correctCheckoutCommission,
+  publishCheckoutCorrection: event => eventPublisher.publish(event.name, event.payload),
   // Casos existentes sobre el cliente transaccional de la operación de Agenda.
   availabilityCommands(db, publisher) {
     const deps = {

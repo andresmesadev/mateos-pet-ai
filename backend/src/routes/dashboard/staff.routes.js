@@ -33,7 +33,7 @@ const {
   CommissionInActiveSettlementError,
 } = require("../../contexts/staff/domain/errors");
 
-const { EXTRA_PERMISSIONS } = require("../../services/dashboard-access.service");
+const { validAccessPermissions } = require('../../contexts/staff/domain/rules/staff-access.rules');
 
 const VALID_ROLES = ["vet", "groomer", "receptionist", "admin"];
 
@@ -109,7 +109,7 @@ router.get("/staff", async (req, res) => {
 // provisionar, restablecer o revocar este acceso.
 router.patch("/staff/:id/access", async (req, res) => {
   const permissions = req.body?.accessPermissions;
-  if (!Array.isArray(permissions) || permissions.some(p => !EXTRA_PERMISSIONS.includes(p))) {
+  if (!validAccessPermissions(permissions)) {
     return res.status(400).json({ error: "Permisos inválidos" });
   }
   try {
@@ -176,7 +176,7 @@ router.delete("/staff/:id/credential", async (req, res) => {
 router.post("/staff", async (req, res) => {
   try {
     const { tenantId } = req.tenant;
-    const { name, role, phone, email } = req.body ?? {};
+    const { name, role, phone, email, accessPermissions } = req.body ?? {};
 
     const invalid = staffEditorError(req.body ?? {});
     if (invalid) return res.status(400).json({ error: invalid });
@@ -194,6 +194,7 @@ router.post("/staff", async (req, res) => {
       role,
       phone: phone?.trim() || null,
       email: email?.trim() || null,
+      accessPermissions,
     });
     res.status(201).json(staff);
   } catch (error) {

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Banknote, CheckCircle2, CreditCard, Landmark, Loader2, Minus, Package, Pencil, Plus, ReceiptText, Search, ShoppingBag, ShoppingCart, Trash2, UserRound, Wallet } from "lucide-react";
 import { useDashboardAccess } from "@/components/dashboard/dashboard-access-provider";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ import { ProductPicker } from "@/components/dashboard/inventory/product-picker";
 import type { InventoryProduct } from "@/lib/inventory";
 
 type ClientResult = { id: string; name: string | null; phone: string; pets: { id: string; name: string; type: string }[] };
+export type AppointmentCheckout = { appointmentId: string; transactionId: string; client: ClientResult; petId: string; lines: CheckoutLine[] };
 const METHODS = [{ value: "cash", icon: Banknote }, { value: "transfer", icon: Landmark }, { value: "card", icon: CreditCard }, { value: "other", icon: Wallet }] as const;
 const PAYMENT_GUIDANCE: Record<PaymentMethod, { label: string; placeholder: string; hint: string }> = {
   cash: { label: "Nota del cobro", placeholder: "Observación de esta venta", hint: "Revisa el efectivo recibido y entrega el cambio indicado." },
@@ -60,10 +62,10 @@ function ClientSearch({ selected, onSelect }: { selected: ClientResult | null; o
     <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input id="pos-client" role="combobox" aria-autocomplete="list" aria-controls="pos-clients" aria-expanded={focused && results.length > 0} aria-activedescendant={focused && results[active] ? `pos-client-${active}` : undefined} autoComplete="off" className="pl-10 pr-10" placeholder="Nombre o teléfono" value={query} onChange={event => { setQuery(event.target.value); setResults([]); onSelect(null); }} onKeyDown={event => {
       if (event.key === "Escape") { setResults([]); return; }
       if (!results.length) return;
-      if (event.key === "ArrowDown" || event.key === "ArrowUp") { event.preventDefault(); setActive(index => (index + (event.key === "ArrowDown" ? 1 : -1) + results.length) % results.length); }
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") { event.preventDefault(); const next = (active + (event.key === "ArrowDown" ? 1 : -1) + results.length) % results.length; setActive(next); document.getElementById(`pos-client-${next}`)?.scrollIntoView({ block: "nearest" }); }
       if (event.key === "Enter") { event.preventDefault(); choose(results[active]); }
     }} />{searching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-primary" />}</div>
-    {focused && results.length > 0 && <div id="pos-clients" role="listbox" aria-label="Clientes encontrados" className="absolute z-20 mt-2 w-full overflow-hidden rounded-xl border bg-white shadow-lg">{results.map((client, index) => <button id={`pos-client-${index}`} role="option" aria-selected={active === index} type="button" key={client.id} onClick={() => choose(client)} className={`flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:bg-accent ${active === index ? "bg-accent" : ""}`}><UserRound className="h-4 w-4 text-primary" /><span className="min-w-0 flex-1"><span className="block truncate font-semibold">{client.name || "Sin nombre"}</span><span className="text-xs text-muted-foreground">{client.phone}</span></span><span className="text-xs text-muted-foreground">{client.pets?.length ?? 0} mascotas</span></button>)}</div>}
+    {focused && results.length > 0 && <div id="pos-clients" role="listbox" aria-label="Clientes encontrados" className="absolute z-20 mt-2 max-h-[min(18rem,40dvh)] w-full touch-pan-y overflow-y-auto overscroll-contain rounded-xl border bg-white shadow-lg">{results.map((client, index) => <button id={`pos-client-${index}`} role="option" aria-selected={active === index} type="button" key={client.id} onClick={() => choose(client)} className={`flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:bg-accent ${active === index ? "bg-accent" : ""}`}><UserRound className="h-4 w-4 text-primary" /><span className="min-w-0 flex-1"><span className="block truncate font-semibold">{client.name || "Sin nombre"}</span><span className="text-xs text-muted-foreground">{client.phone}</span></span><span className="text-xs text-muted-foreground">{client.pets?.length ?? 0} mascotas</span></button>)}</div>}
     {message && <p role="status" className="mt-2 text-xs text-muted-foreground">{message}</p>}
   </div>;
 }
@@ -80,12 +82,13 @@ async function readCatalogue(ids: string[], tenant: string | null, signal?: Abor
   })));
 }
 
-export function SaleForm({ draftScope }: { draftScope: string | null }) {
+export function SaleForm({ draftScope, appointment }: { draftScope: string | null; appointment?: AppointmentCheckout }) {
+  const router = useRouter();
   const access = useDashboardAccess();
   const tenant = useTenant();
-  const [client, setClient] = useState<ClientResult | null>(null);
-  const [petId, setPetId] = useState("");
-  const [lines, setLines] = useState<CheckoutLine[]>([]);
+  const [client, setClient] = useState<ClientResult | null>(appointment?.client ?? null);
+  const [petId, setPetId] = useState(appointment?.petId ?? "");
+  const [lines, setLines] = useState<CheckoutLine[]>(appointment?.lines ?? []);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [received, setReceived] = useState("");
   const [notes, setNotes] = useState("");
@@ -99,7 +102,7 @@ export function SaleForm({ draftScope }: { draftScope: string | null }) {
   const [draftReady, setDraftReady] = useState(false);
   const [draftNotice, setDraftNotice] = useState("");
   const [discardOpen, setDiscardOpen] = useState(false);
-  const [catalogTab, setCatalogTab] = useState<"products" | "services">("products");
+  const [catalogTab, setCatalogTab] = useState<"all" | "products" | "services">(appointment ? "all" : "products");
   const [catalogue, setCatalogue] = useState<Record<string, CatalogueStatus>>({});
   const [checking, setChecking] = useState(false);
   const [validationShown, setValidationShown] = useState(false);
@@ -175,7 +178,7 @@ export function SaleForm({ draftScope }: { draftScope: string | null }) {
   const units = lines.reduce((total, line) => total + (/^\d+$/.test(line.quantity) && Number.isSafeInteger(Number(line.quantity)) ? Number(line.quantity) : 0), 0);
   const cashHref = `/dashboard/pos?tab=caja${tenant ? "&tenant=" + encodeURIComponent(tenant) : ""}`;
   function setLine(id: string, field: keyof CheckoutLine, value: string) { if (field === "description" || field === "unitPrice") setEditingLineId(id); setLines(previous => previous.map(line => line.id === id ? { ...line, [field]: value } : line)); setError(""); }
-  function removeLine(id: string) { setLines(previous => previous.filter(line => line.id !== id)); if (editingLineId === id) setEditingLineId(null); setCartNotice(""); setError(""); }
+  function removeLine(id: string) { setLines(previous => previous.filter(line => line.id !== id || line.appointmentComponent)); if (editingLineId === id) setEditingLineId(null); setCartNotice(""); setError(""); }
   async function updateCatalogueLine(line: CheckoutLine) {
     if (!line.productId || locked || inFlight.current) return;
     setUpdating(line.id);
@@ -224,7 +227,7 @@ export function SaleForm({ draftScope }: { draftScope: string | null }) {
       event.preventDefault();
     }
   }
-  function reset() { operationKey.current = null; operationBody.current = null; setCanRecover(false); setLines([]); setClient(null); setPetId(""); setReceived(""); setNotes(""); setPaymentMethod("cash"); setError(""); setUncertain(false); setTransaction(null); setReceiptOpen(false); setClearOpen(false); setCatalogue({}); setValidationShown(false); setCartNotice(""); setEditingLineId(null); setGeneration(value => value + 1); }
+  function reset() { if (appointment) { if (draftScope) removeStoredDraft(sessionStorage, localStorage, draftScope); router.push(`/dashboard/pos?tab=venta${tenant ? '&tenant=' + encodeURIComponent(tenant) : ''}`); return; } operationKey.current = null; operationBody.current = null; setCanRecover(false); setLines([]); setClient(null); setPetId(""); setReceived(""); setNotes(""); setPaymentMethod("cash"); setError(""); setUncertain(false); setTransaction(null); setReceiptOpen(false); setClearOpen(false); setCatalogue({}); setValidationShown(false); setCartNotice(""); setEditingLineId(null); setGeneration(value => value + 1); }
   async function submit(event?: React.FormEvent) {
     event?.preventDefault();
     if (inFlight.current || checking || updating || (uncertain && !operationKey.current) || !access) return;
@@ -245,7 +248,7 @@ export function SaleForm({ draftScope }: { draftScope: string | null }) {
       } finally { inFlight.current = false; setChecking(false); }
     }
     operationKey.current ??= crypto.randomUUID();
-    operationBody.current ??= JSON.stringify({ userId: client?.id ?? null, petId: petId || null, paymentMethod, notes: notes.trim() || null, items: lines.map(line => ({ description: line.description.trim(), itemKind: line.itemKind, quantity: Number(line.quantity), unitPrice: moneyInCents(line.unitPrice)! / 100, ...(line.productId ? { productId:line.productId, priceVersion:line.priceVersion } : {}) })) });
+    operationBody.current ??= JSON.stringify({ ...(appointment ? { appointmentCheckout: true, appointmentId: appointment.appointmentId } : {}), userId: client?.id ?? null, petId: petId || null, paymentMethod, notes: notes.trim() || null, items: lines.map(line => ({ description: line.description.trim(), itemKind: line.itemKind, quantity: Number(line.quantity), unitPrice: moneyInCents(line.unitPrice)! / 100, ...(line.appointmentComponent ? { appointmentComponent: line.appointmentComponent } : {}), ...(line.productId ? { productId:line.productId, priceVersion:line.priceVersion } : {}) })) });
     setCanRecover(true);
     if (!persist("verify")) { setError("No se pudo conservar la clave de esta venta. Habilita el almacenamiento del navegador antes de cobrar."); return; }
     inFlight.current = true; setSaving(true); setError("");
@@ -296,23 +299,24 @@ export function SaleForm({ draftScope }: { draftScope: string | null }) {
           <div className="border-b p-4 sm:p-5">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2"><UserRound className="h-4 w-4 text-primary" /><h3 className="text-sm font-semibold">Cliente y mascota</h3></div>
-              {client ? <button type="button" onClick={() => { setClient(null); setPetId(""); setGeneration(value => value + 1); }} className="min-h-9 rounded-lg border px-3 text-xs font-semibold hover:bg-muted">Venta de mostrador</button> : <span className="rounded-full bg-muted px-3 py-1 text-xs">Venta de mostrador</span>}
+              {appointment ? <span className="rounded-full bg-muted px-3 py-1 text-xs">Cobro de la cita</span> : client ? <button type="button" onClick={() => { setClient(null); setPetId(""); setGeneration(value => value + 1); }} className="min-h-9 rounded-lg border px-3 text-xs font-semibold hover:bg-muted">Venta de mostrador</button> : <span className="rounded-full bg-muted px-3 py-1 text-xs">Venta de mostrador</span>}
             </div>
             {!client ? <><ClientSearch key={generation} selected={client} onSelect={selected => { setClient(selected); setPetId(""); }} /><p className="mt-2 text-xs text-muted-foreground">Opcional: puedes cobrar sin registrar un cliente.{access?.capabilities.services ? " Elige una mascota para consultar su tarifa antes de agregar servicios." : ""}</p></> : <div className="rounded-xl bg-accent/50 p-3">
-              <div className="flex items-start justify-between gap-3"><p className="min-w-0 flex-1 break-words text-sm"><strong>{client.name || "Sin nombre"}</strong><span className="mt-0.5 block text-xs text-muted-foreground">{client.phone}</span></p><button type="button" onClick={() => { setClient(null); setPetId(""); setGeneration(value => value + 1); }} className="min-h-9 shrink-0 px-2 text-xs font-semibold text-primary underline">Cambiar cliente</button></div>
-              {client.pets?.length > 0 ? <div className="mt-2 flex flex-wrap items-center gap-2"><span className="text-xs text-muted-foreground">Mascota:</span>{client.pets.map(pet => <button type="button" key={pet.id} aria-pressed={petId === pet.id} onClick={() => setPetId(previous => previous === pet.id ? "" : pet.id)} className={`min-h-9 rounded-lg border px-3 text-sm ${petId === pet.id ? "border-primary bg-primary text-white" : "bg-white"}`}>{getPetEmoji(pet.type)} {pet.name}</button>)}</div> : <p className="mt-2 text-xs text-muted-foreground">Este cliente todavía no tiene mascotas registradas.</p>}
+              <div className="flex items-start justify-between gap-3"><p className="min-w-0 flex-1 break-words text-sm"><strong>{client.name || "Sin nombre"}</strong><span className="mt-0.5 block text-xs text-muted-foreground">{client.phone}</span></p>{!appointment && <button type="button" onClick={() => { setClient(null); setPetId(""); setGeneration(value => value + 1); }} className="min-h-9 shrink-0 px-2 text-xs font-semibold text-primary underline">Cambiar cliente</button>}</div>
+              {client.pets?.length > 0 ? <div className="mt-2 flex flex-wrap items-center gap-2"><span className="text-xs text-muted-foreground">Mascota:</span>{client.pets.map(pet => <button type="button" key={pet.id} disabled={!!appointment} aria-pressed={petId === pet.id} onClick={() => setPetId(previous => previous === pet.id ? "" : pet.id)} className={`min-h-9 rounded-lg border px-3 text-sm ${petId === pet.id ? "border-primary bg-primary text-white" : "bg-white"}`}>{getPetEmoji(pet.type)} {pet.name}</button>)}</div> : <p className="mt-2 text-xs text-muted-foreground">Este cliente todavía no tiene mascotas registradas.</p>}
             </div>}
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 pb-0 pt-4 sm:px-5">
             <h3 className="text-sm font-semibold">Agregar a la venta</h3>
-            {access?.capabilities.retail && access.capabilities.services && <div className="inline-flex rounded-xl bg-muted p-1" aria-label="Catálogo para la venta">
+            {access?.capabilities.retail && access.capabilities.services && <div className="inline-flex max-w-full flex-wrap rounded-xl bg-muted p-1" aria-label="Catálogo para la venta">
+              <button type="button" aria-pressed={visibleCatalog === "all"} onClick={() => setCatalogTab("all")} className={`flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm font-semibold ${visibleCatalog === "all" ? "bg-white text-primary shadow-sm" : "text-muted-foreground"}`}>Todos</button>
               <button type="button" aria-pressed={visibleCatalog === "products"} onClick={() => { setCatalogTab("products"); setSearchFocus(value => value + 1); }} className={`flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm font-semibold ${visibleCatalog === "products" ? "bg-white text-primary shadow-sm" : "text-muted-foreground"}`}><Package className="h-4 w-4" />Productos</button>
               <button type="button" aria-pressed={visibleCatalog === "services"} onClick={() => { setCatalogTab("services"); setSearchFocus(value => value + 1); }} className={`flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm font-semibold ${visibleCatalog === "services" ? "bg-white text-primary shadow-sm" : "text-muted-foreground"}`}><ShoppingBag className="h-4 w-4" />Servicios</button>
             </div>}
           </div>
-          <div className="p-4 sm:p-5">
-            {access?.capabilities.retail && visibleCatalog === "products" && <ProductPicker use="retail" hideUntilSearch resetAfterSelect inputId="pos-product-search" focusRequest={searchFocus} refreshRequest={catalogReload} quantities={quantities} onSelect={addProduct} />}
-            {access?.capabilities.services && visibleCatalog === "services" && <ServiceCatalog key={`${tenant ?? "current"}:${access.activeModules.join(",")}:${petId}`} petId={petId} petName={selectedPet?.name} focusRequest={searchFocus} onAdd={addCartLine} />}
+          <div className="space-y-4 p-4 sm:p-5">
+            {access?.capabilities.retail && visibleCatalog !== "services" && <ProductPicker use="retail" hideUntilSearch={visibleCatalog !== "all"} resetAfterSelect inputId="pos-product-search" focusRequest={searchFocus} refreshRequest={catalogReload} quantities={quantities} onSelect={addProduct} />}
+            {access?.capabilities.services && visibleCatalog !== "products" && <ServiceCatalog key={`${tenant ?? "current"}:${access.activeModules.join(",")}:${petId}`} petId={petId} petName={selectedPet?.name} additional={!!appointment} expanded={visibleCatalog === "all"} focusRequest={visibleCatalog === "services" ? searchFocus : 0} onAdd={addCartLine} />}
             <details className="mt-4 border-t pt-3"><summary className="cursor-pointer text-xs font-medium text-muted-foreground">Ingreso manual de un artículo</summary><div className="mt-2 flex flex-wrap gap-2">
               {access?.capabilities.retail && <Button type="button" variant="ghost" size="sm" onClick={() => addLine("product")}><Plus className="mr-1 h-3 w-3" />Producto manual · sin inventario</Button>}
               {access?.capabilities.services && <Button type="button" variant="ghost" size="sm" onClick={() => addLine("service")}><Plus className="mr-1 h-3 w-3" />Servicio manual</Button>}
@@ -329,7 +333,7 @@ export function SaleForm({ draftScope }: { draftScope: string | null }) {
           <ul className="divide-y">{lines.map((line, index) => {
             const product = line.productId ? catalogue[line.productId]?.product : undefined;
             const issue = lineIssues[line.id];
-            const editing = !line.productId && (editingLineId === line.id || !line.description.trim() || !(moneyInCents(line.unitPrice)! > 0));
+            const editing = !line.productId && (editingLineId === line.id || !line.description.trim() || moneyInCents(line.unitPrice) === null || (!line.appointmentComponent && !(moneyInCents(line.unitPrice)! > 0)));
             const contextChanged = line.serviceQuote && line.serviceQuote.petId !== petId;
             const quantityValid = /^\d+$/.test(line.quantity) && Number(line.quantity) > 0 && Number(line.quantity) <= MAX_POS_QUANTITY;
             const atLimit = Number(line.quantity) >= MAX_POS_QUANTITY || !!(product && BigInt(quantities[product.id] ?? 0) >= BigInt(product.available));
@@ -338,12 +342,12 @@ export function SaleForm({ draftScope }: { draftScope: string | null }) {
               <div className="grid items-start gap-3 sm:grid-cols-[minmax(0,1fr)_126px_96px_32px]">
                 <div className="min-w-0">
                   {line.productId ? <><p className="break-words text-sm font-semibold">{line.description}</p><p className="mt-1 break-words text-xs text-muted-foreground">{product?.internalCode ? `${product.internalCode} · ` : ""}{line.presentation}</p><p className="mt-1 text-xs text-muted-foreground">Unidad {formatPosMoney(Number(line.unitPrice))} · Precio del catálogo</p><p className="mt-1 text-xs font-medium text-primary">{product ? `${product.available} disponibles al consultar` : "Comprobando disponibilidad…"} · Descuenta inventario</p></> : editing ?
-                  <div id={`pos-edit-${line.id}`} className="space-y-2"><label className="block text-xs font-medium">{line.itemKind === "service" ? "Servicio" : "Producto manual · sin inventario"}<Input autoFocus={!line.description.trim()} value={line.description} maxLength={250} onChange={event => setLine(line.id, "description", event.target.value)} aria-label={`Descripción del artículo ${index + 1}`} placeholder={line.itemKind === "service" ? "Ej. Corte de uñas" : "Ej. Artículo sin catálogo"} className="mt-1 bg-white" /></label><label className="block text-xs font-medium">Precio unitario (COP)<Input autoFocus={!!line.description.trim()} inputMode="decimal" value={line.unitPrice} onChange={event => setLine(line.id, "unitPrice", event.target.value)} aria-label={`Precio del artículo ${index + 1}`} placeholder="Ej. 55000" className="mt-1 bg-white tabular-nums" /></label><p className="text-xs text-muted-foreground">Escribe el valor sin puntos de miles. Los cambios se aplican a esta venta.</p><Button type="button" variant="outline" size="sm" disabled={!line.description.trim() || !(moneyInCents(line.unitPrice)! > 0)} onClick={() => setEditingLineId(null)}>Listo</Button></div> :
+                  <div id={`pos-edit-${line.id}`} className="space-y-2"><label className="block text-xs font-medium">{line.itemKind === "service" ? "Servicio" : "Producto manual · sin inventario"}<Input autoFocus={!line.description.trim()} value={line.description} maxLength={250} onChange={event => setLine(line.id, "description", event.target.value)} aria-label={`Descripción del artículo ${index + 1}`} placeholder={line.itemKind === "service" ? "Ej. Corte de uñas" : "Ej. Artículo sin catálogo"} className="mt-1 bg-white" /></label><label className="block text-xs font-medium">Precio unitario (COP)<Input autoFocus={!!line.description.trim()} inputMode="decimal" value={line.unitPrice} onChange={event => setLine(line.id, "unitPrice", event.target.value)} aria-label={`Precio del artículo ${index + 1}`} placeholder="Ej. 55000" className="mt-1 bg-white tabular-nums" /></label><p className="text-xs text-muted-foreground">Escribe el valor sin puntos de miles. Los cambios se aplican a esta venta.</p><Button type="button" variant="outline" size="sm" disabled={!line.description.trim() || moneyInCents(line.unitPrice) === null || (!line.appointmentComponent && !(moneyInCents(line.unitPrice)! > 0))} onClick={() => setEditingLineId(null)}>Listo</Button></div> :
                   <><p className="break-words text-sm font-semibold">{line.description}</p><p className="mt-1 text-xs text-muted-foreground">Unidad {formatPosMoney(Number(line.unitPrice.replace(",", ".")))} · {checkoutPriceLabel(line)}</p>{line.itemKind === "product" && <p className="mt-1 text-xs text-muted-foreground">Producto manual · sin inventario</p>}<button type="button" aria-expanded={false} aria-controls={`pos-edit-${line.id}`} onClick={() => setEditingLineId(line.id)} className="mt-1 inline-flex min-h-9 items-center gap-1.5 text-xs font-semibold text-primary underline underline-offset-4"><Pencil className="h-3 w-3" />Editar artículo</button></>}
                 </div>
-                <div><label htmlFor={`pos-quantity-${line.id}`} className="mb-1.5 block text-xs font-medium">Cantidad</label><div className="flex items-center rounded-xl border bg-white"><button type="button" aria-label={`Quitar una unidad de ${line.description || `artículo ${index + 1}`}`} disabled={!quantityValid || Number(line.quantity) <= 1} onClick={() => changeQuantity(line, -1)} className="flex h-10 w-9 shrink-0 items-center justify-center rounded-l-xl hover:bg-muted disabled:opacity-40"><Minus className="h-3.5 w-3.5" /></button><Input id={`pos-quantity-${line.id}`} inputMode="numeric" maxLength={10} value={line.quantity} onChange={event => setLine(line.id, "quantity", event.target.value)} aria-label={`Cantidad del artículo ${index + 1}`} aria-invalid={!!issue} aria-describedby={issue ? issueId : undefined} className="h-10 min-w-0 rounded-none border-x border-y-0 px-1 text-center shadow-none" /><button type="button" aria-label={`Agregar una unidad de ${line.description || `artículo ${index + 1}`}`} disabled={!quantityValid || atLimit} onClick={() => changeQuantity(line, 1)} className="flex h-10 w-9 shrink-0 items-center justify-center rounded-r-xl hover:bg-muted disabled:opacity-40"><Plus className="h-3.5 w-3.5" /></button></div></div>
+                <div><label htmlFor={`pos-quantity-${line.id}`} className="mb-1.5 block text-xs font-medium">Cantidad</label><div className="flex items-center rounded-xl border bg-white"><button type="button" aria-label={`Quitar una unidad de ${line.description || `artículo ${index + 1}`}`} disabled={!!line.appointmentComponent || !quantityValid || Number(line.quantity) <= 1} onClick={() => changeQuantity(line, -1)} className="flex h-10 w-9 shrink-0 items-center justify-center rounded-l-xl hover:bg-muted disabled:opacity-40"><Minus className="h-3.5 w-3.5" /></button><Input id={`pos-quantity-${line.id}`} inputMode="numeric" maxLength={10} disabled={!!line.appointmentComponent} value={line.quantity} onChange={event => setLine(line.id, "quantity", event.target.value)} aria-label={`Cantidad del artículo ${index + 1}`} aria-invalid={!!issue} aria-describedby={issue ? issueId : undefined} className="h-10 min-w-0 rounded-none border-x border-y-0 px-1 text-center shadow-none" /><button type="button" aria-label={`Agregar una unidad de ${line.description || `artículo ${index + 1}`}`} disabled={!!line.appointmentComponent || !quantityValid || atLimit} onClick={() => changeQuantity(line, 1)} className="flex h-10 w-9 shrink-0 items-center justify-center rounded-r-xl hover:bg-muted disabled:opacity-40"><Plus className="h-3.5 w-3.5" /></button></div></div>
                 <div className="text-left sm:text-right"><p className="text-xs text-muted-foreground">Subtotal</p><p className="mt-2 break-words text-sm font-bold tabular-nums">{formatPosMoney(lineTotalCents(line) / 100)}</p></div>
-                <button type="button" aria-label={`Quitar artículo ${index + 1}`} className="flex h-9 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-red-50 hover:text-destructive focus-visible:outline-2 focus-visible:outline-primary" onClick={() => removeLine(line.id)}><Trash2 className="h-4 w-4" /></button>
+                <button type="button" disabled={!!line.appointmentComponent} aria-label={`Quitar artículo ${index + 1}`} className="flex h-9 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-red-50 hover:text-destructive focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-30" onClick={() => removeLine(line.id)}><Trash2 className="h-4 w-4" /></button>
               </div>
               {line.productId && <button type="button" className="mt-2 min-h-8 text-xs font-semibold text-primary underline underline-offset-4" onClick={() => void updateCatalogueLine(line)}>{updating === line.id ? "Actualizando…" : "Actualizar precio y disponibilidad"}</button>}
               {contextChanged && <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-950">Este servicio se agregó {line.serviceQuote!.petId ? `para ${line.serviceQuote!.petName || "otra mascota"}` : "sin mascota seleccionada"}. Revisa el precio para {selectedPet?.name || "esta venta"}; puedes editarlo o volver a agregarlo desde el catálogo.</p>}
@@ -351,7 +355,7 @@ export function SaleForm({ draftScope }: { draftScope: string | null }) {
             </li>;
           })}</ul>}
           {cartNotice && <p role="status" className="border-t bg-accent/30 px-5 py-3 text-sm text-primary">{cartNotice}</p>}
-          {access?.capabilities.services && <p className="border-t px-5 py-3 text-xs leading-relaxed text-muted-foreground">Las citas completadas ya generan un cobro. Revisa <Link className="font-semibold text-primary underline" href={cashHref}>Caja diaria</Link> antes de cobrar el mismo servicio otra vez.</p>}
+          {access?.capabilities.services && <p className="border-t px-5 py-3 text-xs leading-relaxed text-muted-foreground">{appointment ? "Los valores son una referencia editable para esta atención. La comisión usa el valor final de la peluquería principal; domicilio, productos y otros servicios quedan por fuera. Tu tarifa habitual no cambia." : <>Para cobrar una cita pendiente con adicionales, abre su botón de pago desde Agenda o <Link className="font-semibold text-primary underline" href={cashHref}>Caja diaria</Link>.</>}</p>}
         </section>
       </fieldset>
 
@@ -385,6 +389,6 @@ export function SaleForm({ draftScope }: { draftScope: string | null }) {
       </aside>
     </form>
     <Dialog open={discardOpen} onOpenChange={setDiscardOpen}><DialogContent className="border-border bg-white"><DialogHeader><DialogTitle>¿Ya verificaste este cobro?</DialogTitle><DialogDescription>Comprueba en Caja si la venta quedó registrada. Descartar esta preparación no anula ni elimina ningún cobro. Si se registró, evita cobrarla otra vez.</DialogDescription></DialogHeader><DialogFooter><Button variant="outline" onClick={() => setDiscardOpen(false)}>Volver a revisar</Button><Button onClick={() => { reset(); setDiscardOpen(false); }}>Verificado: empezar otra venta</Button></DialogFooter></DialogContent></Dialog>
-    <Dialog open={clearOpen} onOpenChange={setClearOpen}><DialogContent className="border-border bg-white shadow-xl"><DialogHeader><DialogTitle>¿Vaciar esta venta?</DialogTitle><DialogDescription>Se quitarán los artículos que agregaste. Todavía no se ha registrado ningún cobro.</DialogDescription></DialogHeader><DialogFooter><Button variant="outline" onClick={() => setClearOpen(false)}>Continuar venta</Button><Button variant="destructive" onClick={() => { setLines([]); setReceived(""); setError(""); setCartNotice(""); setClearOpen(false); }}>Vaciar artículos</Button></DialogFooter></DialogContent></Dialog>
+    <Dialog open={clearOpen} onOpenChange={setClearOpen}><DialogContent className="border-border bg-white shadow-xl"><DialogHeader><DialogTitle>¿Vaciar esta venta?</DialogTitle><DialogDescription>{appointment ? "Se quitarán los adicionales y se conservarán el servicio y domicilio de la cita." : "Se quitarán los artículos que agregaste."} Todavía no se ha registrado ningún cobro.</DialogDescription></DialogHeader><DialogFooter><Button variant="outline" onClick={() => setClearOpen(false)}>Continuar venta</Button><Button variant="destructive" onClick={() => { setLines(previous => previous.filter(line => !!line.appointmentComponent)); setReceived(""); setError(""); setCartNotice(""); setClearOpen(false); }}>Vaciar artículos</Button></DialogFooter></DialogContent></Dialog>
   </>;
 }

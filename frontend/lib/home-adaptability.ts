@@ -1,5 +1,4 @@
 import type { TodayAppointment } from "./appointments";
-import type { TeamRole } from "./dashboard-access";
 import { validListDate, type ListFilters } from "./list-continuity";
 
 export const DAY_GROUPS = [
@@ -13,7 +12,6 @@ export function matchesDayGroup(appointment: TodayAppointment, filter: HomeSched
   const group = DAY_GROUPS.find(group => group.key === filter);
   return !group || (group.statuses as readonly string[]).includes(appointment.status);
 }
-export function agendaFirst(role: TeamRole) { return role !== "admin"; }
 export function homeDayFilters(raw: ListFilters, hasAgenda: boolean): ListFilters {
   const allowed = ["all", "review", ...DAY_GROUPS.map(group => group.key)];
   return { dayFilter: hasAgenda && allowed.includes(raw.dayFilter) ? raw.dayFilter : "all" };

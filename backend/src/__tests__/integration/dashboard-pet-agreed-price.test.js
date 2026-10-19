@@ -2,7 +2,7 @@ const express = require("express");
 const request = require("supertest");
 
 jest.mock("../../lib/prisma", () => ({
-  appointment: { findFirst: jest.fn(), update: jest.fn() },
+  appointment: { findFirst: jest.fn(), findUnique: jest.fn(), updateMany: jest.fn() },
 }));
 jest.mock("../../contexts", () => ({ completeAppointment: jest.fn() }));
 jest.mock("../../contexts/services", () => ({ changeServicePrice: jest.fn() }));
@@ -38,7 +38,8 @@ function app() {
 beforeEach(() => {
   jest.clearAllMocks();
   prisma.appointment.findFirst.mockResolvedValue(BASE);
-  prisma.appointment.update.mockImplementation(async ({ data }) => ({ ...BASE, ...data }));
+  prisma.appointment.updateMany.mockResolvedValue({ count: 1 });
+  prisma.appointment.findUnique.mockResolvedValue({ ...BASE, finalPrice: 70000 });
   changeServicePrice.mockResolvedValue({});
 });
 
@@ -52,7 +53,7 @@ test("saves the price for this appointment and this pet/service through Services
     target: { type: "pet", petId: "pet-luna" },
     newPrice: 70000,
   });
-  expect(prisma.appointment.update).toHaveBeenCalledWith(expect.objectContaining({ data: { finalPrice: 70000, priceActorId: null, priceActorName: null, priceActorRole: null } }));
+  expect(prisma.appointment.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: BASE.id, tenantId: BASE.tenantId, status: BASE.status, transportMode: "none" }, data: { finalPrice: 70000, priceActorId: null, priceActorName: null, priceActorRole: null } }));
   expect(response.body.finalPrice).toBe(70000);
 });
 
@@ -65,7 +66,22 @@ test("does not write across tenants or for completed appointments", async () => 
   const completed = await request(app()).patch("/api/dashboard/appointments/appointment-1/agreed-price").send({ price: 70000 });
   expect(completed.status).toBe(422);
   expect(changeServicePrice).not.toHaveBeenCalled();
-  expect(prisma.appointment.update).not.toHaveBeenCalled();
+  expect(prisma.appointment.updateMany).not.toHaveBeenCalled();
+});
+
+test("does not rewrite the grooming/transport breakdown through the legacy agreed-price endpoint", async () => {
+  prisma.appointment.findFirst.mockResolvedValueOnce({ ...BASE, transportMode: "round_trip", transportPrice: 8000 });
+  const response = await request(app()).patch("/api/dashboard/appointments/appointment-1/agreed-price").send({ price: 103000 });
+  expect(response.status).toBe(422);
+  expect(changeServicePrice).not.toHaveBeenCalled();
+  expect(prisma.appointment.updateMany).not.toHaveBeenCalled();
+});
+
+test("a concurrent closure or transport change cannot overwrite the appointment charge", async () => {
+  prisma.appointment.updateMany.mockResolvedValueOnce({ count: 0 });
+  const response = await request(app()).patch("/api/dashboard/appointments/appointment-1/agreed-price").send({ price: 70000 });
+  expect(response.status).toBe(409);
+  expect(prisma.appointment.findUnique).not.toHaveBeenCalled();
 });
 
 test.each([-1, "70000", 100000000, 1.999])("rejects invalid agreed price %p", async (price) => {

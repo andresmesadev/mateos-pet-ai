@@ -1,4 +1,5 @@
 const cron = require("node-cron");
+const { isWhatsAppEnabled } = require("../lib/whatsapp-runtime");
 const { processIncomingMessage } = require("../contexts/receptionist");
 const { sendMessage } = require("../contexts/communication");
 const operatorChannel = () => require('../contexts').operatorChannel;
@@ -54,6 +55,7 @@ const sendOneReply = async (reply, assertLease) => {
 };
 
 const processOneJob = async () => {
+  if (!isWhatsAppEnabled()) return false;
   let job = await claimNextInboundJob();
   if (!job) return false;
   const startedAt = Date.now();

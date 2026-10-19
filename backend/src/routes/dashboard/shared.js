@@ -1,5 +1,5 @@
 // Utilidades compartidas entre todos los subrouters del dashboard
-const { resolveAppointmentPrice } = require("../../services/domain/price-resolver.service");
+const { resolveAppointmentTotal } = require("../../services/domain/price-resolver.service");
 
 const BOGOTA_OFFSET_MS = 5 * 3600 * 1000; // UTC-5
 
@@ -13,16 +13,18 @@ function bogotaDayStart(ymd) {
 }
 
 const APPOINTMENT_INCLUDE = {
-  user:    { select: { phone: true, name: true } },
-  pet:     { select: { name: true, type: true, defaultGroomingPrice: true } },
+  user:    { select: { phone: true, name: true, address: true, neighborhood: true } },
+  pet:     { select: { name: true, type: true, defaultGroomingPrice: true, defaultGroomingWithTransportPrice: true, defaultGroomingTransportPrice: true } },
+  transportSharedWith: { select: { id: true, tenantId: true, userId: true, status: true, transportMode: true, transportPrice: true } },
   service: { select: { name: true, category: { select: { name: true } }, basePrice: true,
     priceRules: { where: { active: true, targetType: "pet" }, select: { targetId: true, price: true } },
   } },
   staff:   { select: { name: true } },
+  transactions: { where: { origin: 'system_appointment_completed', status: 'active' }, select: { id: true, paidAt: true, recordedActorId: true, total: true } },
 };
 
 function mapAppointmentRow(a) {
-  const priceResolution = resolveAppointmentPrice(a);
+  const priceResolution = resolveAppointmentTotal(a);
   return {
     id: a.id,
     userId: a.userId,
@@ -33,13 +35,19 @@ function mapAppointmentRow(a) {
     petType: a.pet?.type ?? a.petType,
     clientPhone: a.user?.phone ?? "",
     clientName: a.user?.name ?? null,
+    clientAddress: a.user?.address ?? null,
+    clientNeighborhood: a.user?.neighborhood ?? null,
+    payment: a.transactions?.[0] ? { transactionId: a.transactions[0].id, status: a.transactions[0].paidAt == null ? 'pending' : 'paid', needsReview: a.transactions[0].paidAt == null || !a.transactions[0].recordedActorId, total: Number(a.transactions[0].total) } : null,
     petId: a.petId ?? null,
     serviceId: a.serviceId ?? null,
     serviceName: a.service?.name ?? null,
     serviceCategory: a.service?.category?.name ?? null,
     staffId: a.staffId ?? null,
     staffName: a.staff?.name ?? null,
-    finalPrice: priceResolution.finalPrice,
+    finalPrice: priceResolution.totalPrice,
+    transport: { mode: a.transportMode ?? "none", price: priceResolution.transportPrice, pending: priceResolution.transportPending,
+      zoneId: a.transportZoneId ?? null, zoneName: a.transportZoneName ?? null, address: a.transportAddress ?? null,
+      neighborhood: a.transportNeighborhood ?? null, scope: a.transportScope ?? null, sharedWithId: a.transportSharedWithId ?? null },
     priceResolution,
     startedAt: a.startedAt?.toISOString() ?? null,
     endedAt: a.endedAt?.toISOString() ?? null,
@@ -120,7 +128,8 @@ function mapTransaction(t) {
     paymentMethod: t.paymentMethod,
       recordedBy: t.recordedActorId ? { id: t.recordedActorId, name: t.recordedActorName, role: t.recordedActorRole } : null,
     notes: t.notes ?? null,
-    paidAt: t.paidAt.toISOString(),
+    paidAt: t.paidAt?.toISOString() ?? null,
+    paymentStatus: t.paidAt == null ? 'pending' : 'paid',
     createdAt: t.createdAt.toISOString(),
     // Aditivos — Entregable Puente (ADR 005/007: origin; patrón de anulación)
     origin: t.origin,
@@ -129,6 +138,7 @@ function mapTransaction(t) {
     voidReason: t.voidReason ?? null,
     items: (t.items ?? []).map((i) => ({
       id: i.id,
+      appointmentComponent: i.appointmentComponent ?? null,
       description: i.description,
         itemKind: i.itemKind ?? "legacy",
       quantity: i.quantity,

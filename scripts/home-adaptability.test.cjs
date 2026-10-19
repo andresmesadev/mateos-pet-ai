@@ -9,16 +9,12 @@ function load(file) {
   new Function('require', 'module', 'exports', output)(child => load(path.resolve(path.dirname(file), child + '.ts')), result, result.exports);
   return result.exports;
 }
-const { DAY_GROUPS, matchesDayGroup, agendaFirst, ageLabel, homeDataIsStale, HOME_STALE_MS, homeDayFilters, homePriorityFilters, followupTiming } = load(path.join(__dirname, '../frontend/lib/home-adaptability.ts'));
+const { DAY_GROUPS, matchesDayGroup, ageLabel, homeDataIsStale, HOME_STALE_MS, homeDayFilters, homePriorityFilters, followupTiming } = load(path.join(__dirname, '../frontend/lib/home-adaptability.ts'));
 test('Day cards share status groups and exclude absences from operational states', () => {
   const statuses = ['pending', 'confirmed', 'arrived', 'in_progress', 'completed', 'cancelled', 'no_show'];
   const expected = { scheduled: ['pending', 'confirmed'], waiting: ['arrived'], inProgress: ['in_progress'], completed: ['completed'] };
   for (const { key } of DAY_GROUPS) assert.deepEqual(statuses.filter(status => matchesDayGroup({ status }, key)), expected[key]);
   assert(statuses.every(status => matchesDayGroup({ status }, 'all')));
-});
-test('Operational staff have agenda first; administrators retain priorities first', () => {
-  assert.equal(agendaFirst('admin'), false);
-  for (const role of ['receptionist', 'vet', 'groomer']) assert.equal(agendaFirst(role), true);
 });
 test('Relative time handles initial, stale and invalid dates without negative ages', () => {
   const now = Date.parse('2026-10-08T12:00:00Z');

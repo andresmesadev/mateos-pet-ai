@@ -6,6 +6,7 @@ export type DashboardClient = {
   phone: string;
   name: string | null;
   petsCount: number;
+  pets?: { id: string; name: string; type: string }[];
   appointmentsCount: number;
   lastConversation: {
     id: string;
@@ -49,6 +50,7 @@ export type ClientDetail = {
   name: string | null;
   email: string | null;
   address: string | null;
+  neighborhood?: string | null;
   notes: string | null;
   operationalAlerts?: string | null;
   createdAt: string;

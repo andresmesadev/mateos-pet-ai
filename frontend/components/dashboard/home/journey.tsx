@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useListContinuity } from "@/lib/use-list-continuity";
 import type { DashboardAccess } from "@/lib/dashboard-access";
 import type { TodayAppointment } from "@/lib/appointments";
 import { dayCounts, homeHref } from "@/lib/home-workspace";
-import { agendaFirst, DAY_GROUPS, homeDayFilters, type HomeScheduleFilter } from "@/lib/home-adaptability";
+import { DAY_GROUPS, homeDayFilters, type HomeScheduleFilter } from "@/lib/home-adaptability";
 import { TodaySchedule } from "../today-schedule";
 
 export function HomeJourney({ appointments: initial, access, tenant, initialReview, attention }: {
@@ -20,14 +20,6 @@ export function HomeJourney({ appointments: initial, access, tenant, initialRevi
   const filter = continuity.filters.dayFilter as HomeScheduleFilter;
   const setFilter = (next: HomeScheduleFilter) => continuity.update({ dayFilter: next });
   const agenda = useRef<HTMLDivElement>(null);
-  const [agendaHeight, setAgendaHeight] = useState<number>();
-  useEffect(() => {
-    const node = agenda.current;
-    if (!node) return;
-    const observer = new ResizeObserver(() => setAgendaHeight(Math.ceil(node.getBoundingClientRect().height)));
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [access.capabilities.agenda]);
   useEffect(() => {
     // Keep the last successful agenda explicitly labelled if a later read fails.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -52,8 +44,9 @@ export function HomeJourney({ appointments: initial, access, tenant, initialRevi
       </button>)}</div>
       <p className="px-4 py-3 text-xs text-muted-foreground">{stale ? "Resumen no actualizado. Usa Actualizar Inicio para comprobar la jornada." : "Selecciona un estado para ver sus citas en la agenda."}</p>
     </section>}
-    <div style={agendaHeight ? { "--home-agenda-height": `${agendaHeight}px` } as CSSProperties : undefined} className={`grid items-start gap-6 ${schedule ? agendaFirst(access.role) ? "@min-[880px]:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]" : "@min-[880px]:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]" : ""}`}>
-      {agendaFirst(access.role) ? <>{schedule}{priorities}</> : <>{priorities}{schedule}</>}
+    <div className="grid min-w-0 gap-6">
+      {schedule}
+      {priorities}
     </div>
   </div>;
 }

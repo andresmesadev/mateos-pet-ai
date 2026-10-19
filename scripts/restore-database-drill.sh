@@ -12,12 +12,18 @@ backup_set=$1
 identity_file=$2
 pg_image=${MATEOS_BACKUP_PG_IMAGE:-pgvector/pgvector:0.8.6-pg18-bookworm}
 keep_container=${MATEOS_RESTORE_KEEP_CONTAINER:-false}
+expected_migrations=${MATEOS_RESTORE_EXPECT_MIGRATIONS:-}
+required_tables=${MATEOS_RESTORE_REQUIRED_TABLES:-}
 
 fail() {
   echo "restore drill failed: $*" >&2
   exit 1
 }
 
+[[ -z "$expected_migrations" || "$expected_migrations" =~ ^[1-9][0-9]*$ ]] || fail "expected migration count must be a positive integer"
+if [[ -n "$required_tables" ]]; then
+  [[ "$required_tables" =~ ^[A-Za-z_][A-Za-z0-9_]*(,[A-Za-z_][A-Za-z0-9_]*)*$ ]] || fail "required tables must be comma-separated SQL identifiers"
+fi
 [[ "$backup_set" = /* && -d "$backup_set" ]] || fail "backup set must be an existing absolute directory"
 [[ "$identity_file" = /* && -f "$identity_file" ]] || fail "age identity must be an existing absolute file"
 [[ -f "$backup_set/database.dump.age" && -f "$backup_set/SHA256SUMS" ]] || fail "backup set is incomplete"
@@ -84,4 +90,24 @@ migration_table_count=$(docker exec "$container" psql -U postgres -d mateos_rest
 migration_count=$(docker exec "$container" psql -U postgres -d mateos_restore_drill -Atc \
   'SELECT count(*) FROM "_prisma_migrations";')
 [[ "$migration_count" =~ ^[0-9]+$ && "$migration_count" -gt 0 ]] || fail "restored database has no applied migrations"
+if [[ -n "$expected_migrations" ]]; then
+  applied_count=$(docker exec "$container" psql -U postgres -d mateos_restore_drill -Atc \
+    'SELECT count(*) FROM "_prisma_migrations" WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL;')
+  [[ "$migration_count" = "$expected_migrations" && "$applied_count" = "$expected_migrations" ]] || fail "restored migrations do not match the expected complete history"
+fi
+if [[ -n "$required_tables" ]]; then
+  # Identifiers were restricted above; no arbitrary SQL or file is accepted.
+  IFS=',' read -r -a required_names <<< "$required_tables"
+  required_list=""
+  for required_name in "${required_names[@]}"; do
+    required_list+="'$required_name',"
+  done
+  required_count=$(docker exec "$container" psql -U postgres -d mateos_restore_drill -Atc \
+    "SELECT count(*) FROM pg_tables WHERE schemaname = 'public' AND tablename IN (${required_list%,});")
+  [[ "$required_count" = "${#required_names[@]}" ]] || fail "restored database is missing required tables"
+  invalid_constraints=$(docker exec "$container" psql -U postgres -d mateos_restore_drill -Atc \
+    "SELECT count(*) FROM pg_constraint c JOIN pg_namespace n ON n.oid = c.connamespace WHERE n.nspname = 'public' AND c.contype IN ('f','c') AND NOT c.convalidated;")
+  [[ "$invalid_constraints" = "0" ]] || fail "restored database has unvalidated foreign keys or checks"
+  echo "restore schema checks passed: required_tables=$required_count unvalidated_constraints=$invalid_constraints"
+fi
 echo "restore drill passed: tables=$table_count migrations=$migration_count"

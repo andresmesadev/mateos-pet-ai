@@ -46,11 +46,18 @@ describe("CreateServiceUseCase", () => {
     ).rejects.toBeInstanceOf(InvalidServiceAttributesError);
   });
 
-  test("rechaza precio base negativo o nulo", async () => {
+  test("rechaza precio base negativo", async () => {
     const { execute } = buildUseCase();
     await expect(
       execute({ tenantId: "t1", name: "x", categoryId: "cat-grooming", duration: 30, basePrice: -1 })
     ).rejects.toBeInstanceOf(InvalidServiceAttributesError);
+  });
+
+  test('admite un complemento sin reserva, duración ni precio conocido sin convertirlo en gratuito', async () => {
+    const { execute } = buildUseCase();
+    const { service } = await execute({ tenantId: 't1', name: 'Domicilio', categoryId: 'cat-grooming', duration: null, basePrice: null, requiresAppointment: false });
+    expect(service).toMatchObject({ requiresAppointment: false, duration: null, basePrice: null });
+    await expect(execute({ tenantId: 't1', name: 'Reserva', categoryId: 'cat-grooming', duration: null, basePrice: null, requiresAppointment: true })).rejects.toBeInstanceOf(InvalidServiceAttributesError);
   });
 
   test("rechaza si la categoría no está habilitada por los módulos activos", async () => {

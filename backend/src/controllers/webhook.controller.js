@@ -1,5 +1,6 @@
 const { verifyWebhookSignature, parseIncomingMessage, parseIncomingMessages } = require("../services/whatsapp.service");
 const { createHash } = require("crypto");
+const { isWhatsAppEnabled } = require("../lib/whatsapp-runtime");
 const { recordDeliveryReceipts } = require("../services/whatsapp-delivery-receipt.service");
 // Entregable 8.2 (Fase 8) — D-F1: este controlador ya no procesa el mensaje
 // inline dentro del ciclo de vida de la petición HTTP. Encola (transacción
@@ -11,6 +12,7 @@ const { enqueueInboundJob, enqueueOperatorJob } = require("../services/inbound-j
 const { requestInboundDrain } = require("../jobs/inbound-message.job");
 
 const verifyWebhook = (req, res, next) => {
+  if (!isWhatsAppEnabled()) return res.sendStatus(503);
   try {
     const mode = req.query["hub.mode"];
     const token = req.query["hub.verify_token"];
@@ -30,6 +32,7 @@ const verifyWebhook = (req, res, next) => {
 };
 
 const receiveWebhook = async (req, res, next) => {
+  if (!isWhatsAppEnabled()) return res.sendStatus(503);
   try {
     await recordDeliveryReceipts(req.body);
     const internal = await require('../contexts').operatorChannel.ingress(req.body, enqueueOperatorJob);

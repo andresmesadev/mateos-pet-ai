@@ -1,0 +1,23 @@
+[Unit]
+Description=Mateos Pet AI finite 48-hour public health observation
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=exec
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/mateos-pet-ai-observer
+EnvironmentFile=/etc/mateos-pet-ai/stability.conf
+ExecStart=/opt/mateos-pet-ai-observer/scripts/run-stability-window.sh
+Restart=no
+TimeoutStopSec=45
+UMask=0077
+Nice=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+# Not enabled at boot: a reboot invalidates continuity; retain the partial file
+# and choose a new named window after investigating it. PC closure has no effect.

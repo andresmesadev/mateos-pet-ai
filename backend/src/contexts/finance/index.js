@@ -71,14 +71,18 @@ const getFinancialHistory = createGetFinancialHistoryUseCase({
 const getFinancialPeriod = createGetFinancialPeriodUseCase({ financialPeriodRepository });
 
 // POS — proceso de cobro (ADR 007-D3)
-const settleSystemCharge = createSettleSystemChargeUseCase({ transactionRepository, eventPublisher });
+const settleSystemCharge = transactionalCommand(createSettleSystemChargeUseCase({ transactionRepository, eventPublisher, businessDayGate: new PrismaBusinessDayGate(), dailyCloseRepository }), { unitOfWork, eventPublisher });
 const guardManualSaleLink = createGuardManualSaleLinkUseCase({ transactionRepository, completedAppointmentsReader });
 const voidManualSale = createVoidManualSaleUseCase({ transactionRepository, dailyCloseRepository, eventPublisher });
 const { createRegisterManualSaleUseCase } = require('./application/use-cases/pos/register-manual-sale.usecase');
 const { PrismaPosReferencesReader } = require('./infrastructure/persistence/prisma-pos-references.reader');
 const registerManualSale = createRegisterManualSaleUseCase({ transactionRepository, referencesReader: new PrismaPosReferencesReader(), guardManualSaleLink, dailyCloseRepository });
+const { createRegisterAppointmentSaleUseCase } = require('./application/use-cases/pos/register-appointment-sale.usecase');
+const registerAppointmentSale = createRegisterAppointmentSaleUseCase({ transactionRepository, referencesReader: new PrismaPosReferencesReader(), dailyCloseRepository, businessDayGate: new PrismaBusinessDayGate() });
 
 module.exports = {
+  registerAppointmentSale,
+  publishCheckoutPayment: transaction => eventPublisher.publish('CobroLiquidado', { transaction }),
   buildTransactionalFinance,
   registerManualSale,
   registerExpense,

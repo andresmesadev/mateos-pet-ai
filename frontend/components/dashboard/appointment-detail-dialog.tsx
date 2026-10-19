@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionConfirmation } from "@/components/dashboard/action-confirmation";
+import { useGroomerSelection } from './use-groomer-selection';
 
 import { useRef, useState } from "react";
 import Link from "next/link";
@@ -26,6 +27,8 @@ import {
   type TodayAppointment,
 } from "@/lib/appointments";
 import { getPetEmoji } from "@/lib/pets";
+import { GroomingTransportEditor } from "./grooming-transport-editor";
+import { AppointmentPaymentLink } from './appointment-payment-link';
 
 type Props = {
   appointment: TodayAppointment;
@@ -46,23 +49,26 @@ function AppointmentDetailContent({ appointment, onClose, onUpdated, readOnly = 
   const priceBusy = useRef(false);
   const [recordOpen, setRecordOpen] = useState(false);
   const [editingPrice, setEditingPrice] = useState(startInPriceEdit);
-  const [price, setPrice] = useState(appointment.priceResolution?.manualOverride?.toString() ?? appointment.finalPrice?.toString() ?? "");
+  const servicePrice = appointment.priceResolution?.servicePrice ?? appointment.finalPrice;
+  const [price, setPrice] = useState(appointment.priceResolution?.manualOverride?.toString() ?? servicePrice?.toString() ?? "");
   const [error, setError] = useState<string | null>(null);
-  const discard = useDialogEditGuard(editingPrice && price !== (appointment.priceResolution?.manualOverride?.toString() ?? appointment.finalPrice?.toString() ?? ""), busy);
+  const [transportEdit, setTransportEdit] = useState({ dirty: false, saving: false });
+  const discard = useDialogEditGuard(transportEdit.dirty || (editingPrice && price !== (appointment.priceResolution?.manualOverride?.toString() ?? servicePrice?.toString() ?? "")), busy || transportEdit.saving);
   const graceExpired = ["pending", "confirmed"].includes(appointment.status) && arrivalWindowExpired(appointment.date);
   const previousDayArrival = appointment.status === "arrived" && new Date(appointment.date).toLocaleDateString("en-CA", { timeZone: "America/Bogota" }) < new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
   const own = access?.capabilities.administration || !appointment.staffId || appointment.staffId === access?.staffId;
   const transitions = getStatusTransitions(appointment.status).filter(t => access?.capabilities.administration || (access?.role === "receptionist" ? ["confirmed", "arrived", "cancelled", "no_show"].includes(t.next) : own && ["arrived", "in_progress", "completed"].includes(t.next))).filter((transition) => (!graceExpired || !["confirmed", "arrived"].includes(transition.next)) && (!previousDayArrival || transition.next !== "in_progress"));
   const canEditPrice = Boolean(access?.capabilities.appointmentPrice && own) && !readOnly && !["completed", "cancelled", "no_show"].includes(appointment.status);
-  const canSavePetPrice = Boolean(access?.capabilities.administration && appointment.petId && appointment.serviceId);
+  const canSavePetPrice = Boolean(access?.capabilities.administration && appointment.petId && appointment.serviceId && (!appointment.transport || appointment.transport.mode === 'none'));
   const canRecord = access?.capabilities.clinical && own && VET_SERVICE_TYPES.includes(appointment.serviceType?.toLowerCase()) &&
     (appointment.status === "in_progress" || appointment.status === "completed") && !!appointment.petId;
 
-  async function updateStatus(nextStatus: string) {
-    if (nextStatus === "in_progress" && previousDayArrival && !await confirm("Esta llegada corresponde a un día anterior. ¿Confirmas que sí se prestó la atención y vas a completar su historia clínica?")) return;
-    if (["cancelled", "no_show", "completed"].includes(nextStatus)) {
+  const groomerSelection = useGroomerSelection(onUpdated);
+  async function updateStatus(nextStatus: string, skipConfirmation = false) {
+    if (!skipConfirmation && nextStatus === "in_progress" && previousDayArrival && !await confirm("Esta llegada corresponde a un día anterior. ¿Confirmas que sí se prestó la atención y vas a completar su historia clínica?")) return;
+    if (!skipConfirmation && ["cancelled", "no_show", "completed"].includes(nextStatus)) {
       const question = nextStatus === "completed"
-        ? "¿Completar esta cita? Se registrarán el cobro y la comisión correspondientes."
+        ? "¿Finalizar esta atención? El cobro quedará pendiente hasta confirmar el pago en Caja."
         : nextStatus === "no_show"
           ? "¿Marcar esta cita como no asistida?"
           : "¿Cancelar esta cita? Esta acción no se puede deshacer.";
@@ -79,6 +85,7 @@ function AppointmentDetailContent({ appointment, onClose, onUpdated, readOnly = 
         body: JSON.stringify(complete ? {} : { status: nextStatus }),
       });
       const payload = await response.json().catch(() => null);
+      if (!response.ok && groomerSelection.ask(appointment, payload, () => void updateStatus(nextStatus, true))) return;
       if (!response.ok) throw new Error(payload?.error || "Intenta de nuevo.");
       onUpdated(payload as TodayAppointment);
     } catch (cause) {
@@ -107,7 +114,7 @@ function AppointmentDetailContent({ appointment, onClose, onUpdated, readOnly = 
         body: JSON.stringify(canSavePetPrice ? { price: amount } : { finalPrice: amount }),
       });
       if (!response.ok) throw new Error(payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string" ? payload.error : "Comprueba el precio guardado antes de volver a intentarlo.");
-      if (!payload || typeof payload !== "object" || !("id" in payload) || payload.id !== appointment.id || !("date" in payload) || typeof payload.date !== "string" || !Number.isFinite(Date.parse(payload.date)) || !("status" in payload) || typeof payload.status !== "string" || !("finalPrice" in payload) || typeof payload.finalPrice !== "number" || Math.round(payload.finalPrice * 100) !== Math.round(amount * 100)) throw new Error("La respuesta no confirma el precio. Conservamos tu valor; actualiza la cita para comprobar el guardado.");
+      if (!payload || typeof payload !== "object" || !("id" in payload) || payload.id !== appointment.id || !("date" in payload) || typeof payload.date !== "string" || !Number.isFinite(Date.parse(payload.date)) || !("status" in payload) || typeof payload.status !== "string" || !("priceResolution" in payload) || !payload.priceResolution || typeof payload.priceResolution !== "object" || !("servicePrice" in payload.priceResolution) || typeof payload.priceResolution.servicePrice !== "number" || Math.round(payload.priceResolution.servicePrice * 100) !== Math.round(amount * 100)) throw new Error("La respuesta no confirma el precio. Conservamos tu valor; actualiza la cita para comprobar el guardado.");
       onUpdated(payload as TodayAppointment);
       setEditingPrice(false);
     } catch (cause) {
@@ -121,6 +128,7 @@ function AppointmentDetailContent({ appointment, onClose, onUpdated, readOnly = 
   return (
     <>
       {confirmation}
+      {groomerSelection.dialog}
       {!recordOpen && (
         <DialogContent className="max-h-[min(90vh,760px)] max-w-2xl overflow-y-auto border-slate-200 bg-white p-0 text-slate-900 shadow-2xl">
           <DialogHeader className="border-b border-slate-200 bg-slate-50/70 px-6 py-6 pr-14 sm:px-8">
@@ -134,7 +142,9 @@ function AppointmentDetailContent({ appointment, onClose, onUpdated, readOnly = 
 
           <div className="space-y-6 px-6 py-6 sm:px-8">
             <CaseSummary appointment={appointment} showPrice />
-            {canEditPrice && !editingPrice && <Button variant="outline" onClick={() => { setPrice(appointment.priceResolution?.manualOverride?.toString() ?? appointment.finalPrice?.toString() ?? ""); setError(null); setEditingPrice(true); }}>{appointment.finalPrice == null ? "Definir precio" : "Cambiar precio"}</Button>}
+            <AppointmentPaymentLink appointment={appointment} />
+            {(appointment.serviceCategory === "grooming" || appointment.serviceType === "grooming") && <GroomingTransportEditor key={`${appointment.id}:${JSON.stringify(appointment.transport)}`} appointment={appointment} onUpdated={onUpdated} readOnly={readOnly} onEditStateChange={setTransportEdit} />}
+            {canEditPrice && !editingPrice && <Button variant="outline" onClick={() => { setPrice(appointment.priceResolution?.manualOverride?.toString() ?? servicePrice?.toString() ?? ""); setError(null); setEditingPrice(true); }}>{appointment.finalPrice == null ? "Definir precio" : "Cambiar precio"}</Button>}
 
             {canEditPrice && editingPrice && <form onSubmit={savePrice} className="rounded-2xl border border-teal-200 bg-teal-50/60 p-4 sm:p-5">
               <h3 className="font-semibold text-slate-950">Precio para {appointment.petName}</h3>

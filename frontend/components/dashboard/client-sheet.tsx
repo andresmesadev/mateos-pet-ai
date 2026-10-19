@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CalendarPlus, Plus, UserRound, MessageCircle } from "lucide-react";
+import { CalendarPlus, MapPin, Plus, UserRound, MessageCircle } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,11 +37,11 @@ import {
   formatPhone,
 } from "@/lib/clients";
 import { type DashboardPet, formatPetType, getPetEmoji } from "@/lib/pets";
-import { FormDialogContent, FormDialogHeader, FormDialogBody, FormDialogFooter, FormSection, FormField, FormAdditional } from "./form-layout";
+import { FormDialogContent, FormDialogHeader, FormDialogBody, FormDialogFooter, FormSection, FormField } from "./form-layout";
 import { FormSubmissionError, useFormFeedback } from "./form-feedback";
 import { submissionErrorMessage } from "@/lib/form-feedback";
 
-function clientPetToDashboardPet(pet: ClientPet, owner: { id: string; phone: string; name: string | null }): DashboardPet {
+function clientPetToDashboardPet(pet: ClientPet, owner: { id: string; phone: string; name: string | null; address?: string | null; neighborhood?: string | null }): DashboardPet {
   return {
     id: pet.id,
     name: pet.name,
@@ -89,7 +89,7 @@ function ClientSheetContent({ clientId, initialEdit = false, onUpdated, onNaviga
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(initialEdit);
   const [saving, setSaving] = useState(false);
-  const [editForm, setEditForm] = useState({ name: "", phone: "", phoneAlt: "", email: "", address: "", notes: "" });
+  const [editForm, setEditForm] = useState({ name: "", phone: "", phoneAlt: "", address: "", neighborhood: "", notes: "" });
   const [expedientePet, setExpedientePet] = useState<DashboardPet | null>(null);
   const [addingPet, setAddingPet] = useState(false);
   const [refresh, setRefresh] = useState(0);
@@ -116,7 +116,7 @@ function ClientSheetContent({ clientId, initialEdit = false, onUpdated, onNaviga
 
         if (!cancelled) {
           setClient(data);
-          setEditForm({ name: data.name ?? "", phone: data.phone, phoneAlt: data.phoneAlt ?? "", email: data.email ?? "", address: data.address ?? "", notes: data.notes ?? "" });
+          setEditForm({ name: data.name ?? "", phone: data.phone, phoneAlt: data.phoneAlt ?? "", address: data.address ?? "", neighborhood: data.neighborhood ?? "", notes: data.notes ?? "" });
           setError(null);
         }
       } catch (err) {
@@ -157,8 +157,8 @@ function ClientSheetContent({ clientId, initialEdit = false, onUpdated, onNaviga
       name: client?.name ?? "",
       phone: client?.phone ?? "",
       phoneAlt: client?.phoneAlt ?? "",
-      email: client?.email ?? "",
       address: client?.address ?? "",
+      neighborhood: client?.neighborhood ?? "",
       notes: client?.notes ?? "",
     });
     setEditing(true);
@@ -243,29 +243,33 @@ function ClientSheetContent({ clientId, initialEdit = false, onUpdated, onNaviga
             )}
           </div>
           {editing ? (
-            <form id="edit-client-form" onSubmit={handleSave} noValidate aria-busy={saving} className="space-y-4">
+            <form id="edit-client-form" onSubmit={handleSave} noValidate aria-busy={saving} className="space-y-4 [&_input]:h-11">
               <FormSubmissionError message={feedback.submitError} />
               <fieldset disabled={saving} className="min-w-0 space-y-4">
-                <FormSection title="Contacto principal">
-                  <FormField id="edit-client-name" label="Nombre" optional><Input id="edit-client-name" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} /></FormField>
-                  <FormField id="edit-client-phone" label="Teléfono principal" error={feedback.errors["edit-client-phone"]}><Input id="edit-client-phone" required type="tel" autoComplete="tel" {...feedback.fieldProps("edit-client-phone")} value={editForm.phone} onChange={e => { feedback.clearField("edit-client-phone"); setEditForm(f => ({ ...f, phone: e.target.value })); }} /></FormField>
+                <FormSection title={<span className="inline-flex items-center gap-2"><UserRound aria-hidden="true" className="h-4 w-4 text-primary" />Contacto principal</span>} className="space-y-5 rounded-2xl border-primary/15 p-4 sm:p-5">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <FormField id="edit-client-name" label="Nombre" optional className="sm:col-span-2"><Input id="edit-client-name" autoComplete="name" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} placeholder="Nombre del propietario" /></FormField>
+                    <FormField id="edit-client-phone" label="Teléfono principal" error={feedback.errors["edit-client-phone"]}><Input id="edit-client-phone" required type="tel" autoComplete="tel" {...feedback.fieldProps("edit-client-phone")} value={editForm.phone} onChange={e => { feedback.clearField("edit-client-phone"); setEditForm(f => ({ ...f, phone: e.target.value })); }} /></FormField>
+                    <FormField id="edit-client-phoneAlt" label="Otros teléfonos" optional><Input id="edit-client-phoneAlt" type="tel" value={editForm.phoneAlt} onChange={e => setEditForm(f => ({ ...f, phoneAlt: e.target.value }))} placeholder="Separa los números con /" /></FormField>
+                  </div>
+                  <section aria-label="Ubicación del propietario" className="space-y-3 border-t border-border pt-4">
+                    <h4 className="flex items-center gap-2 text-sm font-semibold"><MapPin aria-hidden="true" className="h-4 w-4 text-primary" />Ubicación</h4>
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      <FormField id="edit-client-address" label="Dirección" optional className="sm:col-span-2"><Input id="edit-client-address" autoComplete="street-address" value={editForm.address} onChange={e => setEditForm(f => ({ ...f, address: e.target.value }))} placeholder="Calle, número, apartamento o indicaciones" /></FormField>
+                      <FormField id="edit-client-neighborhood" label="Barrio" optional><Input id="edit-client-neighborhood" maxLength={200} value={editForm.neighborhood} onChange={e => setEditForm(f => ({ ...f, neighborhood: e.target.value }))} placeholder="Ej. Robledo Miramar" /></FormField>
+                    </div>
+                  </section>
+                  {access?.capabilities.administration && <div className="border-t border-border pt-4"><FormField id="edit-client-notes" label="Notas del propietario" optional><Textarea id="edit-client-notes" rows={3} className="min-h-24 resize-y bg-background/40 leading-relaxed" value={editForm.notes} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} /></FormField></div>}
                 </FormSection>
-                <FormAdditional>
-                  <FormField id="edit-client-phoneAlt" label="Teléfono alternativo" optional><Input id="edit-client-phoneAlt" type="tel" value={editForm.phoneAlt} onChange={e => setEditForm(f => ({ ...f, phoneAlt: e.target.value }))} /></FormField>
-                  <FormField id="edit-client-email" label="Correo electrónico" optional error={feedback.errors["edit-client-email"]}><Input id="edit-client-email" type="email" autoComplete="email" {...feedback.fieldProps("edit-client-email")} value={editForm.email} onChange={e => { feedback.clearField("edit-client-email"); setEditForm(f => ({ ...f, email: e.target.value })); }} /></FormField>
-                  <FormField id="edit-client-address" label="Dirección" optional><Input id="edit-client-address" value={editForm.address} onChange={e => setEditForm(f => ({ ...f, address: e.target.value }))} /></FormField>
-                  {access?.capabilities.administration && <FormField id="edit-client-notes" label="Notas del propietario" optional><Textarea id="edit-client-notes" rows={4} value={editForm.notes} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} /></FormField>}
-                </FormAdditional>
               </fieldset>
             </form>
           ) : (
             <div className="rounded-xl border p-4 text-sm">
               <dl className="grid gap-4 sm:grid-cols-2">
                 <div><dt className="text-xs text-muted-foreground">Teléfono principal</dt><dd className="mt-1 break-words font-medium">{formatPhone(client.phone)}</dd></div>
-                <div><dt className="text-xs text-muted-foreground">Teléfono alternativo</dt><dd className="mt-1 break-words">{client.phoneAlt ? formatPhone(client.phoneAlt) : "Sin registrar"}</dd></div>
-                <div><dt className="text-xs text-muted-foreground">Correo electrónico</dt><dd className="mt-1 break-words">{client.email || "Sin registrar"}</dd></div>
-                <div><dt className="text-xs text-muted-foreground">Dirección</dt><dd className="mt-1 break-words">{client.address || "Sin registrar"}</dd></div>
+                <div><dt className="text-xs text-muted-foreground">Otros teléfonos</dt><dd className="mt-1 space-y-1 break-words">{client.phoneAlt ? client.phoneAlt.split(/\s*\/\s*|[;\n|]+/).filter(Boolean).map((phone, index) => <span key={index} className="block">{formatPhone(phone.trim())}</span>) : "Sin registrar"}</dd></div>
               </dl>
+              <section aria-label="Ubicación del propietario" className="mt-4 border-t pt-4"><h4 className="mb-3 flex items-center gap-2 font-semibold"><MapPin aria-hidden="true" className="h-4 w-4 text-primary" />Ubicación</h4><dl className="grid gap-4 sm:grid-cols-3"><div className="sm:col-span-2"><dt className="text-xs text-muted-foreground">Dirección</dt><dd className="mt-1 break-words">{client.address || "Sin registrar"}</dd></div><div><dt className="text-xs text-muted-foreground">Barrio</dt><dd className="mt-1 break-words">{client.neighborhood || "Sin registrar"}</dd></div></dl></section>
               <div hidden={!access?.capabilities.administration} className="mt-4 border-t pt-4"><h4 className="font-semibold">Notas del propietario</h4><p className="mt-2 whitespace-pre-wrap break-words text-muted-foreground">{client.notes || "Todavía no hay notas del propietario."}</p></div>
             </div>
           )}
@@ -301,25 +305,25 @@ function ClientSheetContent({ clientId, initialEdit = false, onUpdated, onNaviga
                       <p className="text-sm text-muted-foreground">{formatPetType(pet.type)}{pet.breed ? ` · ${pet.breed}` : ""}</p><p className="mt-1 text-xs text-muted-foreground">{formatPetAge(pet.birthDate)}</p>
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-2"><Button
+                  <div className="grid grid-cols-2 gap-2"><Button
                     size="sm"
                     variant="outline"
-                    className="min-h-11 text-sm"
+                    className="h-11 min-h-11 w-full text-sm"
                     disabled={dirty || saving}
-                    onClick={() => setExpedientePet(clientPetToDashboardPet(pet, { id: client.id, phone: client.phone, name: client.name }))}
+                    onClick={() => setExpedientePet(clientPetToDashboardPet(pet, { id: client.id, phone: client.phone, name: client.name, address: client.address, neighborhood: client.neighborhood }))}
                   >
                     Ver expediente
                   </Button>
-                  <Button size="sm" variant="outline" disabled={dirty || saving || !access?.capabilities.schedule} onClick={() => { setAppointmentPetId(pet.id); setNewAppointment(true); }}>Nueva cita</Button></div>
+                  <Button size="sm" variant="outline" className="h-11 min-h-11 w-full text-sm" disabled={dirty || saving || !access?.capabilities.schedule} onClick={() => { setAppointmentPetId(pet.id); setNewAppointment(true); }}>Nueva cita</Button></div>
                 </li>
               ))}
             </ul>
           )}
         </section>
 
-        <section aria-label="Citas del propietario" className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-base font-semibold">Citas del propietario</h3><Link href={agendaHref} onClick={(event) => { event.preventDefault(); discard(() => { onNavigate(); router.push(agendaHref); }); }} className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline">Abrir agenda del propietario</Link></div>
-          <p className="text-xs text-muted-foreground">Esta ficha muestra las cinco citas más recientes por fecha. Consulta la agenda para ver todas.</p>
+        <section aria-label="Citas de sus mascotas" className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-base font-semibold">Citas de sus mascotas</h3><Link href={agendaHref} onClick={(event) => { event.preventDefault(); discard(() => { onNavigate(); router.push(agendaHref); }); }} className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline">Abrir agenda de sus mascotas</Link></div>
+          <p className="text-xs text-muted-foreground">Esta ficha muestra las cinco citas más recientes de sus mascotas por fecha. Consulta la agenda para ver todas.</p>
           {[{ title: "Próximas citas", rows: appointments.upcoming, empty: "No hay citas próximas en esta selección." }, { title: "Atenciones pendientes de cierre", rows: appointments.pending, empty: "" }, { title: "Visitas y citas anteriores", rows: appointments.previous, empty: "No hay citas cerradas en esta selección." }].map((group) => group.rows.length || group.empty ? <div key={group.title}>
             <h4 className="mb-2 text-sm font-semibold">{group.title}</h4>
             {group.rows.length ? <ul className="divide-y rounded-xl border">{group.rows.map((appointment) => <li key={appointment.id} className="p-4">

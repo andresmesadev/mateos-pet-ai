@@ -8,6 +8,7 @@
 const { PrismaAppointmentRepository } = require("./infrastructure/persistence/prisma-appointment.repository");
 const { PriceResolverAdapter } = require("./infrastructure/price/price-resolver.adapter");
 const { createCompleteAppointmentUseCase } = require("./application/use-cases/complete-appointment.usecase");
+const { PrismaGroomerAssignment } = require('./infrastructure/persistence/prisma-groomer-assignment');
 
 function buildAgendaContext({ unitOfWork, eventPublisher }) {
   const appointmentRepository = new PrismaAppointmentRepository();
@@ -18,6 +19,7 @@ function buildAgendaContext({ unitOfWork, eventPublisher }) {
     priceResolution,
     unitOfWork,
     eventPublisher,
+    staffAssignment: new PrismaGroomerAssignment(),
   });
 
   return { completeAppointment };

@@ -8,6 +8,28 @@ function financialCents(value) {
   if (result > 9999999999) throw new InvalidTransactionOperationError('El precio supera el límite.');
   return result;
 }
+function saleAmounts(items, access, appointment = false) {
+  if (!Array.isArray(items) || !items.length || items.length > 100) throw new InvalidTransactionOperationError('Agrega entre 1 y 100 artículos.');
+  let total = 0;
+  const computed = items.map(item => {
+    if (!['service', 'product'].includes(item.itemKind) || (item.itemKind === 'product' ? !access.capabilities.retail : !access.capabilities.services)) throw new InvalidTransactionOperationError('Ese tipo de venta no está habilitado.');
+    if (typeof item.description !== 'string' || !item.description.trim() || item.description.length > 250) throw new InvalidTransactionOperationError('Cada artículo necesita una descripción de máximo 250 caracteres.');
+    const component = appointment ? item.appointmentComponent : null;
+    if (component && (!['service', 'transport'].includes(component) || item.productId || item.itemKind !== 'service' || item.quantity !== 1)) throw new InvalidTransactionOperationError('Revisa el servicio y domicilio de la cita.');
+    const quantity = item.quantity ?? 1, price = financialCents(item.unitPrice);
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 2147483647) throw new InvalidTransactionOperationError('La cantidad debe ser entera y positiva.');
+    if (appointment && !component && price === 0) throw new InvalidTransactionOperationError('Los artículos adicionales necesitan un precio mayor que cero.');
+    const line = price * quantity;
+    if (!Number.isSafeInteger(line) || line > 9999999999) throw new InvalidTransactionOperationError('El importe del artículo supera el límite.');
+    total += line;
+    if (total > 9999999999) throw new InvalidTransactionOperationError('El total supera el importe permitido.');
+    return { description: item.description.trim(), itemKind: item.itemKind, quantity, unitPrice: (price / 100).toFixed(2), total: (line / 100).toFixed(2),
+      ...(component ? { appointmentComponent: component } : {}),
+      ...(item.product ? { tenantId: item.product.tenantId, productId: item.product.id, productCodeSnapshot: item.product.internalCode, presentationSnapshot: item.product.presentation,
+        priceSourceSnapshot: 'product_base_price', priceVersionSnapshot: item.product.priceVersion } : {}) };
+  });
+  return { total: (total / 100).toFixed(2), items: computed };
+}
 function createRegisterManualSaleUseCase({ transactionRepository, referencesReader, guardManualSaleLink, dailyCloseRepository }) {
   return async function execute({ tenantId, id, actor, access, command, items, now }, ctx) {
     if (!ctx) throw new Error('RegisterManualSale requires shared transaction');
@@ -21,25 +43,12 @@ function createRegisterManualSaleUseCase({ transactionRepository, referencesRead
     if (await dailyCloseRepository.findByDate(tenantId, civilDateLabel(day), ctx)) throw new DailyCloseAlreadyExistsForDateError(day);
     await referencesReader.validate(tenantId, command, ctx);
     await guardManualSaleLink({ tenantId, appointmentId: command.appointmentId }, ctx);
-    let total = 0;
-    const computed = items.map(item => {
-      if (!['service', 'product'].includes(item.itemKind) || (item.itemKind === 'product' ? !access.capabilities.retail : !access.capabilities.services)) throw new InvalidTransactionOperationError('Ese tipo de venta no está habilitado.');
-      if (typeof item.description !== 'string' || !item.description.trim() || item.description.length > 250) throw new InvalidTransactionOperationError('Cada artículo necesita una descripción de máximo 250 caracteres.');
-      const quantity = item.quantity ?? 1, price = financialCents(item.unitPrice);
-      if (!Number.isInteger(quantity) || quantity < 1 || quantity > 2147483647) throw new InvalidTransactionOperationError('La cantidad debe ser entera y positiva.');
-      const line = price * quantity;
-      if (!Number.isSafeInteger(line) || line > 9999999999) throw new InvalidTransactionOperationError('El importe del artículo supera el límite.');
-      total += line;
-      if (total > 9999999999) throw new InvalidTransactionOperationError('El total supera el importe permitido.');
-      return { description: item.description.trim(), itemKind: item.itemKind, quantity, unitPrice: (price / 100).toFixed(2), total: (line / 100).toFixed(2),
-        ...(item.product ? { tenantId, productId: item.product.id, productCodeSnapshot: item.product.internalCode, presentationSnapshot: item.product.presentation,
-          priceSourceSnapshot: 'product_base_price', priceVersionSnapshot: item.product.priceVersion } : {}) };
-    });
+    const computed = saleAmounts(items, access);
     if (command.notes != null && (typeof command.notes !== 'string' || command.notes.length > 2000)) throw new InvalidTransactionOperationError('Nota demasiado larga.');
     return transactionRepository.createManualSale({ id, tenantId, userId: command.userId || null, petId: command.petId || null,
-      appointmentId: command.appointmentId || null, paymentMethod, paidAt, origin: 'manual_pos_sale', total: (total / 100).toFixed(2),
+      appointmentId: command.appointmentId || null, paymentMethod, paidAt, origin: 'manual_pos_sale', total: computed.total,
       recordedActorId: actor.actorId, recordedActorName: actor.actorName, recordedActorRole: actor.actorRole,
-      notes: command.notes?.trim() || null, items: { create: computed } }, ctx);
+      notes: command.notes?.trim() || null, items: { create: computed.items } }, ctx);
   };
 }
-module.exports = { createRegisterManualSaleUseCase, financialCents };
+module.exports = { createRegisterManualSaleUseCase, financialCents, saleAmounts };

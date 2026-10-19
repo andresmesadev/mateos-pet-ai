@@ -101,4 +101,48 @@ function resolveProductPrice({ productBasePrice = null } = {}) {
     ? { finalPrice: price, source: "product_base_price" }
     : { finalPrice: null, source: PRICE_SOURCES.UNRESOLVED };
 }
-module.exports = { resolvePrice, resolveAppointmentPrice, resolveProductPrice, PRICE_SOURCES };
+// The service amount remains the commission base. Only this resolver adds
+// transport or derives its reference from an individual inclusive agreement.
+function resolveAppointmentTotal(appointment, zone = null) {
+  const service = resolveAppointmentPrice(appointment);
+  const mode = appointment.transportMode ?? "none";
+  let referencePrice = null, referenceSource = "unresolved";
+  const inclusive = appointment.pet?.defaultGroomingWithTransportPrice;
+  const fee = appointment.pet?.defaultGroomingTransportPrice;
+  const personalBase = service.source !== PRICE_SOURCES.SERVICE_BASE_PRICE && service.finalPrice != null;
+  if (mode === "round_trip" && fee != null) {
+    referencePrice = Number(fee);
+    referenceSource = "pet_agreement";
+  } else if (mode === "round_trip" && inclusive != null) {
+    // A historical inclusive total alone cannot establish a commission base.
+    if (personalBase && Number(inclusive) >= service.finalPrice) {
+      referencePrice = Math.round((Number(inclusive) - service.finalPrice) * 100) / 100;
+      referenceSource = "pet_agreement";
+    }
+  } else if (zone) {
+    const field = { round_trip: "roundTripPrice", pickup: "pickupPrice", delivery: "deliveryPrice" }[mode];
+    if (field && zone[field] != null) { referencePrice = Number(zone[field]); referenceSource = "zone"; }
+  }
+  let transportPrice = appointment.transportPrice == null ? null : Number(appointment.transportPrice);
+  let transportSource = appointment.transportPriceSource ?? "manual";
+  if (mode === "none") { transportPrice = 0; transportSource = "none"; }
+  if (mode === "shared") {
+    const parent = appointment.transportSharedWith;
+    const valid = parent && parent.tenantId === appointment.tenantId && parent.userId === appointment.userId &&
+      !["none", "shared"].includes(parent.transportMode) && !["cancelled", "no_show"].includes(parent.status) && parent.transportPrice != null;
+    transportPrice = valid ? 0 : null;
+    transportSource = "shared";
+  }
+  if (!Number.isFinite(transportPrice) || transportPrice < 0) transportPrice = null;
+  const needsBreakdown = mode === 'round_trip' && fee == null && inclusive != null && !personalBase;
+  const servicePrice = needsBreakdown ? null : service.finalPrice;
+  const total = amount => servicePrice == null || amount == null ? null : Math.round((servicePrice + amount) * 100) / 100;
+  return { ...service, ...(needsBreakdown ? { finalPrice: null, source: PRICE_SOURCES.UNRESOLVED } : {}), servicePrice, transportPrice, totalPrice: total(transportPrice),
+    transportPending: transportPrice == null, transportSource,
+    transportReferencePrice: referencePrice, transportReferenceSource: referenceSource,
+    quotedTotalPrice: total(referencePrice),
+    agreedWithTransportTotal: inclusive == null ? null : Number(inclusive),
+  };
+}
+
+module.exports = { resolvePrice, resolveAppointmentPrice, resolveAppointmentTotal, resolveProductPrice, PRICE_SOURCES };

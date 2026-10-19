@@ -8,6 +8,8 @@ const { InvalidChargeInputError } = require("../../domain/errors");
  *
  * Corregido por ADR 005: no crea una entidad Cobro propia. Crea una fila de
  * Transaction (Fase 1, extendida) con origin = "system_appointment_completed".
+ * ADR 024: es una obligación pendiente, paidAt null; el ingreso se reconoce
+ * cuando Caja confirma el pago, conservando esta misma fila y su monto.
  *
  * @param {Object} deps
  * @param {import("../ports/transaction-repository.port").TransactionRepositoryPort} deps.transactionRepository
@@ -29,7 +31,7 @@ function createRecordChargeOnAppointmentCompletedUseCase({ transactionRepository
         tenantId: tenantId ?? null,
         appointmentId,
         total: Number(resolvedPrice),
-        paidAt: completedAt ? new Date(completedAt) : new Date(),
+        paidAt: null,
       },
       ctx
     );

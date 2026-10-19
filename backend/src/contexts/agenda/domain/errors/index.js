@@ -18,9 +18,9 @@ class InvalidStatusTransitionError extends DomainError {
 }
 
 class UnresolvedPriceError extends DomainError {
-  constructor(appointmentId) {
+  constructor(appointmentId, reason) {
     super(
-      `La cita "${appointmentId}" no tiene un precio resuelto. ` +
+      reason || `La cita "${appointmentId}" no tiene un precio resuelto. ` +
         `Asigna un precio (manual, de la mascota o del servicio) antes de completarla. ` +
         `El precio cero es válido; el indeterminado no (ADR 007).`
     );

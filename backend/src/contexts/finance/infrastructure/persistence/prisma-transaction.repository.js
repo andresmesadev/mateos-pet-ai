@@ -4,12 +4,15 @@ const { TransactionRepositoryPort } = require("../../application/ports/transacti
 class PrismaTransactionRepository extends TransactionRepositoryPort {
   async createSystemCharge({ tenantId, appointmentId, total, paidAt }, ctx) {
     const client = ctx?.tx ?? prisma;
+    const appointment = await client.appointment.findFirst({ where: { id: appointmentId, tenantId: tenantId ?? null }, select: { userId: true, petId: true } });
     return client.transaction.create({
       data: {
         tenantId: tenantId ?? null,
         appointmentId,
         total,
         paidAt,
+        userId: appointment?.userId ?? null,
+        petId: appointment?.petId ?? null,
         origin: "system_appointment_completed",
       },
     });
@@ -37,18 +40,29 @@ class PrismaTransactionRepository extends TransactionRepositoryPort {
     });
   }
 
+  async lockByAppointment(tenantId, appointmentId, ctx) {
+    await ctx.tx.$queryRaw`SELECT id FROM "Transaction" WHERE "tenantId" = ${tenantId} AND "appointmentId" = ${appointmentId} AND origin = 'system_appointment_completed' AND status = 'active' FOR UPDATE`;
+    return ctx.tx.transaction.findFirst({ where: { tenantId, appointmentId, origin: 'system_appointment_completed', status: 'active' } });
+  }
+
   async createManualSale(data, ctx) {
     if (!ctx?.tx) throw new Error("Manual sale requires a transaction");
     return ctx.tx.transaction.create({ data, include: { items: true } });
   }
 
+  async checkoutPending(id, { items, ...data }, ctx) {
+    if (!ctx?.tx) throw new Error('Appointment checkout requires transaction');
+    return ctx.tx.transaction.update({ where: { id }, data: { ...data, items: { deleteMany: {}, create: items } }, include: { items: true } });
+  }
+
   // ADR 007-D3(a): el POS liquida el cobro de sistema — nunca su monto.
-  async settle(transactionId, { paymentMethod, notes, recordedBy }) {
-    return prisma.transaction.update({
+  async settle(transactionId, { paymentMethod, notes, recordedBy, paidAt }, ctx) {
+    return (ctx?.tx ?? prisma).transaction.update({
       where: { id: transactionId },
       data: {
         ...(paymentMethod !== undefined ? { paymentMethod } : {}),
         ...(notes !== undefined ? { notes } : {}),
+        ...(paidAt !== undefined ? { paidAt } : {}),
         ...(recordedBy ? { recordedActorId: recordedBy.id, recordedActorName: recordedBy.name, recordedActorRole: recordedBy.role } : {}),
       },
     });

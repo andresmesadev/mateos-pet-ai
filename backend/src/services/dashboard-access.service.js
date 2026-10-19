@@ -1,9 +1,9 @@
 const MODULES = ["veterinary", "grooming", "retail"];
-const EXTRA_PERMISSIONS = ["cash", "appointment_price", "inventory_consume"];
-const ROLES = ["admin", "vet", "groomer", "receptionist"];
+const { EXTRA_PERMISSIONS, ROLES, staffAccessRole } = require('../contexts/staff/domain/rules/staff-access.rules');
 
 function effectiveAccess(actor, modules) {
-  const role = actor?.type ?? "admin";
+  const professionalRole = actor?.professionalRole ?? actor?.type ?? 'admin';
+  const role = staffAccessRole({ role: actor?.type ?? 'admin', accessPermissions: actor?.accessPermissions });
   const activeModules = [...new Set((modules ?? ["veterinary", "grooming"]).filter(m => MODULES.includes(m)))];
   const known = ROLES.includes(role);
   const admin = known && role === "admin";
@@ -36,7 +36,7 @@ function effectiveAccess(actor, modules) {
   if (capabilities.inventory_read) navigation.push("/dashboard/inventory");
   if (capabilities.finance || capabilities.inventory_read) navigation.push("/dashboard/assistants");
   if (admin) navigation.push("/dashboard/settings", "/dashboard/staff", "/dashboard/services", "/dashboard/billing", "/dashboard/recuperacion", "/dashboard/churn", "/dashboard/opportunities", "/dashboard/reactivation", "/dashboard/revenue", "/dashboard/reports", "/dashboard/admin/tenants-overview");
-  return { role, staffId: actor?.staffId ?? null, activeModules, accessPermissions: extras, capabilities, navigation: known ? navigation : [] };
+  return { role, professionalRole, staffId: actor?.staffId ?? null, activeModules, accessPermissions: extras, capabilities, navigation: known ? navigation : [] };
 }
 
 function actorSnapshot(actor, prefix) {

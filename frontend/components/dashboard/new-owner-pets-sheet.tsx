@@ -16,7 +16,7 @@ import { proxyUrl } from "@/lib/api";
 import { useTenant, tenantQuery } from "@/lib/use-tenant";
 import { FieldError, FormSubmissionError, useFormFeedback } from "@/components/dashboard/form-feedback";
 import { submissionErrorMessage } from "@/lib/form-feedback";
-import { FormDialogContent, FormDialogHeader, FormDialogBody, FormDialogFooter, FormSection, FormAdditional } from "./form-layout";
+import { FormDialogContent, FormDialogHeader, FormDialogBody, FormDialogFooter, FormSection } from "./form-layout";
 
 type PetDraft = {
   uid: number;
@@ -26,6 +26,8 @@ type PetDraft = {
   gender: string;
   weight: string;
   notes: string;
+  groomingPrice: string;
+  groomingTransportPrice: string;
 };
 
 export type CreatedOwnerPets = { owner: { id: string; name: string | null; phone: string }; pets: { id: string; name: string; type: string }[] };
@@ -39,7 +41,7 @@ type Props = {
 let uidCounter = 1;
 
 function emptyPet(): PetDraft {
-  return { uid: uidCounter++, name: "", type: "dog", breed: "", gender: "", weight: "", notes: "" };
+  return { uid: uidCounter++, name: "", type: "dog", breed: "", gender: "", weight: "", notes: "", groomingPrice: "", groomingTransportPrice: "" };
 }
 
 const SELECT_CLASS =
@@ -56,21 +58,21 @@ function NewOwnerPetsContent({ onOpenChange, onCreated }: Props) {
   const [ownerName, setOwnerName] = useState("");
   const [phone, setPhone] = useState("");
   const [phoneAlt, setPhoneAlt] = useState("");
-  const [email, setEmail] = useState("");
   const [address, setAddress] = useState("");
+  const [neighborhood, setNeighborhood] = useState("");
   const [notes, setNotes] = useState("");
   const [pets, setPets] = useState<PetDraft[]>(() => [emptyPet()]);
   const [saving, setSaving] = useState(false);
   const feedback = useFormFeedback();
-  const dirty = Boolean(ownerName || phone || phoneAlt || email || address || notes || pets.some(pet => pet.name || pet.breed || pet.gender || pet.weight || pet.notes || pet.type !== "dog"));
+  const dirty = Boolean(ownerName || phone || phoneAlt || address || neighborhood || notes || pets.some(pet => pet.name || pet.breed || pet.gender || pet.weight || pet.notes || pet.groomingPrice || pet.groomingTransportPrice || pet.type !== "dog"));
   const discard = useDialogEditGuard(dirty, saving);
 
   function reset() {
     setOwnerName("");
     setPhone("");
     setPhoneAlt("");
-    setEmail("");
     setAddress("");
+    setNeighborhood("");
     setNotes("");
     setPets([emptyPet()]);
   }
@@ -99,14 +101,16 @@ function NewOwnerPetsContent({ onOpenChange, onCreated }: Props) {
           body: JSON.stringify({
             name: ownerName, phone,
             phoneAlt: phoneAlt || null,
-            email: email || null, address, notes: access?.capabilities.administration ? notes : undefined,
-            pets: pets.map(({ name, type, breed, gender, weight, notes: petNotes }) => ({
+            address, neighborhood, notes: access?.capabilities.administration ? notes : undefined,
+            pets: pets.map(({ name, type, breed, gender, weight, notes: petNotes, groomingPrice, groomingTransportPrice }) => ({
               name, type,
               breed: breed || null,
               gender: gender || null,
               weight: access?.capabilities.administration && weight ? parseFloat(weight) : null,
               notes: access?.capabilities.administration ? petNotes || null : null,
               operationalAlerts: access?.capabilities.administration ? undefined : petNotes || null,
+              defaultGroomingPrice: access?.capabilities.administration ? groomingPrice.trim() ? Number(groomingPrice) : null : undefined,
+              defaultGroomingTransportPrice: access?.capabilities.administration ? groomingTransportPrice.trim() ? Number(groomingTransportPrice) : null : undefined,
             })),
           }),
         }
@@ -163,6 +167,10 @@ function NewOwnerPetsContent({ onOpenChange, onCreated }: Props) {
                     <Input id="op-phone" value={phone} onChange={(e) => { setPhone(e.target.value); feedback.clearField("op-phone"); }} placeholder="573001234567" inputMode="tel" disabled={saving} aria-required="true" aria-invalid={Boolean(feedback.errors["op-phone"])} aria-describedby={feedback.errors["op-phone"] ? "op-phone-error" : undefined} />
                     <FieldError id="op-phone" message={feedback.errors["op-phone"]} />
                   </div>
+                  <div className="space-y-2"><label htmlFor="op-phone-alt" className="text-sm font-semibold">Otros teléfonos (opcional)</label><Input id="op-phone-alt" value={phoneAlt} onChange={e => setPhoneAlt(e.target.value)} placeholder="Separa los números con /" inputMode="tel" disabled={saving} /></div>
+                  <div className="space-y-2"><label htmlFor="op-address" className="text-sm font-semibold">Dirección (opcional)</label><Input id="op-address" autoComplete="street-address" value={address} onChange={e => setAddress(e.target.value)} disabled={saving} /></div>
+                  <div className="space-y-2"><label htmlFor="op-neighborhood" className="text-sm font-semibold">Barrio (opcional)</label><Input id="op-neighborhood" maxLength={200} value={neighborhood} onChange={e => setNeighborhood(e.target.value)} placeholder="Ej. Robledo Miramar" disabled={saving} /></div>
+                  {access?.capabilities.administration && <div className="space-y-2 sm:col-span-2"><label htmlFor="op-notes" className="text-sm font-semibold">Notas del propietario (opcional)</label><textarea id="op-notes" rows={2} value={notes} onChange={e => setNotes(e.target.value)} disabled={saving} className={TEXTAREA_CLASS} /></div>}
                 </div>
               </FormSection>
 
@@ -184,6 +192,23 @@ function NewOwnerPetsContent({ onOpenChange, onCreated }: Props) {
                       <Input id={`pet-name-${pet.uid}`} value={pet.name} onChange={(e) => updatePet(pet.uid, "name", e.target.value)} placeholder="ej. Max" disabled={saving} aria-required="true" aria-invalid={Boolean(feedback.errors[`pet-name-${pet.uid}`])} aria-describedby={feedback.errors[`pet-name-${pet.uid}`] ? `pet-name-${pet.uid}-error` : undefined} />
                       <FieldError id={`pet-name-${pet.uid}`} message={feedback.errors[`pet-name-${pet.uid}`]} />
                     </div>
+
+                    {access?.capabilities.administration && <fieldset className="min-w-0 space-y-3 rounded-xl border bg-background p-3">
+                      <legend className="px-1 text-sm font-semibold">Peluquería y domicilio · Mascota {index + 1}</legend>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-1.5">
+                          <label htmlFor={`pet-groomingPrice-${pet.uid}`} className="text-xs font-medium">Valor del servicio (COP) (opcional)</label>
+                          <Input id={`pet-groomingPrice-${pet.uid}`} type="number" min="0" max="99999999.99" step="0.01" value={pet.groomingPrice} onChange={e => updatePet(pet.uid, "groomingPrice", e.target.value)} placeholder="Por confirmar" disabled={saving} {...feedback.fieldProps(`pet-groomingPrice-${pet.uid}`)} />
+                          <FieldError id={`pet-groomingPrice-${pet.uid}`} message={feedback.errors[`pet-groomingPrice-${pet.uid}`]} />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label htmlFor={`pet-groomingTransportPrice-${pet.uid}`} className="text-xs font-medium">Valor del domicilio (COP) (opcional)</label>
+                          <Input id={`pet-groomingTransportPrice-${pet.uid}`} type="number" min="0" max="99999999.99" step="0.01" value={pet.groomingTransportPrice} onChange={e => updatePet(pet.uid, "groomingTransportPrice", e.target.value)} placeholder="Por confirmar" disabled={saving} {...feedback.fieldProps(`pet-groomingTransportPrice-${pet.uid}`)} />
+                          <FieldError id={`pet-groomingTransportPrice-${pet.uid}`} message={feedback.errors[`pet-groomingTransportPrice-${pet.uid}`]} />
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Domicilio adicional al servicio, con recogida y entrega. Vacío: por confirmar. 0: gratuito.</p>
+                    </fieldset>}
 
                     <div className="grid gap-2 sm:grid-cols-2">
                       <div className="space-y-1.5">
@@ -234,14 +259,6 @@ function NewOwnerPetsContent({ onOpenChange, onCreated }: Props) {
                   <Plus className="h-3.5 w-3.5" /> Agregar otra mascota
                 </button>
               </FormSection>
-              <FormAdditional>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2"><label htmlFor="op-phone-alt" className="text-sm font-semibold">Teléfono alternativo (opcional)</label><Input id="op-phone-alt" value={phoneAlt} onChange={e => setPhoneAlt(e.target.value)} inputMode="tel" disabled={saving} /></div>
-                  <div className="space-y-2"><label htmlFor="op-email" className="text-sm font-semibold">Correo electrónico (opcional)</label><Input id="op-email" type="email" value={email} onChange={e => { setEmail(e.target.value); feedback.clearField("op-email"); }} disabled={saving} {...feedback.fieldProps("op-email")} /><FieldError id="op-email" message={feedback.errors["op-email"]} /></div>
-                  <div className="space-y-2 sm:col-span-2"><label htmlFor="op-address" className="text-sm font-semibold">Dirección (opcional)</label><Input id="op-address" value={address} onChange={e => setAddress(e.target.value)} disabled={saving} /></div>
-                </div>
-                {access?.capabilities.administration && <div className="space-y-2"><label htmlFor="op-notes" className="text-sm font-semibold">Notas del propietario (opcional)</label><textarea id="op-notes" rows={2} value={notes} onChange={e => setNotes(e.target.value)} disabled={saving} className={TEXTAREA_CLASS} /></div>}
-              </FormAdditional>
             </div>
           </FormDialogBody>
         </form>

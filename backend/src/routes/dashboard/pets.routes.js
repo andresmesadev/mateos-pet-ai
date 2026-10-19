@@ -62,6 +62,39 @@ router.get("/pets/:id/prices", async (req, res) => {
   }
 });
 
+const { resolveAppointmentTotal } = require('../../services/domain/price-resolver.service');
+const groomingPriceFields = { id: true, defaultGroomingPrice: true, defaultGroomingWithTransportPrice: true, defaultGroomingTransportPrice: true };
+function petGroomingPrices(pet) {
+  const price = resolveAppointmentTotal({ pet, transportMode: 'round_trip' });
+  return { id: pet.id, center: price.servicePrice, transport: price.transportReferencePrice,
+    previousTotal: price.transportReferencePrice == null && pet.defaultGroomingWithTransportPrice != null ? Number(pet.defaultGroomingWithTransportPrice) : null,
+    quotedTotal: price.quotedTotalPrice };
+}
+
+router.get('/pets/:id/grooming-prices', async (req, res) => {
+  try {
+    const pet = await prisma.pet.findFirst({ where: { id: req.params.id, tenantId: req.tenant.tenantId }, select: groomingPriceFields });
+    if (!pet) return res.status(404).json({ error: 'Mascota no encontrada.' });
+    res.json(petGroomingPrices(pet));
+  } catch { res.status(500).json({ error: 'No se pudieron cargar los precios.' }); }
+});
+
+router.put('/pets/:id/grooming-prices', async (req, res) => {
+  try {
+    const { center, transport } = req.body ?? {};
+    if (center === undefined || transport === undefined || [center, transport].some(value => value !== null && !validMoney(value))) return res.status(400).json({ error: 'Indica valores válidos para servicio y domicilio. Vacío significa pendiente; 0 es gratuito.' });
+    const current = await prisma.pet.findFirst({ where: { id: req.params.id, tenantId: req.tenant.tenantId }, select: groomingPriceFields });
+    if (!current) return res.status(404).json({ error: 'Mascota no encontrada.' });
+    if (petGroomingPrices(current).previousTotal != null && (center == null || transport == null)) return res.status(422).json({ error: 'Esta mascota tiene un total anterior sin desglose. Confirma servicio y domicilio antes de reemplazarlo.' });
+    const data = { defaultGroomingPrice: center, defaultGroomingTransportPrice: transport, defaultGroomingWithTransportPrice: null };
+    const prices = petGroomingPrices({ id: current.id, ...data });
+    if (prices.quotedTotal != null && !validMoney(prices.quotedTotal)) return res.status(400).json({ error: 'El total de servicio y domicilio supera el importe permitido.' });
+    const updated = await prisma.pet.updateMany({ where: { id: req.params.id, tenantId: req.tenant.tenantId }, data });
+    if (!updated.count) return res.status(404).json({ error: 'Mascota no encontrada.' });
+    res.json(prices);
+  } catch { res.status(500).json({ error: 'No se pudieron guardar los precios.' }); }
+});
+
 router.patch("/pets/:id/prices/:serviceId", async (req, res) => {
   try {
     const price = req.body?.price;
@@ -128,7 +161,7 @@ router.get("/pets", async (req, res) => {
         take: limit,
         orderBy: [{ name: "asc" }, { createdAt: "asc" }],
         include: {
-          owner: { select: { id: true, phone: true, name: true } },
+          owner: { select: { id: true, phone: true, name: true, address: true, neighborhood: true } },
           _count: { select: { medicalRecords: true, appointments: true } },
         },
       }),
@@ -145,7 +178,7 @@ router.get("/pets", async (req, res) => {
       sterilized: pet.sterilized ?? null,
       notes: pet.notes ?? null,
       operationalAlerts: pet.operationalAlerts ?? null,
-      owner: { phone: pet.owner.phone, name: pet.owner.name ?? null },
+      owner: { id: pet.owner.id, phone: pet.owner.phone, name: pet.owner.name ?? null, address: pet.owner.address ?? null, neighborhood: pet.owner.neighborhood ?? null },
       _count: pet._count,
     }));
 
@@ -163,7 +196,7 @@ router.get("/pets/:id", async (req, res) => {
     const pet = await prisma.pet.findFirst({
       where: tenantId ? { id: req.params.id, tenantId } : { id: req.params.id },
       include: {
-        owner: { select: { id: true, phone: true, name: true } },
+        owner: { select: { id: true, phone: true, name: true, address: true, neighborhood: true } },
         _count: { select: { medicalRecords: true, appointments: true } },
       },
     });

@@ -14,7 +14,13 @@ export function CaseSummary({ appointment, showPrice = false }: { appointment: T
     ["Fecha · hora de Colombia", formatColombiaDateTime(appointment.date)],
     ["Profesional", appointment.staffName || "Sin asignar"],
   ];
-  if (showPrice && (access?.capabilities.cash || access?.capabilities.appointmentPrice)) rows.push(["Precio de esta cita (COP)", appointment.finalPrice == null ? "Sin precio definido" : `$ ${appointment.finalPrice.toLocaleString("es-CO")}`]);
+  if (showPrice && (access?.capabilities.cash || access?.capabilities.appointmentPrice)) {
+    if (appointment.transport && appointment.transport.mode !== "none") {
+      rows.push(["Peluquería (COP)", appointment.priceResolution?.servicePrice == null ? "Pendiente" : `$ ${appointment.priceResolution.servicePrice.toLocaleString("es-CO")}`]);
+      rows.push(["Transporte (COP)", appointment.transport.pending ? "Por confirmar" : appointment.transport.mode === "shared" ? "Incluido en otra cita" : appointment.transport.price == null ? "Pendiente" : `$ ${appointment.transport.price.toLocaleString("es-CO")}`]);
+    }
+    rows.push(["Total de esta cita (COP)", appointment.finalPrice == null ? "Sin precio definido" : `$ ${appointment.finalPrice.toLocaleString("es-CO")}`]);
+  }
   return <section aria-label="Resumen de la atención" className="rounded-xl border border-border bg-muted/30 p-4">
     <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-semibold">Datos de esta visita</h3><Badge className={statusBadgeClass(appointment.status)}>{formatStatus(appointment.status)}</Badge></div>
     <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">{rows.map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-xs text-muted-foreground">{label}</dt><dd className="mt-1 break-words text-sm font-semibold">{value}</dd></div>)}</dl>

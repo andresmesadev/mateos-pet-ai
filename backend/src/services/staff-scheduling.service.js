@@ -2,6 +2,8 @@ const prisma = require('../lib/prisma');
 const { staffWindowReason, weeklyRows } = require('../contexts/staff/domain/rules/staff-window.rules');
 const { staffEditorError } = require('./staff-editor-validation.service');
 const { compatibleRole, canProvideService } = require('../contexts/staff/domain/rules/service-scope.rules');
+const { reservationSlotMinutes } = require('../lib/reservation-slot');
+const { serviceModule } = require('./dashboard-access.service');
 
 class StaffUnavailableError extends Error {
   constructor(message, status = 409) { super(message); this.status = status; this.code = 'STAFF_UNAVAILABLE'; }
@@ -20,7 +22,8 @@ async function lockStaff(tx, staffId) {
 async function loadStaff(db, staffId, tenantId) {
   return db.staff.findFirst({ where: { id: staffId, tenantId }, include: { availabilities: { include: { replacement: { select: { id: true } } } }, capabilities: true } });
 }
-function durationMs(service) {
+function durationMs(service, serviceType) {
+  if (serviceModule({ service, serviceType }) === 'grooming') return reservationSlotMinutes('grooming') * 60000;
   return (Number.isFinite(Number(service?.duration)) && Number(service.duration) > 0 ? Number(service.duration) : 60) * 60000;
 }
 async function assignmentReason(db, { staffId, tenantId, date, service, serviceType, appointmentId }) {
@@ -30,20 +33,44 @@ async function assignmentReason(db, { staffId, tenantId, date, service, serviceT
   if (!compatibleRole(staff, category)) return 'El profesional no pertenece al área de este servicio.';
   const capabilities = staff.capabilities ?? [];
   if (!canProvideService(staff, capabilities, service?.id)) return 'El profesional no tiene habilitado este servicio.';
-  const start = new Date(date), end = new Date(start.getTime() + durationMs(service));
+  const start = new Date(date), end = new Date(start.getTime() + durationMs(service, serviceType));
   const reason = staffWindowReason(staff, staff.availabilities, start, end);
   if (reason) return reason;
   const others = await db.appointment.findMany({
     where: { staffId, tenantId, ...(appointmentId ? { id: { not: appointmentId } } : {}),
       status: { in: ['pending', 'confirmed', 'arrived', 'in_progress'] }, date: { lt: end } },
-    select: { date: true, service: { select: { duration: true } } },
+    select: { date: true, serviceType: true, service: { select: { duration: true, category: { select: { name: true } } } } },
   });
-  if (others.some(other => new Date(other.date).getTime() + durationMs(other.service) > start.getTime())) return 'El profesional ya tiene una atención en ese horario.';
+  if (others.some(other => new Date(other.date).getTime() + durationMs(other.service, other.serviceType) > start.getTime())) return 'El profesional ya tiene una atención en ese horario.';
   return null;
 }
 async function assertStaffAssignment(db, args) {
   const reason = await assignmentReason(db, args);
   if (reason) throw new StaffUnavailableError(reason);
+}
+class StaffSelectionRequiredError extends StaffUnavailableError {
+  constructor(choices) { super('Elige el peluquero que atenderá esta mascota.'); this.code = 'STAFF_SELECTION_REQUIRED'; this.choices = choices; }
+}
+async function groomingChoices(db, args) {
+  const service = args.service ?? (args.serviceId ? await db.service.findFirst({ where: { id: args.serviceId, tenantId: args.tenantId }, include: { category: true } }) : null);
+  if (require('./dashboard-access.service').serviceModule({ service, serviceType: args.serviceType }) !== 'grooming') return null;
+  const staff = await db.staff.findMany({ where: { tenantId: args.tenantId, role: 'groomer', active: true }, select: { id: true, name: true }, orderBy: { id: 'asc' } });
+  const choices = [];
+  for (const candidate of staff) {
+    try { if (!await assignmentReason(db, { ...args, service, staffId: candidate.id })) choices.push(candidate); }
+    catch (error) { if (error.code !== 'STAFF_UNAVAILABLE' || error.status !== 404) throw error; }
+  }
+  return { service, choices };
+}
+async function uniqueGroomer(db, args, requireChoice = false) {
+  const result = await groomingChoices(db, args);
+  if (!result) return null;
+  if (result.choices.length > 1) { if (requireChoice) throw new StaffSelectionRequiredError(result.choices); return null; }
+  if (!result.choices.length) { if (requireChoice) throw new StaffUnavailableError('No hay un peluquero disponible y habilitado para esta atención. Revisa el equipo o la asignación.'); return null; }
+  const staffId = result.choices[0].id;
+  await lockStaff(db, staffId);
+  await assertStaffAssignment(db, { ...args, service: result.service, staffId });
+  return staffId;
 }
 async function saveWeeklySchedule(staffId, tenantId, availability) {
   const invalid = staffEditorError({ availability });
@@ -124,4 +151,4 @@ async function saveServiceScope(staffId,tenantId,{scope,serviceIds}) {
   for(const [name,payload] of events) await context.publishAvailabilityEvent(name,payload);
   return result;
 }
-module.exports = { StaffUnavailableError, withStaffLock, lockStaff, assignmentReason, assertStaffAssignment, saveWeeklySchedule, changeAvailability, staffReview, correctAbsence, readServiceScope, saveServiceScope };
+module.exports = { StaffUnavailableError, StaffSelectionRequiredError, groomingChoices, uniqueGroomer, withStaffLock, lockStaff, assignmentReason, assertStaffAssignment, saveWeeklySchedule, changeAvailability, staffReview, correctAbsence, readServiceScope, saveServiceScope };

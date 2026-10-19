@@ -19,7 +19,7 @@ const mapVisit = (row) => ({
 function mapForViewer(row, req) {
   const mapped = mapVisit(row);
   return req.access && !req.access.capabilities.cash && !req.access.capabilities.appointmentPrice
-    ? { ...mapped, hasResolvedPrice: mapped.finalPrice != null, finalPrice: null, priceResolution: null }
+    ? { ...mapped, hasResolvedPrice: mapped.finalPrice != null, finalPrice: null, priceResolution: null, transport: { ...mapped.transport, price: null } }
     : mapped;
 }
 

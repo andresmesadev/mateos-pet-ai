@@ -37,6 +37,12 @@ async function allowVeterinaryDashboard(req, res, next) {
     const admin = c.administration;
     const deny = (message = "No tienes permiso para esta acción.") => res.status(403).json({ error: message });
     if (match(req, [["GET", /^\/(access|workspace|tenant\/profile)$/]])) return next();
+    if (req.path.startsWith('/grooming/transport/')) {
+      if (!req.access.activeModules.includes('grooming')) return deny('Peluquería no está habilitada.');
+      if (req.method === 'GET' || req.path === '/grooming/transport/quote') return (c.schedule || c.grooming) ? next() : deny();
+      return admin ? next() : deny();
+    }
+    if (req.method === 'PUT' && /^\/appointments\/[^/]+\/transport$/.test(req.path)) return (req.access.activeModules.includes('grooming') && (c.schedule || (c.grooming && c.appointmentPrice))) ? next() : deny();
     if (req.path === '/operational-assistants' || req.path.startsWith('/operational-assistants/')) return (c.finance || c.inventory_read) ? next() : deny();
     if (req.path.startsWith('/inventory/')) {
       if (req.method === 'GET' && req.path === '/inventory/context') return c.inventory_read ? next() : deny();

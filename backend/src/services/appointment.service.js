@@ -7,6 +7,7 @@ const {
 } = require("./google-calendar.service");
 const { resetGroomingReminderForPet } = require("./reminder.service");
 const availabilityDb = require("./availability-db.service");
+const { reservationSlotMinutes } = require("../lib/reservation-slot");
 const { SERVICE_TYPES, toDateKey } = require("./availability.service");
 const { SlotAlreadyBookedError } = require("./errors/slot-already-booked.error");
 
@@ -250,10 +251,17 @@ const cancelAppointment = async (userId, appointmentId, tenantId) => {
       return null;
     }
 
-    const changed = await prisma.appointment.updateMany({
+    async function cancel(client) {
+      if (appointment.transportMode && appointment.transportMode !== 'none') {
+        await client.$queryRaw`SELECT id FROM "Appointment" WHERE id = ${appointment.id} AND "tenantId" = ${tenantId} FOR UPDATE`;
+        if (await client.appointment.count({ where: { tenantId, transportSharedWithId: appointment.id, status: { notIn: ['cancelled', 'no_show'] } } })) throw new (require('./grooming-transport.service').TransportError)('Este traslado cubre otras citas. El equipo debe reasignarlo antes de cancelar.');
+      }
+      return client.appointment.updateMany({
       where: { id: appointment.id, userId: id, tenantId, status: { in: ACTIVE_APPOINTMENT_STATUSES } },
       data: { status: "cancelled" },
-    });
+      });
+    }
+    const changed = appointment.transportMode && appointment.transportMode !== 'none' ? await prisma.$transaction(cancel) : await cancel(prisma);
     if (!changed.count) return null;
     const cancelled = { ...appointment, status: "cancelled" };
 
@@ -271,7 +279,7 @@ const createAppointment = async (data) => {
   const {
     userId, tenantId = null, petName, petType, serviceType, date, status = "confirmed",
     address = null, groomingBreed = null, groomingSize = null,
-    petId: selectedPetId = null, serviceId = null, staffId = null,
+    petId: selectedPetId = null, serviceId = null, staffId = null, autoAssignGroomer = false,
   } = data || {};
 
   if (!userId || !petName || !petType || !serviceType || !date) {
@@ -325,6 +333,10 @@ const createAppointment = async (data) => {
     if (serviceId) appointmentData.serviceId = String(serviceId);
     if (staffId) appointmentData.staffId = String(staffId);
     if (address) appointmentData.address = String(address).trim();
+    if (address && mapToAvailabilityServiceType(serviceType) === SERVICE_TYPES.GROOMING) {
+      appointmentData.transportMode = 'round_trip';
+      appointmentData.transportAddress = String(address).trim();
+    }
     if (groomingBreed) appointmentData.groomingBreed = String(groomingBreed).trim();
     if (groomingSize) appointmentData.groomingSize = String(groomingSize).trim();
     // Entregable 4.1 — A6: unidad real de reserva (bucket), no staffId.
@@ -334,16 +346,18 @@ const createAppointment = async (data) => {
     try {
       if (appointmentData.tenantId) {
         // El índice único protege el instante exacto. Un lock por bucket
-        // hace atómica la comprobación de cruces al admitir inicios a :30.
+        // hace atómica la comprobación de cruces al admitir inicios con minutos.
         const lockKey = `${appointmentData.tenantId}:${appointmentData.availabilityBucket}`;
-        const slotMs = 60 * 60 * 1000;
+        const slotMs = reservationSlotMinutes(appointmentData.availabilityBucket) * 60000;
         appointment = await prisma.$transaction(async (tx) => {
           await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey})::bigint)::text AS locked`;
-          if (staffId) {
+          const assignedId = staffId || (autoAssignGroomer ? await require('./staff-scheduling.service').uniqueGroomer(tx, { tenantId, date: appointmentData.date, serviceId, serviceType }) : null);
+          if (assignedId) {
             const { lockStaff, assertStaffAssignment } = require('./staff-scheduling.service');
-            await lockStaff(tx, staffId);
+            await lockStaff(tx, assignedId);
             const service = serviceId ? await tx.service.findFirst({ where: { id: serviceId, tenantId }, include: { category: true } }) : null;
-            await assertStaffAssignment(tx, { staffId, tenantId, date: appointmentData.date, service, serviceType });
+            await assertStaffAssignment(tx, { staffId: assignedId, tenantId, date: appointmentData.date, service, serviceType });
+            appointmentData.staffId = assignedId;
           }
           const conflict = await tx.appointment.findFirst({
             where: {
@@ -362,6 +376,13 @@ const createAppointment = async (data) => {
             availabilityBucket: appointmentData.availabilityBucket,
             date: appointmentData.date,
           });
+          if (data.transport !== undefined) {
+            const { pricingAppointment, prepareTransport } = require('./grooming-transport.service');
+            if (data.transport?.sharedWithId) await tx.$queryRaw`SELECT id FROM "Appointment" WHERE id = ${data.transport.sharedWithId} AND "tenantId" = ${tenantId} FOR UPDATE`;
+            const pricing = await pricingAppointment({ tenantId, petId, serviceId, date: appointmentData.date }, tx);
+            const selection = await prepareTransport({ appointment: pricing, transport: data.transport, canConfirm: data.canConfirmTransport === true }, tx);
+            Object.assign(appointmentData, selection.data);
+          }
           return tx.appointment.create({ data: appointmentData });
         });
       } else {
@@ -427,6 +448,7 @@ const rescheduleAppointment = async ({ userId, tenantId, appointmentId, date }) 
   if (!available) throw new SlotAlreadyBookedError({ tenantId, availabilityBucket: bucket, date });
   const moved = await prisma.$transaction(async tx => {
     await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${tenantId + ":" + bucket})::bigint)::text AS locked`;
+    if (original.transportMode && original.transportMode !== 'none') await tx.$queryRaw`SELECT id FROM "Appointment" WHERE id = ${appointmentId} AND "tenantId" = ${tenantId} FOR UPDATE`;
     const current = await tx.appointment.findFirst({ where: owned });
     if (!current || new Date(current.date).getTime() !== new Date(original.date).getTime()) {
       throw new Error("Appointment changed; select it again");
@@ -438,13 +460,17 @@ const rescheduleAppointment = async ({ userId, tenantId, appointmentId, date }) 
       await assertStaffAssignment(tx, { tenantId, staffId: current.staffId, date, service,
         serviceType: current.serviceType, appointmentId });
     }
+    const slotMs = reservationSlotMinutes(bucket) * 60000;
     const conflict = await tx.appointment.findFirst({ where: {
       id: { not: appointmentId }, tenantId, availabilityBucket: bucket,
       status: { not: "cancelled" },
-      date: { gt: new Date(date.getTime() - 3600000), lt: new Date(date.getTime() + 3600000) },
+      date: { gt: new Date(date.getTime() - slotMs), lt: new Date(date.getTime() + slotMs) },
     }, select: { id: true } });
     if (conflict) throw new SlotAlreadyBookedError({ tenantId, availabilityBucket: bucket, date });
-    return tx.appointment.update({ where: { ...owned, date: current.date }, data: { date, googleEventId: null } });
+    if (current.transportMode && current.transportMode !== 'none' && (current.transportSharedWithId || await tx.appointment.count({ where: { tenantId, transportSharedWithId: appointmentId, status: { notIn: ['cancelled', 'no_show'] } } }))) throw new (require('./grooming-transport.service').TransportError)('Revisa los traslados compartidos con el equipo antes de reprogramar.');
+    return tx.appointment.update({ where: { ...owned, date: current.date }, data: { date, googleEventId: null,
+      ...(current.transportMode && current.transportMode !== 'none' ? { transportPrice: null, transportPriceSource: null } : {}),
+    } });
   });
   syncCancelToCalendar(original);
   if (moved.status === "confirmed") syncAppointmentToCalendar(moved);

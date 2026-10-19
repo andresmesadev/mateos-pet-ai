@@ -8,6 +8,8 @@ Reconciliación de alcance: se parametrizan módulos y permisos sobre Clientes, 
 
 ## 2. Casos de uso y matriz aprobada
 
+Ampliación aceptada el 2026-10-16: la habilitación cerrada `administration` permite acceso administrativo del establecimiento conservando el perfil profesional; puede elegirse al crear la ficha o después. Sustituye la limitación previa que obligaba a cambiar el perfil a Administrador para obtener ese acceso. Diseño y reconciliación: [Alta de integrantes con permisos](team-registration-permissions.md).
+
 - Administrador: gestión completa dentro del establecimiento, módulos, equipo, precios, configuración y finanzas. Conserva lectura del historial aunque se desactive un módulo; ninguna nueva atención se registra en un módulo desactivado.
 - Recepción y caja: Inicio operativo, Agenda, alta/edición de datos básicos de clientes y mascotas, llegada/reprogramación/cancelación, WhatsApp y cobros. Sin edición de historias, comisiones, egresos, informes generales, anulación de ventas ni cierre contable.
 - Veterinario: Inicio clínico, agenda clínica y consultas, lectura de antecedentes, edición y cierre de sus atenciones y controles. WhatsApp. Sin finanzas administrativas ni mantenimiento del catálogo.

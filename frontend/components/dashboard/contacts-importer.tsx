@@ -6,25 +6,10 @@ import { Button } from "@/components/ui/button";
 import { proxyUrl } from "@/lib/api";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
+import { normalizeImportSpecies, parseContactsCSV, type ImportedContact } from "@/lib/contact-import";
 
 // ── Tipos ───────────────────────────────────────────────────────────────────────
 
-type RawPet = {
-  name: string;
-  breed: string;
-  price: string;
-  last_visit: string;
-  visit_history: string;
-};
-
-type RawContact = {
-  owner_name: string;
-  phone: string;
-  phones_alt: string;
-  address: string;
-  notes: string;
-  pets: RawPet[];
-};
 
 type ImportSummaryFull = {
   ownersCreated: number;
@@ -35,94 +20,12 @@ type ImportSummaryFull = {
   errors: { name: string; reason: string }[];
 };
 
-// ── Utilidades ──────────────────────────────────────────────────────────────────
-
-function cleanNan(val: string): string {
-  const s = val.trim();
-  return s === "" || s.toLowerCase() === "nan" || s.toLowerCase() === "null" ? "" : s;
-}
-
-// ── Parser CSV ──────────────────────────────────────────────────────────────────
-
-function parseCSVLine(line: string): string[] {
-  const result: string[] = [];
-  let current = "";
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (ch === '"') { inQuotes = !inQuotes; continue; }
-    if (ch === "," && !inQuotes) { result.push(current.trim()); current = ""; continue; }
-    current += ch;
-  }
-  result.push(current.trim());
-  return result;
-}
-
-function colIdx(headers: string[], name: string): number {
-  return headers.findIndex((h) => h.toLowerCase().trim() === name.toLowerCase());
-}
-
-function parseFullCSV(text: string): RawContact[] {
-  // Strip UTF-8 BOM if present
-  const clean = text.startsWith("﻿") ? text.slice(1) : text;
-  const lines = clean.split(/\r?\n/).filter((l) => l.trim());
-  if (lines.length < 2) return [];
-
-  const headers = parseCSVLine(lines[0]);
-
-  // Solo acepta el formato completo de Mateos (tiene columna pet_1_name)
-  const isFullFormat = headers.some((h) => h.toLowerCase().trim() === "pet_1_name");
-  if (!isFullFormat) return [];
-
-  const i = {
-    owner_name: colIdx(headers, "owner_name"),
-    phone:      colIdx(headers, "phone"),
-    phones_alt: colIdx(headers, "phones_alt"),
-    address:    colIdx(headers, "address"),
-    notes:      colIdx(headers, "notes"),
-  };
-
-  // Índices de mascotas (hasta 5)
-  const petCols = Array.from({ length: 5 }, (_, n) => ({
-    name:          colIdx(headers, `pet_${n + 1}_name`),
-    breed:         colIdx(headers, `pet_${n + 1}_breed`),
-    price:         colIdx(headers, `pet_${n + 1}_price`),
-    last_visit:    colIdx(headers, `pet_${n + 1}_last_visit`),
-    visit_history: colIdx(headers, `pet_${n + 1}_visit_history`),
-  }));
-
-  return lines.slice(1).map((line) => {
-    const cols = parseCSVLine(line);
-    const get = (idx: number) => cleanNan(idx !== -1 ? (cols[idx] ?? "") : "");
-
-    const pets: RawPet[] = petCols
-      .map((pc) => ({
-        name:          get(pc.name),
-        breed:         get(pc.breed),
-        price:         get(pc.price),
-        last_visit:    get(pc.last_visit),
-        visit_history: get(pc.visit_history),
-      }))
-      .filter((p) => p.name !== "");
-
-    return {
-      owner_name: get(i.owner_name),
-      phone:      get(i.phone),
-      phones_alt: get(i.phones_alt),
-      address:    get(i.address),
-      notes:      get(i.notes),
-      pets,
-    };
-  }).filter((c) => c.owner_name || c.phone || c.pets.length > 0);
-}
-
-// ── Componente ──────────────────────────────────────────────────────────────────
 
 export function ContactsImporter() {
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const [contacts, setContacts]   = useState<RawContact[]>([]);
+  const [contacts, setContacts]   = useState<ImportedContact[]>([]);
   const [fileName, setFileName]   = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [summary, setSummary]     = useState<ImportSummaryFull | null>(null);
@@ -136,14 +39,18 @@ export function ContactsImporter() {
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result as string;
-      const parsed = parseFullCSV(text);
-      if (parsed.length === 0) {
-        toast("No se detectó el formato de Mateos Pet (columnas pet_1_name requeridas). Verifica que el archivo sea el exportado por Claude AI.", "error");
-        return;
+      try {
+        const parsed = parseContactsCSV(text);
+        if (parsed.length === 0) {
+          toast("No se detectó el formato de Mateos Pet. El archivo debe incluir la columna pet_1_name.", "error");
+          return;
+        }
+        setContacts(parsed);
+        setFileName(file.name);
+        setSummary(null);
+      } catch (err) {
+        toast(err instanceof Error ? err.message : "No se pudo leer el CSV.", "error");
       }
-      setContacts(parsed);
-      setFileName(file.name);
-      setSummary(null);
     };
     reader.readAsText(file, "utf-8");
   }
@@ -157,6 +64,10 @@ export function ContactsImporter() {
 
   async function handleImport() {
     if (!contacts.length) return;
+    if (contacts.some(contact => contact.pets.some(pet => !normalizeImportSpecies(pet.type)))) {
+      toast("Selecciona la especie de cada mascota antes de importar.", "error");
+      return;
+    }
     setImporting(true);
     try {
       const res = await fetch(proxyUrl("/api/dashboard/clients/import/full"), {
@@ -244,6 +155,9 @@ export function ContactsImporter() {
   // ── Vista: preview ──────────────────────────────────────────────────────────
   if (contacts.length > 0) {
     const totalPets   = contacts.reduce((sum, c) => sum + c.pets.length, 0);
+    const dogs = contacts.reduce((sum, c) => sum + c.pets.filter(p => p.type === "dog").length, 0);
+    const cats = contacts.reduce((sum, c) => sum + c.pets.filter(p => p.type === "cat").length, 0);
+    const missingSpecies = contacts.reduce((sum, c) => sum + c.pets.filter(p => !normalizeImportSpecies(p.type)).length, 0);
     const withVisits  = contacts.reduce((sum, c) => sum + c.pets.filter((p) => p.last_visit || p.visit_history).length, 0);
     const withAddress = contacts.filter((c) => c.address).length;
 
@@ -263,6 +177,7 @@ export function ContactsImporter() {
               <PawPrint className="h-3 w-3 text-violet-700" />
               {totalPets} mascotas
             </div>
+            <div className="text-xs text-muted-foreground">{dogs} perros · {cats} gatos</div>
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Calendar className="h-3 w-3 text-amber-700" />
               {withVisits} con historial de visitas
@@ -275,7 +190,7 @@ export function ContactsImporter() {
           </div>
 
           <div className="max-h-64 divide-y divide-black/[0.04] overflow-y-auto rounded-lg border border-black/[0.06]">
-            {contacts.slice(0, 50).map((c, i) => (
+            {contacts.map((c, i) => (
               <div key={i} className="px-3 py-2.5 text-sm">
                 <div className="flex items-center gap-2">
                   <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-xs font-bold text-violet-700">
@@ -287,24 +202,44 @@ export function ContactsImporter() {
                 {c.pets.length > 0 && (
                   <div className="mt-1 ml-8 flex flex-wrap gap-1">
                     {c.pets.map((p, pi) => (
-                      <span key={pi} className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-xs text-amber-700">
-                        🐾 {p.name}{p.breed ? ` · ${p.breed}` : ""}
-                      </span>
+                      <label key={pi} className="inline-flex flex-wrap items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-1 text-xs text-amber-700">
+                        <span>🐾 {p.name}{p.breed ? ` · ${p.breed}` : ""}</span>
+                        {p.price && <span>· En centro: {p.price} COP</span>}
+                        {p.with_transport_price && <span>· Total con domicilio: {p.with_transport_price} COP</span>}
+                        <select
+                          aria-label={`Especie de ${p.name}, registro ${i + 1}`}
+                          value={normalizeImportSpecies(p.type) ?? ""}
+                          disabled={importing}
+                          className="rounded border border-black/10 bg-card px-1 py-0.5 text-foreground"
+                          onChange={event => {
+                            const type = event.target.value;
+                            setContacts(current => current.map((contact, index) => index === i
+                              ? { ...contact, pets: contact.pets.map((pet, petIndex) => petIndex === pi ? { ...pet, type } : pet) }
+                              : contact));
+                          }}
+                        >
+                          <option value="">Seleccionar especie</option>
+                          <option value="dog">Perro</option>
+                          <option value="cat">Gato</option>
+                          <option value="other">Otro</option>
+                        </select>
+                      </label>
                     ))}
                   </div>
                 )}
               </div>
             ))}
-            {contacts.length > 50 && (
-              <p className="px-3 py-2 text-xs text-muted-foreground">
-                … y {contacts.length - 50} propietarios más
-              </p>
-            )}
           </div>
         </div>
 
+        {missingSpecies > 0 && (
+          <p role="alert" className="text-sm text-rose-700">
+            Selecciona la especie de {missingSpecies} mascota{missingSpecies === 1 ? "" : "s"} en la lista antes de importar.
+          </p>
+        )}
+
         <div className="flex gap-2">
-          <Button onClick={handleImport} disabled={importing} className="gap-2">
+          <Button onClick={handleImport} disabled={importing || missingSpecies > 0} className="gap-2">
             <Users className="h-4 w-4" />
             {importing
               ? "Importando… esto puede tardar unos minutos"
@@ -342,7 +277,7 @@ export function ContactsImporter() {
           <p className="mt-0.5 text-sm text-muted-foreground">o haz clic para seleccionar</p>
         </div>
         <span className="rounded border border-black/[0.06] px-2 py-0.5 text-xs text-muted-foreground/60">
-          contactos_limpios.csv — formato unificado Outlook + Google
+          CSV de clientes y mascotas con su especie
         </span>
       </div>
 
@@ -361,7 +296,7 @@ export function ContactsImporter() {
             { icon: "👤", label: "Nombre del propietario" },
             { icon: "📱", label: "Teléfono WhatsApp" },
             { icon: "📍", label: "Dirección domicilio" },
-            { icon: "🐾", label: "Mascotas y razas" },
+            { icon: "🐾", label: "Mascotas, especies y razas" },
             { icon: "💰", label: "Precio del servicio" },
             { icon: "📅", label: "Historial de visitas peluquería" },
           ].map(({ icon, label }) => (
@@ -370,6 +305,7 @@ export function ContactsImporter() {
             </div>
           ))}
         </div>
+        <p className="text-xs text-muted-foreground">Revisa si cada mascota es perro, gato u otra especie antes de confirmar.</p>
       </div>
     </div>
   );

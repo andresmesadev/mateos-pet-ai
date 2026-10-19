@@ -2,8 +2,8 @@ const prisma = require("../../../../lib/prisma");
 const { StaffRepositoryPort } = require("../../application/ports/staff-repository.port");
 
 class PrismaStaffRepository extends StaffRepositoryPort {
-  async findById(staffId) {
-    return prisma.staff.findUnique({ where: { id: staffId } });
+  async findById(staffId, ctx) {
+    return (ctx?.tx ?? prisma).staff.findUnique({ where: { id: staffId } });
   }
 
   async create(data) {

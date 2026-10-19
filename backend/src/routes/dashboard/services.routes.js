@@ -88,9 +88,10 @@ router.post("/services", async (req, res) => {
     if (!category || !VALID_CATEGORIES.includes(String(category))) {
       return res.status(400).json({ error: "category debe ser veterinary, grooming u other" });
     }
-    const durationNum = Number(duration);
-    if (!duration || !Number.isInteger(durationNum) || durationNum <= 0) {
-      return res.status(400).json({ error: "duration debe ser un entero positivo" });
+    if (requiresAppointment !== undefined && typeof requiresAppointment !== "boolean") return res.status(400).json({ error: "Indica si el servicio requiere cita." });
+    const durationNum = duration == null || duration === "" ? null : Number(duration);
+    if ((requiresAppointment !== false && durationNum == null) || (durationNum != null && (!Number.isInteger(durationNum) || durationNum <= 0))) {
+      return res.status(400).json({ error: "La duración debe ser positiva para reservar una cita; los complementos pueden dejarla vacía." });
     }
 
     // Contrato legacy: unicidad de nombre por tenant (el caso de uso valida
@@ -110,20 +111,11 @@ router.post("/services", async (req, res) => {
       name: name.trim(),
       categoryId,
       duration: durationNum,
-      // Regla de dominio 2.1: el precio base no puede ser nulo. El contrato
-      // legacy permitía omitirlo; se conserva la permisividad materializándolo
-      // como 0 (precio resuelto válido — ADR 007-D4), nunca como indeterminado.
-      basePrice: basePrice !== undefined && basePrice !== null ? Number(basePrice) : 0,
+      basePrice: basePrice !== undefined && basePrice !== null && basePrice !== "" ? Number(basePrice) : null,
+      requiresAppointment: requiresAppointment !== false,
     });
 
-    // requiresAppointment es un atributo de presentación/agenda de Fase 1,
-    // fuera del contrato del caso de uso de 2.1 — passthrough del adaptador.
-    let row = service;
-    if (requiresAppointment === false) {
-      row = await prisma.service.update({ where: { id: service.id }, data: { requiresAppointment: false } });
-    }
-
-    res.status(201).json(await mapServiceRow(row));
+    res.status(201).json(await mapServiceRow(service));
   } catch (error) {
     if (mapServiceDomainError(res, error)) return;
     console.error("[Dashboard] Create service error:", error);
@@ -143,7 +135,8 @@ router.patch("/services/:id", async (req, res) => {
     if (category !== undefined && !VALID_CATEGORIES.includes(category)) {
       return res.status(400).json({ error: "Categoría de servicio no válida" });
     }
-    if (duration !== undefined && (!Number.isInteger(Number(duration)) || Number(duration) <= 0)) {
+    if (requiresAppointment !== undefined && typeof requiresAppointment !== "boolean") return res.status(400).json({ error: "Indica si el servicio requiere cita." });
+    if (duration !== undefined && duration !== null && (!Number.isInteger(Number(duration)) || Number(duration) <= 0)) {
       return res.status(400).json({ error: "La duración debe ser un entero positivo" });
     }
     if (basePrice !== undefined && basePrice !== null && (!Number.isFinite(Number(basePrice)) || Number(basePrice) < 0)) {
@@ -161,7 +154,7 @@ router.patch("/services/:id", async (req, res) => {
     }
 
     // Atributos del dominio (2.1): nombre, categoría, duración.
-    if (name !== undefined || category !== undefined || duration !== undefined) {
+    if (name !== undefined || category !== undefined || duration !== undefined || requiresAppointment !== undefined) {
       const categoryId =
         category !== undefined ? await resolveCategoryId(tenantId ?? null, String(category).trim()) : undefined;
       await updateService({
@@ -169,7 +162,8 @@ router.patch("/services/:id", async (req, res) => {
         serviceId: id,
         ...(name !== undefined ? { name: String(name).trim() } : {}),
         ...(categoryId !== undefined ? { categoryId } : {}),
-        ...(duration !== undefined ? { duration: Number(duration) } : {}),
+        ...(duration !== undefined ? { duration: duration === null ? null : Number(duration) } : {}),
+        ...(requiresAppointment !== undefined ? { requiresAppointment } : {}),
       });
     }
 
@@ -179,7 +173,7 @@ router.patch("/services/:id", async (req, res) => {
         serviceId: id,
         tenantId: tenantId ?? null,
         target: { type: "base" },
-        newPrice: basePrice !== null ? Number(basePrice) : 0,
+        newPrice: basePrice !== null ? Number(basePrice) : null,
       });
     }
 
@@ -191,9 +185,6 @@ router.patch("/services/:id", async (req, res) => {
       await prisma.service.update({ where: { id }, data: { active: true } });
     }
 
-    if (requiresAppointment !== undefined) {
-      await prisma.service.update({ where: { id }, data: { requiresAppointment: Boolean(requiresAppointment) } });
-    }
 
     const updated = await prisma.service.findUnique({ where: { id } });
     res.json(await mapServiceRow(updated));

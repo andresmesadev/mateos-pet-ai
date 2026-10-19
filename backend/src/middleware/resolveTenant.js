@@ -45,6 +45,7 @@
  */
 const prisma = require("../lib/prisma");
 const logger = require("../lib/logger");
+const { staffAccessRole } = require('../contexts/staff/domain/rules/staff-access.rules');
 
 async function resolveTenant(req, res, next) {
   const isTest = process.env.NODE_ENV === "test";
@@ -130,7 +131,7 @@ async function checkActiveAndContinue(req, res, next) {
       select: { staffId: true, staff: { select: { role: true, name: true, accessPermissions: true } } },
     });
     if (!credential) return res.status(403).json({ error: "Acceso del profesional no disponible" });
-    req.actor = { type: credential.staff.role, staffId: credential.staffId, sessionVersion, name: credential.staff.name, accessPermissions: credential.staff.accessPermissions ?? [] };
+    req.actor = { type: staffAccessRole(credential.staff), professionalRole: credential.staff.role, staffId: credential.staffId, sessionVersion, name: credential.staff.name, accessPermissions: credential.staff.accessPermissions ?? [] };
   } else {
     req.actor = { type: "admin", email: typeof req.headers["x-admin-email"] === "string" ? req.headers["x-admin-email"].trim().toLowerCase() : null, name: req.headers["x-admin-name"] || "Administrador" };
   }

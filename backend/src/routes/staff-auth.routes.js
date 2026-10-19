@@ -1,6 +1,7 @@
 const express = require("express");
 const prisma = require("../lib/prisma");
 const { normalizeEmail, verifyPassword } = require("../services/staff-credential.service");
+const { staffAccessRole } = require('../contexts/staff/domain/rules/staff-access.rules');
 
 const router = express.Router();
 
@@ -15,10 +16,10 @@ router.get("/staff-session", async (req, res) => {
   try {
     const credential = await prisma.staffCredential.findFirst({
       where: { staffId, active: true, sessionVersion: Number(rawVersion), staff: { tenantId, active: true } },
-      select: { staff: { select: { role: true } } },
+      select: { staff: { select: { role: true, accessPermissions: true } } },
     });
     if (!credential) return res.status(403).json({ error: "El acceso fue revocado" });
-    return res.json({ role: credential.staff.role });
+    return res.json({ role: staffAccessRole(credential.staff) });
   } catch (error) {
     console.error("[StaffAuth] Session error:", error.message);
     return res.status(503).json({ error: "No se pudo verificar el acceso" });

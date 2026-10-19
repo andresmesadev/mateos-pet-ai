@@ -1,8 +1,10 @@
 const axios = require("axios");
+const { isWhatsAppEnabled } = require("../lib/whatsapp-runtime");
 
 const GRAPH_API_VERSION = "v25.0";
 
 const sendWhatsAppMessage = async (to, message) => {
+  if (!isWhatsAppEnabled()) return null;
   const phoneNumberId = String(
     process.env.WHATSAPP_PHONE_NUMBER_ID || ""
   ).trim();
@@ -84,6 +86,7 @@ const sendWhatsAppMessage = async (to, message) => {
 // sendWhatsAppMessage — solo cambia la forma del payload (`type: "template"`
 // en vez de `type: "text"`).
 const sendWhatsAppTemplateMessage = async (to, templateName, languageCode, components = []) => {
+  if (!isWhatsAppEnabled()) return null;
   const phoneNumberId = String(
     process.env.WHATSAPP_PHONE_NUMBER_ID || ""
   ).trim();

@@ -26,17 +26,21 @@ function cashQuery(input, access) {
 async function readOperationalCash(prisma, tenantId, input, access) {
   if (!tenantId) throw new HistoryQueryError("Selecciona un establecimiento.");
   const { query, scope, date } = cashQuery(input, access);
-  const sql = historySql("transactions", tenantId, query, { allDates: scope === "pending" });
-  const review = Prisma.sql`(t."origin" = 'system_appointment_completed' AND (t."recordedActorId" IS NULL OR t."recordedActorId" = ''))`;
+  const appointmentId = input.appointmentId;
+  if (appointmentId !== undefined && (typeof appointmentId !== 'string' || !appointmentId || appointmentId.length > 100)) throw new HistoryQueryError('Cita no válida para Caja.');
+  const sql = historySql("transactions", tenantId, query, { allDates: scope === "pending" || Boolean(appointmentId) });
+  if (appointmentId) sql.where = Prisma.sql`${sql.where} AND t."appointmentId" = ${appointmentId}`;
+  const review = Prisma.sql`(t."origin" = 'system_appointment_completed' AND (t."paidAt" IS NULL OR t."recordedActorId" IS NULL OR t."recordedActorId" = ''))`;
   return prisma.$transaction(async tx => {
-    const groups = await tx.$queryRaw(Prisma.sql`SELECT ${review} AS "review", t."paymentMethod" AS "method", count(*)::int AS "count", COALESCE(sum(t."total"), 0) AS "amount"
-      FROM ${sql.source} WHERE ${sql.where} GROUP BY ${review}, t."paymentMethod"`);
+    const groups = await tx.$queryRaw(Prisma.sql`SELECT ${review} AS "review", (t."paidAt" IS NULL) AS "unpaid", t."paymentMethod" AS "method", count(*)::int AS "count", COALESCE(sum(t."total"), 0) AS "amount"
+      FROM ${sql.source} WHERE ${sql.where} GROUP BY ${review}, (t."paidAt" IS NULL), t."paymentMethod"`);
     const [pending] = await tx.$queryRaw(Prisma.sql`SELECT count(*)::int AS "count" FROM "Transaction" t WHERE t."tenantId" = ${tenantId} AND t."status" = 'active' AND ${review}`);
-    const summaryCash = { methods: Object.fromEntries(["cash", "transfer", "card", "other"].map(method => [method, { count: 0, cents: 0 }])), reviewCount: 0, reviewCents: 0 };
+    const summaryCash = { methods: Object.fromEntries(["cash", "transfer", "card", "other"].map(method => [method, { count: 0, cents: 0 }])), reviewCount: 0, reviewCents: 0, pendingCents: 0 };
     let total = 0, totalCents = 0;
     for (const group of groups) {
       const cents = Math.round(Number(group.amount) * 100);
-      total += group.count; totalCents += cents;
+      total += group.count;
+      if (group.unpaid) summaryCash.pendingCents += cents; else totalCents += cents;
       if (group.review) { summaryCash.reviewCount += group.count; summaryCash.reviewCents += cents; }
       else if (summaryCash.methods[group.method]) summaryCash.methods[group.method] = { count: group.count, cents };
     }
@@ -45,7 +49,7 @@ async function readOperationalCash(prisma, tenantId, input, access) {
     const rows = ids.length ? await tx.transaction.findMany({ where: { tenantId, id: { in: ids.map(row => row.id) } }, include: { user: { select: { name: true, phone: true } }, pet: { select: { name: true, type: true } }, items: { include: { inventoryReturn: true } } } }) : [];
     const byId = new Map(rows.map(row => [row.id, row]));
     const data = ids.map(({ id }) => mapTransaction(byId.get(id)));
-    return { date, scope, data, transactions: data, toReview: rows.filter(row => row.origin === "system_appointment_completed" && !row.recordedActorId).map(row => row.id),
+    return { date, scope, data, transactions: data, toReview: rows.filter(row => row.origin === "system_appointment_completed" && (row.paidAt == null || !row.recordedActorId)).map(row => row.id),
       total, page, pageSize: query.pageSize, totalPages, summary: { activeCount: total, voidedCount: 0, activeTotal: totalCents / 100 }, totalRegistered: totalCents / 100, summaryCash, pendingCount: pending.count, hasMore: page < totalPages };
   }, { isolationLevel: "RepeatableRead" });
 }

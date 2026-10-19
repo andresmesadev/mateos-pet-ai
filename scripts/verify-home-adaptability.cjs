@@ -67,11 +67,11 @@ const backend = http.createServer(async (req, res) => {
           await page.setViewportSize({width,height:1000});await page.goto(origin+'/dashboard?tenant=fixture-selected',{waitUntil:'networkidle'});
           await page.locator('[data-home-section]').first().waitFor();
           const order=await page.locator('[data-home-section]').evaluateAll(nodes=>nodes.map(node=>node.dataset.homeSection));
-          assert.deepEqual(order,role==='admin'?['attention','agenda']:['agenda','attention']);
+          assert.deepEqual(order,['agenda','attention']);
           assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
           if(width===1440) {
             const cols=await page.locator('[data-home-section]').first().evaluate(node=>getComputedStyle(node.parentElement).gridTemplateColumns);
-            assert.equal(cols.split(' ').length,2,'Enough content space uses two columns: '+cols);
+            assert.equal(cols.split(' ').length,1,'Agenda has a full-width row: '+cols);
           }
           const more=page.getByRole('button',{name:'Más accesos',exact:true,includeHidden:true});
           if(await more.count()) {
@@ -87,7 +87,9 @@ const backend = http.createServer(async (req, res) => {
             }
           }
           const card=page.locator('[data-home-section="attention"] > section');
-          if(width===1440) await page.waitForFunction(()=>Math.abs(document.querySelector('[data-home-section="attention"] > section').getBoundingClientRect().height-document.querySelector('#home-day-agenda').getBoundingClientRect().height)<2);
+          const agendaBox = await page.locator('#home-day-agenda').boundingBox();
+          const priorityBox = await card.boundingBox();
+          assert(priorityBox.y >= agendaBox.y + agendaBox.height - 1, 'Priorities follow the agenda');
           const bound=await card.boundingBox(),footer=page.getByRole('navigation',{name:'Páginas de prioridades'});
           if(await footer.count()){const box=await footer.boundingBox();assert(box.y+box.height<=bound.y+bound.height+1,'Pager stays within card');}
           assert(await card.locator('article[data-home-task]:visible').count()<=3);
@@ -101,7 +103,6 @@ const backend = http.createServer(async (req, res) => {
           assert.equal(seen.size,await card.locator('article[data-home-task]').count(),'All priorities remain reachable');
           if(width===1440) {
             await page.getByRole('region',{name:'Resumen de la jornada'}).getByRole('button',{name:/^Por llegar:/}).click();
-            await page.waitForFunction(()=>Math.abs(document.querySelector('[data-home-section="attention"] > section').getBoundingClientRect().height-document.querySelector('#home-day-agenda').getBoundingClientRect().height)<2);
             assert(await page.getByLabel('Lista de prioridades',{exact:true}).evaluate(node=>node.clientHeight)>=100,'Short agenda keeps priorities readable');
             if(await footer.count()){const box=await footer.boundingBox(),cardBox=await card.boundingBox();assert(box.y+box.height<=cardBox.y+cardBox.height+1);}
             await page.getByRole('button',{name:'Todas las citas',exact:true}).click();

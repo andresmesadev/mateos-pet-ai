@@ -32,6 +32,7 @@ export function PosTabs({ active }: { active: PosTab }) {
     p.delete("period");
     p.delete("date");
     p.delete("review");
+    p.delete("appointmentId");
     return `/dashboard/pos?${p.toString()}`;
   }
 

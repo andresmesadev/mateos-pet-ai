@@ -28,6 +28,13 @@ test('A restart, version change or observed worker failure prevents a clean wind
   assert.throws(() => summarize([point(0), point(0)]));
 });
 
+test('A window of a different single version cannot certify the requested release', () => {
+  const points = Array.from({ length: 577 }, (_, i) => point(i));
+  assert.equal(summarize(points, { expectedVersion: '2.48.0' }).verdict, 'incident');
+  assert.equal(summarize(points, { expectedVersion: '2.48.0' }).unexpectedVersion, true);
+  assert.equal(summarize(points, { expectedVersion: '2.45.0' }).verdict, 'health_window_passed');
+});
+
 test('Live samples require healthy services and worker, not just HTTP 200', async () => {
   const fetcher = body => async () => ({ status: 200, json: async () => body });
   assert.equal((await sample(fetcher(payload()), () => start)).ok, true);

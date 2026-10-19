@@ -12,8 +12,7 @@ const BACKEND_URL = (
 const INTERNAL_API_SECRET = process.env.INTERNAL_API_SECRET ?? "";
 
 async function verifyAdministrativeSession(session: Session) {
-  if (session.user.role !== "admin") return false;
-  if (!session.user.staffId) return true;
+  if (!session.user.staffId) return session.user.role === 'admin';
   try {
     const response = await fetch(`${BACKEND_URL}/api/internal/staff-session`, {
       headers: { "X-Internal-Token": INTERNAL_API_SECRET, "X-Staff-Id": session.user.staffId,

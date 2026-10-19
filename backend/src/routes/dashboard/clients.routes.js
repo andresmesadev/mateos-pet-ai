@@ -1,9 +1,14 @@
 const express = require("express");
 const router = express.Router();
 const prisma = require("../../lib/prisma");
+const { normalizeImportSpecies } = require("../../services/contact-import-species");
+const { cleanupImportedContact, mergePhones } = require("../../services/contact-import-cleanup.service");
+const { validMoney } = require("../../services/grooming-transport.service");
+const { resolveAppointmentTotal } = require("../../services/domain/price-resolver.service");
 const { operationalPet } = require("../../services/dashboard-access.service");
-const operationalClient = c => ({ id: c.id, name: c.name, phone: c.phone, phoneAlt: c.phoneAlt ?? null, email: c.email ?? null, address: c.address ?? null, createdAt: c.createdAt, petsCount: c.petsCount ?? c.pets?.length ?? 0, appointmentsCount: c.appointmentsCount ?? c.appointments?.length ?? 0, lastActivityAt: c.lastActivityAt ?? c.createdAt, conversationsCount: c.conversationsCount ?? 0, latestConversationId: c.latestConversationId ?? null, pets: c.pets?.map(operationalPet), _count: c._count ? { pets: c._count.pets, appointments: c._count.appointments } : undefined, appointments: c.appointments?.map(a => ({ id: a.id, date: a.date, status: a.status, serviceType: a.serviceType, petName: a.petName, petType: a.petType, service: a.service ? { name: a.service.name } : null, pet: a.pet ? { id: a.pet.id, name: a.pet.name } : null })), conversations: [] });
+const operationalClient = c => ({ id: c.id, name: c.name, phone: c.phone, phoneAlt: c.phoneAlt ?? null, email: c.email ?? null, address: c.address ?? null, neighborhood: c.neighborhood ?? null, createdAt: c.createdAt, petsCount: c.petsCount ?? c.pets?.length ?? 0, appointmentsCount: c.appointmentsCount ?? c.appointments?.length ?? 0, lastActivityAt: c.lastActivityAt ?? c.createdAt, conversationsCount: c.conversationsCount ?? 0, latestConversationId: c.latestConversationId ?? null, pets: c.pets?.map(operationalPet), _count: c._count ? { pets: c._count.pets, appointments: c._count.appointments } : undefined, appointments: c.appointments?.map(a => ({ id: a.id, date: a.date, status: a.status, serviceType: a.serviceType, petName: a.petName, petType: a.petType, service: a.service ? { name: a.service.name } : null, pet: a.pet ? { id: a.pet.id, name: a.pet.name } : null })), conversations: [] });
 const ERRORS = require("../../constants/errors");
+const validNeighborhood = value => value == null || (typeof value === 'string' && value.trim().length <= 200);
 const {
   listClients,
   getClientById,
@@ -19,7 +24,7 @@ router.get("/clients", async (req, res) => {
     const { tenantId } = req.tenant;
     const { search, limit, page } = req.query;
 
-    // Quick search mode para POS autocomplete (limit pequeño, retorna pets)
+    // Autocomplete compartido por agenda y POS: propietario, teléfono o mascota.
     if (search && typeof search === "string" && search.trim().length >= 2 && parseInt(limit) <= 20) {
       const tenantFilter = tenantId ? { tenantId } : {};
       const term = search.trim();
@@ -30,17 +35,30 @@ router.get("/clients", async (req, res) => {
           OR: [
             { name: { contains: term, mode: "insensitive" } },
             { phone: { contains: term } },
+            { pets: { some: { ...tenantFilter, name: { contains: term, mode: "insensitive" } } } },
           ],
         },
         take,
         orderBy: { createdAt: "desc" },
         include: {
-          pets: { select: { id: true, name: true, type: true }, orderBy: { createdAt: "desc" }, take: 5 },
+          pets: { where: tenantFilter, select: { id: true, name: true, type: true }, orderBy: { createdAt: "desc" }, take: 5 },
         },
       });
-      return res.json(users.map((u) => ({
-        id: u.id, name: u.name, phone: u.phone, pets: u.pets,
-      })));
+      // Buscar también fuera de las cinco mascotas recientes, con límite por propietario.
+      const petMatches = users.length ? await prisma.user.findMany({
+        where: { ...tenantFilter, id: { in: users.map(u => u.id) } },
+        select: { id: true, pets: {
+          where: { ...tenantFilter, name: { contains: term, mode: "insensitive" } },
+          select: { id: true, name: true, type: true },
+          orderBy: { createdAt: "desc" }, take: 5,
+        } },
+      }) : [];
+      const matchesByOwner = new Map(petMatches.map(u => [u.id, u.pets]));
+      return res.json(users.map((u) => {
+        const matchingPets = matchesByOwner.get(u.id) ?? [];
+        const pets = [...new Map([...matchingPets, ...u.pets].map(p => [p.id, p])).values()];
+        return { id: u.id, name: u.name, phone: u.phone, pets, matchingPets };
+      }));
     }
 
     const result = await listClients(tenantId, { page, limit, search });
@@ -66,14 +84,12 @@ function cleanField(val) {
 // Normalizes Colombian-formatted price strings to Decimal-compatible numbers.
 // "58.000" → 58000, "70,000" → 70000, "69000" → 69000, null/"" → null
 function parseGroomingPrice(val) {
-  if (!val) return null;
-  const cleaned = String(val).replace(/[.,]/g, (ch, idx, str) => {
-    // A period/comma is a thousands separator if followed by exactly 3 digits at the end
-    const after = str.slice(idx + 1);
-    return /^\d{3}$/.test(after) ? "" : ch;
-  }).replace(/[^0-9.]/g, "");
-  const n = parseFloat(cleaned);
-  return isNaN(n) || n <= 0 ? null : n;
+  if (val == null || String(val).trim() === '') return null;
+  const raw = String(val).trim();
+  if (!/^\d+(?:[.,]\d{3})*(?:[.,]\d{1,2})?$/.test(raw)) return null;
+  const decimal = raw.match(/[.,](\d{1,2})$/);
+  const n = decimal ? Number(raw.slice(0, decimal.index).replace(/[.,]/g, '') + '.' + decimal[1]) : Number(raw.replace(/[.,]/g, ''));
+  return !Number.isFinite(n) || n < 0 || n > 99999999.99 ? null : n;
 }
 
 function normalizePhone(raw) {
@@ -167,13 +183,41 @@ router.post("/clients/import", async (req, res) => {
 router.post("/clients/import/full", async (req, res) => {
   try {
     const { tenantId } = req.tenant;
-    const { contacts } = req.body ?? {};
+    let { contacts } = req.body ?? {};
 
     if (!Array.isArray(contacts) || contacts.length === 0) {
       return res.status(400).json({ error: "Se requiere un array de contactos no vacío" });
     }
     if (contacts.length > 3000) {
       return res.status(400).json({ error: "Máximo 3000 contactos por importación" });
+    }
+    contacts = contacts.map(c => {
+      const clean = cleanupImportedContact(c);
+      return { ...c, phones_alt: clean.phoneAlt, notes: clean.notes };
+    });
+
+    // Validate the entire request before creating owners or pets. An absent
+    // species must never silently turn a cat into a dog (including old files).
+    const speciesErrors = [];
+    for (const c of contacts) {
+      for (const pet of Array.isArray(c?.pets) ? c.pets : []) {
+        const name = cleanField(pet?.name);
+        if (name && !normalizeImportSpecies(pet.type)) {
+          speciesErrors.push({ name, reason: "Selecciona la especie: Perro, Gato u Otro." });
+        }
+        if (name) {
+          const center = parseGroomingPrice(cleanField(pet.price));
+          const inclusive = parseGroomingPrice(cleanField(pet.with_transport_price));
+          if ((cleanField(pet.price) != null && center == null) || (cleanField(pet.with_transport_price) != null && inclusive == null)) return res.status(400).json({ error: `Revisa los precios de ${name}. Usa un importe válido o deja el campo vacío.` });
+          if (inclusive != null && center != null && inclusive < center) return res.status(400).json({ error: `El total con domicilio de ${name} no puede ser menor que la peluquería.` });
+        }
+      }
+    }
+    if (speciesErrors.length) {
+      return res.status(400).json({
+        error: `Falta una especie válida para ${speciesErrors[0].name}. Selecciona Perro, Gato u Otro antes de importar.`,
+        errors: speciesErrors,
+      });
     }
 
     let ownersCreated = 0, ownersUpdated = 0, petsCreated = 0, recordsCreated = 0, invalid = 0;
@@ -220,7 +264,7 @@ router.post("/clients/import/full", async (req, res) => {
       const placeholders = noPhoneToCreate.map((c) => c._placeholderPhone);
       const existing = await prisma.user.findMany({
         where: tenantId ? { phone: { in: placeholders }, tenantId } : { phone: { in: placeholders } },
-        select: { id: true, phone: true, name: true, address: true, notes: true },
+        select: { id: true, phone: true, phoneAlt: true, name: true, address: true, notes: true },
       });
       existing.forEach((u) => noPhoneByKey.set(u.phone, u));
       // Crear los que no existen
@@ -229,7 +273,7 @@ router.post("/clients/import/full", async (req, res) => {
         await prisma.user.createMany({
           data: toCreateNP.map((c) => ({
             phone:    c._placeholderPhone,
-            phoneAlt: normalizePhone(c.phones_alt) ?? null,
+            phoneAlt: c.phones_alt ?? null,
             name:     c._ownerName ?? null,
             address:  cleanField(c.address) ?? null,
             notes:    cleanField(c.notes)   ?? null,
@@ -240,7 +284,7 @@ router.post("/clients/import/full", async (req, res) => {
         ownersCreated += toCreateNP.length;
         const refetch = await prisma.user.findMany({
           where: tenantId ? { phone: { in: toCreateNP.map((c) => c._placeholderPhone) }, tenantId } : { phone: { in: toCreateNP.map((c) => c._placeholderPhone) } },
-          select: { id: true, phone: true, name: true, address: true, notes: true },
+          select: { id: true, phone: true, phoneAlt: true, name: true, address: true, notes: true },
         });
         refetch.forEach((u) => noPhoneByKey.set(u.phone, u));
       }
@@ -256,7 +300,7 @@ router.post("/clients/import/full", async (req, res) => {
         await prisma.user.createMany({
           data: chunk.map((c) => ({
             phone:    c._phone,
-            phoneAlt: normalizePhone(c.phones_alt) ?? null,
+            phoneAlt: c.phones_alt ?? null,
             name:     c._ownerName ?? null,
             address:  cleanField(c.address) ?? null,
             notes:    cleanField(c.notes)   ?? null,
@@ -272,23 +316,27 @@ router.post("/clients/import/full", async (req, res) => {
         where: tenantId
           ? { phone: { in: toCreate.map((c) => c._phone) }, tenantId }
           : { phone: { in: toCreate.map((c) => c._phone) } },
-        select: { id: true, phone: true, name: true, address: true, notes: true },
+        select: { id: true, phone: true, phoneAlt: true, name: true, address: true, notes: true },
       });
       newUsers.forEach((u) => userByPhone.set(u.phone, u));
     }
 
     // ── FASE 4: actualizar propietarios existentes (solo campos vacíos) ─────────
-    const toUpdate = valid.filter((c) => c._phone && existingUsers.find((u) => u.phone === c._phone));
+    const toUpdate = valid.filter((c) => c._phone ? existingUsers.some((u) => u.phone === c._phone) : noPhoneByKey.has(c._placeholderPhone));
     for (const c of toUpdate) {
-      const existing = userByPhone.get(c._phone);
+      const existing = c._phone ? userByPhone.get(c._phone) : noPhoneByKey.get(c._placeholderPhone);
       if (!existing) continue;
       const patch = {};
       if (!existing.name    && c._ownerName)                      patch.name     = c._ownerName;
-      if (!existing.phoneAlt && normalizePhone(c.phones_alt))     patch.phoneAlt = normalizePhone(c.phones_alt);
+      const prior = cleanupImportedContact(existing);
+      const phonesAlt = mergePhones(existing.phone, prior.phoneAlt, c.phones_alt);
+      if (phonesAlt !== (existing.phoneAlt ?? null)) patch.phoneAlt = phonesAlt;
       if (!existing.address && cleanField(c.address))             patch.address  = cleanField(c.address);
-      if (!existing.notes   && cleanField(c.notes))               patch.notes    = cleanField(c.notes);
+      if (prior.recognized) patch.notes = prior.notes ?? cleanField(c.notes);
+      else if (!existing.notes && cleanField(c.notes)) patch.notes = cleanField(c.notes);
       if (Object.keys(patch).length) {
         await prisma.user.update({ where: { id: existing.id }, data: patch });
+        Object.assign(existing, patch);
         ownersUpdated++;
       }
     }
@@ -328,9 +376,10 @@ router.post("/clients/import/full", async (req, res) => {
         await prisma.pet.createMany({
           data: chunk.map(({ owner, petData }) => ({
             name:                 petData.name,
-            type:                 "dog",
+            type:                 normalizeImportSpecies(petData.type),
             breed:                cleanField(petData.breed) ?? null,
             defaultGroomingPrice: parseGroomingPrice(cleanField(petData.price)),
+            defaultGroomingWithTransportPrice: parseGroomingPrice(cleanField(petData.with_transport_price)),
             ownerId:              owner.id,
             ...(tenantId ? { tenantId } : {}),
           })),
@@ -420,7 +469,8 @@ router.post("/clients/import/full", async (req, res) => {
 router.post("/clients", async (req, res) => {
   try {
     const { tenantId } = req.tenant;
-    const { name, phone, email, address, notes } = req.body ?? {};
+    const { name, phone, email, address, neighborhood, notes } = req.body ?? {};
+    if (!validNeighborhood(neighborhood)) return res.status(400).json({ error: 'El barrio debe ser un texto de hasta 200 caracteres.' });
     if (req.access && !req.access.capabilities.administration && notes) return res.status(403).json({ error: "Tu perfil puede registrar datos de contacto y alertas de manejo de la mascota." });
 
     const cleanPhone = typeof phone === "string" ? phone.replace(/\s+/g, "").trim() : "";
@@ -435,6 +485,7 @@ router.post("/clients", async (req, res) => {
         name: name?.trim() || null,
         email: email?.trim() || null,
         address: address?.trim() || null,
+        neighborhood: neighborhood?.trim() || null,
         notes: notes?.trim() || null,
       },
       select: { id: true, name: true, phone: true },
@@ -455,7 +506,8 @@ router.post("/clients", async (req, res) => {
 router.post("/clients/with-pets", async (req, res) => {
   try {
     const { tenantId } = req.tenant;
-    const { name, phone, phoneAlt, email, address, notes, pets } = req.body ?? {};
+    const { name, phone, phoneAlt, email, address, neighborhood, notes, pets } = req.body ?? {};
+    if (!validNeighborhood(neighborhood)) return res.status(400).json({ error: 'El barrio debe ser un texto de hasta 200 caracteres.' });
     if (req.access && !req.access.capabilities.administration && notes) return res.status(403).json({ error: "Tu perfil puede registrar datos de contacto y alertas de manejo de la mascota." });
 
     const cleanPhone = typeof phone === "string" ? phone.replace(/\s+/g, "").trim() : "";
@@ -467,7 +519,7 @@ router.post("/clients/with-pets", async (req, res) => {
 
     const VALID_PET_TYPES = ["dog", "cat", "other"];
     const petsArr = Array.isArray(pets) ? pets : [];
-    if (req.access && !req.access.capabilities.administration && petsArr.some(p => p.notes || p.weight != null || p.defaultGroomingPrice != null)) return res.status(403).json({ error: "Tu perfil puede registrar mascotas con sus datos básicos." });
+    if (req.access && !req.access.capabilities.administration && petsArr.some(p => p.notes || p.weight != null || p.defaultGroomingPrice != null || p.defaultGroomingTransportPrice != null)) return res.status(403).json({ error: "Tu perfil puede registrar mascotas con sus datos básicos." });
 
     for (let i = 0; i < petsArr.length; i++) {
       const p = petsArr[i];
@@ -476,6 +528,16 @@ router.post("/clients/with-pets", async (req, res) => {
       }
       if (!VALID_PET_TYPES.includes(p.type?.toLowerCase())) {
         return res.status(400).json({ error: `Mascota ${i + 1}: tipo inválido` });
+      }
+      if ([p.defaultGroomingPrice, p.defaultGroomingTransportPrice].some(value => value != null && !validMoney(value))) {
+        return res.status(400).json({ error: `Mascota ${i + 1}: indica valores válidos de peluquería y domicilio. Vacío significa pendiente; 0 es gratuito.` });
+      }
+      const quote = resolveAppointmentTotal({ pet: {
+        defaultGroomingPrice: p.defaultGroomingPrice ?? null,
+        defaultGroomingTransportPrice: p.defaultGroomingTransportPrice ?? null,
+      }, transportMode: 'round_trip' });
+      if (quote.quotedTotalPrice != null && !validMoney(quote.quotedTotalPrice)) {
+        return res.status(400).json({ error: `Mascota ${i + 1}: el total de peluquería y domicilio supera el importe permitido.` });
       }
     }
 
@@ -487,6 +549,7 @@ router.post("/clients/with-pets", async (req, res) => {
           tenantId: tenantId ?? null,
           name: cleanName || null,
           address: address?.trim() || null,
+          neighborhood: neighborhood?.trim() || null,
           notes: notes?.trim() || null,
           email: email?.trim() || null,
         },
@@ -504,6 +567,8 @@ router.post("/clients/with-pets", async (req, res) => {
               weight: p.weight != null ? Number(p.weight) : null,
               notes: p.notes?.trim() || null,
               operationalAlerts: typeof p.operationalAlerts === "string" ? p.operationalAlerts.trim().slice(0, 2000) : null,
+              defaultGroomingPrice: p.defaultGroomingPrice ?? null,
+              defaultGroomingTransportPrice: p.defaultGroomingTransportPrice ?? null,
               tenantId: tenantId ?? null,
               ownerId: owner.id,
             },
@@ -573,10 +638,11 @@ router.patch("/clients/:id", async (req, res) => {
     });
     if (!existing) return res.status(404).json({ error: ERRORS.NOT_FOUND("Cliente") });
 
-    const { name, phone, phoneAlt, email, address, notes } = req.body ?? {};
+    const { name, phone, phoneAlt, email, address, neighborhood, notes } = req.body ?? {};
+    if (!validNeighborhood(neighborhood)) return res.status(400).json({ error: 'El barrio debe ser un texto de hasta 200 caracteres.' });
     if (req.access && !req.access.capabilities.administration && notes) return res.status(403).json({ error: "Tu perfil puede editar los datos de contacto." });
-    const updated = await updateClient(id, { name, phone, phoneAlt, email, address, notes });
-    res.json(req.access && !req.access.capabilities.administration ? operationalClient(updated) : { id: updated.id, name: updated.name, phone: updated.phone, phoneAlt: updated.phoneAlt ?? null, email: updated.email, address: updated.address, notes: updated.notes });
+    const updated = await updateClient(id, { name, phone, phoneAlt, email, address, neighborhood, notes });
+    res.json(req.access && !req.access.capabilities.administration ? operationalClient(updated) : { id: updated.id, name: updated.name, phone: updated.phone, phoneAlt: updated.phoneAlt ?? null, email: updated.email, address: updated.address, neighborhood: updated.neighborhood ?? null, notes: updated.notes });
   } catch (error) {
     console.error("[Dashboard] Update client error:", error);
     if (error.code === "P2025") {

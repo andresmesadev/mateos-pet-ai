@@ -1,8 +1,9 @@
 /**
  * Puerto sobre Transaction (Fase 1, extendida — ADR 005). Finanzas solo
- * escribe filas con origin = "system_appointment_completed"; el flujo de
- * venta de mostrador ("manual_pos_sale") sigue siendo escrito por
- * transactions.routes.js, fuera de este contexto.
+ * crea obligaciones de cita con paidAt nulo (ADR 024) e ingresos de POS.
+ * Liquidar conserva fila y monto; listByDateRange devuelve dinero recibido.
+ * El adaptador ofrece lockByAppointment(tenantId, id, ctx) para confirmar
+ * el pago una sola vez dentro de la transacción y gate del día.
  */
 class TransactionRepositoryPort {
   async createSystemCharge(_data) {

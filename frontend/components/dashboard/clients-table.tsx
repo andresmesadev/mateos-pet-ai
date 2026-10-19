@@ -4,7 +4,7 @@ import { useToast } from "@/components/ui/toast";
 import { useActionConfirmation } from "@/components/dashboard/action-confirmation";
 
 import { useEffect, useState } from "react";
-import { Eye, Pencil, Plus, Search, Trash2, Users, X } from "lucide-react";
+import { Eye, PawPrint, Pencil, Plus, Search, Trash2, Users, X } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useTenant, tenantQuery } from "@/lib/use-tenant";
 
@@ -35,8 +35,21 @@ import { proxyUrl } from "@/lib/api";
 import {
   type DashboardClient,
   formatPhone,
-  formatRelativeTime,
 } from "@/lib/clients";
+
+function ClientPets({ client }: { client: DashboardClient }) {
+  if (!client.pets?.length) return <p className="text-sm text-muted-foreground">Sin mascotas registradas</p>;
+  return (
+    <ul aria-label={`Mascotas de ${client.name ?? client.phone}`} className="flex min-w-0 flex-wrap gap-2">
+      {client.pets.map(pet => (
+        <li key={pet.id} className="inline-flex max-w-full items-start gap-1.5 rounded-lg border border-primary/15 bg-primary/5 px-2.5 py-1.5 text-sm">
+          <PawPrint aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+          <span className="min-w-0 break-words whitespace-normal">{pet.name}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 function TableSkeleton() {
   return (
@@ -218,16 +231,25 @@ export function ClientsTable() {
             />
           ) : (
             <>
-            <div className="space-y-3 md:hidden">{clients.map((client) => <article key={client.id} className="rounded-xl border p-4"><h3 className="font-semibold">{client.name || "Cliente sin nombre"}</h3><p className="text-sm text-muted-foreground">{formatPhone(client.phone)}</p><p className="mt-2 text-sm">{client.petsCount} mascotas · {client.appointmentsCount} citas</p><p className="text-xs text-muted-foreground">Última actividad: {formatRelativeTime(client.lastActivityAt)}</p><div className="mt-3 flex flex-wrap gap-2"><Button variant="outline" onClick={() => handleOpenClient(client)}>Ver cliente</Button><Button variant="outline" onClick={() => handleOpenClient(client, true)}>Editar</Button>{access?.capabilities.administration && <Button variant="ghost" aria-label={`Eliminar cliente ${client.name ?? client.phone}`} disabled={deleting === client.id} onClick={(e) => handleDelete(e, client.id, client.name ?? client.phone)}><Trash2 className="h-4 w-4" /></Button>}</div></article>)}</div>
-            <div className="hidden overflow-x-auto md:block">
-              <Table>
+            <div className="space-y-3 lg:hidden">{clients.map((client) => (
+              <article key={client.id} className="min-w-0 rounded-xl border p-4">
+                <h3 className="break-words font-semibold">{client.name || "Cliente sin nombre"}</h3>
+                <p className="text-sm text-muted-foreground">{formatPhone(client.phone)}</p>
+                <div className="mt-3"><p className="mb-2 text-xs font-semibold text-muted-foreground">Mascotas</p><ClientPets client={client} /></div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button variant="outline" onClick={() => handleOpenClient(client)}>Ver cliente</Button>
+                  <Button variant="outline" onClick={() => handleOpenClient(client, true)}>Editar</Button>
+                  {access?.capabilities.administration && <Button variant="ghost" aria-label={`Eliminar cliente ${client.name ?? client.phone}`} disabled={deleting === client.id} onClick={(e) => handleDelete(e, client.id, client.name ?? client.phone)}><Trash2 className="h-4 w-4" /></Button>}
+                </div>
+              </article>
+            ))}</div>
+            <div className="hidden lg:block">
+              <Table className="table-fixed">
                 <TableHeader>
                   <TableRow className="bg-muted/30 hover:bg-muted/30 border-b border-black/[0.08]">
-                    <TableHead className="font-semibold text-foreground/70 uppercase text-[11px] tracking-wider">Cliente</TableHead>
-                    <TableHead className="font-semibold text-foreground/70 uppercase text-[11px] tracking-wider">Mascotas</TableHead>
-                    <TableHead className="font-semibold text-foreground/70 uppercase text-[11px] tracking-wider">Citas</TableHead>
-                    <TableHead className="font-semibold text-foreground/70 uppercase text-[11px] tracking-wider">Ultima actividad</TableHead>
-                    <TableHead />
+                    <TableHead className="w-[34%] font-semibold text-foreground/70 uppercase text-[11px] tracking-wider">Cliente</TableHead>
+                    <TableHead className="w-[42%] font-semibold text-foreground/70 uppercase text-[11px] tracking-wider">Mascotas</TableHead>
+                    <TableHead className="text-right font-semibold text-foreground/70 uppercase text-[11px] tracking-wider">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -237,13 +259,13 @@ export function ClientsTable() {
                       className="cursor-pointer transition-colors hover:bg-primary/[0.06] border-b border-black/[0.05]"
                       onClick={() => handleOpenClient(client)}
                     >
-                      <TableCell>
+                      <TableCell className="whitespace-normal">
                         <div className="flex items-center gap-3">
                           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-sm font-semibold text-violet-700">
                             {(client.name?.trim()?.[0] ?? "#").toUpperCase()}
                           </div>
                           <div className="min-w-0">
-                            <div className="font-medium">
+                            <div className="break-words font-medium">
                               {client.name ?? formatPhone(client.phone)}
                             </div>
                             {client.name ? (
@@ -254,18 +276,12 @@ export function ClientsTable() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{client.petsCount}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{client.appointmentsCount}</Badge>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {formatRelativeTime(client.lastActivityAt)}
+                      <TableCell className="whitespace-normal py-3">
+                        <ClientPets client={client} />
                       </TableCell>
                       <TableCell className="text-right">
                         <div
-                          className="flex items-center justify-end gap-1"
+                          className="flex flex-wrap items-center justify-end gap-1"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <button

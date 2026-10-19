@@ -32,7 +32,7 @@ export type ServiceRow = {
   id: string;
   name: string;
   category: string;
-  duration: number;
+  duration: number | null;
   basePrice: number | null;
   requiresAppointment: boolean;
   active: boolean;

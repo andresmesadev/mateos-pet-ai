@@ -93,7 +93,7 @@ function PaymentEditor({ transaction, onClose, onSaved, onReturnFocus, initialAt
   }
 
   return <FormDialogContent showClose={!saving} onCloseAutoFocus={event => { event.preventDefault(); onReturnFocus(); }} className="border-border bg-white">
-    <FormDialogHeader><DialogTitle>Revisar el pago del servicio</DialogTitle><DialogDescription>Confirma el método de pago. El importe guardado se conserva y esta acción no crea otro cobro.</DialogDescription></FormDialogHeader>
+    <FormDialogHeader><DialogTitle>{transaction.paymentStatus === 'pending' ? 'Registrar pago de la atención' : 'Revisar el pago del servicio'}</DialogTitle><DialogDescription>{transaction.paymentStatus === 'pending' ? 'Confirma el dinero recibido. El pago se registrará en Caja con la fecha actual y el importe de esta atención.' : 'Confirma el método de pago. El importe y la fecha anteriores se conservan; esta acción no crea otro cobro.'}</DialogDescription></FormDialogHeader>
     <form onSubmit={save} noValidate className="flex min-h-0 flex-1 flex-col">
       <FormDialogBody>
         <div className="min-w-0 rounded-xl bg-muted p-4"><p className="break-words font-semibold">{transaction.petName || transaction.clientName || "Servicio"}</p><p className="mt-1 break-words text-sm text-muted-foreground">{transaction.items.map(item => item.description).join(", ")}</p><p className="mt-3 break-words text-2xl font-bold tabular-nums">{formatPosMoney(transaction.total)}</p></div>
@@ -119,7 +119,7 @@ function PaymentEditor({ transaction, onClose, onSaved, onReturnFocus, initialAt
         <FormSubmissionError message={feedback.submitError} />
         {attempt && <p role="status" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-950">El resultado está por comprobar. Conservamos el método y la nota; consulta el cobro antes de volver a enviarlos.</p>}
       </FormDialogBody>
-      <FormDialogFooter><Button type="button" variant="outline" disabled={saving} onClick={() => close(onClose)}>Cerrar</Button>{attempt ? <Button type="button" disabled={saving} onClick={() => void checkResult()}>{saving ? "Comprobando…" : "Comprobar resultado"}</Button> : <Button type="submit" disabled={saving}>{saving ? "Guardando…" : "Confirmar método de pago"}</Button>}</FormDialogFooter>
+      <FormDialogFooter><Button type="button" variant="outline" disabled={saving} onClick={() => close(onClose)}>Cerrar</Button>{attempt ? <Button type="button" disabled={saving} onClick={() => void checkResult()}>{saving ? "Comprobando…" : "Comprobar resultado"}</Button> : <Button type="submit" disabled={saving}>{saving ? "Guardando…" : transaction.paymentStatus === 'pending' ? "Confirmar pago recibido" : "Confirmar método de pago"}</Button>}</FormDialogFooter>
     </form>
   </FormDialogContent>;
 }

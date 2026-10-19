@@ -11,7 +11,8 @@ const bookingDetails = ({ petName, serviceType, dateKey, hour, pickup = false, a
     `🩺 Servicio: ${label}`,
     `📅 Fecha: ${date}`, `🕐 Hora: ${time}`];
   if (pickup && address) {
-    lines.push("", "🚐 Recogida a domicilio", `📍 Dirección de recogida: ${address}`);
+    lines.push("", "🚐 Recogida y entrega solicitadas", `📍 Dirección de recogida: ${address}`,
+      "Nuestro equipo confirmará el valor y las condiciones del traslado. La hora de la cita no es la hora de recogida.");
   } else {
     lines.push("", "📍 Atención en el establecimiento.");
   }

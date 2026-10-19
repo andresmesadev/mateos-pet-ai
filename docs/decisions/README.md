@@ -24,5 +24,8 @@ Se conservan los identificadores y archivos originales. Existen **dos ADR con n�
 | [017-reportes-comparacion-equivalente.md](017-reportes-comparacion-equivalente.md) | ADR 017 — Comparación y salida de Reportes |
 | [018-equipo-ausencias-capacidades-franjas.md](018-equipo-ausencias-capacidades-franjas.md) | ADR 018 — Corrección de ausencias, capacidades y jornadas partidas |
 | [022-empleados-operativos-canal-whatsapp.md](022-empleados-operativos-canal-whatsapp.md) | ADR 022 — Acceso de operadores a empleados operativos por WhatsApp (aceptado con Etapa 3; todavía no implementado) |
+| [023-precio-peluqueria-transporte.md](023-precio-peluqueria-transporte.md) | ADR 023 — Peluquería, transporte y precios pendientes; acuerdo individual, comisión y cobro único |
+| [024-cita-pendiente-hasta-confirmacion-de-pago.md](024-cita-pendiente-hasta-confirmacion-de-pago.md) | ADR 024 — Cita finalizada pendiente de pago, ingreso confirmado por Caja y cierre diario |
+| [025-carrito-unico-de-cita-y-comision-final.md](025-carrito-unico-de-cita-y-comision-final.md) | ADR 025 — Carrito único, valor final editable y corrección inmutable de comisión |
 
 Una fecha o estado en un ADR describe su aprobación. Para comprobar implementación/publicación posterior, consultar el [estado actual](../ESTADO_ACTUAL.md), los informes enlazados y las decisiones posteriores del mismo contexto.

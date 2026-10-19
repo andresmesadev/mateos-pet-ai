@@ -15,6 +15,7 @@ export const PAYMENT_METHOD_ICONS: Record<PaymentMethod, string> = {
 };
 
 export type TransactionItem = {
+  appointmentComponent?: 'service' | 'transport' | null;
   productId?: string | null;
   productCode?: string | null;
   presentation?: string | null;
@@ -47,7 +48,8 @@ export type Transaction = {
   paymentMethod: PaymentMethod;
   recordedBy?: { id: string; name: string | null; role: string | null } | null;
   notes: string | null;
-  paidAt: string;
+  paidAt: string | null;
+  paymentStatus?: "pending" | "paid";
   createdAt: string;
   items: TransactionItem[];
 };
@@ -61,7 +63,8 @@ export function formatCOP(amount: number): string {
   }).format(amount);
 }
 
-export function formatTransactionDate(iso: string): string {
+export function formatTransactionDate(iso: string | null): string {
+  if (!iso) return "Pendiente de pago";
   return new Date(iso).toLocaleString("es-CO", {
     timeZone: "America/Bogota",
     day: "2-digit",

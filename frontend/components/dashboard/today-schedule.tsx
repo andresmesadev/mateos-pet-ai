@@ -13,6 +13,7 @@ import { DailyCloseSheet } from "@/components/dashboard/daily-close-sheet";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AppointmentDetailDialog } from "@/components/dashboard/appointment-detail-dialog";
+import { AppointmentQuickActions } from "./appointment-quick-actions";
 import {
   type TodayAppointment,
   appointmentNeedsReview,
@@ -211,7 +212,7 @@ export function TodaySchedule({ appointments: initial, initialReview = false, co
           ) : (
             <ul className="divide-y" aria-label="Citas de la agenda">
               {(compact ? visibleAppointments.slice(0, 8) : visibleAppointments).map((appt) => (
-                <li key={appt.id} className="flex items-stretch rounded-xl transition-colors hover:bg-slate-50 focus-within:bg-slate-50">
+                <li key={appt.id} className="flex flex-wrap items-center gap-x-2 rounded-xl transition-colors hover:bg-slate-50 focus-within:bg-slate-50">
                   <button type="button" onClick={() => { setStartInPriceEdit(false); setSelected(appt); }} aria-label={`Abrir cita de ${appt.petName}, ${formatColombiaTime(appt.date)}`} className="grid min-w-0 flex-1 grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-3 rounded-xl px-2 py-3 text-left focus-visible:outline-2 focus-visible:outline-teal-700 sm:px-3">
                     <span className="whitespace-nowrap text-sm font-bold tabular-nums text-slate-950">{formatColombiaTime(appt.date)}</span>
                     <span className="min-w-0">
@@ -225,11 +226,12 @@ export function TodaySchedule({ appointments: initial, initialReview = false, co
                         <span>{appt.serviceName ?? formatService(appt.serviceType)}</span>
                         <span aria-hidden="true">·</span>
                         <span className={!appt.staffName && !["cancelled", "no_show"].includes(appt.status) ? "font-medium text-amber-700" : ""}>{appt.staffName ?? "Sin asignar"}</span>
-                        {prices && <><span aria-hidden="true">·</span><span className={appt.finalPrice === null ? "font-medium text-amber-700" : "font-medium text-slate-800"}>{appt.finalPrice === null ? "Sin precio" : COP.format(appt.finalPrice)}</span></>}
+                        {prices && <><span aria-hidden="true">·</span>{appt.payment?.status === 'paid' && appt.payment.total != null ? <span className="font-semibold">Cobrado: {COP.format(appt.payment.total)}</span> : <><span className="font-medium text-slate-800">Servicio: {(appt.priceResolution?.servicePrice ?? appt.finalPrice) == null ? "Por confirmar" : COP.format((appt.priceResolution?.servicePrice ?? appt.finalPrice)!)}</span><span>Domicilio: {appt.transport?.pending ? "Por confirmar" : COP.format(appt.transport?.price ?? 0)}</span><span className="font-semibold">{appt.payment?.status === 'pending' ? 'Referencia' : 'Total'}: {appt.finalPrice == null ? "Por confirmar" : COP.format(appt.finalPrice)}</span></>}</>}
                         {prices && appt.finalPrice !== null && appt.priceResolution?.source && appt.priceResolution.source !== "manual_override" && <span className="text-slate-500">{PRICE_SOURCE_LABEL[appt.priceResolution.source]}</span>}
                       </span>
                     </span>
                   </button>
+                  <div className="px-2 pb-2 sm:py-2"><AppointmentQuickActions appointment={appt} onUpdated={updated => { setAppointments(current => current.map(value => value.id === updated.id ? updated : value)); if (compact) router.refresh(); }} /></div>
                   {access?.capabilities.appointmentPrice && appt.finalPrice === null && !["completed", "cancelled", "no_show"].includes(appt.status) && <button type="button" onClick={() => { setStartInPriceEdit(true); setSelected(appt); }} className="my-auto mr-2 shrink-0 rounded-lg px-2 py-2 text-xs font-semibold text-amber-800 underline underline-offset-2 hover:bg-amber-50 focus-visible:outline-2 focus-visible:outline-amber-700 sm:mr-3">Definir precio</button>}
                 </li>
               ))}

@@ -90,10 +90,13 @@ const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
   logger.info("Servidor iniciado", { port: PORT, env: process.env.NODE_ENV || "development" });
-  startReminderJob();
+  const { isWhatsAppEnabled } = require("./lib/whatsapp-runtime");
+  if (isWhatsAppEnabled()) startReminderJob();
   startEventDeliveryRetryJob();
   startOperationalAssistantEventsJob();
-  startInboundMessageJob();
-  startAbandonedConversationJob();
+  if (isWhatsAppEnabled()) {
+    startInboundMessageJob();
+    startAbandonedConversationJob();
+  }
   startAppointmentNoShowJob();
 });

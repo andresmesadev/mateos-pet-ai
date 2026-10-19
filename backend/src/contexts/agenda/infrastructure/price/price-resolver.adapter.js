@@ -1,4 +1,4 @@
-const { resolveAppointmentPrice } = require("../../../../services/domain/price-resolver.service");
+const { resolveAppointmentTotal } = require("../../../../services/domain/price-resolver.service");
 const { PriceResolutionPort } = require("../../application/ports/price-resolution.port");
 
 /**
@@ -7,7 +7,7 @@ const { PriceResolutionPort } = require("../../application/ports/price-resolutio
  */
 class PriceResolverAdapter extends PriceResolutionPort {
   resolve(appointment) {
-    return resolveAppointmentPrice(appointment);
+    return resolveAppointmentTotal(appointment);
   }
 }
 

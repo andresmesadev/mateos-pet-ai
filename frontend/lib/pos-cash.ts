@@ -14,7 +14,8 @@ export function isCashData(value: unknown): value is CashData {
     !!summary && integer(summary.reviewCount) && integer(summary.reviewCents) &&
     ["cash", "transfer", "card", "other"].every(method => { const group = summary.methods?.[method as PaymentMethod]; return !!group && integer(group.count) && integer(group.cents); }) &&
     summary.reviewCount + Object.values(summary.methods).reduce((sum, group) => sum + group.count, 0) === cash.total &&
-    summary.reviewCents + Object.values(summary.methods).reduce((sum, group) => sum + group.cents, 0) === Math.round(cash.totalRegistered * 100);
+    (summary.pendingCents === undefined || (integer(summary.pendingCents) && summary.pendingCents <= summary.reviewCents)) &&
+    summary.reviewCents + Object.values(summary.methods).reduce((sum, group) => sum + group.cents, 0) === Math.round(cash.totalRegistered * 100) + (summary.pendingCents ?? 0);
 }
 
 export type CashFilter = "all" | "review" | "registered";
@@ -25,16 +26,17 @@ export function summarizeCash(rows: Transaction[], reviewIds: Set<string>) {
     cash: { count: 0, cents: 0 }, transfer: { count: 0, cents: 0 },
     card: { count: 0, cents: 0 }, other: { count: 0, cents: 0 },
   };
-  let reviewCents = 0, reviewCount = 0;
+  let reviewCents = 0, reviewCount = 0, pendingCents = 0;
   for (const row of rows) {
     const cents = Math.round(row.total * 100);
+    if (row.paymentStatus === 'pending') pendingCents += cents;
     if (reviewIds.has(row.id)) { reviewCents += cents; reviewCount++; }
     else {
       const method = methods[row.paymentMethod] ?? methods.other;
       method.count++; method.cents += cents;
     }
   }
-  return { methods, reviewCents, reviewCount };
+  return { methods, reviewCents, reviewCount, pendingCents };
 }
 
 export function filterCash(rows: Transaction[], reviewIds: Set<string>, query: string, filter: CashFilter, method: CashMethod) {

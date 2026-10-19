@@ -10,7 +10,7 @@ import { formatPosMoney, type CheckoutLine } from "@/lib/pos-checkout";
 
 type Service = { id: string; name: string; category: string; price: number | null; priceSource: string };
 const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-export function ServiceCatalog({ petId, petName = "", onAdd, focusRequest = 0 }: { petId: string; petName?: string; onAdd: (line: CheckoutLine) => boolean | void; focusRequest?: number }) {
+export function ServiceCatalog({ petId, petName = "", onAdd, focusRequest = 0, expanded = false, additional = false }: { petId: string; petName?: string; onAdd: (line: CheckoutLine) => boolean | void; focusRequest?: number; expanded?: boolean; additional?: boolean }) {
   const tenant = useTenant();
   const [query, setQuery] = useState("");
   const [browsing, setBrowsing] = useState(false);
@@ -26,19 +26,20 @@ export function ServiceCatalog({ petId, petName = "", onAdd, focusRequest = 0 }:
     const params = new URLSearchParams();
     if (tenant) params.set("tenantId", tenant);
     if (petId) params.set("petId", petId);
+    if (additional) params.set('additional', '1');
     void fetch(proxyUrl(`/api/dashboard/cash/catalog?${params}`), { cache: "no-store", signal: controller.signal })
       .then(async response => { if (!response.ok) throw new Error("No se pudo cargar el catálogo."); return response.json(); })
       .then((rows: Service[]) => { if (!controller.signal.aborted) setServices(rows); })
       .catch(() => { if (!controller.signal.aborted) setError("No se pudo cargar el catálogo. Puedes ingresar un servicio manual."); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [tenant, petId, retry]);
+  }, [tenant, petId, retry, additional]);
   const filtered = services.filter(service => normalize(service.name).includes(normalize(query.trim())));
-  const resultsVisible = browsing || !!query.trim();
+  const resultsVisible = expanded || browsing || !!query.trim();
   return <section className="space-y-3">
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
       <label className="relative block min-w-0 flex-1"><span className="sr-only">Buscar servicio del catálogo</span><Search className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" /><Input ref={input} id="pos-service-search" value={query} onChange={event => { setQuery(event.target.value); setBrowsing(false); }} placeholder="Buscar servicio…" className="h-12 bg-white pl-9" /></label>
-      <Button type="button" variant="outline" className="h-12 shrink-0" aria-expanded={resultsVisible} aria-controls={resultsId} onClick={() => { setQuery(""); setBrowsing(!resultsVisible); }}>{resultsVisible ? "Ocultar servicios" : "Ver servicios"}</Button>
+      {!expanded && <Button type="button" variant="outline" className="h-12 shrink-0" aria-expanded={resultsVisible} aria-controls={resultsId} onClick={() => { setQuery(""); setBrowsing(!resultsVisible); }}>{resultsVisible ? "Ocultar servicios" : "Ver servicios"}</Button>}
     </div>
     {resultsVisible && <div id={resultsId}>{loading ? <p role="status" className="mt-3 flex gap-2 text-sm"><Loader2 className="h-4 w-4 animate-spin" />Cargando servicios…</p> : error ? <div role="alert" className="mt-3 text-sm"><p>{error}</p><Button type="button" variant="outline" className="mt-2" onClick={() => { setLoading(true); setError(""); setRetry(value => value + 1); }}>Reintentar</Button></div> : <div className="mt-3 max-h-64 space-y-2 overflow-y-auto">
       {!filtered.length && <p className="py-2 text-sm text-muted-foreground">No hay servicios disponibles con esta búsqueda.</p>}

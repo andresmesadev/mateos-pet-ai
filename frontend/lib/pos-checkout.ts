@@ -7,11 +7,13 @@ export type CheckoutLine = {
   productId?: string;
   priceVersion?: number;
   presentation?: string;
+  appointmentComponent?: "service" | "transport";
   // Display-only quote from the existing resolver; never sent as a pricing command.
   serviceQuote?: { source: "catalog" | "pet"; petId: string; petName: string; unitPrice: string; description: string };
 };
 
 export function checkoutPriceLabel(line: CheckoutLine): string {
+  if (line.appointmentComponent) return line.appointmentComponent === "transport" ? "Domicilio de esta atención" : "Valor de peluquería o servicio de esta atención";
   if (line.productId) return "Precio del catálogo";
   const quote = line.serviceQuote;
   if (!quote) return "Precio ingresado";
@@ -87,7 +89,8 @@ export function validateCheckout(lines: CheckoutLine[], capabilities: { services
     if (line.productId && (!Number.isInteger(line.priceVersion) || line.priceVersion! < 1 || line.itemKind !== "product")) return prefix + "vuelve a seleccionar el producto del inventario.";
     if (!/^\d+$/.test(line.quantity) || !Number.isSafeInteger(Number(line.quantity)) || Number(line.quantity) < 1 || Number(line.quantity) > MAX_POS_QUANTITY) return prefix + "la cantidad debe ser un número entero mayor que cero, hasta 2.147.483.647 unidades.";
     const cents = moneyInCents(line.unitPrice);
-    if (cents === null || cents <= 0) return prefix + "ingresa un precio mayor que cero, sin separadores de miles y con máximo dos decimales.";
+    if (cents === null || (!line.appointmentComponent && cents <= 0)) return prefix + "ingresa un precio válido, sin separadores de miles y con máximo dos decimales.";
+    if (line.appointmentComponent && (line.productId || line.itemKind !== "service" || line.quantity !== "1")) return prefix + "el servicio y domicilio de la cita tienen una unidad.";
     if (line.itemKind === "service" ? !capabilities.services : line.itemKind === "product" ? !capabilities.retail : true) return prefix + "ese tipo de venta no está habilitado.";
     total += cents * Number(line.quantity);
     if (!Number.isSafeInteger(total) || total > MAX_CENTS) return "El total supera el límite de 99.999.999,99 COP.";

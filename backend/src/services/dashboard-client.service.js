@@ -42,6 +42,7 @@ const mapClientSummary = (user) => {
     phone: user.phone,
     name: user.name ?? extractNameFromSession(latestConversation?.sessionData),
     petsCount: user._count.pets,
+    pets: user.pets ?? [],
     appointmentsCount: user._count.appointments,
     lastConversation: latestConversation
       ? {
@@ -82,6 +83,11 @@ const listClients = async (tenantId, { page = 1, limit = PAGE_SIZE, search = "" 
       take,
       orderBy: [{ name: "asc" }, { createdAt: "asc" }],
       include: {
+        pets: {
+          where: tenantFilter,
+          select: { id: true, name: true, type: true },
+          orderBy: [{ name: "asc" }, { id: "asc" }],
+        },
         _count: { select: { pets: true, appointments: true } },
         conversations: {
           orderBy: { updatedAt: "desc" },
@@ -164,6 +170,7 @@ const getClientById = async (clientId, tenantId) => {
     name: user.name ?? extractNameFromSession(latestConversation?.sessionData),
     email: user.email ?? null,
     address: user.address ?? null,
+    neighborhood: user.neighborhood ?? null,
     notes: user.notes ?? null,
     createdAt: user.createdAt,
     pets: user.pets,
@@ -177,7 +184,8 @@ const getClientById = async (clientId, tenantId) => {
 const { listInactiveClientsPage } = require('./dashboard-inactive-clients.service');
 const listInactiveClients = async tenantId => (await listInactiveClientsPage(tenantId, { limit: 500 })).data;
 
-const updateClient = async (id, { name, phone, phoneAlt, email, address, notes }) => {
+const updateClient = async (id, { name, phone, phoneAlt, email, address, neighborhood, notes }) => {
+  const cleanNeighborhood = typeof neighborhood === 'string' ? neighborhood.trim() || null : null;
   return prisma.user.update({
     where: { id },
     data: {
@@ -186,6 +194,7 @@ const updateClient = async (id, { name, phone, phoneAlt, email, address, notes }
       phoneAlt: phoneAlt ?? undefined,
       email: email ?? undefined,
       address: address ?? undefined,
+      neighborhood: neighborhood === undefined ? undefined : cleanNeighborhood,
       notes: notes ?? undefined,
     },
   });

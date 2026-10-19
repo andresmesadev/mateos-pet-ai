@@ -9,7 +9,7 @@ export const HISTORY_ORIGIN_LABELS = { manual_pos_sale: "Venta manual", system_a
 export type HistoryQuickPeriod = "today" | "yesterday" | "week" | "month";
 
 export function transactionNeedsReview(row: Transaction) {
-  return row.origin === "system_appointment_completed" && !row.recordedBy?.id;
+  return row.paymentStatus === "pending" || (row.origin === "system_appointment_completed" && !row.recordedBy?.id);
 }
 
 export function historyQuickRange(today: string, period: HistoryQuickPeriod) {
@@ -54,7 +54,7 @@ export function isHistoryTransaction(value: unknown): value is Transaction {
   if (!value || typeof value !== "object") return false;
   const row = value as Transaction;
   return typeof row.id === "string" && !!row.id && Number.isFinite(row.total) && row.total >= 0 &&
-    typeof row.paidAt === "string" && Number.isFinite(Date.parse(row.paidAt)) && [undefined, "active", "voided"].includes(row.status) &&
+    ((row.paidAt === null && row.paymentStatus === "pending" && row.origin === "system_appointment_completed") || (typeof row.paidAt === "string" && Number.isFinite(Date.parse(row.paidAt)) && row.paymentStatus !== "pending")) && [undefined, "active", "voided"].includes(row.status) &&
     [undefined, "manual_pos_sale", "system_appointment_completed", "legacy"].includes(row.origin) &&
     ["cash", "transfer", "card", "other"].includes(row.paymentMethod) &&
     [row.clientName, row.clientPhone, row.petName, row.notes, row.voidReason].every(field => field == null || typeof field === "string") &&

@@ -72,7 +72,7 @@ const getServiceDescriptionLabel = (serviceType) => {
 
 const getDurationMinutes = (serviceType) => {
   const key = String(serviceType || "").trim().toLowerCase();
-  return key === "grooming" ? 60 : 30;
+  return key === "grooming" || key === "bath_grooming" ? require("../lib/reservation-slot").reservationSlotMinutes("grooming") : 30;
 };
 
 const resolveAppointmentInstant = (appointment) => {

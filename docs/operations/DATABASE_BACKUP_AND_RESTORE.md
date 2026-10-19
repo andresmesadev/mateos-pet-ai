@@ -75,6 +75,12 @@ contenedor temporal y sus volúmenes anónimos al terminar, también ante fallos
 El contenedor no tiene red ni puertos publicados. Para una recuperación real se debe ensayar
 primero de esta manera y luego aprobar explícitamente el destino definitivo.
 
+## Comprobaciones de esquema opcionales
+
+El ensayo admite `MATEOS_RESTORE_EXPECT_MIGRATIONS` (entero positivo) para exigir el historial completo aplicado, y `MATEOS_RESTORE_REQUIRED_TABLES` (nombres separados por comas, solo letras/dígitos/guion bajo, sin SQL) para exigir tablas y cero FKs/checks sin validar. Si falta un requisito el ensayo falla y limpia su contenedor temporal. Los valores se toman de la publicación que se pretende recuperar, no de una cifra histórica.
+
+La [comprobación del 16 de octubre](OWN_CLINIC_BETA_APPLICATION_20261016.md#recuperación-actual-comprobada) exigió 52 migraciones y las 21 tablas nuevas de empleados/canal privado. No conectó la copia restaurada a workers, WhatsApp o servicios de la aplicación.
+
 ## Criterios de alerta
 
 - no aparece un nuevo directorio después de dos ventanas diarias;

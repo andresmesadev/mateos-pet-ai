@@ -114,9 +114,11 @@ Gestionar la identidad y la relación del negocio con los propietarios de mascot
 
 **Entidades principales**
 
-- **Cliente** — El propietario de una o más mascotas. Tiene identidad (nombre, teléfono principal, teléfono alternativo, email), dirección, canal de contacto preferido, y un historial de relación con el negocio.
+- **Cliente** — El propietario de una o más mascotas. Tiene identidad (nombre, teléfono principal, teléfono alternativo, email), dirección, barrio opcional capturado por separado, canal de contacto preferido, y un historial de relación con el negocio. El barrio del contacto puede proponerse al configurar un traslado nuevo, sin reescribir el snapshot de citas ya configuradas ni extraerlo automáticamente de direcciones importadas (petición del responsable, 2026-10-17; `client-neighborhood-form-20261017.md`).
 - **Relación con el Negocio** — El vínculo entre el cliente y el establecimiento: fecha de primera visita, frecuencia histórica de visitas, estado de la relación (activo, en riesgo, inactivo, recuperado).
 - **Nota del Cliente** — Observaciones internas del equipo sobre el cliente que no pertenecen al expediente de ninguna mascota en particular.
+
+  Precisión operativa del 2026-10-19, solicitada por el responsable: el propietario puede conservar varios teléfonos adicionales, separados de su teléfono principal de identidad; las fichas muestran cada número individualmente. El correo de contacto se retira de la interfaz operativa, sin eliminar datos históricos ni correos de autenticación del personal/administrador. Los identificadores, tarifas y fechas del archivo de importación no son notas del propietario: las visitas pertenecen al historial de la mascota y las notas visibles conservan observaciones útiles. [Diseño y reparación](owner-contact-import-cleanup-20261019.md).
 
 **Responsabilidades**
 - Mantener la identidad única de cada propietario
@@ -155,6 +157,7 @@ Gestionar la identidad y el perfil de cada animal que recibe servicios en el est
 - **Mascota** — El animal. Tiene identidad (nombre, especie, raza, color, fecha de nacimiento, sexo, si está esterilizado), su propietario, y su estado actual en el sistema.
 - **Perfil Operativo de la Mascota** — La información que el equipo necesita para prestar el servicio: precio acordado, observaciones de comportamiento, alertas importantes (agresivo, ansioso, condición especial), foto de referencia.
 - **Perfil de Grooming** — Específico para peluquerías: tipo de corte preferido, largo acordado, productos que usa, reacciones a tratamientos previos, observaciones del peluquero. Se activa solo si el negocio presta servicios de grooming.
+- **Acuerdo de peluquería y transporte** — El valor del servicio y el recargo de domicilio con recogida y entrega se editan por separado en la ficha de la mascota (simplificación solicitada el 2026-10-17). Se conservan los totales individuales históricos para compatibilidad, sin inventar un desglose desconocido. El transporte queda fuera de la base de comisión; el acuerdo particular prevalece sobre la referencia de zona. Confirmación del responsable, 2026-10-16; ADR 023 y `grooming-transport-simplification.md`.
 
 **Responsabilidades**
 - Mantener la identidad única de cada animal
@@ -187,7 +190,10 @@ Gestionar el tiempo del establecimiento. La Agenda es el corazón de la operaci�
 **Entidades principales**
 
 - **Cita** — El evento central. Tiene una fecha y hora, una mascota, un cliente, un servicio, un miembro del staff asignado, un estado (agendada, confirmada, en curso, completada, cancelada, no asistió), un precio, y el tipo de atención (en clínica o domicilio).
+- **Dirección y barrio del traslado** — Petición del responsable, 2026-10-17: la cita de peluquería conserva dirección y barrio por separado para su recogida/entrega. Barrio es un dato logístico opcional, no se infiere desde la dirección ni cambia la tarifa. El editor muestra Valor del domicilio; guardar aplica el importe visible sin casilla adicional, conservando vacío pendiente y cero gratuito. Zonas y alcances anteriores permanecen como datos históricos, sin campos de edición en este formulario. Diseño: `grooming-transport-simple-address-20261017.md`.
+- **Asignación de peluquería** — Petición del responsable, 2026-10-17: cuando hay un único peluquero disponible y habilitado para el servicio se asigna automáticamente; con varios candidatos el equipo elige al iniciar o cerrar una atención sin responsable. Se conserva toda asignación explícita, la identidad propia del profesional y los controles de Tenant, capacidad, horario, ausencia y cruce. La asignación anterior al cierre forma parte de la misma transacción que comisión y cobro. Reservas del dashboard y citas anteriores al registrar llegada/inicio reutilizan esas reglas; las lecturas no modifican citas históricas. Diseño: `unique-groomer-assignment-20261017.md`.
 - **Notas de la atención de peluquería** — Información operativa de una visita: cuidados especiales, lo observado durante el baño, corte y productos utilizados. Se guarda en la cita y se consulta por mascota en visitas posteriores; no es un expediente clínico. La entrega de la mascota se registra después de completar el servicio, sin volver a completar la cita ni generar cobros o comisiones adicionales. Alcance de mantenimiento del dashboard autorizado el 2026-09-30.
+- **Requisito de transporte de peluquería, en definición (2026-10-16)** — La cita debe conservar si el cliente lleva la mascota al centro o solicita recogida/entrega, con referencia de tarifa según zona; el traslado habitual incluye ambos trayectos y admite excepciones de uno solo. Para varias mascotas, el equipo confirma el importe según el caso: no se multiplica o reparte automáticamente. El futuro recorrido de WhatsApp amplía su pregunta de recogida existente y confirma esa elección usando las mismas reglas del dashboard. Transporte al centro no equivale a prestar la peluquería en el domicilio. Tarifas, representación del alcance compartido, comisión e integración contable siguen por concretar; [definición funcional y límites, todavía sin implementación](grooming-transport-functional-definition.md).
 - **Disponibilidad** — La representación del tiempo disponible del establecimiento y del staff. Considera horarios de atención, excepciones fechadas de establecimiento (`AgendaException`: festivos, vacaciones, aperturas y cierres especiales), y la duración de los servicios.
 - **Bloqueo** — Un período de tiempo no disponible: descanso, cierre especial, ausencia de personal.
 - **Lista de Espera** — Clientes que quieren un servicio en un horario no disponible. Se activan automáticamente cuando surge disponibilidad.
@@ -270,6 +276,7 @@ Gestionar el equipo humano del establecimiento: quiénes son, qué hacen, cuánd
 **Entidades principales**
 
 - **Miembro del Staff** — Una persona que trabaja en el establecimiento. Tiene nombre, rol (veterinario, peluquero, recepcionista, administrador), horario de trabajo, y si genera comisiones.
+  - Ampliación de Administración del 2026-10-16: al registrar un integrante se eligen sus habilitaciones de acceso. La habilitación administrativa del establecimiento puede concederse explícitamente a un profesional sin cambiar su perfil, su compatibilidad de servicios ni su regla de comisión. Esta autoridad nunca concede superadministración ni acceso a otros establecimientos. Diseño: [Alta de integrantes con permisos](team-registration-permissions.md).
 - **Disponibilidad del Staff** — Cuándo está disponible para atender. Considera su horario base, ausencias programadas y ausencias imprevistas.
   - Ampliación de Administración aceptada el 2026-10-07 (ADR 018): una jornada puede tener varias franjas diarias. Una ausencia se puede anular con motivo y autor autenticado, conservando sus datos originales; corregirla anula el original y crea un reemplazo vinculado, en una operación atómica. Solo ausencias vigentes afectan la disponibilidad.
 - **Comisión** — El registro de lo que genera un miembro del staff por cada servicio prestado. Se calcula automáticamente según las reglas del negocio cuando una cita es completada.
@@ -313,9 +320,9 @@ Registrar y consolidar todo el movimiento económico del negocio. Es el contexto
 **Entidades principales**
 
 - **Transacción** — Cada movimiento de dinero: un cobro por servicio, un gasto operativo, un ingreso adicional. Tiene monto, categoría, método de pago, quién la registró y si está vinculada a una cita.
-- **Cobro** — La transacción específica del pago de un servicio. Vinculada a una cita completada. Tiene el monto total y el desglose de split si aplica.
+- **Cobro** — La especialización de Transacción vinculada a una cita completada. Al finalizar se conserva una obligación pendiente (`paidAt` nulo); Caja reconoce el ingreso al confirmar el dinero recibido, en esa misma fila y con la fecha real de pago. Servicio y domicilio se conservan separados y la comisión excluye transporte. No se crea una segunda entidad de Cobro. Autorización explícita del responsable, 2026-10-17; ADR 024. Los registros históricos con fecha de pago se conservan. Continuación autorizada del mismo día, ADR 025: un único carrito de la cita propone servicio y domicilio como valores editables y admite productos/servicios adicionales. Confirmar guarda el total final en la obligación existente, junto con inventario y corrección de comisión por anulación/reemplazo cuando cambia la peluquería principal. La tarifa habitual y el snapshot original de cita se conservan; el recibo identifica lo cobrado. Extras independientes y domicilio quedan fuera de esa comisión. Cierres y liquidaciones oficiales siguen bloqueando cambios de bases consolidadas.
 - **Gasto** — Un egreso del negocio. Tiene categoría (insumos, nómina, servicios, otro) y un responsable.
-- **Cierre del Día** — El resumen consolidado de un día: total de ingresos, total de egresos, desglose por categoría de servicio, desglose de comisiones por miembro del staff, neto del negocio.
+- **Cierre del Día** — El resumen consolidado de un día: total de ingresos recibidos por fecha de pago, egresos, desglose de comisiones por miembro del staff y neto del negocio. Una obligación pendiente no suma ingreso ni impide cerrar por sí misma; la integridad verifica que la cita completada tenga su obligación activa. Las comisiones conservan la fecha de prestación, sin modificarse al cobrar después (ADR 024).
 - **Período Financiero** — Agrupación de cierres del día para reportes semanales o mensuales.
 
 **Responsabilidades**
@@ -706,7 +713,13 @@ La exclusión de inventario en la reconciliación del 2026-10-01 describe el alc
 
 ## Versiones y Mantenimiento
 
-### Precisión operativa de peluquería — 2026-10-10
+### Recepción de peluquería cada 20 minutos — 2026-10-19
+
+**Precisión posterior de la jornada manual (mismo día):** el operador autenticado del dashboard puede elegir cualquier turno libre de hoy/futuro dentro del horario del área o, si falta configuración válida del área, del horario habitual. Las horas pasadas de hoy se registran como llegada ya ocurrida y no como una ausencia pendiente; no se admiten días anteriores. La secuencia de huecos y anticipación de 30 minutos se conservan para las reservas autónomas. La agenda manual mantiene ocupación, cierres/excepciones y disponibilidad del profesional. [ADR 027](../decisions/027-agenda-manual-sin-anticipacion-ni-secuencia.md).
+
+Por solicitud explícita del responsable del producto, la agenda de peluquería recibe reservas cada 20 minutos desde la apertura configurada. Es la cadencia de recepción del establecimiento y del peluquero, independiente de la duración completa del baño/corte y sin modificar la duración de catálogo. Se mantiene el orden consecutivo de huecos futuros, la anticipación de 30 minutos y las restricciones de horario, ausencias, cierres y Tenant. Veterinaria conserva sus reglas. [ADR 026](../decisions/026-recepcion-peluqueria-cada-20-minutos.md) y [diseño](grooming-twenty-minute-slots-20261019.md). Esta decisión posterior sustituye únicamente la capacidad temporal anterior de peluquería.
+
+### Precisión operativa de peluquería — 2026-10-10 (histórica)
 
 La secuencia se aplica a turnos que todavía pueden reservarse. Un hueco pasado o dentro del margen de anticipación de 30 minutos no obliga a ocuparlo para ofrecer los turnos restantes del día. Los huecos futuros conservan el orden consecutivo; la capacidad, duración, cierres y festivos no cambian. El responsable del producto aprobó esta precisión con la auditoría del asistente y el [ADR 019](../decisions/019-asistente-contexto-y-operaciones-seguras.md).
 

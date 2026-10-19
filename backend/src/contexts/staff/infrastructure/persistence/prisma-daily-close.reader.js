@@ -6,8 +6,8 @@ const { civilDateLabel } = require("../../../shared/business-day");
  * ¿existe un Cierre del Día oficial para el día civil (ADR 008) de este instante?
  */
 class PrismaDailyCloseReader {
-  async findByCivilDay(tenantId, at) {
-    return prisma.dailyClose.findFirst({
+  async findByCivilDay(tenantId, at, ctx) {
+    return (ctx?.tx ?? prisma).dailyClose.findFirst({
       where: { ...(tenantId ? { tenantId } : {}), date: civilDateLabel(at) },
     });
   }

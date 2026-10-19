@@ -1,4 +1,5 @@
 const { isCategoryEnabled } = require("../../domain/rules/service-category.rules");
+const { validateReservationDuration } = require("../../domain/rules/service-attributes.rules");
 const {
   ServiceNotFoundError,
   ServiceCategoryNotEnabledError,
@@ -23,15 +24,16 @@ function createUpdateServiceUseCase({
   businessConfigReader,
   eventPublisher,
 }) {
-  return async function execute({ tenantId, serviceId, name, categoryId, duration }) {
+  return async function execute({ tenantId, serviceId, name, categoryId, duration, requiresAppointment }) {
     const service = await serviceRepository.findById(serviceId);
     if (!service) {
       throw new ServiceNotFoundError(serviceId);
     }
 
-    if (duration != null && duration <= 0) {
-      throw new InvalidServiceAttributesError("La duración estándar debe ser mayor a cero.");
-    }
+    if (duration !== undefined || requiresAppointment !== undefined) validateReservationDuration(
+      duration === undefined ? service.duration : duration,
+      requiresAppointment === undefined ? service.requiresAppointment !== false : requiresAppointment,
+    );
 
     if (categoryId && categoryId !== service.categoryId) {
       const category = await serviceCategoryReader.findById(categoryId);
@@ -48,6 +50,7 @@ function createUpdateServiceUseCase({
       ...(name !== undefined ? { name } : {}),
       ...(categoryId !== undefined ? { categoryId } : {}),
       ...(duration !== undefined ? { duration } : {}),
+      ...(requiresAppointment !== undefined ? { requiresAppointment } : {}),
     });
 
     await eventPublisher.publish("ServicioActualizado", { service: updated });

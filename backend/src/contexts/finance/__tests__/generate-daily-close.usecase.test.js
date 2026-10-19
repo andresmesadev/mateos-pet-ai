@@ -33,6 +33,12 @@ function buildUseCase({ charges = [], expenses = [], commissions = [], dailyClos
 
 const DATE = "2026-07-01";
 
+test('a close with a completed appointment and its pending obligation records zero received income', async () => {
+  const { execute } = buildUseCase({ completedAppointments: [{ id: 'pending-appointment', hasSystemCharge: true }] });
+  const { dailyClose } = await execute({ tenantId: 't1', date: DATE });
+  expect(dailyClose.incomeTotal).toBe(0);
+});
+
 describe("GenerateDailyCloseUseCase", () => {
   test("consolida Transaction (ambos orígenes) + Expense + Commission y emite CierreDíaGenerado", async () => {
     const { execute, eventPublisher } = buildUseCase({

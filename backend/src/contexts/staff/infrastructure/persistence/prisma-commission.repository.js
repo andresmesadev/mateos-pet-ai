@@ -7,13 +7,18 @@ class PrismaCommissionRepository extends CommissionRepositoryPort {
     return client.commission.create({ data });
   }
 
-  async findById(commissionId) {
-    return prisma.commission.findUnique({ where: { id: commissionId } });
+  async findById(commissionId, ctx) {
+    return (ctx?.tx ?? prisma).commission.findUnique({ where: { id: commissionId } });
+  }
+
+  async lockByAppointment(tenantId, appointmentId, ctx) {
+    await ctx.tx.$queryRaw`SELECT id FROM "Commission" WHERE "tenantId" = ${tenantId} AND "appointmentId" = ${appointmentId} AND status = 'active' FOR UPDATE`;
+    return ctx.tx.commission.findFirst({ where: { tenantId, appointmentId, status: 'active' } });
   }
 
   // Solo comisiones activas cuentan para liquidaciones (Etapa 4 del Puente).
-  async listByStaffAndPeriod(staffId, periodStart, periodEnd) {
-    return prisma.commission.findMany({
+  async listByStaffAndPeriod(staffId, periodStart, periodEnd, ctx) {
+    return (ctx?.tx ?? prisma).commission.findMany({
       where: {
         staffId,
         status: "active",
@@ -23,15 +28,16 @@ class PrismaCommissionRepository extends CommissionRepositoryPort {
   }
 
   // ADR 009-D3: anulación + reemplazo, atómicos en una única transacción.
-  async voidAndReplace(commissionId, { voidedAt, voidReason, replacement }) {
-    return prisma.$transaction(async (tx) => {
+  async voidAndReplace(commissionId, { voidedAt, voidReason, replacement }, ctx) {
+    const execute = async (tx) => {
       const voided = await tx.commission.update({
         where: { id: commissionId },
         data: { status: "voided", voidedAt, voidReason },
       });
       const created = replacement ? await tx.commission.create({ data: replacement }) : null;
       return { voided, replacement: created };
-    });
+    };
+    return ctx?.tx ? execute(ctx.tx) : prisma.$transaction(execute);
   }
 }
 

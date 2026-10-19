@@ -107,7 +107,8 @@ const updatePet = async (id, { name, breed, gender, birthDate, weight, sterilize
       birthDate: birthDate ? new Date(birthDate) : undefined,
       weight: weight != null ? Number(weight) : undefined,
       sterilized: sterilized ?? undefined,
-      notes: notes ?? undefined,
+      // Explicit null clears the note; omitted undefined preserves it.
+      notes,
     },
   });
 };

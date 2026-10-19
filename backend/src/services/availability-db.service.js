@@ -28,6 +28,7 @@ const {
 } = require("./availability.service");
 const { getBusinessHours } = require("./business-config.service");
 const { getAgendaExceptionForDate } = require("./agenda-exception.service");
+const { reservationSlotMinutes } = require("../lib/reservation-slot");
 
 const MAX_GROOMING_SEARCH_DAYS = 30;
 const MAX_VET_SUGGESTIONS = 3;
@@ -157,7 +158,7 @@ const getBookedHoursForDate = async (dateKey, serviceType, tenantId, excludeAppo
  * ya resuelta — evita volver a consultarla en llamadas repetidas dentro de un
  * mismo bucle de búsqueda (`findNextAvailableGroomingSlot`, `suggestAvailableVetSlots`).
  */
-const isSlotAvailableWithConfig = async ({ dateKey, hour, serviceType, businessHours, exception, referenceDate, tenantId, bookedHours, excludeAppointmentId }) => {
+const isSlotAvailableWithConfig = async ({ dateKey, hour, serviceType, businessHours, exception, referenceDate, tenantId, bookedHours, excludeAppointmentId, manual = false }) => {
   const key = toDateKey(dateKey);
   const h = Number(hour);
   const type = normalizeServiceType(serviceType);
@@ -177,20 +178,21 @@ const isSlotAvailableWithConfig = async ({ dateKey, hour, serviceType, businessH
       return false;
     }
 
-    if (h + 1 > resolveHourWindow(type, key, businessHours, exception).endHourExclusive) {
+    const slotMinutes = reservationSlotMinutes(type);
+    if (Math.round(h * 60) + slotMinutes > Math.round(resolveHourWindow(type, key, businessHours, exception).endHourExclusive * 60)) {
       return false;
     }
 
-    if (isPastSlot(key, h, referenceDate)) {
+    const today = toDateKey(referenceDate ?? new Date());
+    if ((manual && key < today) || (!manual && isPastSlot(key, h, referenceDate))) {
       console.log("[AvailabilityDB] Slot occupied (ya pasó):", key, h, type);
       return false;
     }
 
     const booked = bookedHours ?? await getBookedHoursForDate(key, type, tenantId, excludeAppointmentId);
 
-    // La unidad de capacidad existente es un turno de una hora por bucket.
-    // Una cita a las 10:30 se cruza tanto con 10:00 como con 11:00.
-    if ([...booked].some((bookedHour) => Math.abs(bookedHour - h) < 1)) {
+    // Shared reception capacity: grooming 20 min; veterinary remains one hour.
+    if ([...booked].some((bookedHour) => Math.abs(bookedHour - h) * 60 < slotMinutes - 1e-7)) {
       console.log("[AvailabilityDB] Slot occupied:", key, h, type);
       return false;
     }
@@ -198,10 +200,11 @@ const isSlotAvailableWithConfig = async ({ dateKey, hour, serviceType, businessH
     // Grooming: regla de orden consecutivo — no se puede saltar un slot
     if (type === SERVICE_TYPES.GROOMING) {
       const { startHour } = resolveHourWindow(type, key, businessHours, exception);
-      // Los turnos de una hora empiezan en la apertura configurada, incluso a y media.
-      if (Math.abs((h - startHour) - Math.round(h - startHour)) > 1e-7) return false;
-      if (startHour !== null && h > startHour) {
-        for (let prev = startHour; prev < h; prev++) {
+      const offset = (h - startHour) * 60 / slotMinutes;
+      if (Math.abs(offset - Math.round(offset)) > 1e-7) return false;
+      if (!manual && startHour !== null && h > startHour) {
+        for (let minute = Math.round(startHour * 60); minute < Math.round(h * 60); minute += slotMinutes) {
+          const prev = minute / 60;
           // Un turno que ya no puede reservarse no bloquea el resto del día.
           if (isPastSlot(key, prev, referenceDate)) continue;
           if (![...booked].some(bookedHour => Math.abs(bookedHour - prev) < 1e-7)) {
@@ -224,7 +227,7 @@ const isSlotAvailableWithConfig = async ({ dateKey, hour, serviceType, businessH
  * Verifica slot libre en DB para fecha/hora/tipo.
  * @param {{ dateKey: string, hour: number, serviceType: string, tenantId?: string }} params
  */
-const isSlotAvailable = async ({ dateKey, hour, serviceType, tenantId, referenceDate, excludeAppointmentId }) => {
+const isSlotAvailable = async ({ dateKey, hour, serviceType, tenantId, referenceDate, excludeAppointmentId, manual = false }) => {
   let businessHours = null;
   let exception = null;
   try {
@@ -239,11 +242,11 @@ const isSlotAvailable = async ({ dateKey, hour, serviceType, tenantId, reference
     console.error("[AvailabilityDB] isSlotAvailable: fallo leyendo excepciones de agenda:", error.message);
     return false;
   }
-  return isSlotAvailableWithConfig({ dateKey, hour, serviceType, businessHours, exception, referenceDate, tenantId, excludeAppointmentId });
+  return isSlotAvailableWithConfig({ dateKey, hour, serviceType, businessHours, exception, referenceDate, tenantId, excludeAppointmentId, manual });
 };
 
 /** Horas reservables de un día para el formulario manual del dashboard. */
-const listAvailableSlotsForDate = async ({ dateKey, serviceType, tenantId, referenceDate }) => {
+const listAvailableSlotsForDate = async ({ dateKey, serviceType, tenantId, referenceDate, manual = false }) => {
   const key = toDateKey(dateKey);
   const type = normalizeServiceType(serviceType);
   if (!key || ![SERVICE_TYPES.VET, SERVICE_TYPES.GROOMING].includes(type)) {
@@ -257,20 +260,22 @@ const listAvailableSlotsForDate = async ({ dateKey, serviceType, tenantId, refer
   const { startHour, endHourExclusive } = resolveHourWindow(type, key, businessHours, exception);
   if (startHour === null || endHourExclusive === null) return [];
   const bookedHours = await getBookedHoursForDate(key, type, tenantId);
-  const step = type === SERVICE_TYPES.VET ? 0.5 : 1;
+  const slotMinutes = reservationSlotMinutes(type);
+  const stepMinutes = type === SERVICE_TYPES.VET ? 30 : slotMinutes;
   const slots = [];
 
-  for (let h = startHour; h + 1 <= endHourExclusive && h < 24; h += step) {
+  for (let minute = Math.round(startHour * 60); minute + slotMinutes <= Math.round(endHourExclusive * 60) && minute < 1440; minute += stepMinutes) {
+    const h = minute / 60;
     if (await isSlotAvailableWithConfig({
       dateKey: key, hour: h, serviceType: type, businessHours, exception,
-      referenceDate, tenantId, bookedHours,
+      referenceDate, tenantId, bookedHours, manual,
     })) slots.push(h);
   }
   return slots;
 };
 
 /**
- * Próximo turno grooming libre (1h) en los próximos 30 días hábiles.
+ * Próximo turno grooming libre (20 min) en los próximos 30 días hábiles.
  * Solo retorna slots al menos 30 minutos en el futuro (hora Bogotá).
  * @param {{ referenceDate?: Date|string, tenantId?: string }} [options]
  * @returns {Promise<{ date: string, hour: number }|null>}
@@ -301,7 +306,10 @@ const findNextAvailableGroomingSlot = async (options = {}) => {
 
       const { startHour, endHourExclusive } = resolveHourWindow(SERVICE_TYPES.GROOMING, cursor, businessHours, exception);
 
-      for (let h = startHour; h + 1 <= endHourExclusive; h += 1) {
+      const slotMinutes = reservationSlotMinutes(SERVICE_TYPES.GROOMING);
+      const bookedHours = await getBookedHoursForDate(cursor, SERVICE_TYPES.GROOMING, options.tenantId);
+      for (let minute = Math.round(startHour * 60); minute + slotMinutes <= Math.round(endHourExclusive * 60); minute += slotMinutes) {
+        const h = minute / 60;
         const available = await isSlotAvailableWithConfig({
           dateKey: cursor,
           hour: h,
@@ -310,6 +318,7 @@ const findNextAvailableGroomingSlot = async (options = {}) => {
           exception,
           referenceDate,
           tenantId: options.tenantId,
+          bookedHours,
         });
 
         if (available) {

@@ -22,6 +22,7 @@ describe("RecordChargeOnAppointmentCompletedUseCase", () => {
     });
     expect(transaction.origin).toBe("system_appointment_completed");
     expect(transaction.total).toBe(45000);
+    expect(transaction.paidAt).toBeNull();
     expect(transaction.items).toBeUndefined();
     expect(eventPublisher.events[0].eventName).toBe("CobroRegistrado");
   });

@@ -40,7 +40,9 @@ test("Equipo: ficha, horario con minutos, permisos, acceso y aislamiento en Post
     assert.equal((await prisma.staff.findUniqueOrThrow({ where: { id } })).availability, null);
     assert.equal((await request(app).patch(url + "/access").send({ accessPermissions: ["cash", "cash", "inventory_consume"] })).status, 200);
     assert.deepEqual((await prisma.staff.findUniqueOrThrow({ where: { id } })).accessPermissions, ["cash", "inventory_consume"]);
-    assert.equal((await request(app).patch(url + "/access").send({ accessPermissions: ["administration"] })).status, 400);
+    assert.equal((await request(app).patch(url + "/access").send({ accessPermissions: ["administration"] })).status, 200);
+    assert.equal((await prisma.staff.findUniqueOrThrow({ where: { id } })).role, 'vet');
+    assert.equal((await request(app).patch(url + "/access").send({ accessPermissions: ["super_admin"] })).status, 400);
     assert.equal((await request(app).patch(url).set("x-test-reception", "1").send({ name: "Forbidden" })).status, 403);
     assert.equal((await request(app).patch(url + "/access").set("x-test-reception", "1").send({ accessPermissions: [] })).status, 403);
     const password = randomUUID(); // Disposable test credential; never used for a person.

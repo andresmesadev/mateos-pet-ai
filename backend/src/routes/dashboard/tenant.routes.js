@@ -257,7 +257,7 @@ router.get("/tenants/overview", async (req, res) => {
         }),
         prisma.transaction.groupBy({
           by: ["tenantId"],
-          where: { tenantId: { in: tenantIds }, status: "active" },
+          where: { tenantId: { in: tenantIds }, status: "active", paidAt: { not: null } },
           _sum: { total: true },
         }),
         prisma.expense.groupBy({

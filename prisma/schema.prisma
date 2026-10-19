@@ -627,6 +627,7 @@ model Tenant {
   appointments  Appointment[]
   conversations Conversation[]
   services      Service[]
+  groomingTransportZones GroomingTransportZone[]
   serviceCategories ServiceCategory[]
   staff         Staff[]
   nextActions   PetNextAction[]
@@ -769,7 +770,7 @@ model Service {
   name        String
   categoryId  String
   category    ServiceCategory @relation(fields: [categoryId], references: [id])
-  duration    Int      // minutos — duración estándar
+  duration    Int?     // minutos; nullable para complementos sin reserva
   basePrice   Decimal? @db.Decimal(10, 2)
   requiresAppointment Boolean @default(true)
   active      Boolean  @default(true)
@@ -824,6 +825,7 @@ model User {
   name      String?
   email     String?
   address   String?
+  neighborhood String?
   notes              String?
   lastReminderSentAt DateTime?
   createdAt          DateTime @default(now())
@@ -864,6 +866,8 @@ model Pet {
   notes                 String?
   operationalAlerts     String? // Shared handling alerts; legacy clinical/free-form notes stay private
   defaultGroomingPrice  Decimal? @db.Decimal(10, 2)
+  defaultGroomingWithTransportPrice Decimal? @db.Decimal(10, 2)
+  defaultGroomingTransportPrice Decimal? @db.Decimal(10, 2)
 
   appointments   Appointment[]
   medicalRecords MedicalRecord[]
@@ -1162,6 +1166,18 @@ model Appointment {
   groomingNotesUpdatedAt DateTime?
   groomingDeliveredAt   DateTime?
 
+  transportMode       String   @default("none")
+  transportPrice      Decimal? @db.Decimal(10, 2)
+  transportPriceSource String?
+  transportZoneId     String?
+  transportZoneName   String?
+  transportAddress    String?
+  transportNeighborhood String?
+  transportScope      String?
+  transportSharedWithId String?
+  transportSharedWith Appointment? @relation("SharedGroomingTransport", fields: [tenantId, transportSharedWithId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict, map: "Appointment_transport_shared_tenant_fkey")
+  transportCoveredAppointments Appointment[] @relation("SharedGroomingTransport")
+
   reminderSent  Boolean  @default(false)
   followUpSent  Boolean  @default(false)
 
@@ -1177,6 +1193,23 @@ model Appointment {
   @@index([tenantId, status])
   @@index([userId, date])
   @@index([petId])
+  @@index([tenantId, transportSharedWithId])
+}
+
+model GroomingTransportZone {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  name          String
+  roundTripPrice Decimal? @db.Decimal(10, 2)
+  pickupPrice   Decimal? @db.Decimal(10, 2)
+  deliveryPrice Decimal? @db.Decimal(10, 2)
+  active        Boolean @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([tenantId, name])
+  @@index([tenantId, active])
 }
 
 // Excepciones fechadas de disponibilidad del establecimiento (ADR 013).
@@ -1221,7 +1254,7 @@ model Transaction {
   recordedActorName String?
   recordedActorRole String?
   notes         String?
-  paidAt        DateTime @default(now())
+  paidAt        DateTime? @default(now()) // null: appointment charge pending human payment confirmation
   createdAt     DateTime @default(now())
 
   // "manual_pos_sale" | "system_appointment_completed" — Entregable 2.3, ADR 005.
@@ -1259,6 +1292,7 @@ model TransactionItem {
   transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
 
   description   String
+  appointmentComponent String? @db.VarChar(16)
   itemKind      String @default("legacy") // "service" | "product"; historical rows remain unclassified
   quantity      Int     @default(1)
   unitPrice     Decimal @db.Decimal(10, 2)

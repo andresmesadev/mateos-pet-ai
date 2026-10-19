@@ -31,7 +31,9 @@ class TransactionAlreadyVoidedError extends DomainError {
   }
 }
 
-class InvalidTransactionOperationError extends DomainError {}
+class InvalidTransactionOperationError extends DomainError {
+  constructor(message) { super('INVALID_TRANSACTION_OPERATION', message); }
+}
 
 module.exports = {
   MissingTenantError,

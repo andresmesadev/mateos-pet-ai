@@ -133,7 +133,7 @@ router.get("/transactions", async (req, res) => {
     const rows = await prisma.transaction.findMany({
       where: {
         ...tenantFilter,
-        ...(Object.keys(dateFilter).length ? { paidAt: dateFilter } : {}),
+        paidAt: Object.keys(dateFilter).length ? dateFilter : { not: null },
       },
       orderBy: { paidAt: "desc" },
       take: 200,

@@ -5,7 +5,9 @@
  * precio del proyecto (regla de CLAUDE.md).
  */
 class PriceResolutionPort {
-  // Devuelve { finalPrice: number|null, source: string }
+  // finalPrice/servicePrice: importe del servicio (base de comisión).
+  // totalPrice: cobro al cliente; transportPrice y transportPending explican
+  // el desglose. Toda decisión procede del resolver central, nunca del canal.
   resolve(appointment) {
     throw new Error("PriceResolutionPort.resolve no implementado");
   }

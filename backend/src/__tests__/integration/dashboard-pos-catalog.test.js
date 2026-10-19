@@ -47,6 +47,12 @@ test("catalog excludes disabled modules and returns no services to a retail-only
   prisma.tenant.findUnique.mockResolvedValue({ activeModules: ["retail"] });
   expect((await request(app()).get("/cash/catalog")).body).toEqual([]);
 });
+test('additional services use their own base or explicit agreement, never the default main grooming price', async () => {
+  const response = await request(app()).get('/cash/catalog?petId=pet-a&additional=1');
+  expect(response.status).toBe(200);
+  expect(response.body.map(row => row.price)).toEqual([61000, 40000, 66000]);
+  expect((await request(app()).get('/cash/catalog?additional=invalid')).status).toBe(400);
+});
 test("cross-tenant or malformed pet cannot supply a price; unavailable database fails explicitly", async () => {
   prisma.pet.findFirst.mockResolvedValue(null);
   expect((await request(app()).get("/cash/catalog?petId=foreign")).status).toBe(404);

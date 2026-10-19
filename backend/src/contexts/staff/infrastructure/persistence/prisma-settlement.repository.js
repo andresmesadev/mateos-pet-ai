@@ -14,15 +14,15 @@ function isUniqueActivePeriodViolation(err) {
 }
 
 class PrismaSettlementRepository extends SettlementRepositoryPort {
-  async findActiveByStaffAndPeriod(staffId, periodStart, periodEnd) {
-    return prisma.settlement.findFirst({
+  async findActiveByStaffAndPeriod(staffId, periodStart, periodEnd, ctx) {
+    return (ctx?.tx ?? prisma).settlement.findFirst({
       where: { staffId, periodStart: new Date(periodStart), periodEnd: new Date(periodEnd), status: "active" },
     });
   }
 
-  async create(data) {
+  async create(data, ctx) {
     try {
-      return await prisma.settlement.create({ data });
+      return await (ctx?.tx ?? prisma).settlement.create({ data });
     } catch (err) {
       if (isUniqueActivePeriodViolation(err)) {
         const wrapped = new Error("Violación del índice único parcial de Settlement");

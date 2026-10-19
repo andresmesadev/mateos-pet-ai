@@ -14,6 +14,10 @@ export type PriceResolution = {
   petAgreedPrice?: number | null;
   petDefaultPrice: number | null;
   serviceBasePrice: number | null;
+  servicePrice?: number | null;
+  transportPrice?: number | null;
+  totalPrice?: number | null;
+  transportPending?: boolean;
 };
 
 export type AppointmentStatus =
@@ -36,6 +40,9 @@ export type TodayAppointment = {
   petType: string;
   clientPhone: string;
   clientName: string | null;
+  clientAddress?: string | null;
+  clientNeighborhood?: string | null;
+  payment?: { transactionId: string; status: "pending" | "paid"; needsReview: boolean; total?: number } | null;
   petId: string | null;
   serviceId?: string | null;
   serviceCategory?: string | null;
@@ -47,6 +54,7 @@ export type TodayAppointment = {
   finalPrice: number | null;
   priceResolution: PriceResolution | null;
   hasResolvedPrice?: boolean;
+  transport?: { mode: string; price: number | null; pending: boolean; zoneId: string | null; zoneName: string | null; address: string | null; neighborhood?: string | null; scope: string | null; sharedWithId: string | null };
   startedAt: string | null;
   endedAt: string | null;
 };

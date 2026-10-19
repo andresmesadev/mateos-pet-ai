@@ -4,7 +4,8 @@ import { Wallet } from "lucide-react";
 
 import { PageHeader } from "@/components/dashboard/page-header";
 import { PosTabs, type PosTab } from "@/components/dashboard/pos/pos-tabs";
-import { SaleForm } from "@/components/dashboard/pos/sale-form";
+import { SaleForm, type AppointmentCheckout } from "@/components/dashboard/pos/sale-form";
+import Link from "next/link";
 import { ExpenseWorkspace } from "@/components/dashboard/pos/expense-workspace";
 import { CashboxView } from "@/components/dashboard/pos/cashbox-view";
 import { RevenueHistory } from "@/components/dashboard/pos/revenue-history";
@@ -18,6 +19,7 @@ import { readReportDetail, readReportSelection } from "@/lib/pos-reports";
 type PageProps = {
   searchParams: Promise<{
     tab?: string;
+    appointmentId?: string;
     date?: string;
     period?: string;
     tenant?: string;
@@ -51,11 +53,23 @@ export default async function PosPage({ searchParams }: PageProps) {
   const access = await getDashboardAccess(tenant);
   const tab: PosTab = isValidTab(rawTab) && (access.capabilities.finance || ["venta", "caja"].includes(rawTab)) ? rawTab : "venta";
   let draftScope: string | null = null;
+  let appointment: AppointmentCheckout | undefined;
+  let checkoutError = "";
   if (tab === "venta" || tab === "egreso") {
     try {
       const response = await fetch(apiUrl("/api/dashboard/cash/context"), { headers: makeServerHeaders(await auth(), tenant), cache: "no-store" });
       if (response.ok) draftScope = (await response.json()).draftScope;
     } catch { /* Sale remains usable with an explicit draft warning. */ }
+  }
+  if (tab === 'venta' && params.appointmentId !== undefined) {
+    try {
+      if (typeof params.appointmentId !== 'string' || !params.appointmentId || params.appointmentId.length > 100) throw new Error('Cita no válida.');
+      const response = await fetch(apiUrl(`/api/dashboard/cash/appointments/${encodeURIComponent(params.appointmentId)}/checkout`), { headers: makeServerHeaders(await auth(), tenant), cache: 'no-store' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'No se pudo preparar esta atención.');
+      appointment = data;
+      if (draftScope) draftScope += `:appointment:${params.appointmentId}`;
+    } catch (cause) { checkoutError = cause instanceof Error ? cause.message : 'No se pudo preparar esta atención.'; }
   }
 
   const tabTitles: Record<PosTab, { title: string; description: string }> = {
@@ -90,7 +104,7 @@ export default async function PosPage({ searchParams }: PageProps) {
       {/* Tab content */}
       {tab === "venta" && (
         <Suspense fallback={<LoadingSkeleton />}>
-          <SaleForm key={draftScope ?? tenant ?? "no-draft"} draftScope={draftScope} />
+          {checkoutError ? <div role="alert" className="space-y-3 rounded-xl border bg-white p-6"><p>{checkoutError}</p><Link href={`/dashboard/pos?tab=caja&appointmentId=${encodeURIComponent(params.appointmentId ?? '')}${tenant ? '&tenant=' + encodeURIComponent(tenant) : ''}`} className="font-semibold text-primary underline">Consultar el pago en Caja</Link></div> : <SaleForm key={draftScope ?? tenant ?? "no-draft"} draftScope={draftScope} appointment={appointment} />}
         </Suspense>
       )}
 

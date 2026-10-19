@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CheckCircle2, ClipboardCheck, Loader2, ReceiptText, RefreshCw, Search, Wallet } from "lucide-react";
@@ -26,11 +26,18 @@ export function OperationalCash() {
   const [filter, setFilter] = useState<CashFilter>("all"), [paymentFilter, setPaymentFilter] = useState<CashMethod>("all");
   const [page, setPage] = useState(1), [pageSize, setPageSize] = useState(10), [revision, setRevision] = useState(0);
   const [result, setResult] = useState<{ key: string; data?: CashData; error?: string }>({ key: "" });
-  const [selected, setSelected] = useState<Transaction | null>(null), [receipt, setReceipt] = useState<Transaction | null>(null);
+  const [selected, selectPayment] = useState<Transaction | null>(null), [receipt, setReceipt] = useState<Transaction | null>(null);
+  const setSelected = useCallback((transaction: Transaction | null) => {
+    if (transaction?.paidAt === null && transaction.appointmentId) router.push(`/dashboard/pos?tab=venta&appointmentId=${encodeURIComponent(transaction.appointmentId)}${tenant ? '&tenant=' + encodeURIComponent(tenant) : ''}`);
+    else selectPayment(transaction);
+  }, [router, tenant]);
   const [notice, setNotice] = useState("");
   const [uncertain, setUncertain] = useState<Record<string, PaymentAttempt>>({});
   const reviewTrigger = useRef<HTMLButtonElement | null>(null);
+  const appointmentId = params.get('appointmentId');
+  const openedAppointment = useRef<string | null>(null);
   const queryParams = new URLSearchParams({ scope, date, page: String(page), pageSize: String(pageSize), search: query, filter, method: scope === "pending" ? "all" : paymentFilter });
+  if (appointmentId) queryParams.set('appointmentId', appointmentId);
   if (tenant) queryParams.set("tenantId", tenant);
   const url = proxyUrl(`/api/dashboard/cash/operational?${queryParams}`), key = `${url}:${revision}`;
   const loading = result.key !== key, data = loading ? undefined : result.data, error = loading ? "" : result.error;
@@ -42,11 +49,17 @@ export function OperationalCash() {
       try {
         const { response, payload } = await dashboardRequest(url, { cache: "no-store", signal: controller.signal });
         if (!response.ok || !isCashData(payload)) throw new Error("No se pudieron cargar los cobros. Intenta de nuevo.");
-        if (current) setResult({ key, data: payload });
+        if (current) {
+          setResult({ key, data: payload });
+          if (appointmentId && openedAppointment.current !== appointmentId) {
+            const target = payload.data.find(value => value.appointmentId === appointmentId);
+            if (target) { openedAppointment.current = appointmentId; if (target.paidAt === null) router.replace(`/dashboard/pos?tab=venta&appointmentId=${encodeURIComponent(appointmentId)}${tenant ? '&tenant=' + encodeURIComponent(tenant) : ''}`); else if (payload.toReview.includes(target.id)) setSelected(target); else setReceipt(target); }
+          }
+        }
       } catch (cause) { if (current) setResult({ key, error: cause instanceof Error ? cause.message : "No se pudo cargar Caja." }); }
     }, 250);
     return () => { current = false; clearTimeout(timer); controller.abort(); };
-  }, [url, key]);
+  }, [url, key, appointmentId, router, tenant, setSelected]);
   const reviewIds = new Set(data?.toReview ?? []), summary = data?.summaryCash;
   const saleHref = `/dashboard/pos?tab=venta${tenant ? "&tenant=" + encodeURIComponent(tenant) : ""}`;
   function choose(next: "day" | "pending") { setScope(next); setFilter("all"); setPaymentFilter("all"); setPage(1); setNotice(""); }

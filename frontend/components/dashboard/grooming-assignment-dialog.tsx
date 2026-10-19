@@ -5,10 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { proxyUrl } from "@/lib/api";
 import { type GroomingVisit } from "@/lib/grooming";
+import type { TodayAppointment } from '@/lib/appointments';
 
-export function GroomingAssignmentDialog({ visit, staff, tenantId, onClose, onSaved }: {
-  visit: GroomingVisit; staff: { id: string; name: string }[]; tenantId?: string;
-  onClose: () => void; onSaved: (visit: GroomingVisit) => void;
+export function GroomingAssignmentDialog<T extends TodayAppointment = GroomingVisit>({ visit, staff, tenantId, onClose, onSaved }: {
+  visit: T; staff: { id: string; name: string }[]; tenantId?: string;
+  onClose: () => void; onSaved: (visit: T) => void;
 }) {
   const [staffId, setStaffId] = useState(visit.staffId ?? "");
   const [saving, setSaving] = useState(false);
@@ -24,7 +25,7 @@ export function GroomingAssignmentDialog({ visit, staff, tenantId, onClose, onSa
     }).catch(cause => { if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "No se pudo comprobar la disponibilidad."); });
     return () => controller.abort();
   }, [visit.date, visit.id, visit.serviceId, tenantId]);
-  const choices = available ?? [];
+  const choices = (available ?? []).filter(item => staff.some(candidate => candidate.id === item.id));
   async function save() {
     setSaving(true); setError(null);
     try {
@@ -33,7 +34,7 @@ export function GroomingAssignmentDialog({ visit, staff, tenantId, onClose, onSa
       const response = await fetch(proxyUrl(`/api/dashboard/appointments/${encodeURIComponent(visit.id)}?${params}`), {
         method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ staffId }),
       });
-      const payload = await response.json() as Partial<GroomingVisit> & { error?: string };
+      const payload = await response.json() as Partial<T> & { error?: string };
       if (!response.ok) throw new Error(payload.error ?? "No se pudo asignar el peluquero.");
       onSaved({ ...visit, ...payload });
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Intenta de nuevo."); }

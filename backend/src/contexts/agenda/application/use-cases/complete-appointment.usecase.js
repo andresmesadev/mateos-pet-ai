@@ -20,27 +20,46 @@ const {
  * @param {{ run(fn: Function): Promise<any> }} deps.unitOfWork
  * @param {{ publish(name: string, payload: Object, ctx?: Object): Promise<void> }} deps.eventPublisher
  */
-function createCompleteAppointmentUseCase({ appointmentRepository, priceResolution, unitOfWork, eventPublisher }) {
-  return async function execute({ tenantId, appointmentId, completedAt }) {
-    const appointment = await appointmentRepository.findById(tenantId ?? null, appointmentId);
+function createCompleteAppointmentUseCase({ appointmentRepository, priceResolution, unitOfWork, eventPublisher, staffAssignment }) {
+  return async function execute({ tenantId, appointmentId, completedAt, actingStaffId }) {
+    let appointment = await appointmentRepository.findById(tenantId ?? null, appointmentId);
     if (!appointment) {
       throw new AppointmentNotFoundError(appointmentId);
     }
     if (!canComplete(appointment.status)) {
       throw new InvalidStatusTransitionError(appointment.status, "completed");
     }
+    if (appointment.transportMode === 'shared' && appointment.transportSharedWith?.status !== 'completed') throw new UnresolvedPriceError(appointmentId, 'Primero completa la cita que cobra el domicilio compartido.');
 
-    const priceResolutionResult = priceResolution.resolve(appointment);
-    if (priceResolutionResult.finalPrice == null) {
+    let priceResolutionResult = priceResolution.resolve(appointment);
+    if (priceResolutionResult.finalPrice == null || priceResolutionResult.transportPending) {
       throw new UnresolvedPriceError(appointmentId);
     }
 
     const endedAt = completedAt ? new Date(completedAt) : new Date();
 
     const updated = await unitOfWork.run(async (ctx) => {
+      const assignmentSnapshot = appointment;
+      // Match the existing assignment lock order: professional, then appointment.
+      const assignedId = staffAssignment && !appointment.staffId ? await staffAssignment.resolve(appointment, actingStaffId, ctx) : null;
+      if (typeof appointmentRepository.lockAndFindById === "function") {
+        appointment = await appointmentRepository.lockAndFindById(tenantId ?? null, appointmentId, ctx);
+        if (!appointment) throw new AppointmentNotFoundError(appointmentId);
+        if (!canComplete(appointment.status)) throw new InvalidStatusTransitionError(appointment.status, "completed");
+        if (appointment.transportMode === 'shared' && appointment.transportSharedWith?.status !== 'completed') throw new UnresolvedPriceError(appointmentId, 'Primero completa la cita que cobra el domicilio compartido.');
+        priceResolutionResult = priceResolution.resolve(appointment);
+        if (priceResolutionResult.finalPrice == null || priceResolutionResult.transportPending) throw new UnresolvedPriceError(appointmentId);
+      }
       // Freeze the amount used for the charge so future tariff edits do not
       // change the displayed price of this completed appointment.
-      const completed = await appointmentRepository.markCompleted(appointmentId, endedAt, priceResolutionResult.finalPrice, ctx);
+      if (assignedId && !appointment.staffId) {
+        if (staffAssignment.validateSnapshot) staffAssignment.validateSnapshot(assignmentSnapshot, appointment);
+        appointment = await appointmentRepository.assignStaff(tenantId, appointment.id, assignedId, ctx);
+      }
+      const transportActive = appointment.transportMode && appointment.transportMode !== "none";
+      const completed = transportActive
+        ? await appointmentRepository.markCompleted(appointmentId, endedAt, priceResolutionResult.finalPrice, ctx, priceResolutionResult.transportPrice)
+        : await appointmentRepository.markCompleted(appointmentId, endedAt, priceResolutionResult.finalPrice, ctx);
 
       await eventPublisher.publish(
         "CitaCompletada",
@@ -52,6 +71,7 @@ function createCompleteAppointmentUseCase({ appointmentRepository, priceResoluti
           serviceType: appointment.serviceType ?? null,
           resolvedPrice: priceResolutionResult.finalPrice,
           priceSource: priceResolutionResult.source,
+          ...(transportActive ? { totalPrice: priceResolutionResult.totalPrice, transportPrice: priceResolutionResult.transportPrice } : {}),
           completedAt: endedAt,
         },
         ctx

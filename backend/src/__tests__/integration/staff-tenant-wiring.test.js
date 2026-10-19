@@ -47,6 +47,13 @@ function buildApp() {
 beforeEach(() => jest.clearAllMocks());
 
 describe("Entregable 6.3 — tenantId propagado en rutas antes desprotegidas", () => {
+  test('POST /staff delegates profile and initial permissions to the same registration command', async () => {
+    const { registerStaff } = require('../../contexts/staff');
+    registerStaff.mockResolvedValue({ staff: { id: 's-new', role: 'vet', accessPermissions: ['administration'] } });
+    const response = await request(buildApp()).post('/api/dashboard/staff').send({ name: ' Dra. Beta ', role: 'vet', accessPermissions: ['administration'], tenantId: 'forged-tenant' });
+    expect(response.status).toBe(201);
+    expect(registerStaff).toHaveBeenCalledWith({ tenantId: TENANT_ID, name: 'Dra. Beta', role: 'vet', phone: null, email: null, accessPermissions: ['administration'] });
+  });
   test("PUT /staff/:id/availability propaga tenantId", async () => {
     changeAvailability.mockResolvedValue({ availability: { id: "a-1" } });
 

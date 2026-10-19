@@ -43,9 +43,9 @@ const SECTIONS: NavSection[] = [
     items: [
       { href: "/dashboard", label: "Inicio", icon: Home, exact: true },
       { href: "/dashboard/calendar", label: "Agenda", icon: Calendar },
+      { href: "/dashboard/contacto", label: "Clientes y mascotas", icon: Users, alsoActiveOn: ["/dashboard/clients", "/dashboard/pets"] },
       { href: "/dashboard/consultas", label: "Consultas veterinarias", icon: Stethoscope },
       { href: "/dashboard/peluqueria", label: "Peluquería", icon: Scissors },
-      { href: "/dashboard/contacto", label: "Clientes y mascotas", icon: Users, alsoActiveOn: ["/dashboard/clients", "/dashboard/pets"] },
       { href: "/dashboard/conversations", label: "WhatsApp", icon: MessageCircle },
     ],
   },
@@ -120,7 +120,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     items: section.items.filter(item => access?.navigation.includes(item.href)),
   })).filter(section => section.items.length > 0);
   const userName = session?.user?.name ?? session?.user?.email ?? "Usuario";
-  const role = session?.user?.isSuperAdmin ? "Super administrador" : ROLE_NAMES[teamRole];
+  const role = session?.user?.isSuperAdmin ? "Super administrador" : ROLE_NAMES[access?.professionalRole ?? teamRole];
   const initials = userName.slice(0, 2).toUpperCase();
 
   return (

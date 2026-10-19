@@ -40,7 +40,7 @@ function validTime(value) {
   return typeof value === 'string' && Number.isFinite(Date.parse(value)) ? new Date(value).toISOString() : null;
 }
 
-function summarize(samples, { hours = 48, intervalSeconds = 300 } = {}) {
+function summarize(samples, { hours = 48, intervalSeconds = 300, expectedVersion } = {}) {
   if (!Number.isFinite(hours) || hours <= 0 || !Number.isFinite(intervalSeconds) || intervalSeconds <= 0) throw new Error('Invalid observation duration');
   if (!samples.length) return { verdict: 'incomplete', samples: 0, coverageHours: 0 };
   const times = samples.map(s => Date.parse(s.at));
@@ -52,10 +52,12 @@ function summarize(samples, { hours = 48, intervalSeconds = 300 } = {}) {
   const restarts = new Set(samples.map(s => s.workerStartedAt).filter(Boolean)).size > 1;
   const recordedWorkerFailure = samples.some(s => s.lastFailureAt && Date.parse(s.lastFailureAt) >= times[0]);
   const complete = coverageHours >= hours && gaps === 0;
-  const healthy = failedSamples === 0 && versions.size === 1 && !restarts && !recordedWorkerFailure;
+  const unexpectedVersion = Boolean(expectedVersion && samples.some(s => s.version !== expectedVersion));
+  const healthy = failedSamples === 0 && versions.size === 1 && !restarts && !recordedWorkerFailure && !unexpectedVersion;
   return { verdict: !healthy ? 'incident' : complete ? 'health_window_passed' : 'incomplete',
     samples: samples.length, startedAt: samples[0].at, endedAt: samples.at(-1).at, coverageHours,
     requiredHours: hours, gaps, failedSamples, versions: [...versions], restarts, recordedWorkerFailure,
+    ...(expectedVersion ? { expectedVersion, unexpectedVersion } : {}),
     limits: 'Public health samples only; queue, delivery, logs and pilot load must be checked separately.' };
 }
 
@@ -115,6 +117,7 @@ if (require.main === module) {
       const arg = args[i], value = args[++i];
       if (!value) throw new Error('Missing observation argument');
       if (keys[arg]) settings[keys[arg]] = Number(value);
+      else if (arg === '--expected-version' && /^\d+\.\d+\.\d+$/.test(value)) settings.expectedVersion = value;
       else if (arg === '--output' || arg === '--summarize') { if (file) throw new Error('Specify one observation file'); file = value; read = arg === '--summarize'; }
       else throw new Error('Unknown observation option');
     }

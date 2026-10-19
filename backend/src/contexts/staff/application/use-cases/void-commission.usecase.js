@@ -26,12 +26,12 @@ const {
  * @param {{ publish(name: string, payload: Object): Promise<void> }} deps.eventPublisher
  */
 function createVoidCommissionUseCase({ commissionRepository, settlementCoverageReader, dailyCloseReader, eventPublisher }) {
-  return async function execute({ tenantId, commissionId, reason, replacement }) {
+  return async function execute({ tenantId, commissionId, reason, replacement }, ctx) {
     if (!reason || !reason.trim()) {
       throw new InvalidCommissionInputError("reason es obligatorio para anular una comisión.");
     }
 
-    const commission = await commissionRepository.findById(commissionId);
+    const commission = await commissionRepository.findById(commissionId, ctx);
     if (!commission || (tenantId && commission.tenantId !== tenantId)) {
       throw new CommissionNotFoundError(commissionId);
     }
@@ -39,13 +39,13 @@ function createVoidCommissionUseCase({ commissionRepository, settlementCoverageR
       throw new CommissionAlreadyVoidedError(commissionId);
     }
 
-    const close = await dailyCloseReader.findByCivilDay(commission.tenantId ?? null, commission.completedAt);
+    const close = await dailyCloseReader.findByCivilDay(commission.tenantId ?? null, commission.completedAt, ctx);
     if (close) {
       throw new CommissionDayClosedError(close.date.toISOString().slice(0, 10));
     }
 
     if (commission.staffId) {
-      const settlement = await settlementCoverageReader.findActiveCovering(commission.staffId, commission.completedAt);
+      const settlement = await settlementCoverageReader.findActiveCovering(commission.staffId, commission.completedAt, ctx);
       if (settlement) {
         throw new CommissionInActiveSettlementError(commissionId, settlement.id);
       }
@@ -78,9 +78,9 @@ function createVoidCommissionUseCase({ commissionRepository, settlementCoverageR
       voidedAt: new Date(),
       voidReason: reason,
       replacement: replacementData,
-    });
+    }, ctx);
 
-    await eventPublisher.publish("ComisiónAnulada", {
+    await (ctx?.eventPublisher ?? eventPublisher).publish("ComisiónAnulada", {
       commission: result.voided,
       replacement: result.replacement ?? null,
     });
