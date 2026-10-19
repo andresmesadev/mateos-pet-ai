@@ -1,8 +1,10 @@
 # Estado actual del proyecto
 
-Fecha de corte documental original: **8 de octubre de 2026**. Actualización del **16 de octubre**: registro autónomo del administrador publicado en **2.49.0**; WhatsApp conserva su pausa y el canal privado sigue deshabilitado. [Certificación productiva](history/RELEASE_2_49_0_VPS_20261016.md). Las publicaciones históricas conservan su fecha y evidencia. Este documento orienta la lectura; no sustituye el Plan Maestro, el modelo de dominio ni los ADR.
+Fecha de corte documental original: **8 de octubre de 2026**. Actualización del **19 de octubre**: mejoras operativas de agenda, clientes/mascotas, importación, perfiles y pago único publicadas en **2.50.0**; WhatsApp conserva su pausa explícita y el canal privado sigue deshabilitado. [Certificación productiva](history/RELEASE_2_50_0_VPS_20261019.md). Las publicaciones históricas conservan su fecha y evidencia. Este documento orienta la lectura; no sustituye el Plan Maestro, el modelo de dominio ni los ADR.
 
 ## Publicación y trabajo local
+
+**Publicado el 19 de octubre — 2.50.0:** lote funcional `a8e6918`, CI completo aprobado, respaldo cifrado comprobado y seis migraciones aplicadas (59 totales). HTTPS administrativo, 12 pantallas y 11 consultas de API correctos; conteos operativos conservados y PostgreSQL sin reemplazo. Monitor `5c71e20` aprobado en CI reconoce la pausa explícita sin inventar procesamiento de mensajes. La VPS todavía no tiene clientes, mascotas ni servicios cargados; importar el CSV y configurar el establecimiento desde su cuenta son pasos posteriores a la publicación, sin copiar la base local. Las entradas locales siguientes son capturas históricas del desarrollo del lote ya publicado, no pendientes de otro despliegue.
 
 **Continuación local del 19 de octubre — jornada manual y pausa de WhatsApp:** WhatsApp local deshabilitado mediante flag reversible; webhook 503 y salud 200 con worker pausado. Agenda manual muestra todos los turnos libres según área/habitual y permite horas pasadas de hoy como llegada, manteniendo ocupación/cierres y política autónoma separada. [ADR 027](decisions/027-agenda-manual-sin-anticipacion-ni-secuencia.md), [diseño](architecture/manual-agenda-and-whatsapp-pause-20261019.md) y [evidencia](history/MANUAL_AGENDA_WHATSAPP_PAUSE_VERIFICATION_20261019.md): 209 suites/1.703 pruebas, 37 comprobaciones Chrome/PostgreSQL y lint/build/diff correctos. Sin migración, citas reales creadas para probar ni publicación.
 
@@ -56,10 +58,10 @@ Fecha de corte documental original: **8 de octubre de 2026**. Actualización del
 
 | Ámbito | Estado respaldado por evidencia |
 | --- | --- |
-| Versión declarada y productiva del backend | `2.49.0`, en `backend/package.json` y salud de la VPS. [Publicación y evidencia](history/RELEASE_2_49_0_VPS_20261016.md). |
+| Versión declarada y productiva del backend | `2.50.0`, en `backend/package.json`, lockfile y salud de la VPS. [Publicación y evidencia](history/RELEASE_2_50_0_VPS_20261019.md). |
 | Asistentes operativos | Financiero y Administración/Inventario publicados en el dashboard, con confirmación humana y recuperación por recibo. [Validación local](history/ENTREGABLE_EMPLEADOS_OPERATIVOS_COMPLETION_REPORT.md), [certificación productiva de lectura](history/RELEASE_2_48_0_VPS_20261016.md). |
 | Canal privado de operadores por WhatsApp | Infraestructura publicada: vinculación verificada, sesiones revocables, selección de empleado y confirmación nativa. **Deshabilitado en producción**; sin prueba real de Meta en esta entrega. [Validación y límites](history/RELEASE_2_48_0_VPS_20261016.md). |
-| Última publicación documentada | [2.49.0 — Registro del administrador](history/RELEASE_2_49_0_VPS_20261016.md), 16 de octubre: CI aprobado, respaldo cifrado verificado, una migración, HTTPS autenticado y conteos conservados. |
+| Última publicación documentada | [2.50.0 — Operación supervisada del centro](history/RELEASE_2_50_0_VPS_20261019.md), 19 de octubre: CI aprobado, respaldo cifrado verificado, seis migraciones, HTTPS autenticado y conteos conservados. |
 | Inicio, navegación y continuidad de trabajo | Mejoras publicadas en 2.45.0, después de la [revisión general del dashboard](history/REVISION_GENERAL_DASHBOARD_20261008.md). |
 | Correcciones finales del frontend | Recuperación del pago, pendientes de todas las fechas, seguimiento clínico con reintento y bloqueo del precio durante el guardado publicados en 2.45.0. [Evidencia y límites del cierre local](history/FRONTEND_CIERRE_AJUSTES_20261008.md). La comprobación manual con zoom real y lector de pantalla continúa sin certificar. |
 | Inventario y Seguimiento de clientes | Publicados en [2.43.0](history/RELEASE_2_43_0_VPS_20261005.md), después de la implementación y migración de Inventario en [2.42.0](history/RELEASE_2_42_0_VPS_20261005.md). |
