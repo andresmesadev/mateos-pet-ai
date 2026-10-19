@@ -1,8 +1,10 @@
 # Estado actual del proyecto
 
-Fecha de corte documental original: **8 de octubre de 2026**. Actualización del **19 de octubre**: mejoras operativas publicadas en **2.50.0**, con ajuste de etiquetas de agenda en **2.50.1**; WhatsApp conserva su pausa explícita y el canal privado sigue deshabilitado. [Certificación productiva vigente](history/RELEASE_2_50_1_VPS_20261019.md). Las publicaciones históricas conservan su fecha y evidencia. Este documento orienta la lectura; no sustituye el Plan Maestro, el modelo de dominio ni los ADR.
+Fecha de corte documental original: **8 de octubre de 2026**. Actualización del **19 de octubre**: mejoras operativas publicadas en **2.50.0**, etiquetas de agenda en **2.50.1** y Caja compacta con domicilio opcional en **2.50.2**; WhatsApp conserva su pausa explícita y el canal privado sigue deshabilitado. [Certificación productiva vigente](history/RELEASE_2_50_2_VPS_20261019.md). Las publicaciones históricas conservan su fecha y evidencia. Este documento orienta la lectura; no sustituye el Plan Maestro, el modelo de dominio ni los ADR.
 
 ## Publicación y trabajo local
+
+**Publicado el 19 de octubre — 2.50.2:** catálogos cerrados hasta buscar o abrirlos explícitamente; domicilio opcional sin línea automática de $0. Servicio principal conservado, comprobantes previos y recuperación de pagos inciertos intactos. Backend: 210 suites/1.708 pruebas; 164 comprobaciones auxiliares; 39 comprobaciones Chrome/PostgreSQL; lint/build y CI aprobados. Respaldo cifrado verificado, mismo PostgreSQL y 59 migraciones; HTTPS administrativo correcto y datos de beta conservados: 257 propietarios, 305 mascotas y 5 citas. [Certificación](history/RELEASE_2_50_2_VPS_20261019.md).
 
 **Publicado el 19 de octubre — 2.50.1:** estados de Agenda de hoy centrados verticalmente y en una columna uniforme aunque aparezca Definir precio; temporales `.tmp/` conservados e ignorados por Git. Lint/build correctos, 38 comprobaciones Chrome/PostgreSQL y CI completo aprobados. Respaldo cifrado verificado, mismo contenedor PostgreSQL, 59 migraciones y conteos productivos conservados: 256 propietarios, 304 mascotas y 4 citas. [Certificación](history/RELEASE_2_50_1_VPS_20261019.md). La base ya fue importada por el responsable después de 2.50.0; las referencias inferiores a una base vacía describen capturas anteriores.
 
@@ -60,10 +62,10 @@ Fecha de corte documental original: **8 de octubre de 2026**. Actualización del
 
 | Ámbito | Estado respaldado por evidencia |
 | --- | --- |
-| Versión declarada y productiva del backend | `2.50.1`, en `backend/package.json`, lockfile y salud de la VPS. [Publicación y evidencia](history/RELEASE_2_50_1_VPS_20261019.md). |
+| Versión declarada y productiva del backend | `2.50.2`, en `backend/package.json`, lockfile y salud de la VPS. [Publicación y evidencia](history/RELEASE_2_50_2_VPS_20261019.md). |
 | Asistentes operativos | Financiero y Administración/Inventario publicados en el dashboard, con confirmación humana y recuperación por recibo. [Validación local](history/ENTREGABLE_EMPLEADOS_OPERATIVOS_COMPLETION_REPORT.md), [certificación productiva de lectura](history/RELEASE_2_48_0_VPS_20261016.md). |
 | Canal privado de operadores por WhatsApp | Infraestructura publicada: vinculación verificada, sesiones revocables, selección de empleado y confirmación nativa. **Deshabilitado en producción**; sin prueba real de Meta en esta entrega. [Validación y límites](history/RELEASE_2_48_0_VPS_20261016.md). |
-| Última publicación documentada | [2.50.1 — Etiquetas de agenda](history/RELEASE_2_50_1_VPS_20261019.md), 19 de octubre: CI aprobado, respaldo cifrado verificado, sin migración nueva, HTTPS autenticado y datos de la beta conservados. |
+| Última publicación documentada | [2.50.2 — Caja compacta y domicilio opcional](history/RELEASE_2_50_2_VPS_20261019.md), 19 de octubre: CI aprobado, respaldo cifrado verificado, sin migración nueva, HTTPS autenticado y datos de la beta conservados. |
 | Inicio, navegación y continuidad de trabajo | Mejoras publicadas en 2.45.0, después de la [revisión general del dashboard](history/REVISION_GENERAL_DASHBOARD_20261008.md). |
 | Correcciones finales del frontend | Recuperación del pago, pendientes de todas las fechas, seguimiento clínico con reintento y bloqueo del precio durante el guardado publicados en 2.45.0. [Evidencia y límites del cierre local](history/FRONTEND_CIERRE_AJUSTES_20261008.md). La comprobación manual con zoom real y lector de pantalla continúa sin certificar. |
 | Inventario y Seguimiento de clientes | Publicados en [2.43.0](history/RELEASE_2_43_0_VPS_20261005.md), después de la implementación y migración de Inventario en [2.42.0](history/RELEASE_2_42_0_VPS_20261005.md). |
