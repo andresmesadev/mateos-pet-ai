@@ -9,6 +9,26 @@ app.use((req, _res, next) => { req.tenant = { tenantId: 'tenant-a' }; next(); })
 app.use(routes);
 const pet = { id: 'pet-a', defaultGroomingPrice: 95000, defaultGroomingWithTransportPrice: 103000, defaultGroomingTransportPrice: null };
 beforeEach(() => { jest.clearAllMocks(); prisma.pet.findFirst.mockResolvedValue(pet); prisma.pet.updateMany.mockResolvedValue({ count: 1 }); });
+
+test.each(['none', 'round_trip', 'pickup', 'delivery', null])('saves the habitual arrival mode %p in the authenticated pet only', async mode => {
+  const response = await request(app).put('/pets/pet-a/grooming-prices').send({ center: 95000, transport: 8000, mode });
+  expect(response.status).toBe(200);
+  expect(response.body.mode).toBe(mode);
+  expect(prisma.pet.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'pet-a', tenantId: 'tenant-a' }, data: expect.objectContaining({ defaultGroomingTransportMode: mode }) }));
+});
+
+test('reads the saved modality and preserves it for older clients omitting mode', async () => {
+  prisma.pet.findFirst.mockResolvedValue({ ...pet, defaultGroomingTransportMode: 'round_trip' });
+  expect((await request(app).get('/pets/pet-a/grooming-prices')).body.mode).toBe('round_trip');
+  const response = await request(app).put('/pets/pet-a/grooming-prices').send({ center: 95000, transport: 8000 });
+  expect(response.body.mode).toBe('round_trip');
+  expect(prisma.pet.updateMany.mock.calls[0][0].data).not.toHaveProperty('defaultGroomingTransportMode');
+});
+
+test.each(['shared', 'invalid', 1, {}, false])('rejects invalid habitual mode %p before writing', async mode => {
+  expect((await request(app).put('/pets/pet-a/grooming-prices').send({ center: 95000, transport: 8000, mode })).status).toBe(400);
+  expect(prisma.pet.updateMany).not.toHaveBeenCalled();
+});
 test('the list summary used to open a pet sheet preserves the owner address and identity', async () => {
   const owner = { id: 'owner-a', phone: '0000000000', name: 'Propietario ficticio', address: 'Calle de prueba, barrio de prueba' };
   prisma.pet.count.mockResolvedValue(1);

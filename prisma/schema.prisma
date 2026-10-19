@@ -868,6 +868,7 @@ model Pet {
   defaultGroomingPrice  Decimal? @db.Decimal(10, 2)
   defaultGroomingWithTransportPrice Decimal? @db.Decimal(10, 2)
   defaultGroomingTransportPrice Decimal? @db.Decimal(10, 2)
+  defaultGroomingTransportMode String?
 
   appointments   Appointment[]
   medicalRecords MedicalRecord[]
