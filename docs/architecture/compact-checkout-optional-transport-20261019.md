@@ -1,0 +1,7 @@
+# Caja compacta y domicilio opcional — 19 de octubre de 2026
+
+1. Función: catálogo cerrado al abrir Productos, Servicios o Todos; búsqueda o Ver servicios/Ver catálogo lo abren. Servicio principal de la cita conservado. Domicilio se propone solo con importe positivo; los demás casos ofrecen Agregar domicilio. El operador puede quitarlo, equivalente a no cobrar transporte en esta venta.
+2. Casos: atención en centro, domicilio gratuito, domicilio con importe, agregar/quitar/reagregar, borrador anterior aún no enviado y recuperación de un cobro incierto. No se cambian comprobantes ya emitidos ni precios habituales.
+3. Arquitectura: adaptador GET checkout omite la línea gratuita y comunica disponibilidad del botón por área; SaleForm controla apertura del catálogo y opcionalidad. El comando financiero existente ya admite cero o una línea de transporte y mantiene exactamente un servicio principal. La comisión sigue utilizando exclusivamente ese servicio.
+4. Persistencia: sin entidades nuevas. Borradores preparando y sin clave de operación eliminan únicamente transporte a cero. Borradores con clave/cuerpo congelado o estado verify se recuperan intactos para mantener la idempotencia. Un cobro nuevo omite transporte a cero en el cuerpo enviado; un importe pendiente añadido explícitamente continúa bloqueando la confirmación.
+5. Esquema físico: sin migración. ADR 025 y las restricciones de TransactionItem existentes se conservan. La ausencia de transporte ya representa cero para el total; nunca elimina la obligación ni el servicio principal.

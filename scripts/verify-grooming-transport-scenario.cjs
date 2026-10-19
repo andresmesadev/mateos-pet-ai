@@ -395,6 +395,13 @@ module.exports = async function verifyTransport({ prisma, base, context, page, o
   await page.getByRole('combobox', { name: 'Buscar producto', exact: false }).waitFor();
   await page.getByRole('textbox', { name: 'Buscar servicio del catálogo', exact: true }).waitFor();
   assert.equal(await page.getByRole('button', { name: 'Todos', exact: true }).getAttribute('aria-pressed'), 'true');
+  const servicesPanel = page.getByRole('textbox', { name: 'Buscar servicio del catálogo', exact: true }).locator('xpath=ancestor::section[1]');
+  assert.equal(await servicesPanel.getByRole('button').count(), 1);
+  await servicesPanel.getByRole('button', { name: 'Ver servicios', exact: true }).click();
+  await servicesPanel.getByRole('button', { name: 'Ocultar servicios', exact: true }).waitFor();
+  assert(await servicesPanel.getByRole('button').count() > 1);
+  await servicesPanel.getByRole('button', { name: 'Ocultar servicios', exact: true }).click();
+  assert.equal(await servicesPanel.getByRole('button').count(), 1);
   for (const width of [320, 390, 768]) {
     await page.setViewportSize({ width, height: 900 });
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'POS Todos overflow: ' + width);
@@ -435,6 +442,11 @@ module.exports = async function verifyTransport({ prisma, base, context, page, o
   assert.equal(extraCatalog.status(), 200);
   assert.equal((await extraCatalog.json()).find(row => row.id === complement.id).price, null);
   let cart = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Carrito', exact: true }) });
+  await cart.getByRole('button', { name: 'Quitar artículo 2', exact: true }).click();
+  assert.equal(await cart.getByRole('listitem').count(), 1);
+  await cart.getByRole('button', { name: 'Agregar domicilio', exact: true }).click();
+  assert.equal(await page.getByRole('textbox', { name: 'Precio del artículo 2', exact: true }).inputValue(), '8000');
+  await cart.getByRole('button', { name: 'Listo', exact: true }).click();
   await cart.getByRole('button', { name: 'Editar artículo', exact: true }).first().click();
   assert.equal(await page.getByRole('textbox', { name: 'Precio del artículo 1', exact: true }).inputValue(), '95000');
   await page.getByRole('textbox', { name: 'Precio del artículo 1', exact: true }).fill('100000');
@@ -508,6 +520,31 @@ module.exports = async function verifyTransport({ prisma, base, context, page, o
     const original = await prisma.commission.create({ data: { tenantId, appointmentId: appt.id, staffId: commission.staffId, resolvedPrice: 40000, staffShare: 20000, businessShare: 20000, splitRate: 0.5, priceSource: 'manual_override', serviceCategory: 'grooming', completedAt: at } });
     return { appt, tx, original };
   }
+  const noTransport = await pendingCheckout('Caja sin traslado');
+  await page.goto(base + `/dashboard/pos?tab=venta&appointmentId=${noTransport.appt.id}`);
+  let optionalCart = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Carrito', exact: true }) });
+  await optionalCart.getByRole('button', { name: 'Agregar domicilio', exact: true }).waitFor();
+  assert.equal(await optionalCart.getByRole('listitem').count(), 1);
+  assert.equal(await page.getByRole('button', { name: 'Ver servicios', exact: true }).getAttribute('aria-expanded'), 'false');
+  await optionalCart.getByRole('button', { name: 'Agregar domicilio', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Precio del artículo 2', exact: true }).fill('7000');
+  await optionalCart.getByRole('button', { name: 'Listo', exact: true }).click();
+  await optionalCart.getByRole('button', { name: 'Quitar artículo 2', exact: true }).click();
+  await page.reload();
+  optionalCart = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Carrito', exact: true }) });
+  await optionalCart.getByRole('button', { name: 'Agregar domicilio', exact: true }).waitFor();
+  assert.equal(await optionalCart.getByRole('listitem').count(), 1);
+  await optionalCart.getByRole('button', { name: 'Editar artículo', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Precio del artículo 1', exact: true }).fill('40000');
+  await optionalCart.getByRole('button', { name: 'Listo', exact: true }).click();
+  await page.getByRole('button', { name: 'Recibí el valor exacto', exact: true }).click();
+  const noTransportSaved = page.waitForResponse(response => response.url().includes('/api/proxy/dashboard/transactions') && response.request().method() === 'POST');
+  await page.getByRole('button', { name: 'Confirmar cobro', exact: true }).click();
+  assert([200, 201].includes((await noTransportSaved).status()));
+  const noTransportReceipt = await prisma.transaction.findUniqueOrThrow({ where: { id: noTransport.tx.id }, include: { items: true } });
+  assert.equal(Number(noTransportReceipt.total), 40000); assert.equal(noTransportReceipt.items.length, 1);
+  assert.equal(noTransportReceipt.items[0].appointmentComponent, 'service');
+  check('catalogues start collapsed; optional transport adds/removes and stays removed after reload; payment issues only the actual service line');
   function checkoutBody(target, quantity = 1) { return { appointmentCheckout: true, appointmentId: target.appt.id, userId: pet.ownerId, petId: pet.id, paymentMethod: 'transfer', items: [
     { description: 'Peluquería final', itemKind: 'service', quantity: 1, unitPrice: 10000, appointmentComponent: 'service' },
     { description: product.name, itemKind: 'product', quantity, unitPrice: 12000, productId: product.id, priceVersion: product.priceVersion },
@@ -563,7 +600,7 @@ module.exports = async function verifyTransport({ prisma, base, context, page, o
   check('a legacy in-progress grooming visit is assigned before completion and commission recording in the same transaction');
   const second = await prisma.staff.create({ data: { tenantId, name: 'Segunda peluquera', role: 'groomer' } });
   const undecided = await prisma.appointment.create({ data: { tenantId, userId: pet.ownerId, petId: pet.id, petName: pet.name, petType: pet.type, serviceId: service.id, serviceType: 'grooming', date: new Date(), status: 'arrived' } });
-  await page.goto(base + '/dashboard');
+  await page.goto(base + '/dashboard?review=1');
   await page.getByRole('button', { name: 'En atención: Luna', exact: true }).click();
   const chooser = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Peluquero de Luna', exact: true }) });
   await chooser.waitFor();

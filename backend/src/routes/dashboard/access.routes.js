@@ -55,10 +55,10 @@ router.get('/cash/appointments/:id/checkout', async (req, res) => {
     const transportPrice = appointment.transport.price;
     return res.json({ appointmentId: row.id, transactionId: appointment.payment.transactionId,
       client: { id: row.userId, name: row.user?.name ?? null, phone: row.user?.phone ?? '', pets: row.petId ? [{ id: row.petId, name: appointment.petName, type: appointment.petType }] : [] },
-      petId: row.petId ?? '',
+      petId: row.petId ?? '', canAddTransport: serviceModule(row) === 'grooming',
       lines: [
         { id: 'appointment-service', description: row.service?.name || row.serviceType || 'Servicio de la atención', quantity: '1', unitPrice: servicePrice == null ? '' : String(servicePrice), itemKind: 'service', appointmentComponent: 'service' },
-        ...(serviceModule(row) === 'grooming' ? [{ id: 'appointment-transport', description: 'Domicilio de peluquería', quantity: '1', unitPrice: transportPrice == null ? '' : String(transportPrice), itemKind: 'service', appointmentComponent: 'transport' }] : []),
+        ...(serviceModule(row) === 'grooming' && transportPrice != null && Number(transportPrice) > 0 ? [{ id: 'appointment-transport', description: 'Domicilio de peluquería', quantity: '1', unitPrice: String(transportPrice), itemKind: 'service', appointmentComponent: 'transport' }] : []),
       ] });
   } catch (error) { console.error('[Cash] Checkout read failed:', error.message); return res.status(503).json({ error: 'No se pudo preparar el cobro de la cita.' }); }
 });

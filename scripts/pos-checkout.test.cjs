@@ -7,9 +7,19 @@ const ts = require("../frontend/node_modules/typescript");
 const source = fs.readFileSync(path.join(__dirname, "../frontend/lib/pos-checkout.ts"), "utf8");
 const context = { exports: {} };
 vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, context);
-const { moneyInCents, validateCheckout, lineTotalCents, cashChange, addCheckoutLine, catalogueLineIssue, productQuantities, checkoutPriceLabel } = context.exports;
+const { moneyInCents, validateCheckout, lineTotalCents, cashChange, addCheckoutLine, catalogueLineIssue, productQuantities, checkoutPriceLabel, withoutEmptyTransport } = context.exports;
 const line = (values = {}) => ({ id: "a", description: "Corte de uñas", quantity: "1", unitPrice: "55000", itemKind: "service", ...values });
 const both = { services: true, retail: true };
+
+test('El comprobante omite solo domicilio gratuito y conserva servicio gratuito, valor positivo y domicilio aún pendiente', () => {
+  const main = line({ appointmentComponent: 'service', unitPrice: '0' });
+  const free = line({ id: 'free', appointmentComponent: 'transport', unitPrice: '0,00' });
+  const paid = line({ id: 'paid', appointmentComponent: 'transport', unitPrice: '8000' });
+  const pending = line({ id: 'pending', appointmentComponent: 'transport', unitPrice: '' });
+  const input = [main, free, paid, pending];
+  assert.equal(withoutEmptyTransport(input).map(row => row.id).join(','), 'a,paid,pending');
+  assert.equal(input.length, 4);
+});
 
 test("La tarifa distingue catálogo, mascota y edición sin cambiar importes", () => {
   const serviceQuote = { source: "pet", petId: "pet-a", petName: "Luna", unitPrice: "55000", description: "Corte de uñas" };

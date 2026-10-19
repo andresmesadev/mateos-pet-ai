@@ -21,6 +21,11 @@ export function checkoutPriceLabel(line: CheckoutLine): string {
   return quote.source === "pet" ? `Tarifa de ${quote.petName || "la mascota"}` : "Precio del catálogo";
 }
 
+// An optional free transport does not need an empty line on the receipt.
+export function withoutEmptyTransport(lines: CheckoutLine[]): CheckoutLine[] {
+  return lines.filter(line => line.appointmentComponent !== 'transport' || moneyInCents(line.unitPrice) !== 0);
+}
+
 const MAX_CENTS = 9_999_999_999;
 export const MAX_POS_QUANTITY = 2_147_483_647;
 

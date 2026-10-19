@@ -12,7 +12,7 @@ import { proxyUrl } from "@/lib/api";
 import { getPetEmoji } from "@/lib/pets";
 import { tenantQuery, useTenant } from "@/lib/use-tenant";
 import { PAYMENT_METHOD_LABELS, type PaymentMethod, type Transaction } from "@/lib/transactions";
-import { addCheckoutLine, catalogueLineIssue, cashChange, checkoutPriceLabel, formatPosMoney, lineTotalCents, moneyInCents, productQuantities, validateCheckout, MAX_POS_QUANTITY, type CatalogueSnapshot, type CheckoutLine } from "@/lib/pos-checkout";
+import { addCheckoutLine, catalogueLineIssue, cashChange, checkoutPriceLabel, formatPosMoney, lineTotalCents, moneyInCents, productQuantities, validateCheckout, withoutEmptyTransport, MAX_POS_QUANTITY, type CatalogueSnapshot, type CheckoutLine } from "@/lib/pos-checkout";
 import { ReceiptDialog } from "./sale-receipt";
 import { ServiceCatalog } from "./service-catalog";
 import { draftKey, readStoredDraft, writeStoredDraft, removeStoredDraft, type SaleDraft } from "@/lib/pos-draft";
@@ -20,7 +20,7 @@ import { ProductPicker } from "@/components/dashboard/inventory/product-picker";
 import type { InventoryProduct } from "@/lib/inventory";
 
 type ClientResult = { id: string; name: string | null; phone: string; pets: { id: string; name: string; type: string }[] };
-export type AppointmentCheckout = { appointmentId: string; transactionId: string; client: ClientResult; petId: string; lines: CheckoutLine[] };
+export type AppointmentCheckout = { appointmentId: string; transactionId: string; client: ClientResult; petId: string; lines: CheckoutLine[]; canAddTransport?: boolean };
 const METHODS = [{ value: "cash", icon: Banknote }, { value: "transfer", icon: Landmark }, { value: "card", icon: CreditCard }, { value: "other", icon: Wallet }] as const;
 const PAYMENT_GUIDANCE: Record<PaymentMethod, { label: string; placeholder: string; hint: string }> = {
   cash: { label: "Nota del cobro", placeholder: "Observación de esta venta", hint: "Revisa el efectivo recibido y entrega el cambio indicado." },
@@ -83,6 +83,7 @@ async function readCatalogue(ids: string[], tenant: string | null, signal?: Abor
 }
 
 export function SaleForm({ draftScope, appointment }: { draftScope: string | null; appointment?: AppointmentCheckout }) {
+  const appointmentSale = !!appointment;
   const router = useRouter();
   const access = useDashboardAccess();
   const tenant = useTenant();
@@ -135,7 +136,7 @@ export function SaleForm({ draftScope, appointment }: { draftScope: string | nul
             operationKey.current = restored.operationKey ?? null;
             operationBody.current = restored.operationBody ?? null;
             setCanRecover(!!restored.operationKey);
-            setLines(restored.lines); setClient(restored.client); setPetId(restored.petId); setPaymentMethod(restored.paymentMethod); setReceived(restored.received); setNotes(restored.notes); setGeneration(value => value + 1);
+            setLines(appointmentSale && restored.stage === 'preparing' && !restored.operationKey ? withoutEmptyTransport(restored.lines) : restored.lines); setClient(restored.client); setPetId(restored.petId); setPaymentMethod(restored.paymentMethod); setReceived(restored.received); setNotes(restored.notes); setGeneration(value => value + 1);
             setDraftNotice("Recuperamos la venta que dejaste en preparación.");
             if (restored.stage === "verify") { setUncertain(true); setError(restored.operationKey ? "Este cobro se estaba enviando. Consulta su resultado o reintenta la misma venta." : "Este cobro anterior no conserva una clave de recuperación. Compruébalo en Caja antes de descartarlo."); }
           } else sessionStorage.removeItem(key);
@@ -144,7 +145,7 @@ export function SaleForm({ draftScope, appointment }: { draftScope: string | nul
       setDraftReady(true);
       }, 0);
     return () => clearTimeout(timer);
-  }, [draftScope]);
+  }, [draftScope, appointmentSale]);
   useEffect(() => {
     if (!draftReady || !draftScope || transaction || storageFailed.current) return;
     try {
@@ -178,7 +179,12 @@ export function SaleForm({ draftScope, appointment }: { draftScope: string | nul
   const units = lines.reduce((total, line) => total + (/^\d+$/.test(line.quantity) && Number.isSafeInteger(Number(line.quantity)) ? Number(line.quantity) : 0), 0);
   const cashHref = `/dashboard/pos?tab=caja${tenant ? "&tenant=" + encodeURIComponent(tenant) : ""}`;
   function setLine(id: string, field: keyof CheckoutLine, value: string) { if (field === "description" || field === "unitPrice") setEditingLineId(id); setLines(previous => previous.map(line => line.id === id ? { ...line, [field]: value } : line)); setError(""); }
-  function removeLine(id: string) { setLines(previous => previous.filter(line => line.id !== id || line.appointmentComponent)); if (editingLineId === id) setEditingLineId(null); setCartNotice(""); setError(""); }
+  function removeLine(id: string) { setLines(previous => previous.filter(line => line.id !== id || line.appointmentComponent === 'service')); if (editingLineId === id) setEditingLineId(null); setCartNotice(""); setError(""); }
+  function addTransport() {
+    if (!appointment?.canAddTransport || lines.some(line => line.appointmentComponent === 'transport')) return;
+    addCartLine({ id: 'appointment-transport', description: 'Domicilio de peluquería', quantity: '1', unitPrice: appointment.lines.find(line => line.appointmentComponent === 'transport')?.unitPrice ?? '', itemKind: 'service', appointmentComponent: 'transport' });
+    setEditingLineId('appointment-transport');
+  }
   async function updateCatalogueLine(line: CheckoutLine) {
     if (!line.productId || locked || inFlight.current) return;
     setUpdating(line.id);
@@ -248,7 +254,7 @@ export function SaleForm({ draftScope, appointment }: { draftScope: string | nul
       } finally { inFlight.current = false; setChecking(false); }
     }
     operationKey.current ??= crypto.randomUUID();
-    operationBody.current ??= JSON.stringify({ ...(appointment ? { appointmentCheckout: true, appointmentId: appointment.appointmentId } : {}), userId: client?.id ?? null, petId: petId || null, paymentMethod, notes: notes.trim() || null, items: lines.map(line => ({ description: line.description.trim(), itemKind: line.itemKind, quantity: Number(line.quantity), unitPrice: moneyInCents(line.unitPrice)! / 100, ...(line.appointmentComponent ? { appointmentComponent: line.appointmentComponent } : {}), ...(line.productId ? { productId:line.productId, priceVersion:line.priceVersion } : {}) })) });
+    operationBody.current ??= JSON.stringify({ ...(appointment ? { appointmentCheckout: true, appointmentId: appointment.appointmentId } : {}), userId: client?.id ?? null, petId: petId || null, paymentMethod, notes: notes.trim() || null, items: (retry ? lines : withoutEmptyTransport(lines)).map(line => ({ description: line.description.trim(), itemKind: line.itemKind, quantity: Number(line.quantity), unitPrice: moneyInCents(line.unitPrice)! / 100, ...(line.appointmentComponent ? { appointmentComponent: line.appointmentComponent } : {}), ...(line.productId ? { productId:line.productId, priceVersion:line.priceVersion } : {}) })) });
     setCanRecover(true);
     if (!persist("verify")) { setError("No se pudo conservar la clave de esta venta. Habilita el almacenamiento del navegador antes de cobrar."); return; }
     inFlight.current = true; setSaving(true); setError("");
@@ -315,8 +321,8 @@ export function SaleForm({ draftScope, appointment }: { draftScope: string | nul
             </div>}
           </div>
           <div className="space-y-4 p-4 sm:p-5">
-            {access?.capabilities.retail && visibleCatalog !== "services" && <ProductPicker use="retail" hideUntilSearch={visibleCatalog !== "all"} resetAfterSelect inputId="pos-product-search" focusRequest={searchFocus} refreshRequest={catalogReload} quantities={quantities} onSelect={addProduct} />}
-            {access?.capabilities.services && visibleCatalog !== "products" && <ServiceCatalog key={`${tenant ?? "current"}:${access.activeModules.join(",")}:${petId}`} petId={petId} petName={selectedPet?.name} additional={!!appointment} expanded={visibleCatalog === "all"} focusRequest={visibleCatalog === "services" ? searchFocus : 0} onAdd={addCartLine} />}
+            {access?.capabilities.retail && visibleCatalog !== "services" && <ProductPicker use="retail" hideUntilSearch resetAfterSelect inputId="pos-product-search" focusRequest={searchFocus} refreshRequest={catalogReload} quantities={quantities} onSelect={addProduct} />}
+            {access?.capabilities.services && visibleCatalog !== "products" && <ServiceCatalog key={`${tenant ?? "current"}:${access.activeModules.join(",")}:${petId}`} petId={petId} petName={selectedPet?.name} additional={!!appointment} focusRequest={visibleCatalog === "services" ? searchFocus : 0} onAdd={addCartLine} />}
             <details className="mt-4 border-t pt-3"><summary className="cursor-pointer text-xs font-medium text-muted-foreground">Ingreso manual de un artículo</summary><div className="mt-2 flex flex-wrap gap-2">
               {access?.capabilities.retail && <Button type="button" variant="ghost" size="sm" onClick={() => addLine("product")}><Plus className="mr-1 h-3 w-3" />Producto manual · sin inventario</Button>}
               {access?.capabilities.services && <Button type="button" variant="ghost" size="sm" onClick={() => addLine("service")}><Plus className="mr-1 h-3 w-3" />Servicio manual</Button>}
@@ -327,7 +333,7 @@ export function SaleForm({ draftScope, appointment }: { draftScope: string | nul
         <section className="overflow-hidden rounded-2xl border bg-white">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
             <div className="flex items-center gap-2"><ShoppingCart className="h-5 w-5 text-primary" /><h3 className="font-semibold">Carrito</h3><span className="rounded-full bg-muted px-2 py-0.5 text-xs">{lines.length} {lines.length === 1 ? "artículo" : "artículos"}</span></div>
-            {!!lines.length && <button type="button" onClick={() => setClearOpen(true)} className="flex min-h-9 items-center gap-1.5 text-sm text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" />Vaciar</button>}
+            <div className="flex flex-wrap items-center gap-3">{appointment?.canAddTransport && !lines.some(line => line.appointmentComponent === 'transport') && <Button type="button" variant="outline" size="sm" onClick={addTransport}><Plus className="h-4 w-4" />Agregar domicilio</Button>}{!!lines.length && <button type="button" onClick={() => setClearOpen(true)} className="flex min-h-9 items-center gap-1.5 text-sm text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" />Vaciar</button>}</div>
           </div>
           {!lines.length ? <div className="px-5 py-8 text-center"><ShoppingBag className="mx-auto h-7 w-7 text-muted-foreground" /><p className="mt-3 font-semibold">Tu carrito está vacío</p><p className="mt-1 text-sm text-muted-foreground">Selecciona un producto o servicio del catálogo de arriba.</p></div> :
           <ul className="divide-y">{lines.map((line, index) => {
@@ -347,7 +353,7 @@ export function SaleForm({ draftScope, appointment }: { draftScope: string | nul
                 </div>
                 <div><label htmlFor={`pos-quantity-${line.id}`} className="mb-1.5 block text-xs font-medium">Cantidad</label><div className="flex items-center rounded-xl border bg-white"><button type="button" aria-label={`Quitar una unidad de ${line.description || `artículo ${index + 1}`}`} disabled={!!line.appointmentComponent || !quantityValid || Number(line.quantity) <= 1} onClick={() => changeQuantity(line, -1)} className="flex h-10 w-9 shrink-0 items-center justify-center rounded-l-xl hover:bg-muted disabled:opacity-40"><Minus className="h-3.5 w-3.5" /></button><Input id={`pos-quantity-${line.id}`} inputMode="numeric" maxLength={10} disabled={!!line.appointmentComponent} value={line.quantity} onChange={event => setLine(line.id, "quantity", event.target.value)} aria-label={`Cantidad del artículo ${index + 1}`} aria-invalid={!!issue} aria-describedby={issue ? issueId : undefined} className="h-10 min-w-0 rounded-none border-x border-y-0 px-1 text-center shadow-none" /><button type="button" aria-label={`Agregar una unidad de ${line.description || `artículo ${index + 1}`}`} disabled={!!line.appointmentComponent || !quantityValid || atLimit} onClick={() => changeQuantity(line, 1)} className="flex h-10 w-9 shrink-0 items-center justify-center rounded-r-xl hover:bg-muted disabled:opacity-40"><Plus className="h-3.5 w-3.5" /></button></div></div>
                 <div className="text-left sm:text-right"><p className="text-xs text-muted-foreground">Subtotal</p><p className="mt-2 break-words text-sm font-bold tabular-nums">{formatPosMoney(lineTotalCents(line) / 100)}</p></div>
-                <button type="button" disabled={!!line.appointmentComponent} aria-label={`Quitar artículo ${index + 1}`} className="flex h-9 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-red-50 hover:text-destructive focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-30" onClick={() => removeLine(line.id)}><Trash2 className="h-4 w-4" /></button>
+                <button type="button" disabled={line.appointmentComponent === 'service'} aria-label={`Quitar artículo ${index + 1}`} className="flex h-9 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-red-50 hover:text-destructive focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-30" onClick={() => removeLine(line.id)}><Trash2 className="h-4 w-4" /></button>
               </div>
               {line.productId && <button type="button" className="mt-2 min-h-8 text-xs font-semibold text-primary underline underline-offset-4" onClick={() => void updateCatalogueLine(line)}>{updating === line.id ? "Actualizando…" : "Actualizar precio y disponibilidad"}</button>}
               {contextChanged && <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-950">Este servicio se agregó {line.serviceQuote!.petId ? `para ${line.serviceQuote!.petName || "otra mascota"}` : "sin mascota seleccionada"}. Revisa el precio para {selectedPet?.name || "esta venta"}; puedes editarlo o volver a agregarlo desde el catálogo.</p>}
