@@ -265,6 +265,34 @@ module.exports = async function verifyTransport({ prisma, base, context, page, o
   await page.screenshot({ path: path.join(output, '16-home-full-width-agenda.png'), animations: 'disabled', fullPage: true });
   check('home agenda occupies its own full-width row above priorities; 320/390/768 layouts fit without horizontal overflow');
   check('home agenda advances arrival and start without opening a sheet and exposes the finalization action');
+  const todayResponse = await context.request.get(base + '/api/proxy/dashboard/appointments/today');
+  const currentRow = (await todayResponse.json()).find(row => row.id === appointment.id);
+  const previewRows = [currentRow, { ...currentRow, id: 'layout-pending-price', petName: 'Mascota con nombre largo de prueba', finalPrice: null, hasResolvedPrice: false, priceResolution: null, payment: null }, { ...currentRow, id: 'layout-arrived', petName: 'Otra mascota', status: 'arrived' }];
+  const todayPattern = '**/api/proxy/dashboard/appointments/today*';
+  await page.route(todayPattern, route => route.fulfill({ json: previewRows }));
+  await page.getByRole('button', { name: 'Actualizar ahora', exact: true }).click();
+  const previewList = page.getByRole('list', { name: 'Citas de la agenda', exact: true });
+  await previewList.getByRole('button', { name: 'Definir precio', exact: true }).waitFor();
+  for (const width of [1440, 1920]) {
+    await page.setViewportSize({ width, height: 1000 });
+    const centers = await previewList.locator(':scope > li').evaluateAll(rows => rows.map(row => {
+      const badge = row.querySelector('[data-slot="badge"]').getBoundingClientRect();
+      const box = row.getBoundingClientRect();
+      return { x: badge.x + badge.width / 2, offset: Math.abs(badge.y + badge.height / 2 - box.y - box.height / 2) };
+    }));
+    assert(centers.every(value => value.offset < 2), 'Status badges must be vertically centered in each row');
+    assert(Math.max(...centers.map(value => value.x)) - Math.min(...centers.map(value => value.x)) < 2, 'Status column must stay aligned when Define price is present');
+  }
+  await page.screenshot({ path: path.join(output, '34-centered-agenda-statuses.png'), animations: 'disabled', fullPage: true });
+  for (const width of [320, 390, 768]) {
+    await page.setViewportSize({ width, height: 900 });
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Centered agenda overflow: ' + width);
+  }
+  await page.unroute(todayPattern);
+  await page.getByRole('button', { name: 'Actualizar ahora', exact: true }).click();
+  await previewList.getByText('Otra mascota', { exact: true }).waitFor({ state: 'detached' });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  check('status badges stay centered vertically and in one desktop column with or without Define price; mobile layouts fit');
   await page.goto(base + '/dashboard/peluqueria');
   await page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'Luna', exact: true }) }).getByRole('button', { name: 'Acciones', exact: true }).click();
   await page.getByRole('menuitem', { name: 'Ver cita', exact: true }).click();

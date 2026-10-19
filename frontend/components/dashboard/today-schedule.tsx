@@ -212,15 +212,13 @@ export function TodaySchedule({ appointments: initial, initialReview = false, co
           ) : (
             <ul className="divide-y" aria-label="Citas de la agenda">
               {(compact ? visibleAppointments.slice(0, 8) : visibleAppointments).map((appt) => (
-                <li key={appt.id} className="flex flex-wrap items-center gap-x-2 rounded-xl transition-colors hover:bg-slate-50 focus-within:bg-slate-50">
-                  <button type="button" onClick={() => { setStartInPriceEdit(false); setSelected(appt); }} aria-label={`Abrir cita de ${appt.petName}, ${formatColombiaTime(appt.date)}`} className="grid min-w-0 flex-1 grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-3 rounded-xl px-2 py-3 text-left focus-visible:outline-2 focus-visible:outline-teal-700 sm:px-3">
+                <li key={appt.id} className="flex flex-wrap items-center gap-x-2 rounded-xl transition-colors hover:bg-slate-50 focus-within:bg-slate-50 xl:grid xl:grid-cols-[minmax(0,1fr)_16rem]">
+                  <button type="button" onClick={() => { setStartInPriceEdit(false); setSelected(appt); }} aria-label={`Abrir cita de ${appt.petName}, ${formatColombiaTime(appt.date)}`} className="grid min-w-0 flex-1 grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-3 rounded-xl px-2 py-3 text-left focus-visible:outline-2 focus-visible:outline-teal-700 sm:grid-cols-[5.5rem_minmax(0,1fr)_7.5rem_1rem] sm:px-3">
                     <span className="whitespace-nowrap text-sm font-bold tabular-nums text-slate-950">{formatColombiaTime(appt.date)}</span>
                     <span className="min-w-0">
                       <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <span className="min-w-0 truncate text-sm font-semibold text-slate-950">{getPetEmoji(appt.petType)} {appt.petName}</span>
                         <span className="truncate text-sm text-slate-600">{appt.clientName ?? appt.clientPhone}</span>
-                        <Badge variant="outline" className={`ml-auto shrink-0 ${statusBadgeClass(appt.status)}`}>{formatStatus(appt.status)}</Badge>
-                        <ChevronRight className="hidden h-4 w-4 shrink-0 text-slate-400 sm:block" aria-hidden="true" />
                       </span>
                       <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-600">
                         <span>{appt.serviceName ?? formatService(appt.serviceType)}</span>
@@ -230,9 +228,13 @@ export function TodaySchedule({ appointments: initial, initialReview = false, co
                         {prices && appt.finalPrice !== null && appt.priceResolution?.source && appt.priceResolution.source !== "manual_override" && <span className="text-slate-500">{PRICE_SOURCE_LABEL[appt.priceResolution.source]}</span>}
                       </span>
                     </span>
+                    <Badge variant="outline" className={`col-start-2 justify-self-start sm:col-start-auto sm:justify-self-center ${statusBadgeClass(appt.status)}`}>{formatStatus(appt.status)}</Badge>
+                    <ChevronRight className="hidden h-4 w-4 shrink-0 text-slate-400 sm:block" aria-hidden="true" />
                   </button>
-                  <div className="px-2 pb-2 sm:py-2"><AppointmentQuickActions appointment={appt} onUpdated={updated => { setAppointments(current => current.map(value => value.id === updated.id ? updated : value)); if (compact) router.refresh(); }} /></div>
-                  {access?.capabilities.appointmentPrice && appt.finalPrice === null && !["completed", "cancelled", "no_show"].includes(appt.status) && <button type="button" onClick={() => { setStartInPriceEdit(true); setSelected(appt); }} className="my-auto mr-2 shrink-0 rounded-lg px-2 py-2 text-xs font-semibold text-amber-800 underline underline-offset-2 hover:bg-amber-50 focus-visible:outline-2 focus-visible:outline-amber-700 sm:mr-3">Definir precio</button>}
+                  <div className="flex flex-wrap items-center justify-end gap-2 px-2 pb-2 sm:py-2">
+                    <AppointmentQuickActions appointment={appt} onUpdated={updated => { setAppointments(current => current.map(value => value.id === updated.id ? updated : value)); if (compact) router.refresh(); }} />
+                    {access?.capabilities.appointmentPrice && appt.finalPrice === null && !["completed", "cancelled", "no_show"].includes(appt.status) && <button type="button" onClick={() => { setStartInPriceEdit(true); setSelected(appt); }} className="shrink-0 rounded-lg px-2 py-2 text-xs font-semibold text-amber-800 underline underline-offset-2 hover:bg-amber-50 focus-visible:outline-2 focus-visible:outline-amber-700">Definir precio</button>}
+                  </div>
                 </li>
               ))}
             </ul>

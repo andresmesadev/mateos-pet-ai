@@ -153,3 +153,6 @@ vite.config.ts.timestamp-*
 .vite/
 
 /generated/prisma
+
+# Artefactos locales de pruebas y publicación; no son código para desplegar.
+/.tmp/
