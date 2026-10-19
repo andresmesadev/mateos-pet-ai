@@ -41,7 +41,10 @@ jobs:
           const fs = require("fs");
           const [httpCode, path] = process.argv.slice(2);
           const health = JSON.parse(fs.readFileSync(path, "utf8"));
-          const workerOk = ["ok", "starting"].includes(health?.services?.inboundWorker);
+          const paused = health?.services?.inboundWorker === "paused" &&
+            health?.workers?.inbound?.status === "paused" &&
+            health?.workers?.inbound?.healthy === true && health?.workers?.inbound?.consecutiveFailures === 0;
+          const workerOk = ["ok", "starting"].includes(health?.services?.inboundWorker) || paused;
           const healthy = httpCode === "200" && health?.status === "ok" &&
             health?.services?.database === "ok" && health?.services?.openai === "ok" && workerOk;
           if (!healthy) {

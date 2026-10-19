@@ -50,6 +50,21 @@ test('Network failure and sensitive response fields do not leak into records', a
   assert(!JSON.stringify(result).includes('client-name'));
 });
 
+test('Intentional pause requires matching service/worker state and never invents processing evidence', async () => {
+  const paused = payload({ status: 'paused', startedAt: null, lastSuccessAt: null });
+  paused.services.inboundWorker = 'paused';
+  const fetcher = body => async () => ({ status: 200, json: async () => body });
+  const result = await sample(fetcher(paused), () => start);
+  assert.equal(result.ok, true); assert.equal(result.worker, 'paused');
+  assert.equal(result.lastSuccessAt, null); assert.equal(result.workerStartedAt, null);
+  for (const body of [
+    { ...paused, services: { ...paused.services, inboundWorker: 'ok' } },
+    { ...paused, workers: { inbound: { ...paused.workers.inbound, healthy: false } } },
+    { ...paused, workers: { inbound: { ...paused.workers.inbound, consecutiveFailures: 1 } } },
+  ]) assert.equal((await sample(fetcher(body), () => start)).ok, false);
+  assert.deepEqual(summarize([point(0, { worker: 'paused' }), point(1, { worker: 'paused' })]).workerModes, ['paused']);
+});
+
 test('Observation output cannot escape the ignored local folder', async () => {
   for (const file of ['../outside.jsonl', 'docs/report.jsonl', '.cache/stability/../report.jsonl']) await assert.rejects(safeOutput(file, true));
 });

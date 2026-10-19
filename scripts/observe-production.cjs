@@ -20,15 +20,17 @@ async function sample(fetcher = fetch, clock = Date.now) {
       status: payload?.status === 'ok' ? 'ok' : 'degraded',
       database: payload?.services?.database === 'ok' ? 'ok' : 'error',
       openai: payload?.services?.openai === 'ok' ? 'ok' : 'error',
-      worker: ['ok', 'starting', 'error', 'stale', 'stalled', 'not_started'].includes(worker?.status) ? worker.status : 'unknown',
+      worker: ['ok', 'paused', 'starting', 'error', 'stale', 'stalled', 'not_started'].includes(worker?.status) ? worker.status : 'unknown',
       consecutiveFailures: Number.isSafeInteger(worker?.consecutiveFailures) ? worker.consecutiveFailures : null,
       workerStartedAt: validTime(worker?.startedAt),
       lastSuccessAt: validTime(worker?.lastSuccessAt),
       lastFailureAt: validTime(worker?.lastFailureAt),
     });
+    const paused = result.worker === 'paused' && payload?.services?.inboundWorker === 'paused';
+    const running = result.worker === 'ok' && result.lastSuccessAt !== null && result.workerStartedAt !== null;
     result.ok = response.status === 200 && result.status === 'ok' && result.database === 'ok' &&
-      result.openai === 'ok' && result.worker === 'ok' && worker?.healthy === true &&
-      result.consecutiveFailures === 0 && result.lastSuccessAt !== null && result.workerStartedAt !== null && result.version !== null;
+      result.openai === 'ok' && (paused || running) && worker?.healthy === true &&
+      result.consecutiveFailures === 0 && result.version !== null;
   } catch {
     // No response body, error detail, credentials or client identifiers are stored.
     result.error = 'health_request_failed'; result.latencyMs = clock() - start;
@@ -57,6 +59,7 @@ function summarize(samples, { hours = 48, intervalSeconds = 300, expectedVersion
   return { verdict: !healthy ? 'incident' : complete ? 'health_window_passed' : 'incomplete',
     samples: samples.length, startedAt: samples[0].at, endedAt: samples.at(-1).at, coverageHours,
     requiredHours: hours, gaps, failedSamples, versions: [...versions], restarts, recordedWorkerFailure,
+    workerModes: [...new Set(samples.map(s => s.worker).filter(Boolean))],
     ...(expectedVersion ? { expectedVersion, unexpectedVersion } : {}),
     limits: 'Public health samples only; queue, delivery, logs and pilot load must be checked separately.' };
 }
