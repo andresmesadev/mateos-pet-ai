@@ -30,8 +30,8 @@ class PrismaTransactionRepository extends TransactionRepositoryPort {
     });
   }
 
-  async findById(transactionId) {
-    return prisma.transaction.findUnique({ where: { id: transactionId } });
+  async findById(transactionId, ctx) {
+    return (ctx?.tx ?? prisma).transaction.findUnique({ where: { id: transactionId } });
   }
 
   async findActiveByAppointment(appointmentId, origin, ctx) {
@@ -68,8 +68,8 @@ class PrismaTransactionRepository extends TransactionRepositoryPort {
     });
   }
 
-  async void(transactionId, { voidedAt, voidReason }) {
-    return prisma.transaction.update({
+  async void(transactionId, { voidedAt, voidReason }, ctx) {
+    return (ctx?.tx ?? prisma).transaction.update({
       where: { id: transactionId },
       data: { status: "voided", voidedAt, voidReason },
     });

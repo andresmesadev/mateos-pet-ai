@@ -12,6 +12,8 @@ const {
 } = require("../../contexts/finance/domain/errors");
 
 function mapTransactionDomainError(res, error) {
+  if (error.constructor?.name === 'InvalidCommissionInputError') return res.status(422).json({ error: error.message, code: 'SERVICE_PROFESSIONAL_REQUIRED' });
+  if (['CommissionDayClosedError', 'CommissionInActiveSettlementError'].includes(error.constructor?.name)) return res.status(409).json({ error: error.message });
   if (error instanceof InvalidTransactionOperationError) return res.status(422).json({ error: error.message });
   if (error instanceof TransactionNotFoundError) return res.status(404).json({ error: error.message });
   if (error instanceof TransactionAlreadyVoidedError || error instanceof DailyCloseAlreadyExistsForDateError) {

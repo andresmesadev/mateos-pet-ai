@@ -12,6 +12,9 @@ function saleAmounts(items, access, appointment = false) {
   if (!Array.isArray(items) || !items.length || items.length > 100) throw new InvalidTransactionOperationError('Agrega entre 1 y 100 artículos.');
   let total = 0;
   const computed = items.map(item => {
+    if ((item.serviceId || item.performedByStaffId) && (item.itemKind !== 'service' || item.productId || item.appointmentComponent)) throw new InvalidTransactionOperationError('Solo los servicios adicionales admiten servicio y profesional de catálogo.');
+    if (item.performedByStaffId && !item.serviceId) throw new InvalidTransactionOperationError('Selecciona un servicio de catálogo para atribuir el profesional.');
+    if ((item.serviceId != null && typeof item.serviceId !== 'string') || (item.performedByStaffId != null && typeof item.performedByStaffId !== 'string')) throw new InvalidTransactionOperationError('Identidad de servicio o profesional inválida.');
     if (!['service', 'product'].includes(item.itemKind) || (item.itemKind === 'product' ? !access.capabilities.retail : !access.capabilities.services)) throw new InvalidTransactionOperationError('Ese tipo de venta no está habilitado.');
     if (typeof item.description !== 'string' || !item.description.trim() || item.description.length > 250) throw new InvalidTransactionOperationError('Cada artículo necesita una descripción de máximo 250 caracteres.');
     const component = appointment ? item.appointmentComponent : null;
@@ -25,6 +28,7 @@ function saleAmounts(items, access, appointment = false) {
     if (total > 9999999999) throw new InvalidTransactionOperationError('El total supera el importe permitido.');
     return { description: item.description.trim(), itemKind: item.itemKind, quantity, unitPrice: (price / 100).toFixed(2), total: (line / 100).toFixed(2),
       ...(component ? { appointmentComponent: component } : {}),
+      ...(item.serviceId ? { serviceId: item.serviceId, performedByStaffId: item.performedByStaffId || null } : {}),
       ...(item.product ? { tenantId: item.product.tenantId, productId: item.product.id, productCodeSnapshot: item.product.internalCode, presentationSnapshot: item.product.presentation,
         priceSourceSnapshot: 'product_base_price', priceVersionSnapshot: item.product.priceVersion } : {}) };
   });

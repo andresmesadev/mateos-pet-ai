@@ -2,6 +2,12 @@ const prisma = require("../../../../lib/prisma");
 const { CommissionRepositoryPort } = require("../../application/ports/commission-repository.port");
 
 class PrismaCommissionRepository extends CommissionRepositoryPort {
+  async listByTransaction(tenantId, transactionId, ctx) {
+    return ctx.tx.commission.findMany({ where: { tenantId, status: 'active', transactionItem: { transactionId, transaction: { tenantId } } }, orderBy: [{ staffId: 'asc' }, { id: 'asc' }] });
+  }
+  async findByItem(tenantId, transactionItemId, ctx) {
+    return (ctx?.tx ?? prisma).commission.findFirst({ where: { tenantId, transactionItemId, status: 'active' } });
+  }
   async create(data, ctx) {
     const client = ctx?.tx ?? prisma;
     return client.commission.create({ data });

@@ -13,13 +13,13 @@ const { civilDateKey, civilDateLabel } = require("../../../../shared/business-da
  * este entregable (decisión de alcance, no del modelo).
  * Frontera: no sobre días civiles con Cierre oficial.
  */
-function createVoidManualSaleUseCase({ transactionRepository, dailyCloseRepository, eventPublisher }) {
-  return async function execute({ tenantId, transactionId, reason }) {
+function createVoidManualSaleUseCase({ transactionRepository, dailyCloseRepository, eventPublisher, businessDayGate, voidSaleCommissions }) {
+  return async function execute({ tenantId, transactionId, reason }, ctx) {
     if (!reason || !reason.trim()) {
       throw new InvalidTransactionOperationError("reason es obligatorio para anular una venta.");
     }
 
-    const transaction = await transactionRepository.findById(transactionId);
+    const transaction = await transactionRepository.findById(transactionId, ctx);
     if (!transaction || (tenantId && transaction.tenantId !== tenantId)) {
       throw new TransactionNotFoundError(transactionId);
     }
@@ -33,17 +33,19 @@ function createVoidManualSaleUseCase({ transactionRepository, dailyCloseReposito
     }
 
     const ymd = civilDateKey(transaction.paidAt);
-    const close = await dailyCloseRepository.findByDate(transaction.tenantId ?? null, civilDateLabel(ymd));
+    if (businessDayGate) await businessDayGate.acquire(tenantId, ymd, ctx);
+    const close = await dailyCloseRepository.findByDate(transaction.tenantId ?? null, civilDateLabel(ymd), ctx);
     if (close) {
       throw new DailyCloseAlreadyExistsForDateError(ymd);
     }
 
+    if (voidSaleCommissions) await voidSaleCommissions({ tenantId, transactionId, reason }, ctx);
     const voided = await transactionRepository.void(transactionId, {
       voidedAt: new Date(),
       voidReason: reason,
-    });
+    }, ctx);
 
-    await eventPublisher.publish("VentaAnulada", { transaction: voided });
+    await (ctx?.eventPublisher ?? eventPublisher).publish("VentaAnulada", { transaction: voided });
 
     return { transaction: voided };
   };

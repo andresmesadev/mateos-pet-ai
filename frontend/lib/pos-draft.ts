@@ -53,6 +53,7 @@ export function readDraft(raw: string | null, scope: string, now = Date.now()): 
       line && text(line.id, 100) && text(line.description, 250) && text(line.quantity, 20) && text(line.unitPrice, 30) && ["service", "product"].includes(line.itemKind) &&
       (line.productId === undefined || (text(line.productId, 100) && Number.isInteger(line.priceVersion) && line.priceVersion! > 0)) && (line.presentation === undefined || text(line.presentation, 80)) &&
       (line.appointmentComponent === undefined || ["service", "transport"].includes(line.appointmentComponent)) &&
+      (line.serviceId === undefined || text(line.serviceId, 100)) && (line.performedByStaffId === undefined || text(line.performedByStaffId, 100)) && (line.commissionSplit === undefined || typeof line.commissionSplit === 'boolean') && (line.serviceCategory === undefined || text(line.serviceCategory, 50)) &&
       (line.serviceQuote === undefined || (line.itemKind === "service" && line.serviceQuote && ["catalog", "pet"].includes(line.serviceQuote.source) && text(line.serviceQuote.petId, 100) && text(line.serviceQuote.petName, 250) && text(line.serviceQuote.unitPrice, 30) && text(line.serviceQuote.description, 250))))) return null;
     if (!text(draft.petId, 100) || !text(draft.received, 30) || !text(draft.notes, 2000) ||
       !["cash", "transfer", "card", "other"].includes(draft.paymentMethod)) return null;

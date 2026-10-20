@@ -96,8 +96,24 @@ const voidCommission = createVoidCommissionUseCase({
 const { createCorrectCheckoutCommissionUseCase } = require('./application/use-cases/correct-checkout-commission.usecase');
 const { PrismaBusinessDayGate } = require('../shared/persistence/prisma-business-day-gate');
 const correctCheckoutCommission = createCorrectCheckoutCommissionUseCase({ commissionRepository, voidCommission, businessDayGate: new PrismaBusinessDayGate(), staffFinanceGate: new PrismaStaffFinanceGate() });
+const { createRecordSaleServiceCommissionUseCase } = require('./application/use-cases/record-sale-service-commission.usecase');
+const { PrismaSaleServiceReader } = require('./infrastructure/persistence/prisma-sale-service.reader');
+const recordSaleServiceCommission = transactionalCommand(createRecordSaleServiceCommissionUseCase({ sourceReader: new PrismaSaleServiceReader(), staffRepository, serviceCategoryReader, businessConfigReader, commissionRepository, dailyCloseReader: new PrismaDailyCloseReader(), settlementCoverageReader: new PrismaSettlementCoverageReader(), businessDayGate: new PrismaBusinessDayGate(), staffFinanceGate: new PrismaStaffFinanceGate() }), { unitOfWork: new PrismaUnitOfWork(), eventPublisher });
 
 module.exports = {
+  async voidSaleCommissions({ tenantId, transactionId, reason }, ctx) {
+    if (!ctx?.tx || !ctx.eventPublisher) throw new Error('Void sale commissions requires transaction');
+    const rows = await commissionRepository.listByTransaction(tenantId, transactionId, ctx);
+    const gate = new PrismaStaffFinanceGate();
+    for (const row of rows) {
+      await gate.acquire(tenantId, row.staffId, ctx);
+      await voidCommission({ tenantId, commissionId: row.id, reason, replacement: null }, ctx);
+    }
+  },
+  recordSaleServiceCommission,
+  async recordSaleCommissions({ tenantId, transaction, access }, ctx) {
+    for (const item of transaction.items ?? []) if (item.serviceId && !item.appointmentComponent) await recordSaleServiceCommission({ tenantId, transactionItemId: item.id, serviceId: item.serviceId, staffId: item.performedByStaffId, activeModules: access.activeModules }, ctx);
+  },
   correctCheckoutCommission,
   publishCheckoutCorrection: event => eventPublisher.publish(event.name, event.payload),
   // Casos existentes sobre el cliente transaccional de la operación de Agenda.

@@ -62,6 +62,7 @@ function createVoidCommissionUseCase({ commissionRepository, settlementCoverageR
       replacementData = {
         tenantId: commission.tenantId ?? null,
         appointmentId: commission.appointmentId,
+        ...(commission.transactionItemId ? { transactionItemId: commission.transactionItemId, serviceId: commission.serviceId } : {}),
         staffId: replacement.staffId ?? commission.staffId ?? null,
         resolvedPrice: correctedPrice,
         priceSource: "manual_override",

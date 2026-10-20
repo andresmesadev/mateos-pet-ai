@@ -16,7 +16,7 @@ const CLINICAL = [
 ];
 const CASH = [
   ["GET", /^\/pos\/operations\/[^/]+$/],
-  ["GET", /^\/cash\/(operational|context|catalog)$/], ["GET", /^\/transactions(\/[^/]+)?$/],
+  ["GET", /^\/cash\/(operational|context|catalog|professionals)$/], ["GET", /^\/transactions(\/[^/]+)?$/],
   ["POST", /^\/transactions$/], ["POST", /^\/transactions\/[^/]+\/settle$/],
 ];
 const CONTACT_READ = [["GET", /^\/clients(\/[^/]+)?$/], ["GET", /^\/pets(\/[^/]+)?$/], ["GET", /^\/services$/]];

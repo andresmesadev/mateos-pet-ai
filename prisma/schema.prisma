@@ -674,6 +674,7 @@ model Staff {
   appointments   Appointment[]
   medicalRecords MedicalRecord[]
   commissions    Commission[]
+  performedSaleItems TransactionItem[]
   availabilities StaffAvailability[]
   capabilities   StaffCapability[]
   settlements    Settlement[]
@@ -782,6 +783,8 @@ model Service {
 
   appointments Appointment[]
   priceRules   PriceRule[]
+  saleItems TransactionItem[]
+  saleCommissions Commission[]
 
   @@index([tenantId, categoryId])
   @@index([tenantId, active])
@@ -1296,6 +1299,11 @@ model TransactionItem {
   transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
 
   description   String
+  serviceId String?
+  service Service? @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  performedByStaffId String?
+  performedByStaff Staff? @relation(fields: [performedByStaffId], references: [id], onDelete: Restrict)
+  commissions Commission[]
   appointmentComponent String? @db.VarChar(16)
   itemKind      String @default("legacy") // "service" | "product"; historical rows remain unclassified
   quantity      Int     @default(1)
@@ -1401,8 +1409,12 @@ model Commission {
 
   // La unicidad real es parcial — como máximo una Commission ACTIVA por cita — y vive
   // como índice único parcial en SQL (WHERE status = 'active'). Ver ADR 009.
-  appointmentId String
-  appointment   Appointment @relation(fields: [appointmentId], references: [id])
+  appointmentId String?
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
+  transactionItemId String?
+  transactionItem TransactionItem? @relation(fields: [transactionItemId], references: [id], onDelete: Restrict)
+  serviceId String?
+  service Service? @relation(fields: [serviceId], references: [id], onDelete: Restrict)
 
   staffId       String?
   staff         Staff?   @relation(fields: [staffId], references: [id])
@@ -1410,7 +1422,7 @@ model Commission {
   resolvedPrice  Decimal  @db.Decimal(10, 2)
   priceSource    String
 
-  splitRate      Decimal  @db.Decimal(4, 3)
+  splitRate      Decimal  @db.Decimal(5, 4)
   staffShare     Decimal  @db.Decimal(10, 2)
   businessShare  Decimal  @db.Decimal(10, 2)
 

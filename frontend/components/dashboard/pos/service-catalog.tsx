@@ -8,7 +8,7 @@ import { proxyUrl } from "@/lib/api";
 import { useTenant } from "@/lib/use-tenant";
 import { formatPosMoney, type CheckoutLine } from "@/lib/pos-checkout";
 
-type Service = { id: string; name: string; category: string; price: number | null; priceSource: string };
+type Service = { id: string; name: string; category: string; price: number | null; priceSource: string; appliesCommissionSplit?: boolean };
 const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 export function ServiceCatalog({ petId, petName = "", onAdd, focusRequest = 0, expanded = false, additional = false }: { petId: string; petName?: string; onAdd: (line: CheckoutLine) => boolean | void; focusRequest?: number; expanded?: boolean; additional?: boolean }) {
   const tenant = useTenant();
@@ -45,7 +45,7 @@ export function ServiceCatalog({ petId, petName = "", onAdd, focusRequest = 0, e
       {!filtered.length && <p className="py-2 text-sm text-muted-foreground">No hay servicios disponibles con esta búsqueda.</p>}
       {filtered.map(service => <button type="button" key={service.id} onClick={() => {
         const unitPrice = service.price !== null && service.price > 0 ? String(service.price) : "";
-        const accepted = onAdd({ id: crypto.randomUUID(), description: service.name, quantity: "1", unitPrice, itemKind: "service", ...(unitPrice ? { serviceQuote: { source: ["pet_agreed_price", "pet_default_price"].includes(service.priceSource) ? "pet" as const : "catalog" as const, petId, petName, unitPrice, description: service.name } } : {}) });
+        const accepted = onAdd({ serviceId: service.id, commissionSplit: service.appliesCommissionSplit === true, serviceCategory: service.category, id: crypto.randomUUID(), description: service.name, quantity: "1", unitPrice, itemKind: "service", ...(unitPrice ? { serviceQuote: { source: ["pet_agreed_price", "pet_default_price"].includes(service.priceSource) ? "pet" as const : "catalog" as const, petId, petName, unitPrice, description: service.name } } : {}) });
         if (accepted !== false) { setQuery(""); setBrowsing(false); input.current?.focus(); }
       }} className="flex w-full items-center gap-3 rounded-lg border bg-white p-3 text-left hover:border-primary focus-visible:outline-2 focus-visible:outline-primary">
         <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{service.name}</span><span className="text-xs text-muted-foreground">{service.category === "grooming" ? "Peluquería" : service.category === "veterinary" ? "Veterinaria" : "Otro servicio"}{service.priceSource === "pet_agreed_price" ? " · Tarifa acordada" : service.priceSource === "pet_default_price" ? " · Tarifa de la mascota" : ""}</span></span>

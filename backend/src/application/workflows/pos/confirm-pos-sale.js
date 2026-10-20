@@ -9,17 +9,23 @@ function buildConfirmPosSale({ inventory, finance, staff, repository, accessRead
     const posted = command.items;
     if (!Array.isArray(posted) || !posted.length || posted.length > 100 || posted.some(i => !i || typeof i !== 'object')) fail('INVALID_ITEMS', 'Agrega entre 1 y 100 artículos.', 400);
     // Product snapshots are assembled by Inventory, never supplied by the browser.
-    const lines = posted.map(({ description, itemKind, quantity, unitPrice, productId, priceVersion, appointmentComponent }) => ({ description, itemKind, quantity, unitPrice, productId, priceVersion, appointmentComponent }));
+    const lines = posted.map(({ description, itemKind, quantity, unitPrice, productId, priceVersion, appointmentComponent, serviceId, performedByStaffId }) => ({ description, itemKind, quantity, unitPrice, productId, priceVersion, appointmentComponent, serviceId, performedByStaffId }));
     if (!operationKey) {
       if (command.appointmentCheckout) fail('OPERATION_KEY_REQUIRED', 'El pago de la cita necesita una clave de operación.', 400);
       if (lines.some(i => i.productId)) fail('OPERATION_KEY_REQUIRED', 'Las ventas de catálogo necesitan una clave de operación.', 400);
-      return unitOfWork.run(async ctx => {
+      let manualEvents = [];
+      const result = await unitOfWork.run(async ctx => {
+        manualEvents = [];
+        ctx = { ...ctx, eventPublisher: { async publish(name, payload) { manualEvents.push({ name, payload }); } } };
         const access = await accessReader.readAccess({ tenantId, actor }, ctx);
         if (!access.capabilities.cash) fail('ACCESS_DENIED', 'Caja no está habilitada.', 403);
         const normalized = lines.map(i => ({ ...i, itemKind: i.itemKind ?? (access.capabilities.services ? 'service' : 'product') }));
         const transaction = await finance.registerManualSale({ tenantId, id: randomUUID(), actor: access.snapshot, access, command, items: normalized, now: clock() }, ctx);
+        if (staff.recordSaleCommissions) await staff.recordSaleCommissions({ tenantId, transaction, access }, ctx);
         return { transaction: await repository.sale(tenantId, transaction.id, ctx) };
       }, { isolationLevel: 'Serializable' });
+      for (const event of manualEvents) await staff.publishCheckoutCorrection(event);
+      return result;
     }
     let checkoutEvents = [], confirmedPayment;
     const result = await inventory.run({ tenantId, actor, operationKey, kind: 'confirm_pos_sale', command }, async state => {
@@ -30,6 +36,7 @@ function buildConfirmPosSale({ inventory, finance, staff, repository, accessRead
         const { transaction, servicePrice } = await finance.registerAppointmentSale({ tenantId, actor: state.access.snapshot, access: state.access, command, items: prepared, now: state.now }, local);
         try { await staff.correctCheckoutCommission({ tenantId, appointmentId: command.appointmentId, servicePrice, actor: state.access.snapshot }, local); }
         catch (error) { if (error instanceof CommissionDayClosedError || error instanceof CommissionInActiveSettlementError) fail('COMMISSION_CONSOLIDATED', error.message, 409); throw error; }
+        if (staff.recordSaleCommissions) await staff.recordSaleCommissions({ tenantId, transaction, access: state.access }, local);
         const evidence = await inventory.start(state, 'sale', { resultSaleId: transaction.id });
         await inventory.sellLines(state, transaction.items);
         confirmedPayment = transaction;
@@ -39,12 +46,14 @@ function buildConfirmPosSale({ inventory, finance, staff, repository, accessRead
       const evidence = await inventory.start(state, 'sale', { resultSaleId: saleId });
       const sale = await finance.registerManualSale({ tenantId, id: saleId, actor: state.access.snapshot, access: state.access,
         command, items: prepared, now: state.now }, state.ctx);
+      const local = { ...state.ctx, eventPublisher: { async publish(name, payload) { checkoutEvents.push({ name, payload }); } } };
+      if (staff.recordSaleCommissions) await staff.recordSaleCommissions({ tenantId, transaction: sale, access: state.access }, local);
       await inventory.sellLines(state, sale.items);
       return evidence;
     });
-    if (!result.replayed && confirmedPayment) {
+    if (!result.replayed) {
       for (const event of checkoutEvents) await staff.publishCheckoutCorrection(event);
-      await finance.publishCheckoutPayment(confirmedPayment);
+      if (confirmedPayment) await finance.publishCheckoutPayment(confirmedPayment);
     }
     return result;
   };

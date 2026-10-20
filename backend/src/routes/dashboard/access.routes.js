@@ -7,6 +7,19 @@ const { serviceModule, moduleAllowsAppointment } = require("../../services/dashb
 const { readOperationalCash } = require("./operational-cash-page");
 const { HistoryQueryError } = require("./financial-history-page");
 router.get("/access", (req, res) => res.json(req.access));
+router.get('/cash/professionals', async (req, res) => {
+  if (!req.tenant.tenantId || !req.access?.capabilities.cash) return res.status(403).json({ error: 'Caja no está habilitada.' });
+  try {
+    const tenantId = req.tenant.tenantId, serviceId = req.query.serviceId;
+    if (typeof serviceId !== 'string' || !serviceId) return res.status(400).json({ error: 'Selecciona el servicio.' });
+    const service = await prisma.service.findFirst({ where: { id: serviceId, tenantId, active: true }, include: { category: true } });
+    if (!service || !moduleAllowsAppointment(req.access, { service })) return res.status(404).json({ error: 'Servicio no disponible.' });
+    const { compatibleRole, canProvideService } = require('../../contexts/staff/domain/rules/service-scope.rules');
+    const rows = await prisma.staff.findMany({ where: { tenantId, active: true }, select: { id: true, name: true, role: true, serviceScope: true, capabilities: { where: { serviceId, active: true } } }, orderBy: { name: 'asc' } });
+    res.json(rows.filter(person => compatibleRole(person, service.category.name) && canProvideService(person, person.capabilities, serviceId)).map(({ id, name, role }) => ({ id, name, role })));
+  }
+  catch { res.status(503).json({ error: 'No se pudo cargar el equipo.' }); }
+});
 router.get("/cash/context", (req, res) => {
   const actorId = req.actor?.staffId || req.actor?.email;
   if (!req.tenant.tenantId || !actorId) return res.status(403).json({ error: "No se pudo identificar el contexto de caja." });
@@ -27,7 +40,7 @@ router.get("/cash/catalog", async (req, res) => {
     if (petId && !pet) return res.status(404).json({ error: "Mascota no encontrada en este establecimiento." });
     const services = await prisma.service.findMany({
       where: { tenantId, active: true },
-      include: { category: { select: { name: true } }, ...(pet ? { priceRules: { where: { active: true, targetType: "pet", targetId: pet.id }, orderBy: { createdAt: "desc" } } } : {}) },
+      include: { category: { select: { name: true, appliesCommissionSplit: true } }, ...(pet ? { priceRules: { where: { active: true, targetType: "pet", targetId: pet.id }, orderBy: { createdAt: "desc" } } } : {}) },
       orderBy: { name: "asc" },
     });
     return res.json(services.filter(service => moduleAllowsAppointment(req.access, { service })).map(service => {
@@ -36,7 +49,7 @@ router.get("/cash/catalog", async (req, res) => {
         petDefaultPrice: !additional && serviceModule({ service }) === "grooming" ? pet?.defaultGroomingPrice ?? null : null,
         serviceBasePrice: service.basePrice,
       });
-      return { id: service.id, name: service.name, category: service.category?.name, price: resolution.finalPrice, priceSource: resolution.source };
+      return { id: service.id, name: service.name, category: service.category?.name, price: resolution.finalPrice, priceSource: resolution.source, appliesCommissionSplit: service.appliesCommissionSplit ?? service.category?.appliesCommissionSplit ?? false };
     }));
   } catch (error) {
     console.error("[Cash] Catalog failed:", error.message);

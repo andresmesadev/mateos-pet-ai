@@ -8,6 +8,10 @@ export type CheckoutLine = {
   priceVersion?: number;
   presentation?: string;
   appointmentComponent?: "service" | "transport";
+  serviceId?: string;
+  performedByStaffId?: string;
+  commissionSplit?: boolean;
+  serviceCategory?: string;
   // Display-only quote from the existing resolver; never sent as a pricing command.
   serviceQuote?: { source: "catalog" | "pet"; petId: string; petName: string; unitPrice: string; description: string };
 };
@@ -91,6 +95,7 @@ export function validateCheckout(lines: CheckoutLine[], capabilities: { services
   for (const [index, line] of lines.entries()) {
     const prefix = `Artículo ${index + 1}: `;
     if (!line.description.trim()) return prefix + "escribe una descripción.";
+    if (line.serviceId && line.commissionSplit && !line.performedByStaffId) return prefix + "selecciona el profesional que realizó el servicio.";
     if (line.productId && (!Number.isInteger(line.priceVersion) || line.priceVersion! < 1 || line.itemKind !== "product")) return prefix + "vuelve a seleccionar el producto del inventario.";
     if (!/^\d+$/.test(line.quantity) || !Number.isSafeInteger(Number(line.quantity)) || Number(line.quantity) < 1 || Number(line.quantity) > MAX_POS_QUANTITY) return prefix + "la cantidad debe ser un número entero mayor que cero, hasta 2.147.483.647 unidades.";
     const cents = moneyInCents(line.unitPrice);

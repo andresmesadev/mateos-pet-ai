@@ -631,5 +631,6 @@ module.exports = async function verifyTransport({ prisma, base, context, page, o
   assert.equal((await prisma.commission.findFirstOrThrow({ where: { appointmentId: undecided.id, status: 'active' } })).staffId, second.id);
   check('two eligible groomers trigger the existing choice dialog; selecting one resumes start and the completed appointment credits that groomer');
   await require('./verify-contract-service-scenario.cjs')({ prisma, base, context, page, output, check, tenantId });
+  await require('./verify-sale-commission-scenario.cjs')({ prisma, base, context, page, output, check, tenantId });
   await require('./verify-cash-close-scenario.cjs')({ prisma, base, context, page, output, check, tenantId });
 };

@@ -15,6 +15,7 @@ import { PAYMENT_METHOD_LABELS, type PaymentMethod, type Transaction } from "@/l
 import { addCheckoutLine, catalogueLineIssue, cashChange, checkoutPriceLabel, formatPosMoney, lineTotalCents, moneyInCents, productQuantities, validateCheckout, withoutEmptyTransport, MAX_POS_QUANTITY, type CatalogueSnapshot, type CheckoutLine } from "@/lib/pos-checkout";
 import { ReceiptDialog } from "./sale-receipt";
 import { ServiceCatalog } from "./service-catalog";
+import { ServiceProfessional } from './service-professional';
 import { draftKey, readStoredDraft, writeStoredDraft, removeStoredDraft, type SaleDraft } from "@/lib/pos-draft";
 import { ProductPicker } from "@/components/dashboard/inventory/product-picker";
 import type { InventoryProduct } from "@/lib/inventory";
@@ -254,7 +255,7 @@ export function SaleForm({ draftScope, appointment }: { draftScope: string | nul
       } finally { inFlight.current = false; setChecking(false); }
     }
     operationKey.current ??= crypto.randomUUID();
-    operationBody.current ??= JSON.stringify({ ...(appointment ? { appointmentCheckout: true, appointmentId: appointment.appointmentId } : {}), userId: client?.id ?? null, petId: petId || null, paymentMethod, notes: notes.trim() || null, items: (retry ? lines : withoutEmptyTransport(lines)).map(line => ({ description: line.description.trim(), itemKind: line.itemKind, quantity: Number(line.quantity), unitPrice: moneyInCents(line.unitPrice)! / 100, ...(line.appointmentComponent ? { appointmentComponent: line.appointmentComponent } : {}), ...(line.productId ? { productId:line.productId, priceVersion:line.priceVersion } : {}) })) });
+    operationBody.current ??= JSON.stringify({ ...(appointment ? { appointmentCheckout: true, appointmentId: appointment.appointmentId } : {}), userId: client?.id ?? null, petId: petId || null, paymentMethod, notes: notes.trim() || null, items: (retry ? lines : withoutEmptyTransport(lines)).map(line => ({ description: line.description.trim(), itemKind: line.itemKind, quantity: Number(line.quantity), unitPrice: moneyInCents(line.unitPrice)! / 100, ...(line.appointmentComponent ? { appointmentComponent: line.appointmentComponent } : {}), ...(line.serviceId ? { serviceId: line.serviceId, performedByStaffId: line.performedByStaffId || null } : {}), ...(line.productId ? { productId:line.productId, priceVersion:line.priceVersion } : {}) })) });
     setCanRecover(true);
     if (!persist("verify")) { setError("No se pudo conservar la clave de esta venta. Habilita el almacenamiento del navegador antes de cobrar."); return; }
     inFlight.current = true; setSaving(true); setError("");
@@ -355,6 +356,8 @@ export function SaleForm({ draftScope, appointment }: { draftScope: string | nul
                 <div className="text-left sm:text-right"><p className="text-xs text-muted-foreground">Subtotal</p><p className="mt-2 break-words text-sm font-bold tabular-nums">{formatPosMoney(lineTotalCents(line) / 100)}</p></div>
                 <button type="button" disabled={line.appointmentComponent === 'service'} aria-label={`Quitar artículo ${index + 1}`} className="flex h-9 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-red-50 hover:text-destructive focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-30" onClick={() => removeLine(line.id)}><Trash2 className="h-4 w-4" /></button>
               </div>
+              {line.serviceId && line.commissionSplit && <ServiceProfessional line={line} setLines={setLines} disabled={locked} />}
+              {line.itemKind === 'service' && !line.serviceId && !line.appointmentComponent && <p className="mt-2 text-xs text-muted-foreground">Artículo manual sin reparto. Para registrar comisión, agrega el servicio desde el catálogo y selecciona al profesional.</p>}
               {line.productId && <button type="button" className="mt-2 min-h-8 text-xs font-semibold text-primary underline underline-offset-4" onClick={() => void updateCatalogueLine(line)}>{updating === line.id ? "Actualizando…" : "Actualizar precio y disponibilidad"}</button>}
               {contextChanged && <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-950">Este servicio se agregó {line.serviceQuote!.petId ? `para ${line.serviceQuote!.petName || "otra mascota"}` : "sin mascota seleccionada"}. Revisa el precio para {selectedPet?.name || "esta venta"}; puedes editarlo o volver a agregarlo desde el catálogo.</p>}
               {issue && <p id={issueId} role="alert" className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">{issue}</p>}
