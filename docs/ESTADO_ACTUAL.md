@@ -1,5 +1,7 @@
 # Estado actual del proyecto
 
+**Publicado el 19 de octubre — 2.51.0:** Tipo de contrato por integrante (Fijo o Prestación de servicios con porcentaje propio) y reparto opcional por servicio. Los datos antiguos conservan su regla hasta configurarlos; comisiones y cierres históricos inmutables. 213 suites / 1.747 pruebas backend, 16 integraciones PostgreSQL y 46 comprobaciones Chrome; lint, build y cinco jobs CI correctos tras corregir un consumidor de disponibilidad que omitía tenantId. Respaldo verificado, 61 migraciones, salud HTTPS correcta y WhatsApp en pausa. Ningún contrato real asignado automáticamente. [Evidencia y límites](history/RELEASE_2_51_0_VPS_20261019.md).
+
 Fecha de corte documental original: **8 de octubre de 2026**. Actualización del **19 de octubre**: mejoras operativas publicadas en **2.50.0**, etiquetas de agenda en **2.50.1**, Caja compacta en **2.50.2**, modalidad de llegada en **2.50.3** y cierre oficial desde Caja con reserva de comisiones en **2.50.4**; WhatsApp conserva su pausa explícita y el canal privado sigue deshabilitado. [Certificación productiva vigente](history/RELEASE_2_50_4_VPS_20261019.md). Las publicaciones históricas conservan su fecha y evidencia. Este documento orienta la lectura; no sustituye el Plan Maestro, el modelo de dominio ni los ADR.
 
 ## Publicación y trabajo local
