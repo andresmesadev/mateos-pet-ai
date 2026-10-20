@@ -1,5 +1,14 @@
 # Beta cerrada de la veterinaria propia — estado al 20 de octubre de 2026
 
+**Actualización posterior:** el responsable autorizó commit, push y despliegue.
+El lote descrito abajo como local fue publicado en 2.53.0 el 20/10 a las 17:28
+Colombia, con CI, respaldo, migración y lecturas autenticadas correctos.
+[Certificación](../history/RELEASE_2_53_0_VPS_20261020.md).
+Las capturas inferiores conservan el momento de la revisión anterior.
+La ventana 2.52.0 quedó incompleta con 18,50236 horas y cero fallos/huecos;
+la observación vigente corresponde a 2.53.0 y no certifica todavía 48 horas.
+Se mantienen pendientes las aceptaciones operativas descritas para el paso 10.
+
 Revisión solicitada antes de incorporar más cambios. Contrasta el plan de diez
 pasos, las publicaciones, el trabajo local y lecturas productivas agregadas.
 No modifica la aplicación, datos, servicios ni habilita canales.
@@ -100,9 +109,9 @@ No se modificaron cobros, cierre, historia clínica ni existencias.
 2. Contrastar una jornada con registros del centro: citas/atenciones, cobros y
    métodos de pago, servicios/profesionales/comisiones, cierre e inventario físico.
    Distinguir las correcciones detectadas de lo que ya fue aprobado.
-3. Preparar y publicar el lote local cuando se autorice; verificar su versión y
-   migración. Registrar una nueva ventana de observación si cambia la versión,
-   conservando la serie anterior. No reiniciar las demás comprobaciones cerradas.
+3. Lote publicado en 2.53.0 tras autorización, versión y 63 migraciones
+   verificadas; nueva ventana activa y serie anterior conservada. Continuar su
+   observación sin reiniciar las demás comprobaciones cerradas.
 4. Completar la medición/estabilidad y el ensayo actual de recuperación con el
    suplente. Registrar la decisión de aceptación; WhatsApp y venta a otros centros
    siguen siendo decisiones posteriores separadas.

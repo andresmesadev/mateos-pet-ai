@@ -1,9 +1,11 @@
 # Estado actual del proyecto
 
-**Publicación 2.53.0 en preparación — 20 de octubre:** existencias iniciales,
+**Publicado el 20 de octubre — 2.53.0:** existencias iniciales,
 corrección de cantidad/costo de entradas y retiro de productos erróneos con
 auditoría; mejoras adaptables de Agenda, cabecera y cierre diario. Validación
-local completa; CI y despliegue se registran en la
+local completa; cinco jobs CI aprobados, respaldo cifrado verificado, 63
+migraciones y 14 destinos HTTPS autenticados correctos. Stock y jornada cerrada
+conservados; WhatsApp pausado. CI y despliegue se registran en la
 [evidencia de publicación](history/RELEASE_2_53_0_VPS_20261020.md).
 La [revisión actual de beta](operations/CLOSED_BETA_STATUS_20261020.md) conserva
 pendiente la aceptación clínica/inventario; la organización del paso 10 y los
