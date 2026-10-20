@@ -13,13 +13,14 @@ type Props = {
   movements: InventoryMovement[]; historyBusy: boolean; historyError: string; hasMore: boolean;
   onClose: () => void; onEdit: () => void; onEntry: () => void; onCount: () => void;
   onToggleActive: () => void; onRetry: () => void; onMore: () => void;
+  onRemove: () => void;
   onCorrect: (movement: InventoryMovement) => void;
 };
 const date = (value: string) => new Date(value).toLocaleString("es-CO", { timeZone: "America/Bogota", dateStyle: "short", timeStyle: "short" });
 const policies = { untracked: "Sin lote", lot: "Por lote", lot_expiry: "Por lote y vencimiento" };
 const formatPosMoney = (value: string | number) => formatMoney(Number(value));
 
-export function ProductDetail({ product: p, manage, cash, disabled, movements, historyBusy, historyError, hasMore, onClose, onEdit, onEntry, onCount, onToggleActive, onRetry, onMore, onCorrect }: Props) {
+export function ProductDetail({ product: p, manage, cash, disabled, movements, historyBusy, historyError, hasMore, onClose, onEdit, onEntry, onCount, onToggleActive, onRetry, onMore, onCorrect, onRemove }: Props) {
   const status = stockLabel(p);
   return <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
     <DialogContent className="flex max-h-[90dvh] w-[calc(100%-2rem)] max-w-4xl flex-col overflow-hidden border-border bg-white shadow-xl">
@@ -55,7 +56,13 @@ export function ProductDetail({ product: p, manage, cash, disabled, movements, h
           {manage && <TabsContent value="movements" className="space-y-4">
             <div><h2 className="font-semibold">Historial de movimientos</h2><p className="mt-1 text-sm text-muted-foreground">Entradas y salidas con fecha, responsable y motivo. Las correcciones conservan el registro original.</p></div>
             {historyError && <div role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-800">{historyError}<Button size="sm" variant="outline" className="ml-2" disabled={historyBusy} onClick={onRetry}>Reintentar</Button></div>}
-            {movements.map(m => <article key={m.id} className="rounded-xl border p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div className="flex gap-3"><span className={`rounded-lg p-2 ${m.stockDelta > 0 ? "bg-teal-50 text-teal-800" : "bg-muted text-muted-foreground"}`}>{m.stockDelta > 0 ? <ArrowDownLeft className="size-4" /> : <ArrowUpRight className="size-4" />}</span><div><h3 className="font-semibold">{MOVEMENT_NAMES[m.kind] ?? m.kind}</h3><p className="mt-1 text-xs text-muted-foreground">{date(m.occurredAt)} · {m.actorName}</p></div></div><div className="text-right"><p className="font-bold tabular-nums">{m.stockDelta > 0 ? "+" : ""}{m.stockDelta} unidades</p><p className="mt-1 text-xs text-muted-foreground">Saldo del lote: {m.balanceAfter}</p></div></div><p className="mt-3 text-xs text-muted-foreground">{m.lotCodeSnapshot ?? "Sin lote"} · {m.presentationSnapshot}{m.entryUnitCost != null ? ` · Costo unitario: ${formatPosMoney(m.entryUnitCost)}` : ""}</p>{m.reason && <p className="mt-2 whitespace-pre-wrap break-words text-sm">{m.reason}</p>}{m.kind === "consumption" && <Button disabled={disabled} size="sm" variant="outline" className="mt-3" onClick={() => onCorrect(m)}>Corregir unidades no utilizadas</Button>}</article>)}
+            {movements.map(m => <article key={m.id} className="rounded-xl border p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3"><div className="flex gap-3"><span className={`rounded-lg p-2 ${m.stockDelta > 0 ? "bg-teal-50 text-teal-800" : "bg-muted text-muted-foreground"}`}>{m.stockDelta > 0 ? <ArrowDownLeft className="size-4" /> : <ArrowUpRight className="size-4" />}</span><div><h3 className="font-semibold">{MOVEMENT_NAMES[m.kind] ?? m.kind}</h3><p className="mt-1 text-xs text-muted-foreground">{date(m.occurredAt)} · {m.actorName}</p></div></div><div className="text-right"><p className="font-bold tabular-nums">{m.stockDelta > 0 ? "+" : ""}{m.stockDelta} unidades</p><p className="mt-1 text-xs text-muted-foreground">Saldo del lote: {m.balanceAfter}</p></div></div>
+              <p className="mt-3 text-xs text-muted-foreground">{m.lotCodeSnapshot ?? "Sin lote"} · {m.presentationSnapshot}{m.entryUnitCost != null ? ` · Costo unitario: ${formatPosMoney(m.entryUnitCost)}` : ""}</p>
+              {m.reason && <p className="mt-2 whitespace-pre-wrap break-words text-sm">{m.reason}</p>}
+              {m.kind === "entry" && (m.entryCorrected ? <p className="mt-3 text-xs font-medium text-muted-foreground">Entrada corregida; se conserva como antecedente.</p> : <Button disabled={disabled} size="sm" variant="outline" className="mt-3" onClick={() => onCorrect(m)}>Corregir cantidad y costo</Button>)}
+              {m.kind === "consumption" && <Button disabled={disabled} size="sm" variant="outline" className="mt-3" onClick={() => onCorrect(m)}>Corregir unidades no utilizadas</Button>}
+            </article>)}
             {historyBusy && <p role="status" className="text-sm text-muted-foreground">Cargando movimientos…</p>}
             {!movements.length && !historyBusy && !historyError && <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">Sin movimientos registrados.</p>}
             {hasMore && <Button variant="outline" disabled={historyBusy} onClick={onMore}>Ver movimientos anteriores</Button>}
@@ -68,6 +75,7 @@ export function ProductDetail({ product: p, manage, cash, disabled, movements, h
           <Button variant="outline" disabled={disabled} onClick={onEdit}><Pencil />Editar</Button>
           <Button aria-label="Conteo físico" aria-describedby={!p.lots.length ? "inventory-count-help" : undefined} variant="outline" disabled={disabled || !p.lots.length} onClick={onCount}><ClipboardList /><span className="sm:hidden">Conteo</span><span className="hidden sm:inline">Conteo físico</span></Button>
           <Button variant="ghost" disabled={disabled} onClick={onToggleActive}>{p.active ? "Desactivar" : "Activar"}</Button>
+          {!p.active && <Button variant="destructive" disabled={disabled} onClick={onRemove}>Eliminar</Button>}
         </div>}
         <Button variant="outline" onClick={onClose}>Cerrar</Button>
         {manage && !p.lots.length && <p id="inventory-count-help" className="w-full text-xs text-muted-foreground">{p.active ? "Registra una entrada para poder contar las existencias." : "Activa el producto y registra una entrada para poder contar las existencias."}</p>}

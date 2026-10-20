@@ -5,8 +5,10 @@ const { serviceModule } = require('../../../../services/dashboard-access.service
 const { resolveProductPrice } = require('../../../../services/domain/price-resolver.service');
 const { serializationConflict, yieldRetry } = require('../../../shared/persistence/postgres-retry');
 
-const KINDS = new Set(['create_product', 'update_product', 'set_product_active', 'register_entry', 'adjust_stock', 'register_consumption', 'correct_consumption', 'confirm_pos_sale', 'return_sale_items']);
+const KINDS = new Set(['create_product', 'update_product', 'set_product_active', 'remove_product', 'register_entry', 'correct_entry', 'adjust_stock', 'register_consumption', 'correct_consumption', 'confirm_pos_sale', 'return_sale_items']);
 const EVENTS = { create_product: 'ProductoRegistrado', update_product: 'ProductoActualizado', set_product_active: 'ProductoActualizado', register_entry: 'EntradaDeInventarioRegistrada', adjust_stock: 'AjusteDeInventarioRegistrado', register_consumption: 'ConsumoDeInventarioRegistrado', correct_consumption: 'ConsumoDeInventarioCorregido', confirm_pos_sale: 'SalidaPorVentaRegistrada', return_sale_items: 'DevolucionDeInventarioRegistrada' };
+EVENTS.remove_product = 'ProductoActualizado';
+EVENTS.correct_entry = 'AjusteDeInventarioRegistrado';
 function buildInventoryCommands({ repository: repo, accessReader, unitOfWork, eventPublisher, clock = () => new Date() }) {
   function requireAdmin(access) { if (!access.capabilities.inventory_manage) fail('ACCESS_DENIED', 'Esta operación requiere administración.', 403); }
   function requireKind(access, kind) {
@@ -95,7 +97,7 @@ function buildInventoryCommands({ repository: repo, accessReader, unitOfWork, ev
   }
   async function product(state, id, active = false) {
     const p = await repo.findProduct(state.tenantId, id, state.ctx);
-    if (!p) fail('PRODUCT_NOT_FOUND', 'Producto no encontrado.', 404);
+    if (!p || p.removedAt) fail('PRODUCT_NOT_FOUND', 'Producto no encontrado.', 404);
     if (active && !p.active) fail('PRODUCT_INACTIVE', 'El producto está desactivado.', 409);
     return p;
   }
@@ -134,12 +136,28 @@ function buildInventoryCommands({ repository: repo, accessReader, unitOfWork, ev
         if (values.uses.some(u => !state.access.activeModules.includes(u))) fail('MODULE_DISABLED', 'Activa las áreas seleccionadas antes de crear el producto.', 403);
         const id = randomUUID();
         const evidence = await start(state, 'product', { resultProductId: id, resultEvidence: { metadataVersion: 1, priceVersion: 1 } });
-        await repo.createProduct({ id, tenantId: state.tenantId, ...values }, state.ctx);
+        const created = await repo.createProduct({ id, tenantId: state.tenantId, ...values }, state.ctx);
+        if (command.initialStock != null) {
+          const quantity = integer(command.initialStock.quantity, 'Existencias iniciales', true);
+          if (quantity > 0) await addEntry(state, created, { ...command.initialStock, quantity, unitCost: values.referenceCost, reason: 'Existencias iniciales al registrar el producto' });
+        }
         return evidence;
       }
       await repo.lockProducts(state.tenantId, [command.productId], state.ctx);
       const p = await product(state, command.productId);
       if (integer(command.expectedVersion, 'Versión') !== p.metadataVersion) fail('PRODUCT_CHANGED', 'Otra persona modificó este producto. Actualiza antes de guardar.', 409);
+      if (input.kind === 'remove_product') {
+        if (integer(command.expectedStockRevision, 'Revisión de existencias', true) !== p.stockRevision) fail('STOCK_COUNT_CHANGED', 'Las existencias cambiaron. Actualiza antes de eliminar.', 409);
+        if (p.active) fail('PRODUCT_ACTIVE', 'Desactiva el producto antes de eliminarlo.', 409);
+        const lots = await repo.lots(state.tenantId, p.id, state.ctx);
+        const movements = await repo.movements(state.tenantId, { productId: p.id }, state.ctx);
+        if (lots.some(l => l.balancePhysical !== 0) || movements.some(m => !['entry', 'entry_reversal'].includes(m.kind)) || await repo.hasSelections(state.tenantId, p.id, state.ctx)) fail('PRODUCT_USED', 'Este producto tiene existencias o uso registrado. Se conserva desactivado para mantener el historial.', 409);
+        if (p.metadataVersion >= MAX) fail('VERSION_LIMIT', 'El producto alcanzó el límite de versiones.', 409);
+        const reason = text(command.reason, 'Motivo', 1000);
+        const evidence = await start(state, 'product', { resultProductId: p.id, resultEvidence: { removed: true, reason } });
+        await repo.updateProduct(state.tenantId, p.id, { removedAt: state.now, metadataVersion: { increment: 1 } }, state.ctx);
+        return evidence;
+      }
       const values = input.kind === 'set_product_active' ? {} : productValues({ ...p, referenceCost: String(p.referenceCost), salePrice: p.salePrice == null ? null : String(p.salePrice), ...command });
       if (typeof command.active !== 'undefined' && typeof command.active !== 'boolean') fail('INVALID_STATE', 'Estado inválido.', 400);
       if (values.uses?.some(u => !p.uses.includes(u) && !state.access.activeModules.includes(u))) fail('MODULE_DISABLED', 'No puedes añadir un uso de un área desactivada.', 403);
@@ -176,6 +194,28 @@ function buildInventoryCommands({ repository: repo, accessReader, unitOfWork, ev
       const count = integer(c.countedQuantity, 'Cantidad contada', true), difference = count - lot.balancePhysical;
       const evidence = await start(state, 'movements', { resultEvidence: { productId: p.id, lotId: lot.id, countedQuantity: count, expectedStockRevision: p.stockRevision, difference } });
       if (difference) await move(state, p, lot, difference > 0 ? 'adjustment_in' : 'adjustment_out', Math.abs(difference), difference, { reason, countedQuantity: count, expectedStockRevision: p.stockRevision });
+      return evidence;
+    });
+  }
+  async function correctEntry(input) {
+    return run(input, async state => {
+      const c = input.command;
+      await repo.lockProducts(state.tenantId, [c.productId], state.ctx);
+      const p = await product(state, c.productId);
+      if (integer(c.expectedStockRevision, 'Revisión de existencias', true) !== p.stockRevision) fail('STOCK_COUNT_CHANGED', 'Las existencias cambiaron. Actualiza antes de corregir.', 409);
+      const [source] = await repo.movements(state.tenantId, { id: c.sourceMovementId, productId: p.id, kind: 'entry' }, state.ctx);
+      if (!source) fail('ENTRY_NOT_FOUND', 'Entrada no encontrada.', 404);
+      const quantity = integer(c.quantity, 'Cantidad recibida corregida', true);
+      const unitCost = amount(cents(c.unitCost, 'Costo unitario corregido', true));
+      const reason = text(c.reason, 'Motivo', 1000);
+      const related = await repo.movements(state.tenantId, { productId: p.id, lotId: source.lotId }, state.ctx);
+      if (related.some(m => m.kind === 'entry_reversal' && m.sourceMovementId === source.id)) fail('ENTRY_ALREADY_CORRECTED', 'Esta entrada ya fue corregida. Revisa la nueva entrada en el historial.', 409);
+      if (related.some(m => m.stockDelta < 0 && m.kind !== 'entry_reversal' && m.occurredAt >= source.occurredAt)) fail('ENTRY_ALREADY_USED', 'El lote tiene salidas posteriores a esta entrada. Revisa las existencias con un conteo físico antes de ajustar.', 409);
+      const lot = await repo.findLot(state.tenantId, p.id, source.lotId, state.ctx);
+      if (!lot || lot.balancePhysical < source.quantity) fail('ENTRY_ALREADY_USED', 'No se conservan todas las unidades de la entrada. Revisa el conteo físico.', 409);
+      const evidence = await start(state, 'movements', { sourceOperationId: source.operationId, resultEvidence: { productId: p.id, sourceMovementId: source.id, quantity, unitCost, reason } });
+      await move(state, p, lot, 'entry_reversal', source.quantity, -source.quantity, { sourceMovementId: source.id, reason });
+      if (quantity) await move(state, p, lot, 'entry', quantity, quantity, { entryUnitCost: unitCost, reason });
       return evidence;
     });
   }
@@ -274,6 +314,6 @@ function buildInventoryCommands({ repository: repo, accessReader, unitOfWork, ev
         await move(state, p, a.lot, 'sale', a.quantity, -a.quantity, { transactionId: item.transactionId, transactionItemId: item.id });
     }
   }
-  return { run, recover, start, catalogue, entry, adjust, consume, correct, returnItems, prepareSale, sellLines, requireKind, result };
+  return { run, recover, start, catalogue, entry, correctEntry, adjust, consume, correct, returnItems, prepareSale, sellLines, requireKind, result };
 }
 module.exports = { buildInventoryCommands, KINDS, InventoryError };

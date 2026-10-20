@@ -1,7 +1,7 @@
 // Structural ports consumed by application commands. Implementations must use
 // the supplied opaque ctx; no global-client fallback is permitted in a command.
 const contracts = Object.freeze({
-  ProductRepository: ['findProduct', 'lockProducts', 'createProduct', 'updateProduct', 'bumpStock'],
+  ProductRepository: ['findProduct', 'lockProducts', 'createProduct', 'updateProduct', 'bumpStock', 'hasSelections'],
   StockRepository: ['lots', 'findLot', 'createLot', 'changeBalance'],
   MovementRepository: ['recordMovement', 'movements', 'compensatedQuantity'],
   OperationRepository: ['findOperation', 'createOperation'],

@@ -192,7 +192,7 @@ export function DashboardSidebar() {
       <button
         type="button"
         onClick={() => setMobileOpen(true)}
-        className="fixed left-4 top-4 z-40 rounded-lg border border-border bg-white p-2 text-foreground shadow-sm lg:hidden"
+        className="fixed left-4 top-4 z-40 inline-flex size-11 items-center justify-center rounded-xl border border-border bg-white text-foreground shadow-sm lg:hidden"
         aria-label="Abrir menú"
       >
         <Menu className="h-5 w-5" />

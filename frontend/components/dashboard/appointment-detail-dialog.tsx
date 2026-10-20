@@ -11,7 +11,7 @@ import { ProtectedDialog, useDialogEditGuard } from "@/components/dashboard/prot
 import { CaseSummary } from "@/components/dashboard/case-summary";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { VetRecordSheet } from "@/components/dashboard/vet-record-sheet";
 import { proxyUrl } from "@/lib/api";
 import { dashboardRequest } from "@/lib/dashboard-request";
@@ -130,21 +130,22 @@ function AppointmentDetailContent({ appointment, onClose, onUpdated, readOnly = 
       {confirmation}
       {groomerSelection.dialog}
       {!recordOpen && (
-        <DialogContent className="max-h-[min(90vh,760px)] max-w-2xl overflow-y-auto border-slate-200 bg-white p-0 text-slate-900 shadow-2xl">
-          <DialogHeader className="border-b border-slate-200 bg-slate-50/70 px-6 py-6 pr-14 sm:px-8">
-            <div className="mb-3 flex flex-wrap items-center gap-3">
-              <span className="flex size-12 items-center justify-center rounded-2xl bg-teal-50 text-2xl" aria-hidden="true">{getPetEmoji(appointment.petType)}</span>
-              <Badge variant="outline" className={statusBadgeClass(appointment.status)}>{formatStatus(appointment.status)}</Badge>
+        <DialogContent data-appointment-detail className="flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-4xl flex-col overflow-hidden border-border bg-white p-0 text-foreground shadow-xl">
+          <DialogHeader className="shrink-0 border-border bg-white px-4 py-4 pr-14 text-left sm:px-6 sm:pr-14">
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-accent/60 text-2xl" aria-hidden="true">{getPetEmoji(appointment.petType)}</span>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2"><DialogTitle className="min-w-0 break-words text-xl font-bold tracking-tight sm:text-2xl">Cita de {appointment.petName}</DialogTitle><Badge variant="outline" className={`shrink-0 ${statusBadgeClass(appointment.status)}`}>{formatStatus(appointment.status)}</Badge></div>
+                <DialogDescription className="mt-1 break-words text-sm text-muted-foreground">{appointment.serviceName || formatService(appointment.serviceType)}</DialogDescription>
+              </div>
             </div>
-            <DialogTitle className="text-2xl font-bold tracking-tight text-slate-950">Cita de {appointment.petName}</DialogTitle>
-            <DialogDescription className="text-sm text-slate-600">Datos y acciones de esta atención</DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-6 px-6 py-6 sm:px-8">
-            <CaseSummary appointment={appointment} showPrice />
-            <AppointmentPaymentLink appointment={appointment} />
-            {(appointment.serviceCategory === "grooming" || appointment.serviceType === "grooming") && <GroomingTransportEditor key={`${appointment.id}:${JSON.stringify(appointment.transport)}`} appointment={appointment} onUpdated={onUpdated} readOnly={readOnly} onEditStateChange={setTransportEdit} />}
-            {canEditPrice && !editingPrice && <Button variant="outline" onClick={() => { setPrice(appointment.priceResolution?.manualOverride?.toString() ?? servicePrice?.toString() ?? ""); setError(null); setEditingPrice(true); }}>{appointment.finalPrice == null ? "Definir precio" : "Cambiar precio"}</Button>}
+          <div data-appointment-body className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain bg-background/70 px-4 py-4 sm:px-6 sm:py-5">
+            <div className={`grid items-start gap-4 ${appointment.serviceCategory === "grooming" || appointment.serviceType === "grooming" ? "md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]" : ""}`}>
+              <CaseSummary appointment={appointment} showPrice compact actions={canEditPrice && !editingPrice && <Button type="button" variant="outline" size="sm" className="min-h-11" onClick={() => { setPrice(appointment.priceResolution?.manualOverride?.toString() ?? servicePrice?.toString() ?? ""); setError(null); setEditingPrice(true); }}>{appointment.finalPrice == null ? "Definir precio" : "Cambiar precio"}</Button>} />
+              {(appointment.serviceCategory === "grooming" || appointment.serviceType === "grooming") && <GroomingTransportEditor key={`${appointment.id}:${JSON.stringify(appointment.transport)}`} appointment={appointment} onUpdated={onUpdated} readOnly={readOnly} onEditStateChange={setTransportEdit} />}
+            </div>
 
             {canEditPrice && editingPrice && <form onSubmit={savePrice} className="rounded-2xl border border-teal-200 bg-teal-50/60 p-4 sm:p-5">
               <h3 className="font-semibold text-slate-950">Precio para {appointment.petName}</h3>
@@ -153,31 +154,33 @@ function AppointmentDetailContent({ appointment, onClose, onUpdated, readOnly = 
                 : "El valor se guardará solo para esta cita. Las tarifas del catálogo y de futuras visitas las administra el responsable del negocio."}</p>
               <label htmlFor="appointment-price" className="mt-4 block text-sm font-semibold text-slate-800">Valor de esta cita (COP)</label>
               <div className="mt-1 flex max-w-xs items-center overflow-hidden rounded-lg border border-slate-300 bg-white focus-within:ring-2 focus-within:ring-teal-600"><span className="px-3 text-slate-500" aria-hidden="true">$</span><input id="appointment-price" disabled={busy} type="number" inputMode="decimal" min="0" max="99999999.99" step="0.01" required autoFocus value={price} onChange={(event) => setPrice(event.target.value)} placeholder="Ej. 45000" className="min-h-11 w-full bg-transparent pr-3 text-slate-950 outline-none disabled:opacity-60" /></div>
-              <div className="mt-4 flex flex-wrap gap-2"><Button type="submit" size="sm" disabled={busy}>{busy ? "Guardando…" : "Guardar precio"}</Button><Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => { setEditingPrice(false); setError(null); }}>Cancelar</Button></div>
+              <div className="mt-4 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap"><Button type="submit" className="min-h-11" disabled={busy}>{busy ? "Guardando…" : "Guardar precio"}</Button><Button type="button" className="min-h-11" variant="outline" disabled={busy} onClick={() => { setEditingPrice(false); setError(null); }}>Cancelar</Button></div>
             </form>}
 
             {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</p>}
             {graceExpired && <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">Pasaron 30 minutos sin llegada registrada. Esta cita se marcará automáticamente como “No asistió”.</p>}
             {previousDayArrival && <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">Esta cita figura como “Llegó” en un día anterior. Verifica si hubo atención antes de cerrarla.</p>}
 
+            {!readOnly && access?.capabilities.contacts && appointment.petId && <Link prefetch={false} href={homeHref(`/dashboard/contacto?view=mascotas&pet=${encodeURIComponent(appointment.petId)}`, tenant)} onClick={event => { event.preventDefault(); discard(() => { onClose(); router.push(homeHref(`/dashboard/contacto?view=mascotas&pet=${encodeURIComponent(appointment.petId!)}`, tenant)); }); }} className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-4 hover:text-foreground">Ver ficha de {appointment.petName}</Link>}
+          </div>
+          <DialogFooter className="max-h-[40dvh] shrink-0 flex-col items-stretch gap-3 overflow-y-auto border-border bg-white px-4 py-4 sm:flex-row sm:items-end sm:px-6">
             {!readOnly && (transitions.length > 0 || canRecord) && (
-              <section className="rounded-2xl border border-teal-100 bg-teal-50/50 p-4 sm:p-5" aria-label="Acciones de la cita">
-                <h3 className="font-semibold text-slate-950">Siguiente paso</h3>
-                <p className="mt-1 text-sm text-slate-600">Elige una acción según el estado de la cita.</p>
-                <div className="mt-4 flex flex-wrap gap-2">
+              <section className="min-w-0 flex-1" aria-label="Acciones de la cita">
+                <h3 className="mb-2 text-xs font-semibold text-muted-foreground">Siguiente paso</h3>
+                <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap [&>button:only-child]:col-span-2 [&_button]:min-h-11 [&_button]:min-w-0 [&_button]:whitespace-normal sm:[&_button]:flex-1">
                   {transitions.map((transition) => (
-                    <Button key={transition.next} type="button" size="sm" variant={transition.variant ?? "default"} disabled={busy} onClick={() => updateStatus(transition.next)}>
+                    <Button key={transition.next} type="button" variant={transition.variant ?? "default"} disabled={busy} onClick={() => updateStatus(transition.next)}>
                       {busy ? "Guardando…" : transition.label}
                     </Button>
                   ))}
-                  {previousDayArrival && access?.capabilities.administration && <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => updateStatus("in_progress")}>Regularizar atención anterior</Button>}
-                  {canRecord && <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => setRecordOpen(true)}>Abrir historia clínica</Button>}
+                  {previousDayArrival && access?.capabilities.administration && <Button type="button" variant="outline" disabled={busy} onClick={() => updateStatus("in_progress")}>Regularizar atención anterior</Button>}
+                  {canRecord && <Button type="button" variant="outline" disabled={busy} onClick={() => setRecordOpen(true)}>Abrir historia clínica</Button>}
                 </div>
               </section>
             )}
 
-            {!readOnly && access?.capabilities.contacts && appointment.petId && <Link prefetch={false} href={homeHref(`/dashboard/contacto?view=mascotas&pet=${encodeURIComponent(appointment.petId)}`, tenant)} onClick={event => { event.preventDefault(); discard(() => { onClose(); router.push(homeHref(`/dashboard/contacto?view=mascotas&pet=${encodeURIComponent(appointment.petId!)}`, tenant)); }); }} className="inline-flex min-h-10 items-center text-sm font-semibold text-teal-800 underline underline-offset-4 hover:text-teal-950">Ver ficha de {appointment.petName}</Link>}
-          </div>
+            <div className={`flex flex-wrap items-center justify-between gap-2 [&_a]:min-h-11 ${!readOnly && (transitions.length > 0 || canRecord) ? "sm:shrink-0" : "w-full"}`}><AppointmentPaymentLink appointment={appointment} /><Button type="button" variant="outline" className="min-h-11 flex-1 sm:ml-auto sm:flex-none" disabled={busy || transportEdit.saving} onClick={() => discard(onClose)}>Cerrar ficha</Button></div>
+          </DialogFooter>
         </DialogContent>
       )}
       {recordOpen && <VetRecordSheet appointment={appointment} open={recordOpen} onOpenChange={setRecordOpen} />}

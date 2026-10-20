@@ -50,10 +50,11 @@ async function main() {
   const { buildInventoryContext } = require('../backend/src/contexts/inventory');
   const { buildConfirmPosSale } = require('../backend/src/application/workflows/pos/confirm-pos-sale');
   const finance = require('../backend/src/contexts/finance');
+  const staff = require('../backend/src/contexts/staff');
   let now = new Date('2026-10-02T15:00:00Z');
   const events = [];
   const inv = buildInventoryContext({ unitOfWork: uow, clock: () => now, eventPublisher: { publish: async (...args) => events.push(args) } });
-  const confirm = buildConfirmPosSale({ inventory: inv.commands, finance, repository: inv.repository, accessReader: inv.accessReader, unitOfWork: uow, clock: () => now });
+  const confirm = buildConfirmPosSale({ inventory: inv.commands, finance, staff, repository: inv.repository, accessReader: inv.accessReader, unitOfWork: uow, clock: () => now });
   const tenant = await prisma.tenant.create({ data: { name:'Test inventory', slug:'inventory-a', phone:'inventory-a', activeModules:['retail','veterinary','grooming'] } });
   const other = await prisma.tenant.create({ data: { name:'Other', slug:'inventory-b', phone:'inventory-b', activeModules:['retail'] } });
   const actor = { type:'admin', email:'inventory@example.invalid', name:'Prueba' };
@@ -127,6 +128,7 @@ async function main() {
     await prisma.inventoryProduct.update({where:{id:bounded.id},data:{metadataVersion:2147483647}});
     await rejected(()=>call('catalogue','update_product',{productId:bounded.id,expectedVersion:2147483647,name:'Nuevo nombre'}),'VERSION_LIMIT');
   });
+  await require('./verify-inventory-registration-scenario.cjs')({ prisma, inv, identity, other, vi, check, rejected, call, create, detail, entry, sale, line });
   console.log(`Inventory application checks: ${passed} passed, 0 failed. Disposable database only.`);
 }
 main().catch(e=>{ console.error('FAIL', e.code ?? e.name, e.message, e.meta ? JSON.stringify(e.meta) : ''); process.exitCode=1; }).finally(async()=>{

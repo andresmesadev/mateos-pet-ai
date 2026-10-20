@@ -307,6 +307,7 @@ module.exports = async function verifyTransport({ prisma, base, context, page, o
   await page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'Luna', exact: true }) }).getByRole('button', { name: 'Acciones', exact: true }).click();
   await page.getByRole('menuitem', { name: 'Ver cita', exact: true }).click();
   await dialog.getByText(ownerAddress, { exact: true }).waitFor();
+  await require('./verify-appointment-detail-layout.cjs')({ page, dialog, output, check });
   await dialog.getByRole('button', { name: 'Configurar domicilio', exact: true }).click();
   await dialog.getByLabel('¿La traen al centro o necesita domicilio?', { exact: false }).selectOption('round_trip');
   assert.equal(await dialog.getByLabel('Dirección confirmada', { exact: true }).inputValue(), ownerAddress);
@@ -633,4 +634,5 @@ module.exports = async function verifyTransport({ prisma, base, context, page, o
   await require('./verify-contract-service-scenario.cjs')({ prisma, base, context, page, output, check, tenantId });
   await require('./verify-sale-commission-scenario.cjs')({ prisma, base, context, page, output, check, tenantId });
   await require('./verify-cash-close-scenario.cjs')({ prisma, base, context, page, output, check, tenantId });
+  await require('./verify-mobile-topbar-scenario.cjs')({ base, page, output, check });
 };

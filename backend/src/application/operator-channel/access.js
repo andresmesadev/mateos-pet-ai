@@ -113,7 +113,7 @@ function buildOperatorAccess({ prisma, authority, accessReader, clock = () => ne
       if (!row || i.actionId !== row.id || i.expectedRevision !== row.currentRevision) denied();
       await ctx.tx.$queryRaw`SELECT id FROM "InventoryProduct" WHERE id=${i.productId} AND "tenantId"=${row.tenantId} FOR SHARE`;
       const current = await ctx.tx.inventoryProduct.findUnique({ where: { id: i.productId } });
-      if (!current?.active || digest(productContext(current)) !== digest(i.selectionContext.productContext)) fail('PRODUCT_CHANGED', 'El producto cambió. Búscalo y selecciónalo otra vez.', 409);
+      if (!current?.active || current.removedAt || digest(productContext(current)) !== digest(i.selectionContext.productContext)) fail('PRODUCT_CHANGED', 'El producto cambió. Búscalo y selecciónalo otra vez.', 409);
     }
     ctx.operatorChoice = i;
   }

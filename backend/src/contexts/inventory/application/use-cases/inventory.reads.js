@@ -48,17 +48,17 @@ function buildInventoryReads({ unitOfWork, accessReader, clock = () => new Date(
           if (decoded.version !== 1 || decoded.scope !== cursorScope || typeof decoded.id !== 'string' || decoded.id.length > 100) throw new Error('Invalid cursor');
           cursorId = decoded.id;
         } catch { fail('INVALID_CURSOR', 'Los filtros o la cuenta cambiaron. Actualiza el listado para continuar.', 400); }
-        if (!await ctx.tx.inventoryProduct.findFirst({ where: { tenantId, id: cursorId }, select: { id: true } })) fail('INVALID_CURSOR', 'Actualiza el listado para continuar.', 400);
+        if (!await ctx.tx.inventoryProduct.findFirst({ where: { tenantId, id: cursorId, removedAt: null }, select: { id: true } })) fail('INVALID_CURSOR', 'Actualiza el listado para continuar.', 400);
       }
       const soon = new Date(expiresAt); soon.setUTCDate(soon.getUTCDate() + 30);
       let lowIds;
       if (query.status === 'low') {
         const ids = await ctx.tx.$queryRaw`SELECT p.id FROM "InventoryProduct" p LEFT JOIN "InventoryLot" l
           ON l."productId"=p.id AND l."tenantId"=p."tenantId" AND (l."expiresOn" IS NULL OR l."expiresOn">${expiresAt})
-          WHERE p."tenantId"=${tenantId} GROUP BY p.id HAVING COALESCE(SUM(l."balancePhysical"),0)<=p."stockMinimum"`;
+          WHERE p."tenantId"=${tenantId} AND p."removedAt" IS NULL GROUP BY p.id HAVING COALESCE(SUM(l."balancePhysical"),0)<=p."stockMinimum"`;
         lowIds = ids.map(p => p.id);
       }
-      const rows = await ctx.tx.inventoryProduct.findMany({ where: { tenantId,
+      const rows = await ctx.tx.inventoryProduct.findMany({ where: { tenantId, removedAt: null,
         ...(access.capabilities.inventory_manage && query.includeInactive === '1' ? {} : { active: true }),
         ...(query.use ? { uses: { has: query.use } } : permitted ? { uses: { hasSome: permitted } } : {}),
         ...(typeof query.category === 'string' && query.category ? { category: query.category } : {}),
@@ -75,7 +75,7 @@ function buildInventoryReads({ unitOfWork, accessReader, clock = () => new Date(
     return read(ctx, async ctx => {
       const access = await accessReader.readAccess({ tenantId, actor }, ctx);
       if (!access.capabilities.inventory_read) fail('ACCESS_DENIED', 'No tienes acceso al inventario.', 403);
-      const p = await ctx.tx.inventoryProduct.findFirst({ where: { tenantId, id }, include: { lots: true } });
+      const p = await ctx.tx.inventoryProduct.findFirst({ where: { tenantId, id, removedAt: null }, include: { lots: true } });
       const permitted = usesFor(access);
       if (!p || (permitted && (!p.active || !p.uses.some(u => permitted.includes(u))))) fail('PRODUCT_NOT_FOUND', 'Producto no encontrado.', 404);
       return dto(p, access, civilDateKey(clock()));
@@ -85,11 +85,13 @@ function buildInventoryReads({ unitOfWork, accessReader, clock = () => new Date(
     return read(ctx, async ctx => {
       const access = await accessReader.readAccess({ tenantId, actor }, ctx);
       if (!access.capabilities.inventory_manage) fail('ACCESS_DENIED', 'El historial completo requiere administración.', 403);
-      if (!await ctx.tx.inventoryProduct.findFirst({ where: { tenantId, id }, select: { id: true } })) fail('PRODUCT_NOT_FOUND', 'Producto no encontrado.', 404);
+      if (!await ctx.tx.inventoryProduct.findFirst({ where: { tenantId, id, removedAt: null }, select: { id: true } })) fail('PRODUCT_NOT_FOUND', 'Producto no encontrado.', 404);
       if (cursor && !await ctx.tx.inventoryMovement.findFirst({ where: { tenantId, productId: id, id: cursor }, select: { id: true } })) fail('INVALID_CURSOR', 'Actualiza el historial para continuar.', 400);
       const rows = await ctx.tx.inventoryMovement.findMany({ where: { tenantId, productId: id }, orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }], take: 101,
         ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}) });
-      return { data: rows.slice(0, 100), nextCursor: rows.length > 100 ? rows[99].id : null };
+      const reversals = await ctx.tx.inventoryMovement.findMany({ where: { tenantId, productId: id, kind: 'entry_reversal', sourceMovementId: { in: rows.filter(m => m.kind === 'entry').map(m => m.id) } }, select: { sourceMovementId: true } });
+      const corrected = new Set(reversals.map(m => m.sourceMovementId));
+      return { data: rows.slice(0, 100).map(m => ({ ...m, ...(m.kind === 'entry' ? { entryCorrected: corrected.has(m.id) } : {}) })), nextCursor: rows.length > 100 ? rows[99].id : null };
     });
   }
   async function context({ tenantId, actor }, ctx) {

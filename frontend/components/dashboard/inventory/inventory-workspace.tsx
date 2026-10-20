@@ -17,6 +17,8 @@ import { InventoryOperationStatus } from "./operation-status";
 import { ProductForm } from "./product-form";
 import { ProductDetail } from "./product-detail";
 import { StockForm } from "./stock-form";
+import { EntryCorrectionForm } from "./entry-correction-form";
+import { ProductRemovalForm } from "./product-removal-form";
 import { ConsumptionButton } from "./consumption-button";
 
 const selectClass = "mt-2 h-11 w-full rounded-xl border bg-white px-3 text-sm font-normal focus-visible:outline-2 focus-visible:outline-primary";
@@ -40,6 +42,7 @@ export function InventoryWorkspace() {
   const [cursor, setCursor] = useState(""), [next, setNext] = useState<string | null>(null);
   const [busy, setBusy] = useState(false), [error, setError] = useState(""), [refresh, setRefresh] = useState(0);
   const [editor, setEditor] = useState<InventoryProduct | "new" | null>(null), [selected, setSelected] = useState<InventoryProduct | null>(null);
+  const [removal, setRemoval] = useState<InventoryProduct | null>(null);
   const [stock, setStock] = useState<{ product: InventoryProduct; mode: "entry" | "count" | "correction"; source?: InventoryMovement } | null>(null);
   const [movements, setMovements] = useState<InventoryMovement[]>([]), [historyCursor, setHistoryCursor] = useState<string | null>(null);
   const [historyBusy, setHistoryBusy] = useState(false), [historyError, setHistoryError] = useState("");
@@ -60,7 +63,11 @@ export function InventoryWorkspace() {
         const r = await fetch(url("/api/dashboard/inventory/products?" + params), { cache: "no-store", signal: abort.signal });
         const data = await r.json();
         if (!r.ok) throw new Error(data.error ?? "No se pudo cargar el inventario.");
-        if (!abort.signal.aborted) { setRows(data.data); setNext(data.nextCursor); }
+        if (!abort.signal.aborted) {
+          setRows(data.data); setNext(data.nextCursor);
+          // A detail opened during a refresh must receive the latest stock/version.
+          setSelected(current => current ? data.data.find((p: InventoryProduct) => p.id === current.id) ?? current : null);
+        }
       } catch (e) { if (!abort.signal.aborted) setError(e instanceof Error ? e.message : "Inventario no disponible."); }
       finally { if (!abort.signal.aborted) setBusy(false); }
     }, 200);
@@ -73,7 +80,7 @@ export function InventoryWorkspace() {
   }, [search, use, status, inactive]);
   useEffect(() => () => historyRequest.current?.abort(), []);
   useEffect(() => {
-    if (stock || selected || editor || busy) return;
+    if (stock || selected || editor || removal || busy) return;
     const target = stockFocus.current;
     if (!target) return;
     const frame = requestAnimationFrame(() => {
@@ -83,7 +90,7 @@ export function InventoryWorkspace() {
       if (destination) { destination.focus(); stockFocus.current = null; }
     });
     return () => cancelAnimationFrame(frame);
-  }, [stock, selected, editor, busy, rows]);
+  }, [stock, selected, editor, removal, busy, rows]);
   function closeStock() {
     stockFocus.current = stock ? { id: stock.product.id, mode: stock.mode } : null;
     setStock(null);
@@ -155,11 +162,13 @@ export function InventoryWorkspace() {
       <div className="flex flex-wrap items-center justify-between gap-3 border-t px-5 py-4"><span role="status" className="text-xs text-muted-foreground">{busy ? "Actualizando listado…" : `${error ? 0 : rows.length} productos en esta página`}</span><div className="flex gap-2">{cursor && <Button size="sm" variant="outline" disabled={busy} onClick={() => setCursor("")}>Primera página</Button>}{next && !error && <Button size="sm" variant="outline" disabled={busy} onClick={() => setCursor(next)}>Siguientes productos</Button>}</div></div>
     </section>
     {editor && <ProductForm key={editor === "new" ? "new" : editor.id} product={editor === "new" ? undefined : editor} onClose={() => setEditor(null)} onSaved={saved} />}
-    {stock && <StockForm key={stock.product.id + stock.mode} {...stock} onClose={closeStock} onSaved={saved} />}
+    {stock && (stock.mode === "correction" && stock.source?.kind === "entry" ? <EntryCorrectionForm key={stock.source.id} product={stock.product} source={stock.source} onClose={closeStock} onSaved={saved} /> : <StockForm key={stock.product.id + stock.mode} {...stock} onClose={closeStock} onSaved={saved} />)}
+    {removal && <ProductRemovalForm product={removal} onClose={() => setRemoval(null)} onSaved={saved} />}
     {selected && <ProductDetail key={selected.id} product={selected} manage={manage} cash={!!access.capabilities.cash} disabled={disabled || !operation.ready}
       movements={movements} historyBusy={historyBusy} historyError={historyError} hasMore={!!historyCursor}
       onClose={closeDetail} onRetry={() => void history(selected)} onMore={() => void history(selected, historyCursor ?? undefined)}
       onEdit={() => { setEditor(selected); closeDetail(); }} onEntry={() => { setStock({ product: selected, mode: "entry" }); closeDetail(); }}
+      onRemove={() => { setRemoval(selected); closeDetail(); }}
       onCount={() => { setStock({ product: selected, mode: "count" }); closeDetail(); }} onCorrect={source => { setStock({ product: selected, mode: "correction", source }); closeDetail(); }}
       onToggleActive={async () => { if (await operation.execute("set_product_active", `/api/dashboard/inventory/products/${selected.id}`, { active: !selected.active, expectedVersion: selected.metadataVersion }, `${selected.active ? "Desactivar" : "Activar"} ${selected.name}`, "PATCH")) closeDetail(); }} />}
   </div>;

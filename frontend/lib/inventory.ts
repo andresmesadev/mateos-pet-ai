@@ -10,5 +10,6 @@ export type InventoryProduct = {
 export type InventoryMovement = {
   id: string; operationId: string; kind: string; quantity: number; stockDelta: number; balanceAfter: number; occurredAt: string;
   actorName: string; reason: string | null; lotCodeSnapshot: string | null; presentationSnapshot: string; entryUnitCost: string | null;
+  entryCorrected?: boolean;
 };
-export const MOVEMENT_NAMES: Record<string, string> = { entry: "Entrada", sale: "Venta", consumption: "Insumos utilizados", consumption_correction: "Corrección de consumo", adjustment_in: "Ajuste de entrada", adjustment_out: "Ajuste de salida", return_restock: "Devolución apta", return_discard: "Devolución no apta" };
+export const MOVEMENT_NAMES: Record<string, string> = { entry: "Entrada", entry_reversal: "Anulación de entrada por corrección", sale: "Venta", consumption: "Insumos utilizados", consumption_correction: "Corrección de consumo", adjustment_in: "Ajuste de entrada", adjustment_out: "Ajuste de salida", return_restock: "Devolución apta", return_discard: "Devolución no apta" };

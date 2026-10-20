@@ -10,6 +10,9 @@ class PrismaInventoryRepository {
     }
   }
   createProduct(data, ctx) { return db(ctx).inventoryProduct.create({ data }); }
+  async hasSelections(tenantId, productId, ctx) {
+    return !!await db(ctx).inventoryProduct.findFirst({ where: { tenantId, id: productId, OR: [{ selections: { some: {} } }, { items: { some: {} } }] }, select: { id: true } });
+  }
   updateProduct(tenantId, id, data, ctx) { return db(ctx).inventoryProduct.update({ where: { tenantId_id: { tenantId, id } }, data }); }
   async bumpStock(tenantId, id, ctx) {
     const p = await this.findProduct(tenantId, id, ctx);

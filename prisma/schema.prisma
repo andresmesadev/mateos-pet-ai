@@ -452,6 +452,7 @@ model InventoryProduct {
   stockMinimum    Int @default(0)
   lotPolicy       String @db.VarChar(16)
   active          Boolean @default(true)
+  removedAt       DateTime? @db.Timestamptz(3)
   metadataVersion Int @default(1)
   priceVersion    Int @default(1)
   stockRevision   Int @default(0)
@@ -462,8 +463,7 @@ model InventoryProduct {
   operations      InventoryOperation[]
 
   @@unique([tenantId, id], map: "InventoryProduct_tenant_id_key")
-  @@unique([tenantId, internalCodeKey], map: "InventoryProduct_code_key")
-  @@unique([tenantId, barcode], map: "InventoryProduct_barcode_key")
+  // Códigos únicos entre productos no retirados: índices parciales en SQL.
   @@index([tenantId, active, name], map: "InventoryProduct_catalog_idx")
 }
 

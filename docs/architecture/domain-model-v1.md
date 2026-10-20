@@ -568,6 +568,15 @@ Conocer y mantener trazabilidad de la mercancía física del Establecimiento, ta
 - Distinguir anulación financiera de devolución física. Finanzas conserva su autoridad sobre dinero y cierres; Inventario sobre mercancía.
 - Mantener datos independientes del canal, de la IA y de la historia clínica. Las autorizaciones y reglas concretas de módulos, unidades y lotes, arquitectura y persistencia están aprobadas; el esquema físico requiere aprobación antes de implementar.
 
+**Precisión de registro y corrección — 2026-10-20, validación local:** el alta puede
+incluir una entrada inicial atómica. Corregir cantidad y costo conserva el hecho
+original mediante reversión y nueva entrada en el mismo lote; una entrada cuyo
+lote ya tuvo salidas requiere revisión por conteo físico. Un producto equivocado,
+desactivado, sin saldo ni uso, puede retirarse del catálogo conservando su
+identidad y auditoría. Código y barras quedan disponibles para un alta correcta.
+Las cinco etapas y restricciones están en [registro y correcciones de
+inventario](inventory-registration-corrections.md). Publicación pendiente.
+
 **Relaciones conceptuales**
 Negocio y Staff aportan establecimiento, módulos e identidad autorizada. La capa de aplicación coordina venta y stock con Finanzas mediante la unidad de trabajo aprobada en la Etapa 3, sin trasladar reglas de stock a las rutas HTTP ni crear otro bounded context POS. Una atención puede aportar una referencia de consumo, sin que Inventario lea o escriba historia clínica. El modelo de persistencia de Etapa 4 está aprobado; el esquema físico de Etapa 5 fue aprobado y está implementado localmente.
 

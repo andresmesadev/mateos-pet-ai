@@ -67,6 +67,29 @@ module.exports = async function verifyCashClose({ prisma, base, context, page, o
   }
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.screenshot({ path: path.join(output, '40-cash-close-commissions.png'), fullPage: true, animations: 'disabled' });
+  await panel.getByRole('button', { name: 'Cerrar día', exact: true }).click();
+  const closeDialog = page.getByRole('dialog', { name: 'Guardar cierre del día', exact: true });
+  for (const [width, height] of [[320,568], [360,640], [390,720], [430,760], [768,1000], [1440,1000]]) {
+    await page.setViewportSize({ width, height });
+    await closeDialog.waitFor();
+    await page.evaluate(async () => { await Promise.all(document.getAnimations().map(animation => animation.finished.catch(() => {}))); await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))); });
+    const box = await closeDialog.boundingBox(); assert(box && box.x >= 15 && box.y >= 15 && box.x + box.width <= width - 15 && box.y + box.height <= height - 15, `Close dialog must fit with margins at ${width}x${height}`);
+    assert(await closeDialog.evaluate(element => element.scrollWidth <= element.clientWidth), 'Close dialog has horizontal overflow');
+    const back = await closeDialog.getByRole('button', { name: 'Volver a revisar', exact: true }).boundingBox();
+    const confirm = await closeDialog.getByRole('button', { name: 'Confirmar cierre del día', exact: true }).boundingBox();
+    assert(back && confirm && back.height >= 44 && confirm.height >= 44 && confirm.y + confirm.height <= height - 15);
+    assert(Math.abs(back.width - confirm.width) < 2, 'Close actions should have the same width');
+    if (width < 640) assert(back.y + back.height <= confirm.y, 'Mobile close actions must stack');
+    const body = closeDialog.locator('div.overflow-y-auto');
+    await body.evaluate(element => { element.scrollTop = element.scrollHeight; });
+    assert(await closeDialog.getByText('El cierre es definitivo.', { exact: false }).isVisible());
+    if (width === 390) await page.screenshot({ path: path.join(output, '43-mobile-cash-close-dialog.png'), animations: 'disabled' });
+  }
+  await closeDialog.getByRole('button', { name: 'Volver a revisar', exact: true }).click();
+  await closeDialog.waitFor({ state: 'hidden' });
+  assert.equal(await prisma.dailyClose.count({ where: { tenantId, date: new Date(date + 'T00:00:00Z') } }), 0);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  check('close dialog fits 320–1440 widths and short mobile heights with margins, internal scroll and equal 44px actions; cancel creates no close');
   const commissionsBefore = await prisma.commission.count({ where: { tenantId } });
   const expensesBefore = await prisma.expense.count({ where: { tenantId } });
   const dropped = base + '/api/proxy/dashboard/daily-close';

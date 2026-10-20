@@ -18,6 +18,8 @@ router.get('/inventory/products/:id/movements', adapt(req => inventory.reads.mov
 router.post('/inventory/products', adapt(req => inventory.commands.catalogue(command(req, 'create_product'))));
 router.patch('/inventory/products/:id', adapt(req => inventory.commands.catalogue(command(req, typeof req.body?.active === 'boolean' && Object.keys(req.body).every(k => ['active','expectedVersion'].includes(k)) ? 'set_product_active' : 'update_product', { productId: req.params.id }))));
 router.post('/inventory/products/:id/entries', adapt(req => inventory.commands.entry(command(req, 'register_entry', { productId: req.params.id }))));
+router.post('/inventory/products/:id/removal', adapt(req => inventory.commands.catalogue(command(req, 'remove_product', { productId: req.params.id }))));
+router.post('/inventory/products/:id/entries/:movementId/corrections', adapt(req => inventory.commands.correctEntry(command(req, 'correct_entry', { productId: req.params.id, sourceMovementId: req.params.movementId }))));
 router.post('/inventory/products/:id/adjustments', adapt(req => inventory.commands.adjust(command(req, 'adjust_stock', { productId: req.params.id }))));
 router.post('/inventory/consumptions', adapt(req => inventory.commands.consume(command(req, 'register_consumption'))));
 router.post('/inventory/consumptions/:id/corrections', adapt(req => inventory.commands.correct(command(req, 'correct_consumption', { sourceOperationId: req.params.id }))));

@@ -1,5 +1,16 @@
 # Estado actual del proyecto
 
+**Publicación 2.53.0 en preparación — 20 de octubre:** existencias iniciales,
+corrección de cantidad/costo de entradas y retiro de productos erróneos con
+auditoría; mejoras adaptables de Agenda, cabecera y cierre diario. Validación
+local completa; CI y despliegue se registran en la
+[evidencia de publicación](history/RELEASE_2_53_0_VPS_20261020.md).
+La [revisión actual de beta](operations/CLOSED_BETA_STATUS_20261020.md) conserva
+pendiente la aceptación clínica/inventario; la organización del paso 10 y los
+ingresos de la primera jornada ya fueron confirmados. Los estados de jornada
+abierta de las publicaciones inferiores son capturas históricas: la revisión
+del 20 de octubre confirmó el cierre oficial del 19.
+
 **Publicado el 19 de octubre — 2.52.0:** comisión por cada línea de servicio pagada, conservando área, check de reparto y profesional en cobros mixtos. Consulta directa y uñas repartidas pueden coexistir; productos, domicilio y servicios directos no generan parte adicional. 214 suites / 1.766 pruebas backend, 16 integraciones PostgreSQL, 166 helpers y 51 comprobaciones Chrome correctas; lint/build y cinco jobs CI aprobados. Respaldo verificado, 62 migraciones, salud HTTPS y WhatsApp en pausa. Corrección legítima autorizada de Dayra: dos comisiones faltantes de 14000 y 4000, comprobantes intactos; Caja confirma 117000 por seis servicios y saldo 377000, día abierto. [Evidencia de publicación y auditoría](history/RELEASE_2_52_0_VPS_20261019.md).
 
 **Publicado el 19 de octubre — 2.51.0:** Tipo de contrato por integrante (Fijo o Prestación de servicios con porcentaje propio) y reparto opcional por servicio. Los datos antiguos conservan su regla hasta configurarlos; comisiones y cierres históricos inmutables. 213 suites / 1.747 pruebas backend, 16 integraciones PostgreSQL y 46 comprobaciones Chrome; lint, build y cinco jobs CI correctos tras corregir un consumidor de disponibilidad que omitía tenantId. Respaldo verificado, 61 migraciones, salud HTTPS correcta y WhatsApp en pausa. Ningún contrato real asignado automáticamente. [Evidencia y límites](history/RELEASE_2_51_0_VPS_20261019.md).

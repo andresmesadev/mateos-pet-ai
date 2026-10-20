@@ -33,7 +33,7 @@ export function DashboardTopbar() {
 
   return (
     <header className="sticky top-0 z-20 flex flex-col gap-4 border-b border-border bg-white/95 px-4 py-4 backdrop-blur-md md:flex-row md:items-center md:justify-between md:px-8">
-      <div className="pl-12 lg:pl-0">
+      <div className="flex min-h-11 min-w-0 flex-col justify-center pl-14 lg:pl-0">
         {isVet && pathname === "/dashboard/consultas" ? (
           <><h1 className="text-xl font-bold tracking-tight">Consultas veterinarias</h1><p className="text-sm text-muted-foreground">Tu espacio clínico de trabajo</p></>
         ) : isHome ? (
@@ -53,14 +53,14 @@ export function DashboardTopbar() {
       </div>
 
       {/* Acciones */}
-      {access?.capabilities.contacts && <div className="flex items-center gap-2 md:gap-3">
+      {access?.capabilities.contacts && <div role="group" aria-label="Accesos rápidos" className="flex shrink-0 items-center gap-3">
         <DashboardSearch key={`${session?.user?.email}:${session?.user?.sessionVersion}:${tenant ?? "current"}`} tenant={tenant} />
 
         <Link
           prefetch={false}
           href={homeHref("/dashboard/conversations", tenant)}
           title="Conversaciones de WhatsApp"
-          className="flex h-10 w-10 items-center justify-center rounded-xl border border-teal-200 bg-teal-50 text-teal-700 transition-colors hover:bg-teal-100"
+          className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-teal-200 bg-teal-50 text-teal-700 transition-colors hover:bg-teal-100"
         >
           <MessageCircle className="h-5 w-5" />
         </Link>
@@ -69,7 +69,7 @@ export function DashboardTopbar() {
           prefetch={false}
           href={homeHref(access?.capabilities.agenda ? "/dashboard/calendar" : "/dashboard", tenant)}
           title="Agenda"
-          className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-muted-foreground transition-colors hover:bg-slate-100 hover:text-foreground"
+          className="flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-muted-foreground transition-colors hover:bg-slate-100 hover:text-foreground"
         >
           <Calendar className="h-4 w-4" />
           <span className="hidden font-medium md:inline">{todayLabel()}</span>
