@@ -29,7 +29,7 @@ function createResolveStaffAvailabilityUseCase({
 
     const capableStaff = await staffCapabilityRepository.listActiveByService(serviceId);
     const candidates = new Set(capableStaff.map(c => c.staffId));
-    const category = serviceCategoryReader ? await serviceCategoryReader.getCategoryForService(serviceId) : null;
+    const category = serviceCategoryReader ? await serviceCategoryReader.getCategoryForService(serviceId, tenantId) : null;
     if (category && tenantId) {
       const roster = await staffRepository.listActive({ tenantId });
       for (const staff of roster) if (staff.serviceScope === 'role' && compatibleRole(staff, category.name)) candidates.add(staff.id);
