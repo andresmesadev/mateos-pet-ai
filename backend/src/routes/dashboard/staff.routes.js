@@ -240,6 +240,23 @@ router.get('/staff/:id/availability-review', async (req, res) => {
   catch (error) { res.status(error.status || 503).json({ error: error.status ? error.message : 'No se pudo cargar la disponibilidad.' }); }
 });
 
+router.put('/staff/:id/contract', async (req, res) => {
+  try {
+    if (!Object.hasOwn(req.body ?? {}, 'contractType') || !Object.hasOwn(req.body ?? {}, 'commissionRate')) return res.status(400).json({ error: 'Indica el tipo de contrato y su porcentaje.' });
+    const owned = await prisma.staff.findFirst({ where: { id: req.params.id, tenantId: req.tenant.tenantId }, select: { id: true } });
+    if (!owned) return res.status(404).json({ error: 'Staff not found' });
+    const { staff } = await withStaffLock(req.params.id, () => updateStaff({
+      tenantId: req.tenant.tenantId, staffId: req.params.id,
+      contractType: req.body?.contractType,
+      commissionRate: req.body?.commissionRate,
+    }));
+    res.json(staffEditorRow(staff));
+  } catch (error) {
+    if (mapStaffDomainError(res, error)) return;
+    res.status(500).json({ error: 'No se pudo guardar el tipo de contrato.' });
+  }
+});
+
 router.patch("/staff/:id", async (req, res) => {
   try {
     const { id } = req.params;

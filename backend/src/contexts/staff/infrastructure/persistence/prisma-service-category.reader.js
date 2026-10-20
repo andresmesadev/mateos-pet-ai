@@ -2,12 +2,12 @@ const prisma = require("../../../../lib/prisma");
 const { ServiceCategoryReaderPort } = require("../../application/ports/service-category-reader.port");
 
 class PrismaServiceCategoryReader extends ServiceCategoryReaderPort {
-  async getCategoryForService(serviceId) {
-    const service = await prisma.service.findUnique({
-      where: { id: serviceId },
-      select: { category: { select: { id: true, name: true, appliesCommissionSplit: true } } },
+  async getCategoryForService(serviceId, tenantId, ctx) {
+    const service = await (ctx?.tx ?? prisma).service.findFirst({
+      where: { id: serviceId, tenantId: tenantId ?? null },
+      select: { appliesCommissionSplit: true, category: { select: { id: true, name: true, appliesCommissionSplit: true } } },
     });
-    return service?.category ?? null;
+    return service?.category ? { ...service.category, appliesCommissionSplit: service.appliesCommissionSplit ?? service.category.appliesCommissionSplit } : null;
   }
 }
 

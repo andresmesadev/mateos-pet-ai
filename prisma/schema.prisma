@@ -666,6 +666,8 @@ model Staff {
   // El editor sincroniza las franjas semanales con StaffAvailability bajo lock (ADRs 011/018).
   availability Json?
   generatesCommission Boolean @default(true)
+  contractType String?
+  commissionRate Decimal? @db.Decimal(5, 4)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -773,6 +775,7 @@ model Service {
   duration    Int?     // minutos; nullable para complementos sin reserva
   basePrice   Decimal? @db.Decimal(10, 2)
   requiresAppointment Boolean @default(true)
+  appliesCommissionSplit Boolean?
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

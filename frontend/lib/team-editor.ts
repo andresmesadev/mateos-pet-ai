@@ -3,7 +3,7 @@ import { displayedDay, readHoursDraft, WEEK_DAYS } from "@/lib/business-hours-ed
 export type TimeWindow = { open: string; close: string };
 export type DaySlot = { active: boolean; open: string; close: string; windows?: TimeWindow[] };
 export type Availability = Record<string, DaySlot>;
-export type StaffMember = { id: string; name: string; role: string; active: boolean; email: string | null; phone: string | null; availability: Availability | null; serviceScope?: string; accessPermissions?: string[]; credential?: { email: string; active: boolean } | null };
+export type StaffMember = { id: string; name: string; role: string; active: boolean; email: string | null; phone: string | null; availability: Availability | null; contractType?: "fixed" | "service" | null; commissionRate?: string | number | null; serviceScope?: string; accessPermissions?: string[]; credential?: { email: string; active: boolean } | null };
 export const TEAM_ROLES = [
   { value: "vet", label: "Veterinario/a", description: "Consultas veterinarias, agenda de su área y WhatsApp. Caja requiere permiso adicional." },
   { value: "groomer", label: "Peluquero/a", description: "Atenciones y notas de peluquería, agenda de su área y WhatsApp. Caja requiere permiso adicional." },

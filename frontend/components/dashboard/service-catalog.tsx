@@ -18,7 +18,7 @@ const CATEGORIES = [
   { id: "other", label: "Otros servicios", icon: Tags },
 ];
 const selectClass = "h-11 w-full rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60";
-type Draft = { name: string; category: string; duration: string; basePrice: string; requiresAppointment: string };
+type Draft = { name: string; category: string; duration: string; basePrice: string; requiresAppointment: string; appliesCommissionSplit: string };
 type Editor = { service: ServiceRow | null; original: Draft };
 type Props = { profile: TenantProfile | null; services: ServiceRow[]; onDirtyChange?: (dirty: boolean) => void; onSavingChange?: (saving: boolean) => void };
 
@@ -26,7 +26,7 @@ function fold(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es").trim();
 }
 function normalizeService(row: ServiceRow): ServiceRow {
-  return { ...row, basePrice: row.basePrice == null ? null : Number(row.basePrice) };
+  return { ...row, basePrice: row.basePrice == null ? null : Number(row.basePrice), appliesCommissionSplit: row.appliesCommissionSplit ?? row.category === "grooming" };
 }
 function formatServicePrice(price: number) {
   return Number.isInteger(price) ? formatCOP(price) : new Intl.NumberFormat("es-CO", {
@@ -53,7 +53,7 @@ export function ServiceCatalog({ profile, services: initial, onDirtyChange, onSa
   const [category, setCategory] = useState("all");
   const [showRetired, setShowRetired] = useState(false);
   const [editor, setEditor] = useState<Editor | null>(null);
-  const [draft, setDraft] = useState<Draft>({ name: "", category: "veterinary", duration: "", basePrice: "", requiresAppointment: "true" });
+  const [draft, setDraft] = useState<Draft>({ name: "", category: "veterinary", duration: "", basePrice: "", requiresAppointment: "true", appliesCommissionSplit: "false" });
   const [discarding, setDiscarding] = useState(false);
   const [retiring, setRetiring] = useState<ServiceRow | null>(null);
   const [deleting, setDeleting] = useState<ServiceRow | null>(null);
@@ -83,8 +83,8 @@ export function ServiceCatalog({ profile, services: initial, onDirtyChange, onSa
   }
   function begin(service: ServiceRow | null) {
     if (requestRef.current) return;
-    const original = service ? { name: service.name, category: service.category, duration: service.duration == null ? "" : String(service.duration), basePrice: service.basePrice == null ? "" : String(service.basePrice), requiresAppointment: String(service.requiresAppointment) }
-      : { name: "", category: enabledCategories[0]?.id ?? "other", duration: "", basePrice: "", requiresAppointment: "true" };
+    const original = service ? { name: service.name, category: service.category, duration: service.duration == null ? "" : String(service.duration), basePrice: service.basePrice == null ? "" : String(service.basePrice), requiresAppointment: String(service.requiresAppointment), appliesCommissionSplit: String(service.appliesCommissionSplit ?? service.category === "grooming") }
+      : { name: "", category: enabledCategories[0]?.id ?? "other", duration: "", basePrice: "", requiresAppointment: "true", appliesCommissionSplit: "false" };
     setDraft(original);
     setEditor({ service, original });
     setDiscarding(false);
@@ -115,6 +115,7 @@ export function ServiceCatalog({ profile, services: initial, onDirtyChange, onSa
     if (!service || duration !== service.duration) changes.duration = duration;
     if (!service || price !== service.basePrice) changes.basePrice = price;
     if (!service || requiresAppointment !== service.requiresAppointment) changes.requiresAppointment = requiresAppointment;
+    if (!service || (draft.appliesCommissionSplit === "true") !== service.appliesCommissionSplit) changes.appliesCommissionSplit = draft.appliesCommissionSplit === "true";
     if (!service) changes.category = draft.category;
     if (!Object.keys(changes).length) { setEditor(null); return; }
     requestRef.current = true;
@@ -226,6 +227,7 @@ export function ServiceCatalog({ profile, services: initial, onDirtyChange, onSa
               {editor?.service ? <div className="space-y-2 text-sm"><p className="font-semibold">Categoría</p><p className="rounded-lg bg-muted px-3 py-2.5">{CATEGORIES.find((item) => item.id === draft.category)?.label ?? draft.category}</p></div> : <label className="space-y-2 text-sm font-semibold"><span>Categoría</span><select className={selectClass} value={draft.category} onChange={(event) => change("category", event.target.value)}>{enabledCategories.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>}
               <label className="space-y-2 text-sm font-semibold"><span>Duración (minutos)</span><Input required={draft.requiresAppointment === "true"} aria-label="Duración (minutos)" aria-describedby="service-duration-help" type="number" inputMode="numeric" min="1" step="1" value={draft.duration} onChange={(event) => change("duration", event.target.value)} placeholder="Ej. 30" /><span id="service-duration-help" className="block text-xs font-normal text-muted-foreground">Obligatorio al reservar horario. Puede quedar vacío en complementos.</span></label>
               <label className="space-y-2 text-sm font-semibold sm:col-span-2"><span>Precio base (COP)</span><Input aria-label="Precio base (COP)" type="number" inputMode="decimal" min="0" max="99999999.99" step="0.01" value={draft.basePrice} onChange={(event) => change("basePrice", event.target.value)} placeholder="Ej. 55000" aria-describedby="service-price-help" /><span id="service-price-help" className="block text-xs font-normal text-muted-foreground">Déjalo vacío si depende del caso. Escribe 0 solo si es gratuito.</span></label>
+              <div className="space-y-2 rounded-xl border border-primary/20 bg-primary/[0.03] p-4 sm:col-span-2"><label className="flex min-h-11 items-center gap-3 text-sm font-semibold"><input type="checkbox" className="size-4 accent-teal-700" checked={draft.appliesCommissionSplit === "true"} onChange={event => change("appliesCommissionSplit", String(event.target.checked))} />Repartir este servicio por porcentaje</label><p className="text-sm">{draft.appliesCommissionSplit === "true" ? "Usa el porcentaje configurado en el tipo de contrato de la persona que atiende." : "Directo: el 100% del servicio corresponde al centro."}</p><p className="text-xs text-muted-foreground">El personal con contrato fijo no participa en el reparto. Para personas sin contrato configurado se conserva la regla actual. Los cambios se aplican a nuevas comisiones.</p></div>
             </fieldset>
             {draft.basePrice.trim() !== "" && Number.isFinite(Number(draft.basePrice)) && Number(draft.basePrice) >= 0 && <p className="rounded-lg bg-muted/50 p-3 text-sm">Precio base: <strong>{formatServicePrice(Number(draft.basePrice))}</strong>{Number(draft.basePrice) === 0 && <span className="mt-1 block text-amber-800">El precio base será $0. Revisa el valor antes de guardar.</span>}</p>}
             {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</p>}

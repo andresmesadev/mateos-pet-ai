@@ -12,6 +12,15 @@ function buildUseCase(initial) {
 }
 
 describe("UpdateStaffUseCase", () => {
+  test('updates contractual terms without changing role, schedule or prior records', async () => {
+    const { execute } = buildUseCase();
+    const { staff } = await execute({ tenantId: 't1', staffId: 's-1', contractType: 'service', commissionRate: 0.3 });
+    expect(staff).toMatchObject({ role: 'groomer', contractType: 'service', commissionRate: 0.3, name: 'Lina' });
+    const fixed = await execute({ tenantId: 't1', staffId: 's-1', contractType: 'fixed', commissionRate: null });
+    expect(fixed.staff).toMatchObject({ contractType: 'fixed', commissionRate: null });
+    await expect(execute({ tenantId: 't2', staffId: 's-1', contractType: 'service', commissionRate: 1 })).rejects.toBeInstanceOf(StaffNotFoundError);
+    await expect(execute({ tenantId: 't1', staffId: 's-1', contractType: 'service', commissionRate: 2 })).rejects.toBeInstanceOf(InvalidStaffAttributesError);
+  });
   test("actualiza atributos y emite StaffActualizado", async () => {
     const { execute, eventPublisher } = buildUseCase();
     const { staff } = await execute({ staffId: "s-1", name: "Lina María" });

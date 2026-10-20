@@ -10,8 +10,8 @@ const {
 } = require("./fakes");
 const { StaffNotFoundError, ReferencedServiceNotFoundError, InvalidCommissionInputError } = require("../domain/errors");
 
-function buildUseCase({ splitRate = 0.5 } = {}) {
-  const staffRepository = createFakeStaffRepository([{ id: "s-1", tenantId: "t1", name: "Lina", active: true }]);
+function buildUseCase({ splitRate = 0.5, staffAttributes = {} } = {}) {
+  const staffRepository = createFakeStaffRepository([{ id: "s-1", tenantId: "t1", name: "Lina", active: true, ...staffAttributes }]);
   const commissionRepository = createFakeCommissionRepository();
   const serviceCategoryReader = createFakeServiceCategoryReader({
     "svc-grooming": { id: "cat-grooming", name: "grooming", appliesCommissionSplit: true },
@@ -30,6 +30,13 @@ function buildUseCase({ splitRate = 0.5 } = {}) {
 }
 
 describe("RecordCommissionOnAppointmentCompletedUseCase", () => {
+  test.each([['service', 0.3, 'svc-grooming', 15000], ['service', 0.4, 'svc-grooming', 20000], ['fixed', null, 'svc-grooming', 0], ['service', 0.3, 'svc-vet', 0]])('freezes %s/%p on %s into the new commission', async (contractType, commissionRate, serviceId, expected) => {
+    const { execute } = buildUseCase({ staffAttributes: { contractType, commissionRate } });
+    const { commission } = await execute({ tenantId: 't1', appointmentId: 'new-appt', staffId: 's-1', serviceId, resolvedPrice: 50000 });
+    expect(commission.staffShare).toBe(expected);
+    expect(commission.businessShare).toBe(50000 - expected);
+    expect(commission.splitRate).toBe(expected / 50000);
+  });
   test("registra comisión con split cuando la categoría lo aplica (grooming)", async () => {
     const { execute, eventPublisher } = buildUseCase();
     const { commission } = await execute({

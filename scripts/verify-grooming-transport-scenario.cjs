@@ -274,10 +274,13 @@ module.exports = async function verifyTransport({ prisma, base, context, page, o
   check('home agenda advances arrival and start without opening a sheet and exposes the finalization action');
   const todayResponse = await context.request.get(base + '/api/proxy/dashboard/appointments/today');
   const currentRow = (await todayResponse.json()).find(row => row.id === appointment.id);
+  assert(currentRow, 'Current appointment must be present in today response');
   const previewRows = [currentRow, { ...currentRow, id: 'layout-pending-price', petName: 'Mascota con nombre largo de prueba', finalPrice: null, hasResolvedPrice: false, priceResolution: null, payment: null }, { ...currentRow, id: 'layout-arrived', petName: 'Otra mascota', status: 'arrived' }];
   const todayPattern = '**/api/proxy/dashboard/appointments/today*';
   await page.route(todayPattern, route => route.fulfill({ json: previewRows }));
+  const previewLoaded = page.waitForResponse(response => response.url().includes('/appointments/today') && response.request().method() === 'GET');
   await page.getByRole('button', { name: 'Actualizar ahora', exact: true }).click();
+  assert.equal((await previewLoaded).status(), 200);
   const previewList = page.getByRole('list', { name: 'Citas de la agenda', exact: true });
   await previewList.getByRole('button', { name: 'Definir precio', exact: true }).waitFor();
   for (const width of [1440, 1920]) {
@@ -627,5 +630,6 @@ module.exports = async function verifyTransport({ prisma, base, context, page, o
   assert.equal((await completedChoice).status(), 200);
   assert.equal((await prisma.commission.findFirstOrThrow({ where: { appointmentId: undecided.id, status: 'active' } })).staffId, second.id);
   check('two eligible groomers trigger the existing choice dialog; selecting one resumes start and the completed appointment credits that groomer');
+  await require('./verify-contract-service-scenario.cjs')({ prisma, base, context, page, output, check, tenantId });
   await require('./verify-cash-close-scenario.cjs')({ prisma, base, context, page, output, check, tenantId });
 };

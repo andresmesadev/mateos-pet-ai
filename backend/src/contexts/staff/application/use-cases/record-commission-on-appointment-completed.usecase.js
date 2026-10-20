@@ -1,4 +1,5 @@
 const { calculateCommissionSplit } = require("../../domain/rules/commission-calculation.rules");
+const { resolveContractRate } = require('../../domain/rules/contract-commission.rules');
 const {
   StaffNotFoundError,
   ReferencedServiceNotFoundError,
@@ -36,19 +37,17 @@ function createRecordCommissionOnAppointmentCompletedUseCase({
       throw new InvalidCommissionInputError("resolvedPrice no puede ser nulo ni negativo.");
     }
 
-    const staff = await staffRepository.findById(staffId);
+    const staff = await staffRepository.findById(staffId, ctx);
     if (!staff || (tenantId && staff.tenantId !== tenantId)) {
       throw new StaffNotFoundError(staffId);
     }
 
-    const category = await serviceCategoryReader.getCategoryForService(serviceId);
+    const category = await serviceCategoryReader.getCategoryForService(serviceId, tenantId, ctx);
     if (!category) {
       throw new ReferencedServiceNotFoundError(serviceId);
     }
 
-    const splitRate = category.appliesCommissionSplit
-      ? await businessConfigReader.getCommissionSplitRate(tenantId, category.id)
-      : 0;
+    const splitRate = await resolveContractRate(staff, category, () => businessConfigReader.getCommissionSplitRate(tenantId, category.id));
 
     const { staffShare, businessShare } = calculateCommissionSplit(Number(resolvedPrice), splitRate);
 

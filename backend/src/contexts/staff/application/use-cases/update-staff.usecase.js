@@ -1,6 +1,7 @@
 const { StaffNotFoundError, InvalidStaffAttributesError } = require("../../domain/errors");
 
 const VALID_ROLES = ["vet", "groomer", "receptionist", "admin"];
+const { validateContract } = require('../../domain/rules/contract-commission.rules');
 
 /**
  * UpdateStaffUseCase — Administración.
@@ -13,7 +14,7 @@ const VALID_ROLES = ["vet", "groomer", "receptionist", "admin"];
  * @param {import("../ports/domain-event-publisher.port").DomainEventPublisherPort} deps.eventPublisher
  */
 function createUpdateStaffUseCase({ staffRepository, eventPublisher }) {
-  return async function execute({ staffId, name, role, phone, email, generatesCommission, tenantId }) {
+  return async function execute({ staffId, name, role, phone, email, generatesCommission, contractType, commissionRate, tenantId }) {
     const staff = await staffRepository.findById(staffId);
     if (!staff || (tenantId && staff.tenantId !== tenantId)) {
       throw new StaffNotFoundError(staffId);
@@ -25,7 +26,9 @@ function createUpdateStaffUseCase({ staffRepository, eventPublisher }) {
       throw new InvalidStaffAttributesError("El nombre no puede quedar vacío.");
     }
 
+    const contract = contractType !== undefined || commissionRate !== undefined ? validateContract(contractType, commissionRate) : {};
     const updated = await staffRepository.update(staffId, {
+      ...contract,
       ...(name !== undefined ? { name: name.trim() } : {}),
       ...(role !== undefined ? { role } : {}),
       ...(phone !== undefined ? { phone } : {}),

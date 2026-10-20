@@ -1,5 +1,5 @@
 const { isCategoryEnabled } = require("../../domain/rules/service-category.rules");
-const { validateReservationDuration } = require("../../domain/rules/service-attributes.rules");
+const { validateReservationDuration, validateServiceSplit } = require("../../domain/rules/service-attributes.rules");
 const {
   ServiceNotFoundError,
   ServiceCategoryNotEnabledError,
@@ -24,7 +24,8 @@ function createUpdateServiceUseCase({
   businessConfigReader,
   eventPublisher,
 }) {
-  return async function execute({ tenantId, serviceId, name, categoryId, duration, requiresAppointment }) {
+  return async function execute({ tenantId, serviceId, name, categoryId, duration, requiresAppointment, appliesCommissionSplit }) {
+    validateServiceSplit(appliesCommissionSplit);
     const service = await serviceRepository.findById(serviceId);
     if (!service) {
       throw new ServiceNotFoundError(serviceId);
@@ -47,6 +48,7 @@ function createUpdateServiceUseCase({
     }
 
     const updated = await serviceRepository.update(serviceId, {
+      ...(appliesCommissionSplit !== undefined ? { appliesCommissionSplit } : {}),
       ...(name !== undefined ? { name } : {}),
       ...(categoryId !== undefined ? { categoryId } : {}),
       ...(duration !== undefined ? { duration } : {}),

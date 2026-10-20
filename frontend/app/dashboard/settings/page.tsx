@@ -29,6 +29,7 @@ export type TenantProfile = {
 };
 
 export type ServiceRow = {
+  appliesCommissionSplit?: boolean | null;
   id: string;
   name: string;
   category: string;

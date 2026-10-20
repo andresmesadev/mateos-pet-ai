@@ -51,9 +51,9 @@ function mapServiceDomainError(res, error) {
 async function mapServiceRow(service) {
   const category = await prisma.serviceCategory.findUnique({
     where: { id: service.categoryId },
-    select: { name: true },
+    select: { name: true, appliesCommissionSplit: true },
   });
-  return { ...service, category: category?.name ?? null };
+  return { ...service, category: category?.name ?? null, appliesCommissionSplit: service.appliesCommissionSplit ?? category?.appliesCommissionSplit ?? false };
 }
 
 router.get("/services", async (req, res) => {
@@ -61,11 +61,11 @@ router.get("/services", async (req, res) => {
     const { tenantId } = req.tenant;
     const rows = await prisma.service.findMany({
       where: tenantId ? { tenantId } : {},
-      include: { category: { select: { name: true } } },
+      include: { category: { select: { name: true, appliesCommissionSplit: true } } },
       orderBy: [{ category: { name: "asc" } }, { name: "asc" }],
     });
     res.json(rows.map(({ category, ...row }) => {
-      const mapped = { ...row, category: category?.name ?? null };
+      const mapped = { ...row, category: category?.name ?? null, appliesCommissionSplit: row.appliesCommissionSplit ?? category?.appliesCommissionSplit ?? false };
       if (req.access && !req.access.capabilities.cash && !req.access.capabilities.appointmentPrice) {
         return { id: row.id, name: row.name, duration: row.duration, active: row.active, requiresAppointment: row.requiresAppointment, category: mapped.category };
       }
@@ -79,7 +79,8 @@ router.get("/services", async (req, res) => {
 
 router.post("/services", async (req, res) => {
   try {
-    const { name, category, duration, requiresAppointment, basePrice } = req.body ?? {};
+    const { name, category, duration, requiresAppointment, basePrice, appliesCommissionSplit } = req.body ?? {};
+    require('../../contexts/services/domain/rules/service-attributes.rules').validateServiceSplit(appliesCommissionSplit);
     const { tenantId } = req.tenant;
 
     if (!name || typeof name !== "string" || !name.trim() || name.trim().length > 100) {
@@ -113,6 +114,7 @@ router.post("/services", async (req, res) => {
       duration: durationNum,
       basePrice: basePrice !== undefined && basePrice !== null && basePrice !== "" ? Number(basePrice) : null,
       requiresAppointment: requiresAppointment !== false,
+      ...(appliesCommissionSplit !== undefined ? { appliesCommissionSplit } : {}),
     });
 
     res.status(201).json(await mapServiceRow(service));
@@ -127,7 +129,8 @@ router.patch("/services/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const { tenantId, isSuperAdmin } = req.tenant;
-    const { name, category, duration, requiresAppointment, active, basePrice } = req.body ?? {};
+    const { name, category, duration, requiresAppointment, active, basePrice, appliesCommissionSplit } = req.body ?? {};
+    require('../../contexts/services/domain/rules/service-attributes.rules').validateServiceSplit(appliesCommissionSplit);
 
     if (name !== undefined && (typeof name !== "string" || !name.trim() || name.trim().length > 100)) {
       return res.status(400).json({ error: "El nombre debe tener entre 1 y 100 caracteres" });
@@ -154,7 +157,7 @@ router.patch("/services/:id", async (req, res) => {
     }
 
     // Atributos del dominio (2.1): nombre, categoría, duración.
-    if (name !== undefined || category !== undefined || duration !== undefined || requiresAppointment !== undefined) {
+    if (name !== undefined || category !== undefined || duration !== undefined || requiresAppointment !== undefined || appliesCommissionSplit !== undefined) {
       const categoryId =
         category !== undefined ? await resolveCategoryId(tenantId ?? null, String(category).trim()) : undefined;
       await updateService({
@@ -164,6 +167,7 @@ router.patch("/services/:id", async (req, res) => {
         ...(categoryId !== undefined ? { categoryId } : {}),
         ...(duration !== undefined ? { duration: duration === null ? null : Number(duration) } : {}),
         ...(requiresAppointment !== undefined ? { requiresAppointment } : {}),
+        ...(appliesCommissionSplit !== undefined ? { appliesCommissionSplit } : {}),
       });
     }
 

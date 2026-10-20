@@ -8,4 +8,8 @@ function validateReservationDuration(duration, requiresAppointment) {
   }
 }
 
-module.exports = { validateReservationDuration };
+function validateServiceSplit(value) {
+  if (value !== undefined && typeof value !== 'boolean') throw new InvalidServiceAttributesError('Indica si el servicio reparte porcentaje o es directo.');
+}
+
+module.exports = { validateReservationDuration, validateServiceSplit };
