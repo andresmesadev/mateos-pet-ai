@@ -208,14 +208,17 @@ module.exports = async function verifyTransport({ prisma, base, context, page, o
   assert.equal(Math.round(autoHour * 60) - Math.round(Number(hour) * 60), 20);
   const staffSlots = await context.request.get(base + `/api/proxy/dashboard/appointments/available-slots?dateKey=${nextMonday.toISOString().slice(0, 10)}&serviceId=${service.id}&staffId=${groomer.id}`);
   assert.equal(staffSlots.status(), 200); assert.equal((await staffSlots.json()).slots[0], autoHour);
-  const autoBooking = await context.request.post(base + '/api/proxy/dashboard/appointments', { data: { userId: pet.ownerId, petId: pet.id, serviceId: service.id, dateKey: nextMonday.toISOString().slice(0, 10), hour: autoHour } });
+  const anotherBookingPet = async name => prisma.pet.create({ data: { tenantId, ownerId: pet.ownerId, name, type: pet.type, defaultGroomingPrice: pet.defaultGroomingPrice } });
+  const autoPet = await anotherBookingPet('Recepción automática');
+  const autoBooking = await context.request.post(base + '/api/proxy/dashboard/appointments', { data: { userId: pet.ownerId, petId: autoPet.id, serviceId: service.id, dateKey: nextMonday.toISOString().slice(0, 10), hour: autoHour } });
   assert.equal(autoBooking.status(), 201, await autoBooking.text());
   assert.equal((await prisma.appointment.findUniqueOrThrow({ where: { id: (await autoBooking.json()).id } })).staffId, groomer.id);
   check('a reservation posted without staffId also receives the unique groomer atomically in the backend');
   const afterSecond = await context.request.get(base + `/api/proxy/dashboard/appointments/available-slots?dateKey=${nextMonday.toISOString().slice(0, 10)}&serviceId=${service.id}`);
   assert.equal(afterSecond.status(), 200); const thirdHour = (await afterSecond.json()).slots[0];
   assert.equal(Math.round(thirdHour * 60) - Math.round(Number(hour) * 60), 40);
-  const competingBookings = await Promise.all([0, 1].map(() => context.request.post(base + '/api/proxy/dashboard/appointments', { data: { userId: pet.ownerId, petId: pet.id, serviceId: service.id, dateKey: nextMonday.toISOString().slice(0, 10), hour: thirdHour } })));
+  const thirdPet = await anotherBookingPet('Recepción concurrente');
+  const competingBookings = await Promise.all([0, 1].map(() => context.request.post(base + '/api/proxy/dashboard/appointments', { data: { userId: pet.ownerId, petId: thirdPet.id, serviceId: service.id, dateKey: nextMonday.toISOString().slice(0, 10), hour: thirdHour } })));
   assert.deepEqual(competingBookings.map(result => result.status()).sort(), [201, 409]);
   const thirdId = (await competingBookings.find(result => result.status() === 201).json()).id;
   const thirdRow = await prisma.appointment.findUniqueOrThrow({ where: { id: thirdId } });
@@ -513,8 +516,9 @@ module.exports = async function verifyTransport({ prisma, base, context, page, o
   check('one mixed payment records 139,000, only final primary grooming pays commission, stock decreases once, and lost response/replays recover the same receipt');
   await page.goto(base + '/dashboard');
   await page.getByText('Cobrado: $ 139.000', { exact: true }).waitFor();
-  const concurrentAppointment = await prisma.appointment.create({ data: { tenantId, userId: pet.ownerId, petId: pet.id, petName: 'Prueba concurrente', petType: 'cat', serviceId: service.id, serviceType: 'grooming', date: new Date(), status: 'completed', finalPrice: 45000, endedAt: new Date() } });
-  const concurrentCharge = await prisma.transaction.create({ data: { tenantId, userId: pet.ownerId, petId: pet.id, appointmentId: concurrentAppointment.id, origin: 'system_appointment_completed', total: 45000, paidAt: null } });
+  const concurrentPet = await anotherBookingPet('Prueba concurrente');
+  const concurrentAppointment = await prisma.appointment.create({ data: { tenantId, userId: pet.ownerId, petId: concurrentPet.id, petName: 'Prueba concurrente', petType: 'cat', serviceId: service.id, serviceType: 'grooming', date: new Date(), status: 'completed', finalPrice: 45000, endedAt: new Date() } });
+  const concurrentCharge = await prisma.transaction.create({ data: { tenantId, userId: pet.ownerId, petId: concurrentPet.id, appointmentId: concurrentAppointment.id, origin: 'system_appointment_completed', total: 45000, paidAt: null } });
   const endpoint = base + `/api/proxy/dashboard/transactions/${concurrentCharge.id}/settle`;
   const request = { data: { paymentMethod: 'transfer', notes: 'Pago ficticio concurrente' } };
   const responses = await Promise.all([context.request.post(endpoint, request), context.request.post(endpoint, request)]);
@@ -526,8 +530,9 @@ module.exports = async function verifyTransport({ prisma, base, context, page, o
   assert.equal(await prisma.transaction.count({ where: { tenantId, appointmentId: concurrentAppointment.id } }), 1);
   check('two concurrent confirmations return one payment and timestamp; a contradictory second payment is rejected');
   async function pendingCheckout(label, at = new Date()) {
-    const appt = await prisma.appointment.create({ data: { tenantId, userId: pet.ownerId, petId: pet.id, petName: label, petType: 'cat', staffId: commission.staffId, serviceId: service.id, serviceType: 'grooming', date: at, status: 'completed', finalPrice: 40000, endedAt: at } });
-    const tx = await prisma.transaction.create({ data: { tenantId, userId: pet.ownerId, petId: pet.id, appointmentId: appt.id, origin: 'system_appointment_completed', total: 40000, paidAt: null } });
+    const fiscalPet = await anotherBookingPet(label);
+    const appt = await prisma.appointment.create({ data: { tenantId, userId: pet.ownerId, petId: fiscalPet.id, petName: label, petType: 'cat', staffId: commission.staffId, serviceId: service.id, serviceType: 'grooming', date: at, status: 'completed', finalPrice: 40000, endedAt: at } });
+    const tx = await prisma.transaction.create({ data: { tenantId, userId: pet.ownerId, petId: fiscalPet.id, appointmentId: appt.id, origin: 'system_appointment_completed', total: 40000, paidAt: null } });
     const original = await prisma.commission.create({ data: { tenantId, appointmentId: appt.id, staffId: commission.staffId, resolvedPrice: 40000, staffShare: 20000, businessShare: 20000, splitRate: 0.5, priceSource: 'manual_override', serviceCategory: 'grooming', completedAt: at } });
     return { appt, tx, original };
   }
@@ -556,7 +561,7 @@ module.exports = async function verifyTransport({ prisma, base, context, page, o
   assert.equal(Number(noTransportReceipt.total), 40000); assert.equal(noTransportReceipt.items.length, 1);
   assert.equal(noTransportReceipt.items[0].appointmentComponent, 'service');
   check('catalogues start collapsed; optional transport adds/removes and stays removed after reload; payment issues only the actual service line');
-  function checkoutBody(target, quantity = 1) { return { appointmentCheckout: true, appointmentId: target.appt.id, userId: pet.ownerId, petId: pet.id, paymentMethod: 'transfer', items: [
+  function checkoutBody(target, quantity = 1) { return { appointmentCheckout: true, appointmentId: target.appt.id, userId: pet.ownerId, petId: target.appt.petId, paymentMethod: 'transfer', items: [
     { description: 'Peluquería final', itemKind: 'service', quantity: 1, unitPrice: 10000, appointmentComponent: 'service' },
     { description: product.name, itemKind: 'product', quantity, unitPrice: 12000, productId: product.id, priceVersion: product.priceVersion },
   ] }; }
@@ -603,14 +608,16 @@ module.exports = async function verifyTransport({ prisma, base, context, page, o
   if (racePayment.status() === 201) assert.equal(Number(raceSettlement.settlement.totalAmount), 5000);
   else { assert.equal(Number(raceSettlement.settlement.totalAmount), 20000); await unchanged(race, 3); }
   check('a concurrent staff settlement either uses the corrected commission or blocks the changed checkout; it never consolidates the previous amount alongside a new paid price');
-  const residual = await prisma.appointment.create({ data: { tenantId, userId: pet.ownerId, petId: pet.id, petName: pet.name, petType: pet.type, serviceId: service.id, serviceType: 'grooming', finalPrice: 10000, date: new Date(), status: 'in_progress' } });
+  const residualPet = await anotherBookingPet('Atención residual');
+  const residual = await prisma.appointment.create({ data: { tenantId, userId: pet.ownerId, petId: residualPet.id, petName: residualPet.name, petType: pet.type, serviceId: service.id, serviceType: 'grooming', finalPrice: 10000, date: new Date(), status: 'in_progress' } });
   const autoComplete = await context.request.post(base + `/api/proxy/dashboard/appointments/${residual.id}/complete`, { data: {} });
   assert.equal(autoComplete.status(), 200, await autoComplete.text());
   assert.equal((await autoComplete.json()).staffId, groomer.id);
   assert.equal((await prisma.commission.findFirstOrThrow({ where: { appointmentId: residual.id, status: 'active' } })).staffId, groomer.id);
   check('a legacy in-progress grooming visit is assigned before completion and commission recording in the same transaction');
   const second = await prisma.staff.create({ data: { tenantId, name: 'Segunda peluquera', role: 'groomer' } });
-  const undecided = await prisma.appointment.create({ data: { tenantId, userId: pet.ownerId, petId: pet.id, petName: pet.name, petType: pet.type, serviceId: service.id, serviceType: 'grooming', date: new Date(), status: 'arrived' } });
+  const undecidedPet = await anotherBookingPet(pet.name);
+  const undecided = await prisma.appointment.create({ data: { tenantId, userId: pet.ownerId, petId: undecidedPet.id, petName: pet.name, petType: pet.type, serviceId: service.id, serviceType: 'grooming', date: new Date(), status: 'arrived' } });
   await page.goto(base + '/dashboard?review=1');
   await page.getByRole('button', { name: 'En atención: Luna', exact: true }).click();
   const chooser = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Peluquero de Luna', exact: true }) });

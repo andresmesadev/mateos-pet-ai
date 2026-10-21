@@ -55,7 +55,8 @@ module.exports = async function verifyContracts({ prisma, base, context, page, o
 
   const setContract = (staffId, contractType, commissionRate) => context.request.put(base + `/api/proxy/dashboard/staff/${staffId}/contract`, { data: { contractType, commissionRate } });
   async function complete(serviceId, staffId, serviceType = 'grooming') {
-    const appt = await prisma.appointment.create({ data: { tenantId, userId: pet.ownerId, petId: pet.id, petName: 'Contrato de prueba', petType: pet.type, serviceId, staffId, serviceType, date: new Date(), status: 'in_progress', finalPrice: 100000 } });
+    const clientPet = await prisma.pet.create({ data: { tenantId, ownerId: pet.ownerId, name: 'Contrato de prueba', type: pet.type } });
+    const appt = await prisma.appointment.create({ data: { tenantId, userId: pet.ownerId, petId: clientPet.id, petName: clientPet.name, petType: pet.type, serviceId, staffId, serviceType, date: new Date(), status: 'in_progress', finalPrice: 100000 } });
     const completed = await context.request.post(base + `/api/proxy/dashboard/appointments/${appt.id}/complete`, { data: {} });
     assert.equal(completed.status(), 200, await completed.text());
     return { appt, commission: await prisma.commission.findFirstOrThrow({ where: { appointmentId: appt.id, status: 'active' } }) };
@@ -84,7 +85,7 @@ module.exports = async function verifyContracts({ prisma, base, context, page, o
   const direct = await complete(service.id, member.id);
   assert.equal(Number(direct.commission.staffShare), 0);
   assert.equal(Number(direct.commission.businessShare), 100000);
-  const priceEdited = await context.request.post(base + '/api/proxy/dashboard/transactions', { headers: { 'Idempotency-Key': randomUUID() }, data: { appointmentCheckout: true, appointmentId: first.appt.id, userId: pet.ownerId, petId: pet.id, paymentMethod: 'transfer', items: [{ description: 'Servicio con tasa histórica', itemKind: 'service', appointmentComponent: 'service', quantity: 1, unitPrice: 120000 }] } });
+  const priceEdited = await context.request.post(base + '/api/proxy/dashboard/transactions', { headers: { 'Idempotency-Key': randomUUID() }, data: { appointmentCheckout: true, appointmentId: first.appt.id, userId: pet.ownerId, petId: first.appt.petId, paymentMethod: 'transfer', items: [{ description: 'Servicio con tasa histórica', itemKind: 'service', appointmentComponent: 'service', quantity: 1, unitPrice: 120000 }] } });
   assert.equal(priceEdited.status(), 201, await priceEdited.text());
   const corrected = await prisma.commission.findFirstOrThrow({ where: { appointmentId: first.appt.id, status: 'active' } });
   assert.equal(Number(corrected.splitRate), 0.3); assert.equal(Number(corrected.staffShare), 36000);

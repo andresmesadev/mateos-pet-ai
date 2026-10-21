@@ -1201,6 +1201,30 @@ model Appointment {
   @@index([userId, date])
   @@index([petId])
   @@index([tenantId, transportSharedWithId])
+  @@index([tenantId, petId, date])
+}
+
+// Technical MVCC guard; serializes booking identity changes per tenant/pet.
+model AppointmentBookingGuard {
+  tenantId String
+  petId String
+  revision BigInt @default(0)
+  @@id([tenantId, petId])
+}
+
+// Independent immutable audit: the erroneous reservation itself is removed.
+model AppointmentRemoval {
+  id String @id @default(cuid())
+  appointmentId String @unique
+  tenantId String
+  actorId String
+  actorName String
+  actorRole String
+  reason String
+  previousStatus String
+  snapshot Json
+  removedAt DateTime @default(now())
+  @@index([tenantId, removedAt])
 }
 
 model GroomingTransportZone {

@@ -36,6 +36,7 @@ export function PetGroomingPrices({ petId, onEditStateChange }: { petId: string;
   }
   return <form onSubmit={save} aria-label="Precios de peluquería" className="space-y-4 rounded-xl border border-primary/15 bg-primary/[0.03] p-4 sm:p-5">
     <h3 className="flex items-center gap-2 text-sm font-semibold"><Scissors aria-hidden="true" className="h-4 w-4 text-primary" />Peluquería y domicilio</h3>
+    <p className="text-xs text-muted-foreground">Valores habituales para próximas citas. Cambiar el precio o domicilio de una atención no actualiza automáticamente esta ficha; las citas completadas y sus cobros conservan sus valores.</p>
     <fieldset disabled={!ready || saving} className="grid gap-4 sm:grid-cols-2">
       <div className="space-y-2 sm:col-span-2"><label htmlFor={`${fieldId}-mode`} className="block text-sm font-semibold">¿Cómo llega habitualmente?</label><select id={`${fieldId}-mode`} value={mode} onChange={event => setMode(event.target.value)} className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="">Sin indicar</option>{["none", "round_trip", "pickup", "delivery"].map(value => <option key={value} value={value}>{transportLabels[value]}</option>)}</select></div>
       <div className="space-y-2"><label htmlFor={`${fieldId}-service`} className="block text-sm font-semibold">Valor del servicio (COP)</label><Input id={`${fieldId}-service`} type="number" min="0" max="99999999.99" step="0.01" value={center} onChange={event => setCenter(event.target.value)} className="h-11" placeholder="Por confirmar" /></div>

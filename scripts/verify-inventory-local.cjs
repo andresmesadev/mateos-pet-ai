@@ -129,6 +129,7 @@ async function main() {
     await rejected(()=>call('catalogue','update_product',{productId:bounded.id,expectedVersion:2147483647,name:'Nuevo nombre'}),'VERSION_LIMIT');
   });
   await require('./verify-inventory-registration-scenario.cjs')({ prisma, inv, identity, other, vi, check, rejected, call, create, detail, entry, sale, line });
+  if (process.argv.includes('--appointment-lifecycle')) await require('./verify-appointment-lifecycle-scenario.cjs')({ prisma, check });
   console.log(`Inventory application checks: ${passed} passed, 0 failed. Disposable database only.`);
 }
 main().catch(e=>{ console.error('FAIL', e.code ?? e.name, e.message, e.meta ? JSON.stringify(e.meta) : ''); process.exitCode=1; }).finally(async()=>{

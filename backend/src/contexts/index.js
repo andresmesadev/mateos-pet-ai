@@ -130,6 +130,7 @@ module.exports = {
   confirmPosSale,
   dispatcher,
   completeAppointment: agenda.completeAppointment,
+  removeAppointment: agenda.removeAppointment,
   events,
   automation,
 };

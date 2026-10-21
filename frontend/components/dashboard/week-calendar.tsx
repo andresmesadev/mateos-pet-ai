@@ -322,6 +322,7 @@ export function WeekCalendar({
   const [clock, setClock] = useState<ClockMode>("12h");
   const [selected, setSelected] = useState<TodayAppointment | null>(null);
   const [updatedAppointments, setUpdatedAppointments] = useState<Record<string, TodayAppointment>>({});
+  const [removedAppointments, setRemovedAppointments] = useState<Set<string>>(() => new Set());
   const access = useDashboardAccess();
   const [creating, setCreating] = useState(() => !preview && searchParams.get("new") === "1");
   const [createdVersion, setCreatedVersion] = useState(0);
@@ -349,7 +350,7 @@ export function WeekCalendar({
   }, [router, preview]);
 
   const { mondayYmd } = data;
-  const appointments = filterOwnerAppointments(data.appointments.map((appointment) => updatedAppointments[appointment.id] ?? appointment), owner?.id);
+  const appointments = filterOwnerAppointments(data.appointments.filter(a => !removedAppointments.has(a.id)).map((appointment) => updatedAppointments[appointment.id] ?? appointment), owner?.id);
   const today = todayYmd();
 
   // Current day for Day/Scheduler view — default to today if within week, else monday
@@ -376,7 +377,7 @@ export function WeekCalendar({
   const visibleMonthResult = preview
     ? { key: monthKey, appointments: previewMonthAppointments(monthDate.year, monthDate.month), error: false }
     : monthResult;
-  const monthAppointments = filterOwnerAppointments(visibleMonthResult?.appointments.map((appointment) => updatedAppointments[appointment.id] ?? appointment) ?? [], owner?.id);
+  const monthAppointments = filterOwnerAppointments(visibleMonthResult?.appointments.filter(a => !removedAppointments.has(a.id)).map((appointment) => updatedAppointments[appointment.id] ?? appointment) ?? [], owner?.id);
 
   useEffect(() => {
     if (view !== "month" || preview) return;
@@ -524,7 +525,7 @@ export function WeekCalendar({
 
   return (
     <>
-      {selected && <AppointmentDetailDialog appointment={selected} readOnly={preview} onClose={() => setSelected(null)} onUpdated={(updated) => {
+      {selected && <AppointmentDetailDialog appointment={selected} readOnly={preview} onClose={() => setSelected(null)} onDeleted={id => { setRemovedAppointments(current => new Set([...current, id])); setSelected(null); router.refresh(); }} onUpdated={(updated) => {
         setSelected(updated);
         setUpdatedAppointments((current) => ({ ...current, [updated.id]: updated }));
         router.refresh();

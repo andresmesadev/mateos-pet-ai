@@ -1,7 +1,11 @@
 /**
- * Puerto de persistencia de citas — solo lo que el comando Completar Cita necesita.
+ * Puerto de persistencia de los comandos Completar Cita y Retirar Cita Errónea.
  */
 class AppointmentRepositoryPort {
+  async findRemoval(tenantId, appointmentId, ctx) { throw new Error('AppointmentRepositoryPort.findRemoval no implementado'); }
+  async lockForRemoval(tenantId, appointmentId, ctx) { throw new Error('AppointmentRepositoryPort.lockForRemoval no implementado'); }
+  async hasRemovalDependencies(tenantId, appointmentId, ctx) { throw new Error('AppointmentRepositoryPort.hasRemovalDependencies no implementado'); }
+  async removeWithAudit(appointment, audit, ctx) { throw new Error('AppointmentRepositoryPort.removeWithAudit no implementado'); }
   // Devuelve la cita con las relaciones necesarias para resolver su precio
   // (precios de mascota/servicio y cita que cobra el transporte compartido).
   // El adaptador transaccional ofrece lockAndFindById(tenantId, id, ctx)

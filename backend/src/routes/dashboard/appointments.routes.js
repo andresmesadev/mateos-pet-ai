@@ -28,13 +28,14 @@ const { createAppointment, buildAppointmentDateTime } = require("../../services/
 const { assignmentReason, withStaffLock, assertStaffAssignment } = require('../../services/staff-scheduling.service');
 const { isSlotAvailable, listAvailableSlotsForDate } = require("../../services/availability-db.service");
 const { SlotAlreadyBookedError } = require("../../services/errors/slot-already-booked.error");
+const { isDuplicatePetAppointment, DuplicatePetAppointmentError } = require('../../services/errors/duplicate-pet-appointment.error');
 const {
   upsertControlFromRecord,
   createGroomingReminderIfNeeded,
 } = require("../../services/next-action.service");
 // Entregable Puente: Completar Cita pasa por el contexto Agenda; el side-effect
 // legacy de comisión (commission.service.js) fue retirado — ver contexts/index.js.
-const { completeAppointment } = require("../../contexts");
+const { completeAppointment, removeAppointment } = require("../../contexts");
 const { changeServicePrice } = require("../../contexts/services");
 const { ServiceNotFoundError, PriceRuleTargetNotFoundError, DuplicatePriceRuleError, InvalidPriceError } = require("../../contexts/services/domain/errors");
 const {
@@ -431,12 +432,34 @@ router.post("/appointments", async (req, res) => {
     return res.status(201).json({ id: appointment.id, date: appointment.date, status: appointment.status });
   } catch (error) {
     if (error.code === 'STAFF_UNAVAILABLE') return res.status(error.status).json({ error: error.message });
+    if (isDuplicatePetAppointment(error)) return res.status(409).json({ error: new DuplicatePetAppointmentError().message, code: 'DUPLICATE_PET_APPOINTMENT' });
     if (error instanceof SlotAlreadyBookedError) {
       return res.status(409).json({ error: "El horario acaba de ser reservado. Elige otro." });
     }
     if (error.code === 'GROOMING_TRANSPORT') return res.status(error.status).json({ error: error.message });
     console.error("[Dashboard] Create appointment error:", error);
     return res.status(500).json({ error: "No se pudo crear la cita" });
+  }
+});
+
+// Only erroneous reservations with no operational facts can leave Agenda.
+router.delete('/appointments/:id', async (req, res) => {
+  try {
+    if (!req.access?.capabilities.schedule) return res.status(403).json({ error: 'No tienes permiso para eliminar citas.' });
+    const tenantId = req.tenant?.tenantId;
+    if (!tenantId) return res.status(400).json({ error: 'Selecciona un establecimiento.' });
+    const row = await prisma.appointment.findFirst({ where: { id: req.params.id, tenantId }, include: { service: { select: { category: { select: { name: true } } } } } });
+    if (row && !moduleAllowsAppointment(req.access, row)) return res.status(403).json({ error: 'El área de esta cita no está habilitada.' });
+    const snapshot = actorSnapshot(req.actor, 'removal');
+    const result = await removeAppointment({ tenantId, appointmentId: req.params.id, reason: req.body?.reason,
+      actor: { id: snapshot.removalActorId, name: snapshot.removalActorName, role: req.access.role } });
+    if (result.calendarAppointment) require('../../services/appointment.service').syncCancelToCalendar(result.calendarAppointment);
+    const { calendarAppointment, ...receipt } = result;
+    return res.json(receipt);
+  } catch (error) {
+    if (error.code === 'APPOINTMENT_REMOVAL') return res.status(error.status).json({ error: error.message, code: error.code });
+    console.error('[Dashboard] Remove appointment error:', error.code || error.name);
+    return res.status(503).json({ error: 'No se pudo confirmar la eliminación. Actualiza Agenda antes de reintentar.' });
   }
 });
 
@@ -697,6 +720,7 @@ router.patch("/appointments/:id", async (req, res) => {
     res.json(mapForActor(req, updated));
   } catch (error) {
     if (['STAFF_UNAVAILABLE', 'STAFF_SELECTION_REQUIRED'].includes(error.code)) return res.status(error.status).json({ error: error.message, code: error.code, choices: error.choices });
+    if (isDuplicatePetAppointment(error)) return res.status(409).json({ error: new DuplicatePetAppointmentError().message, code: 'DUPLICATE_PET_APPOINTMENT' });
     console.error("[Dashboard] Patch appointment error:", error);
     if (error.code === "P2025") return res.status(404).json({ error: "Not found" });
     res.status(500).json({ error: "Internal server error" });

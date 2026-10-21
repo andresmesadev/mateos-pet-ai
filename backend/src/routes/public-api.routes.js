@@ -20,6 +20,7 @@
  */
 const express = require("express");
 const router = express.Router();
+const { isDuplicatePetAppointment, DuplicatePetAppointmentError } = require('../services/errors/duplicate-pet-appointment.error');
 
 const { requireScope } = require("../middleware/requireScope");
 const { listAvailableServices, getServiceCategory } = require("../contexts/services");
@@ -224,6 +225,7 @@ router.post("/appointments", clientAuth, requireScope("write:appointments"), asy
     const appointment = await createAppointment({
       userId,
       tenantId,
+      serviceId,
       petName,
       petType,
       serviceType: bucket,
@@ -242,6 +244,7 @@ router.post("/appointments", clientAuth, requireScope("write:appointments"), asy
       petType: appointment.petType,
     });
   } catch (error) {
+    if (isDuplicatePetAppointment(error)) return res.status(409).json({ error: new DuplicatePetAppointmentError().message, code: 'DUPLICATE_PET_APPOINTMENT' });
     if (error instanceof ServiceNotFoundError) {
       return res.status(404).json({ error: "serviceId no encontrado" });
     }

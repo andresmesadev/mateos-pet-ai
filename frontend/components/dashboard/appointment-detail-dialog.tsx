@@ -20,6 +20,7 @@ import { tenantQuery, useTenant } from "@/lib/use-tenant";
 import { homeHref } from "@/lib/home-workspace";
 import {
   formatService,
+  formatColombiaDateTime,
   formatStatus,
   getStatusTransitions,
   arrivalWindowExpired,
@@ -36,11 +37,12 @@ type Props = {
   onUpdated: (appointment: TodayAppointment) => void;
   readOnly?: boolean;
   startInPriceEdit?: boolean;
+  onDeleted?: (id: string) => void;
 };
 
 const VET_SERVICE_TYPES = ["vet", "consultation", "veterinary_consultation"];
 
-function AppointmentDetailContent({ appointment, onClose, onUpdated, readOnly = false, startInPriceEdit = false }: Props) {
+function AppointmentDetailContent({ appointment, onClose, onUpdated, onDeleted, readOnly = false, startInPriceEdit = false }: Props) {
   const { confirm, confirmation } = useActionConfirmation();
   const tenant = useTenant();
   const router = useRouter();
@@ -52,8 +54,12 @@ function AppointmentDetailContent({ appointment, onClose, onUpdated, readOnly = 
   const servicePrice = appointment.priceResolution?.servicePrice ?? appointment.finalPrice;
   const [price, setPrice] = useState(appointment.priceResolution?.manualOverride?.toString() ?? servicePrice?.toString() ?? "");
   const [error, setError] = useState<string | null>(null);
+  const [removing, setRemoving] = useState(false);
+  const [removalReason, setRemovalReason] = useState('');
+  const removalBusy = useRef(false);
   const [transportEdit, setTransportEdit] = useState({ dirty: false, saving: false });
-  const discard = useDialogEditGuard(transportEdit.dirty || (editingPrice && price !== (appointment.priceResolution?.manualOverride?.toString() ?? servicePrice?.toString() ?? "")), busy || transportEdit.saving);
+  const discard = useDialogEditGuard(!!removalReason.trim() || transportEdit.dirty || (editingPrice && price !== (appointment.priceResolution?.manualOverride?.toString() ?? servicePrice?.toString() ?? "")), busy || transportEdit.saving);
+  const canRemove = !!onDeleted && !readOnly && access?.capabilities.schedule && !appointment.payment && !appointment.hasMedicalRecord && !appointment.endedAt && ['pending', 'confirmed', 'arrived', 'in_progress', 'cancelled', 'no_show'].includes(appointment.status);
   const graceExpired = ["pending", "confirmed"].includes(appointment.status) && arrivalWindowExpired(appointment.date);
   const previousDayArrival = appointment.status === "arrived" && new Date(appointment.date).toLocaleDateString("en-CA", { timeZone: "America/Bogota" }) < new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
   const own = access?.capabilities.administration || !appointment.staffId || appointment.staffId === access?.staffId;
@@ -64,6 +70,18 @@ function AppointmentDetailContent({ appointment, onClose, onUpdated, readOnly = 
     (appointment.status === "in_progress" || appointment.status === "completed") && !!appointment.petId;
 
   const groomerSelection = useGroomerSelection(onUpdated);
+  async function removeAppointment() {
+    if (!canRemove || removalBusy.current || busy || !removalReason.trim()) return;
+    if (!await confirm({ title: 'Eliminar cita creada por error', description: `${appointment.petName} · ${appointment.serviceName || formatService(appointment.serviceType)} · ${formatColombiaDateTime(appointment.date)}. Se retirará de Agenda y se conservará el motivo en auditoría. Esta acción no registra ni anula pagos.`, confirmLabel: 'Eliminar esta cita', destructive: true })) return;
+    removalBusy.current = true; setBusy(true); setError(null);
+    try {
+      const { response, payload } = await dashboardRequest(proxyUrl(`/api/dashboard/appointments/${appointment.id}${tenantQuery(tenant)}`), { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: removalReason.trim() }) });
+      if (!response.ok) throw new Error(payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string' ? payload.error : 'Actualiza Agenda antes de reintentar.');
+      if (!payload || typeof payload !== 'object' || !('removed' in payload) || payload.removed !== true || !('id' in payload) || payload.id !== appointment.id) throw new Error('La respuesta no confirma la eliminación. Actualiza Agenda antes de reintentar.');
+      onDeleted?.(appointment.id);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'No se pudo eliminar la cita.'); }
+    finally { removalBusy.current = false; setBusy(false); }
+  }
   async function updateStatus(nextStatus: string, skipConfirmation = false) {
     if (!skipConfirmation && nextStatus === "in_progress" && previousDayArrival && !await confirm("Esta llegada corresponde a un día anterior. ¿Confirmas que sí se prestó la atención y vas a completar su historia clínica?")) return;
     if (!skipConfirmation && ["cancelled", "no_show", "completed"].includes(nextStatus)) {
@@ -158,13 +176,20 @@ function AppointmentDetailContent({ appointment, onClose, onUpdated, readOnly = 
             </form>}
 
             {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</p>}
+            {canRemove && <section className="rounded-2xl border border-border bg-white p-4">
+              {!removing ? <Button type="button" variant="ghost" className="min-h-11 text-destructive" disabled={busy || transportEdit.saving} onClick={() => discard(() => { setRemoving(true); setError(null); })}>Eliminar cita</Button> : <div className="space-y-3">
+                <h3 className="font-semibold">Cita creada por error</h3><p className="text-sm text-muted-foreground">Solo se elimina si no tiene historia, cobros, comisiones ni otros registros asociados.</p>
+                <label htmlFor="appointment-removal-reason" className="block text-sm font-semibold">Motivo de la eliminación</label><textarea id="appointment-removal-reason" autoFocus maxLength={500} disabled={busy} value={removalReason} onChange={event => setRemovalReason(event.target.value)} placeholder="Ej. Cita duplicada o mascota seleccionada por error" className="min-h-24 w-full rounded-xl border bg-background p-3 text-sm" />
+                <Button type="button" className="min-h-11" variant="outline" disabled={busy} onClick={() => { setRemoving(false); setRemovalReason(''); }}>Volver a la ficha</Button>
+              </div>}
+            </section>}
             {graceExpired && <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">Pasaron 30 minutos sin llegada registrada. Esta cita se marcará automáticamente como “No asistió”.</p>}
             {previousDayArrival && <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">Esta cita figura como “Llegó” en un día anterior. Verifica si hubo atención antes de cerrarla.</p>}
 
             {!readOnly && access?.capabilities.contacts && appointment.petId && <Link prefetch={false} href={homeHref(`/dashboard/contacto?view=mascotas&pet=${encodeURIComponent(appointment.petId)}`, tenant)} onClick={event => { event.preventDefault(); discard(() => { onClose(); router.push(homeHref(`/dashboard/contacto?view=mascotas&pet=${encodeURIComponent(appointment.petId!)}`, tenant)); }); }} className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-4 hover:text-foreground">Ver ficha de {appointment.petName}</Link>}
           </div>
           <DialogFooter className="max-h-[40dvh] shrink-0 flex-col items-stretch gap-3 overflow-y-auto border-border bg-white px-4 py-4 sm:flex-row sm:items-end sm:px-6">
-            {!readOnly && (transitions.length > 0 || canRecord) && (
+            {!readOnly && !removing && (transitions.length > 0 || canRecord) && (
               <section className="min-w-0 flex-1" aria-label="Acciones de la cita">
                 <h3 className="mb-2 text-xs font-semibold text-muted-foreground">Siguiente paso</h3>
                 <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap [&>button:only-child]:col-span-2 [&_button]:min-h-11 [&_button]:min-w-0 [&_button]:whitespace-normal sm:[&_button]:flex-1">
@@ -179,7 +204,7 @@ function AppointmentDetailContent({ appointment, onClose, onUpdated, readOnly = 
               </section>
             )}
 
-            <div className={`flex flex-wrap items-center justify-between gap-2 [&_a]:min-h-11 ${!readOnly && (transitions.length > 0 || canRecord) ? "sm:shrink-0" : "w-full"}`}><AppointmentPaymentLink appointment={appointment} /><Button type="button" variant="outline" className="min-h-11 flex-1 sm:ml-auto sm:flex-none" disabled={busy || transportEdit.saving} onClick={() => discard(onClose)}>Cerrar ficha</Button></div>
+            <div className={`flex flex-wrap items-center justify-between gap-2 [&_a]:min-h-11 ${!readOnly && !removing && (transitions.length > 0 || canRecord) ? "sm:shrink-0" : "w-full"}`}>{removing ? <Button type="button" className="min-h-11 whitespace-normal" variant="destructive" disabled={busy || !removalReason.trim()} onClick={() => void removeAppointment()}>{busy ? 'Eliminando…' : 'Eliminar cita creada por error'}</Button> : <AppointmentPaymentLink appointment={appointment} />}<Button type="button" variant="outline" className="min-h-11 flex-1 sm:ml-auto sm:flex-none" disabled={busy || transportEdit.saving} onClick={() => discard(onClose)}>Cerrar ficha</Button></div>
           </DialogFooter>
         </DialogContent>
       )}

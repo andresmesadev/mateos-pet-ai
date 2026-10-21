@@ -19,6 +19,7 @@ const prisma = require("../../lib/prisma");
 const { createAppointment, buildAppointmentDateTime } = require("../../services/appointment.service");
 const { isSlotAvailable, listAvailableSlotsForDate } = require("../../services/availability-db.service");
 const { SlotAlreadyBookedError } = require("../../services/errors/slot-already-booked.error");
+const { DuplicatePetAppointmentError } = require('../../services/errors/duplicate-pet-appointment.error');
 const appointmentsRoutes = require("../../routes/dashboard/appointments.routes");
 
 const body = {
@@ -45,6 +46,14 @@ beforeEach(() => {
   listAvailableSlotsForDate.mockResolvedValue([11, 11.5]);
   buildAppointmentDateTime.mockReturnValue(new Date("2099-04-15T16:00:00Z"));
   createAppointment.mockResolvedValue({ id: "appt-1", date: new Date("2099-04-15T16:00:00Z"), status: "confirmed" });
+});
+
+test('devuelve un conflicto útil cuando la mascota ya tiene el servicio ese día', async () => {
+  createAppointment.mockRejectedValueOnce(new DuplicatePetAppointmentError());
+  const response = await request(appFor()).post('/api/dashboard/appointments').send(body);
+  expect(response.status).toBe(409);
+  expect(response.body.code).toBe('DUPLICATE_PET_APPOINTMENT');
+  expect(response.body.error).toMatch(/mismo servicio/);
 });
 
 test("crea una cita manual con referencias validadas en el tenant autenticado", async () => {

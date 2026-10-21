@@ -63,6 +63,7 @@ async function allowVeterinaryDashboard(req, res, next) {
       return c.grooming ? next() : deny("Peluquería no está habilitada para tu cuenta.");
     }
     if (match(req, CASH)) return c.cash ? next() : deny("Caja no está habilitada para tu cuenta.");
+    if (req.method === 'DELETE' && /^\/appointments\/[^/]+$/.test(req.path)) return c.schedule ? next() : deny();
     if (match(req, [["GET", /^\/appointments\/available-slots$/], ["POST", /^\/appointments$/]])) return c.schedule ? next() : deny();
     if (admin) return next();
     if (match(req, CONTACT_READ)) return (c.contacts || c.cash || c.clinical || c.grooming) ? next() : deny();

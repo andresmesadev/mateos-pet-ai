@@ -10,6 +10,7 @@ const availabilityDb = require("./availability-db.service");
 const { reservationSlotMinutes } = require("../lib/reservation-slot");
 const { SERVICE_TYPES, toDateKey } = require("./availability.service");
 const { SlotAlreadyBookedError } = require("./errors/slot-already-booked.error");
+const { isDuplicatePetAppointment, DuplicatePetAppointmentError } = require('./errors/duplicate-pet-appointment.error');
 
 const APPOINTMENT_CONFLICT_UNIQUE_CONSTRAINT = "appointment_tenant_bucket_slot_active_unique";
 const {
@@ -389,6 +390,7 @@ const createAppointment = async (data) => {
         appointment = await prisma.appointment.create({ data: appointmentData });
       }
     } catch (createError) {
+      if (isDuplicatePetAppointment(createError)) throw new DuplicatePetAppointmentError();
       const isSlotConflict =
         createError?.code === "P2002" &&
         (createError?.meta?.target?.includes?.(APPOINTMENT_CONFLICT_UNIQUE_CONSTRAINT) ||
@@ -427,7 +429,8 @@ const createAppointment = async (data) => {
 
     return appointment;
   } catch (error) {
-    logger.error("[AppointmentService] createAppointment error:", error.message);
+    if (isDuplicatePetAppointment(error)) logger.info('[AppointmentService] Duplicate pet/service/day prevented');
+    else logger.error("[AppointmentService] createAppointment error:", error.message);
     throw error;
   }
 };
@@ -471,7 +474,7 @@ const rescheduleAppointment = async ({ userId, tenantId, appointmentId, date }) 
     return tx.appointment.update({ where: { ...owned, date: current.date }, data: { date, googleEventId: null,
       ...(current.transportMode && current.transportMode !== 'none' ? { transportPrice: null, transportPriceSource: null } : {}),
     } });
-  });
+  }).catch(error => { if (isDuplicatePetAppointment(error)) throw new DuplicatePetAppointmentError(); throw error; });
   syncCancelToCalendar(original);
   if (moved.status === "confirmed") syncAppointmentToCalendar(moved);
   return moved;

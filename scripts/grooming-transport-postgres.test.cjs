@@ -68,7 +68,7 @@ test('PostgreSQL real: acuerdo particular, transporte excluido de comisión, cob
         assert.equal(response.status, 200, JSON.stringify(response.body)); assert.equal(response.body.finalPrice, 45000); assert.equal(response.body.transport.price, 0);
         response = await request(app).post(`/api/dashboard/appointments/${second.id}/complete`).send({});
         assert.equal(response.status, 200, JSON.stringify(response.body)); assert.equal(Number((await tx.transaction.findFirstOrThrow({ where: { appointmentId: second.id } })).total), 45000); checks++;
-        const pending = await appointment();
+        const pending = await appointment(pet, { date: new Date(day.getTime() + 86400000) });
         response = await request(app).put(`/api/dashboard/appointments/${pending.id}/transport`).send({ mode: 'pickup', zoneId: zone.id, address: 'Fixture address', confirmed: false });
         assert.equal(response.status, 200); assert.equal(response.body.finalPrice, null);
         assert.equal((await request(app).post(`/api/dashboard/appointments/${pending.id}/complete`).send({})).status, 422);

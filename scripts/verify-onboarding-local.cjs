@@ -228,6 +228,9 @@ async function main() {
     if (process.argv.includes('--inventory-registration')) {
       await require('./verify-inventory-registration-browser.cjs')({ prisma, base, page, output, check, tenantId: session.user.tenantId });
     }
+    if (process.argv.includes('--appointment-lifecycle')) {
+      await require('./verify-appointment-lifecycle-browser.cjs')({ prisma, base, browser, context, page, output, check, tenantId: session.user.tenantId });
+    }
     if (process.argv.includes('--client-pet-names')) {
       await require('./verify-client-pet-names-scenario.cjs')({ prisma, base, context, page, output, check, tenantId: session.user.tenantId });
     }

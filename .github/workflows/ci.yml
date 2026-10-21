@@ -214,3 +214,7 @@ jobs:
         run: |
           node backend/src/scripts/seed-event-types.js
           node --test scripts/*-postgres.test.cjs
+      - name: Verify appointment duplicate and removal invariants
+        env:
+          APPOINTMENT_LIFECYCLE_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mateos_dev
+        run: node scripts/verify-appointment-lifecycle-postgres.cjs
