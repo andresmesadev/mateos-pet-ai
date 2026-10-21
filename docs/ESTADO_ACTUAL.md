@@ -1,9 +1,14 @@
 # Estado actual del proyecto
 
-**2.54.0 en preparación — 21 de octubre:** bloqueo diario de citas repetidas
+**Publicado el 21 de octubre — 2.54.0:** bloqueo diario de citas repetidas
 por mascota y servicio, retiro por error desde Agenda con motivo/auditoría y
 preservación de hechos clínicos/financieros. [Diseño](architecture/appointment-duplicates-and-removal-20261021.md)
 y [validación/publicación](history/RELEASE_2_54_0_VPS_20261021.md).
+Cinco jobs CI aprobados, respaldo cifrado verificado, 64 migraciones y 14
+destinos HTTPS autenticados correctos. Retiro individual autorizado simulado
+y aplicado con auditoría, conservando la atención correcta y sus hechos
+financieros. WhatsApp pausado; nueva ventana de observación 2.54.0 iniciada,
+sin declarar cumplidas 48 horas ni cerrar la aceptación operativa de beta.
 
 **Publicado el 20 de octubre — 2.53.0:** existencias iniciales,
 corrección de cantidad/costo de entradas y retiro de productos erróneos con

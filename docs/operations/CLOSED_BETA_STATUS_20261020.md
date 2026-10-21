@@ -1,5 +1,14 @@
 # Beta cerrada de la veterinaria propia — estado al 20 de octubre de 2026
 
+**Actualización del 21 de octubre:** 2.54.0 publicada a las 17:34 Colombia:
+protección diaria de duplicados por mascota/servicio y retiro auditado de
+reservas erróneas desde Agenda. CI y comprobaciones productivas aprobados;
+[certificación](../history/RELEASE_2_54_0_VPS_20261021.md). La ventana 2.53.0
+se conserva incompleta con 289 muestras, 24,00338 horas y cero fallos/huecos.
+La observación vigente pasa a 2.54.0; los pasos 9 y 10 mantienen sus criterios
+pendientes. El retiro puntual autorizado preservó la atención correcta y sus
+hechos financieros; no implica corregir inventario histórico ni aceptar la beta.
+
 **Actualización posterior:** el responsable autorizó commit, push y despliegue.
 El lote descrito abajo como local fue publicado en 2.53.0 el 20/10 a las 17:28
 Colombia, con CI, respaldo, migración y lecturas autenticadas correctos.
