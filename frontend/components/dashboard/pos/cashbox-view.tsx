@@ -21,6 +21,7 @@ import { EXPENSE_CATEGORY_LABELS, type ExpenseCategory } from "@/lib/expenses";
 import { getPetEmoji } from "@/lib/pets";
 import { CashboxExpenses, type CashboxExpense } from "./cashbox-expenses";
 import { DailyClosePanel } from "./daily-close-panel";
+import { CashOpeningPanel } from './cash-opening-panel';
 
 type CashboxTransaction = {
   id: string;
@@ -154,6 +155,7 @@ export async function CashboxView({ date, tenant }: { date?: string; tenant?: st
       </div>
 
       {/* Cards resumen */}
+      <CashOpeningPanel key={`opening:${tenant ?? 'current'}:${effectiveDate}`} date={effectiveDate} tenant={tenant} />
       <div className="grid gap-4 sm:grid-cols-3">
         <NetCard
           total={income}

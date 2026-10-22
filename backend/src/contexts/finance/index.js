@@ -35,6 +35,8 @@ const {
 const expenseRepository = new PrismaExpenseRepository();
 const transactionRepository = new PrismaTransactionRepository();
 const dailyCloseRepository = new PrismaDailyCloseRepository();
+const { PrismaCashOpeningRepository } = require('./infrastructure/persistence/prisma-cash-opening.repository');
+const openingRepository = new PrismaCashOpeningRepository();
 const financialPeriodRepository = new PrismaFinancialPeriodRepository();
 const commissionReader = new PrismaCommissionReader();
 const completedAppointmentsReader = new PrismaCompletedAppointmentsReader();
@@ -47,10 +49,13 @@ function buildTransactionalFinance({ eventPublisher: publisher = eventPublisher,
   return {
     registerExpense: wrap(createRegisterExpenseUseCase(deps)),
     voidExpense: wrap(createVoidExpenseUseCase(deps)),
-    generateDailyClose: wrap(createGenerateDailyCloseUseCase({ ...deps, transactionRepository, commissionReader, completedAppointmentsReader })),
+    generateDailyClose: wrap(createGenerateDailyCloseUseCase({ ...deps, transactionRepository, commissionReader, completedAppointmentsReader, openingRepository })),
   };
 }
 const { registerExpense, voidExpense, generateDailyClose } = buildTransactionalFinance();
+const openingCommands = require('./application/use-cases/cash-opening.usecases').createCashOpeningUseCases({ openingRepository, dailyCloseRepository, businessDayGate: new PrismaBusinessDayGate() });
+const getCashOpening = openingCommands.get;
+const saveCashOpening = transactionalCommand(openingCommands.save, { unitOfWork, eventPublisher });
 const recordChargeOnAppointmentCompleted = createRecordChargeOnAppointmentCompletedUseCase({
   transactionRepository,
   eventPublisher,
@@ -82,6 +87,7 @@ const { createRegisterAppointmentSaleUseCase } = require('./application/use-case
 const registerAppointmentSale = createRegisterAppointmentSaleUseCase({ transactionRepository, referencesReader: new PrismaPosReferencesReader(), dailyCloseRepository, businessDayGate: new PrismaBusinessDayGate() });
 
 module.exports = {
+  getCashOpening, saveCashOpening,
   registerAppointmentSale,
   publishCheckoutPayment: transaction => eventPublisher.publish('CobroLiquidado', { transaction }),
   buildTransactionalFinance,

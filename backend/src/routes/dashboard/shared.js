@@ -14,7 +14,7 @@ function bogotaDayStart(ymd) {
 
 const APPOINTMENT_INCLUDE = {
   user:    { select: { phone: true, name: true, address: true, neighborhood: true } },
-  pet:     { select: { name: true, type: true, defaultGroomingPrice: true, defaultGroomingWithTransportPrice: true, defaultGroomingTransportPrice: true } },
+  pet:     { select: { name: true, type: true, defaultGroomingPrice: true, defaultGroomingWithTransportPrice: true, defaultGroomingTransportPrice: true, defaultGroomingTransportMode: true } },
   transportSharedWith: { select: { id: true, tenantId: true, userId: true, status: true, transportMode: true, transportPrice: true } },
   service: { select: { name: true, category: { select: { name: true } }, basePrice: true,
     priceRules: { where: { active: true, targetType: "pet" }, select: { targetId: true, price: true } },

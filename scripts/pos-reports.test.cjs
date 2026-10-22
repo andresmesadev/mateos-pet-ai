@@ -7,7 +7,7 @@ vm.runInNewContext(ts.transpileModule(fs.readFileSync(require.resolve('../fronte
 const { parseReportSummary, parseRevenueMonths, parseBreakdown, parseActivity, parseServices, reportRange, reportMoney, reportBarHeight } = context.exports;
 const meta = { period: 'month', offset: 0, comparison: 'full', comparisonClamped: false, rangeStart: '2026-10-01T05:00:00Z', rangeEnd: '2026-11-01T05:00:00Z', previousRangeStart: '2026-09-01T05:00:00Z', previousRangeEnd: '2026-10-01T05:00:00Z', asOf: '2026-10-03T15:00:00Z', partial: true, year: 2026 };
 const metric = { value: 10.1, prev: 0, delta: 10.1, pct: null };
-const summary = { ...meta, establishment: { id: 'tenant-a', name: 'Mateos prueba' }, revenue: metric, expenses: metric, difference: { ...metric, value: -2.5, delta: -2.5 }, appointments: metric, newClients: metric, petsAttended: metric, transactionCount: 2 };
+const summary = { ...meta, establishment: { id: 'tenant-a', name: 'Mateos prueba' }, revenue: metric, expenses: metric, difference: { ...metric, value: -2.5, delta: -2.5 }, professionalShare: { ...metric, value: 1.25 }, afterProfessionalShare: { ...metric, value: -3.75 }, professionals: [{ staffId: 'worker', name: 'Profesional', amount: 1.25, count: 1 }], appointments: metric, newClients: metric, petsAttended: metric, transactionCount: 2 };
 const breakdown = { ...meta, total: 0.3, count: 2, unallocatedTotal: 0.1, byMethod: ['cash', 'transfer', 'card', 'other', 'review', 'unclassified'].map((method, index) => ({ method, count: index < 2 ? 1 : 0, total: index === 0 ? 0.1 : index === 1 ? 0.2 : 0 })), byKind: ['product', 'service', 'unclassified'].map((kind, index) => ({ kind, quantity: index === 0 ? 1 : 0, lines: index === 0 ? 1 : 0, total: index === 0 ? 0.2 : 0 })) };
 
 test('rangos visibles terminan en el último día real de Bogotá y cruzan el año', () => {
@@ -71,7 +71,7 @@ test('exportación exige fechas, selección y centavos coincidentes; errores no 
   for (const other of [undefined, { ...breakdown, count: 3 }, { ...breakdown, total: 0.4 }, { ...breakdown, comparison: 'equivalent' }, { ...breakdown, previousRangeEnd: meta.previousRangeStart }]) assert.equal(reportsAgree(same, other), false);
   assert.equal(reportsAgree(undefined, breakdown), false);
 });
-test('Excel se abre con tres hojas, importes numéricos exactos y nombres literales sin fórmulas', async () => {
+test('Excel se abre con cuatro hojas, participación profesional e importes numéricos exactos sin fórmulas', async () => {
   const Excel = require('../frontend/node_modules/exceljs');
   const exportsContext = { exports: {} };
   const compiled = ts.transpileModule(fs.readFileSync(require.resolve('../frontend/lib/pos-report-export.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
@@ -80,10 +80,13 @@ test('Excel se abre con tres hojas, importes numéricos exactos y nombres litera
   const same = { ...summary, establishment: { id: 'tenant-a', name: '=HYPERLINK("https://invalid")' }, revenue: { ...metric, value: breakdown.total } };
   const buffer = await exportsContext.exports.createReportWorkbook(same, breakdown);
   const book = new Excel.Workbook(); await book.xlsx.load(buffer);
-  assert.equal(book.worksheets.length, 3);
+  assert.equal(book.worksheets.length, 4);
   assert.equal(book.getWorksheet('Resumen').getCell('B1').value, same.establishment.name);
   assert.equal(book.getWorksheet('Resumen').getCell('B11').value, 0.3);
   assert.equal(book.getWorksheet('Resumen').getCell('B13').value, -2.5);
+  assert.equal(book.getWorksheet('Resumen').getCell('B14').value, 1.25);
+  assert.equal(book.getWorksheet('Resumen').getCell('B15').value, -3.75);
+  assert.equal(book.getWorksheet('Profesionales').getCell('C2').value, 1.25);
   assert.equal(book.getWorksheet('Medios de pago').getCell('C2').value, 0.1);
   assert.equal(book.getWorksheet('Medios de pago').getCell('C8').value, 0.3);
   assert.equal(book.getWorksheet('Productos y servicios').getCell('D5').value, 0.1);

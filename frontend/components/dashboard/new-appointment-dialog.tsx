@@ -27,6 +27,7 @@ type Service = {
   id: string;
   name: string;
   category: string | null;
+  bookingCategory?: string | null;
   active: boolean;
   requiresAppointment: boolean;
 };
@@ -129,8 +130,11 @@ function NewAppointmentContent({
         if (!res.ok) throw new Error("No se pudieron cargar los servicios");
         return res.json() as Promise<Service[]>;
       })
-      .then((rows) => setServices(rows.filter((service) => access?.activeModules.includes(service.category ?? "") && service.active && service.requiresAppointment &&
-        (serviceCategory ? service.category === serviceCategory : ["veterinary", "grooming"].includes(service.category ?? "")))))
+      .then((rows) => setServices(rows.filter((service) => {
+        const area = service.bookingCategory ?? service.category;
+        return access?.activeModules.includes(area ?? "") && service.active && service.requiresAppointment &&
+          (serviceCategory ? area === serviceCategory : ["veterinary", "grooming"].includes(area ?? ""));
+      })))
       .catch((cause) => {
         if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "No se pudieron cargar los servicios");
       })

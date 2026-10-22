@@ -65,9 +65,10 @@ router.get("/services", async (req, res) => {
       orderBy: [{ category: { name: "asc" } }, { name: "asc" }],
     });
     res.json(rows.map(({ category, ...row }) => {
-      const mapped = { ...row, category: category?.name ?? null, appliesCommissionSplit: row.appliesCommissionSplit ?? category?.appliesCommissionSplit ?? false };
+      const bookingCategory = require('../../services/dashboard-access.service').appointmentBookingCategory({ category });
+      const mapped = { ...row, category: category?.name ?? null, bookingCategory, appliesCommissionSplit: row.appliesCommissionSplit ?? category?.appliesCommissionSplit ?? false };
       if (req.access && !req.access.capabilities.cash && !req.access.capabilities.appointmentPrice) {
-        return { id: row.id, name: row.name, duration: row.duration, active: row.active, requiresAppointment: row.requiresAppointment, category: mapped.category };
+        return { id: row.id, name: row.name, duration: row.duration, active: row.active, requiresAppointment: row.requiresAppointment, category: mapped.category, bookingCategory };
       }
       return mapped;
     }));

@@ -2,7 +2,7 @@ export type ReportPeriod = "week" | "month" | "year";
 export type ReportComparison = "full" | "equivalent";
 export type MetricPoint = { value: number; prev: number; delta: number; pct: number | null };
 export type ReportMetadata = { period: ReportPeriod; offset: number; comparison: ReportComparison; comparisonClamped: boolean; rangeStart: string; rangeEnd: string; previousRangeStart: string; previousRangeEnd: string; asOf: string; partial: boolean; year: number };
-export type ReportSummary = ReportMetadata & { establishment: { id: string; name: string }; revenue: MetricPoint; expenses: MetricPoint; difference: MetricPoint; appointments: MetricPoint; newClients: MetricPoint; petsAttended: MetricPoint; transactionCount: number };
+export type ReportSummary = ReportMetadata & { establishment: { id: string; name: string }; revenue: MetricPoint; expenses: MetricPoint; difference: MetricPoint; professionalShare: MetricPoint; afterProfessionalShare: MetricPoint; professionals: { staffId: string | null; name: string; amount: number; count: number }[]; appointments: MetricPoint; newClients: MetricPoint; petsAttended: MetricPoint; transactionCount: number };
 export type ServiceReport = { name: string; count: number };
 export type RevenueMonth = { month: number; revenue: number; year: number };
 export type ActivityMonth = { label: string; newClients: number; returningVisits: number };
@@ -37,6 +37,8 @@ export function parseReportSummary(value: unknown): ReportSummary {
   const row = object(value); const meta = metadata(row);
   for (const key of ["revenue", "expenses", "appointments", "newClients", "petsAttended"]) metric(row[key]);
   metric(row.difference, true);
+  metric(row.professionalShare); metric(row.afterProfessionalShare, true);
+  if (!Array.isArray(row.professionals) || !row.professionals.every(value => { const entry = object(value); return (entry.staffId === null || typeof entry.staffId === 'string') && typeof entry.name === 'string' && amount(entry.amount) && count(entry.count); })) fail();
   if (!count(row.transactionCount)) fail();
   const establishment = object(row.establishment);
   if (typeof establishment.id !== "string" || !establishment.id || typeof establishment.name !== "string" || !establishment.name.trim()) fail();

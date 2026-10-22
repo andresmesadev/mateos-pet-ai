@@ -17,6 +17,7 @@ jest.mock("../../lib/prisma", () => {
     transaction: { create: jest.fn(), findFirst: jest.fn(), findUnique: jest.fn(), findMany: jest.fn(), update: jest.fn() },
     commission: { create: jest.fn(), findUnique: jest.fn(), findMany: jest.fn(), update: jest.fn() },
     dailyClose: { create: jest.fn(), findFirst: jest.fn(), findMany: jest.fn(), updateMany: jest.fn() },
+    cashOpening: { findUnique: jest.fn().mockResolvedValue(null) },
     financialPeriod: { create: jest.fn(), findFirst: jest.fn() },
     settlement: { findFirst: jest.fn() },
     staff: { findFirst: jest.fn(), findMany: jest.fn() },

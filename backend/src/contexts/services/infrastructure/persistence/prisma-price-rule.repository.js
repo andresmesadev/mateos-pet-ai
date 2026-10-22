@@ -14,19 +14,20 @@ function isUniqueActiveTargetViolation(err) {
 }
 
 class PrismaPriceRuleRepository extends PriceRuleRepositoryPort {
+  constructor(client = prisma) { super(); this.client = client; }
   async listByService(serviceId) {
-    return prisma.priceRule.findMany({ where: { serviceId } });
+    return this.client.priceRule.findMany({ where: { serviceId } });
   }
 
   async findActiveByTarget(serviceId, targetType, targetId) {
-    return prisma.priceRule.findFirst({
+    return this.client.priceRule.findFirst({
       where: { serviceId, targetType, targetId, active: true },
     });
   }
 
   async create(data) {
     try {
-      return await prisma.priceRule.create({ data });
+      return await this.client.priceRule.create({ data });
     } catch (err) {
       if (isUniqueActiveTargetViolation(err)) {
         const wrapped = new Error("Violación del índice único parcial de PriceRule");
@@ -38,7 +39,7 @@ class PrismaPriceRuleRepository extends PriceRuleRepositoryPort {
   }
 
   async updatePrice(priceRuleId, newPrice) {
-    return prisma.priceRule.update({ where: { id: priceRuleId }, data: { price: newPrice } });
+    return this.client.priceRule.update({ where: { id: priceRuleId }, data: { price: newPrice } });
   }
 }
 

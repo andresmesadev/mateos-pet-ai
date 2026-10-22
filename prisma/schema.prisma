@@ -638,6 +638,7 @@ model Tenant {
   commissions   Commission[]
   settlements   Settlement[]
   dailyCloses      DailyClose[]
+  cashOpenings     CashOpening[]
   financialPeriods FinancialPeriod[]
   domainEvents     DomainEvent[]
   channels         Channel[]
@@ -1385,6 +1386,8 @@ model DailyClose {
   incomeTotal  Decimal @db.Decimal(10, 2)
   expenseTotal Decimal @db.Decimal(10, 2)
   netAmount    Decimal @db.Decimal(10, 2)
+  openingCashAmount Decimal? @db.Decimal(10, 2)
+  retainedCashAmount Decimal? @db.Decimal(10, 2)
 
   // Snapshot congelado del desglose por staff — no una relación (ver finanzas-modelo-persistencia.md)
   staffBreakdown Json
@@ -1396,6 +1399,22 @@ model DailyClose {
 
   @@unique([tenantId, date])
   @@index([tenantId, financialPeriodId])
+}
+
+// Fondo confirmado de efectivo. No es una Transaction ni un Expense.
+model CashOpening {
+  id String @id @default(cuid())
+  tenantId String
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  date DateTime
+  amount Decimal @db.Decimal(10, 2)
+  sourceDailyCloseId String?
+  actorId String?
+  actorName String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, date])
 }
 
 model FinancialPeriod {

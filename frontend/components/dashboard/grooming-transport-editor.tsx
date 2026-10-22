@@ -27,11 +27,13 @@ export function GroomingTransportEditor({ appointment, onUpdated, readOnly = fal
       const body = await response.json(); if (!response.ok) throw new Error(body.error ?? "No se pudo guardar el domicilio.");
       if (body.id !== appointment.id || !body.transport) throw new Error("No se pudo confirmar el guardado. Actualiza la cita antes de volver a guardar.");
       setEditing(false); onUpdated(body);
+      if (appointment.petId) window.dispatchEvent(new CustomEvent('pet-grooming-updated', { detail: { petId: appointment.petId } }));
     } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo guardar el domicilio."); }
     finally { setSaving(false); }
   }
   return <section aria-label="Domicilio de peluquería" className="space-y-4 rounded-xl border border-border bg-white p-4 sm:p-5">
     <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-semibold">Domicilio de peluquería</h3>{canEdit && !editing && <Button type="button" variant="outline" className="min-h-11" onClick={() => { setValue(initial); setEditing(true); }}>Configurar domicilio</Button>}</div>
+    {editing && <p className="text-xs text-muted-foreground">Guardar también actualiza la llegada habitual y el valor del domicilio en el expediente de esta mascota. Un traslado compartido corresponde solo a esta visita.</p>}
     {editing ? <><GroomingTransportFields value={value} onChange={setValue} petId={appointment.petId ?? ""} appointmentId={appointment.id} serviceId={appointment.serviceId} date={appointment.date} disabled={saving} /><div className="grid grid-cols-1 gap-2 sm:grid-cols-2"><Button type="button" className="min-h-11 whitespace-normal" onClick={() => void save()} disabled={saving || !value.mode}>{saving ? "Guardando…" : "Guardar domicilio"}</Button><Button type="button" className="min-h-11" variant="outline" disabled={saving} onClick={() => { setValue(initial); setEditing(false); setError(""); }}>Cancelar</Button></div></> : <>
       <p className="rounded-lg bg-muted/60 px-3 py-2.5 text-sm font-medium">{transportLabels[current?.mode ?? "none"]}</p>
       <dl className="space-y-3"><div><dt className="text-xs text-muted-foreground">Dirección</dt><dd className="mt-1 break-words text-sm">{current?.address || appointment.clientAddress || "Sin dirección registrada en el cliente"}</dd></div>

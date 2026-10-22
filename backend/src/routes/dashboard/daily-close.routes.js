@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const prisma = require("../../lib/prisma");
 const { getBogotaYmd } = require("./shared");
-const { getDailyClose, generateDailyClose } = require("../../contexts/finance");
+const { getDailyClose, generateDailyClose, getCashOpening, saveCashOpening } = require("../../contexts/finance");
 const {
   DailyCloseNotFoundError,
   DuplicateDailyCloseError,
@@ -10,6 +10,18 @@ const {
   MissingTenantError,
 } = require("../../contexts/finance/domain/errors");
 const { civilDayBounds } = require("../../contexts/shared/business-day");
+const { actorSnapshot } = require('../../services/dashboard-access.service');
+
+router.get('/cash/opening', async (req, res) => {
+  try { res.json(await getCashOpening({ tenantId: req.tenant.tenantId, date: req.query.date ?? getBogotaYmd() })); }
+  catch (error) { res.status(error.code === 'CASH_OPENING' ? error.status : 500).json({ error: error.code === 'CASH_OPENING' ? error.message : 'No se pudo consultar la base de caja.' }); }
+});
+router.put('/cash/opening', async (req, res) => {
+  try {
+    const actor = actorSnapshot(req.actor, 'opening');
+    res.json(await saveCashOpening({ tenantId: req.tenant.tenantId, date: req.body?.date ?? getBogotaYmd(), amount: req.body?.amount, actor: { id: actor.openingActorId, name: actor.openingActorName } }));
+  } catch (error) { res.status(error.code === 'CASH_OPENING' ? error.status : 500).json({ error: error.code === 'CASH_OPENING' ? error.message : 'No se pudo guardar la base de caja.' }); }
+});
 
 // GET /daily-close?date=YYYY-MM-DD
 // Entregable Puente: cada sección de la respuesta proviene de UN solo universo
@@ -175,7 +187,9 @@ router.post("/daily-close", async (req, res) => {
         ? req.body.date
         : getBogotaYmd();
 
-    const { dailyClose } = await generateDailyClose({ tenantId, date });
+    const { dailyClose } = await generateDailyClose({ tenantId, date,
+      ...(req.body?.retainedCashAmount !== undefined ? { retainedCashAmount: req.body.retainedCashAmount } : {}),
+      ...(req.body?.expectedOpeningCashAmount !== undefined ? { expectedOpeningCashAmount: req.body.expectedOpeningCashAmount } : {}) });
 
     res.status(201).json({
       id: dailyClose.id,
@@ -184,9 +198,12 @@ router.post("/daily-close", async (req, res) => {
       expenseTotal: Number(dailyClose.expenseTotal),
       netAmount: Number(dailyClose.netAmount),
       staffBreakdown: dailyClose.staffBreakdown,
+      openingCashAmount: dailyClose.openingCashAmount == null ? null : Number(dailyClose.openingCashAmount),
+      retainedCashAmount: dailyClose.retainedCashAmount == null ? null : Number(dailyClose.retainedCashAmount),
       createdAt: dailyClose.createdAt.toISOString(),
     });
   } catch (error) {
+    if (error.code === 'CASH_OPENING') return res.status(error.status).json({ error: error.message });
     if (error instanceof MissingTenantError) return res.status(400).json({ error: error.message });
     if (error instanceof DuplicateDailyCloseError) return res.status(409).json({ error: error.message });
     if (error instanceof IncompleteDailyCloseError) {

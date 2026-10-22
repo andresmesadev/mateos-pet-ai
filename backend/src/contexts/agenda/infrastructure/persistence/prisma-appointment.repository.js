@@ -34,7 +34,7 @@ class PrismaAppointmentRepository extends AppointmentRepositoryPort {
     return (ctx?.tx ?? prisma).appointment.findFirst({
       where: { id: appointmentId, ...(tenantId ? { tenantId } : {}) },
       include: {
-        pet: { select: { defaultGroomingPrice: true, defaultGroomingWithTransportPrice: true, defaultGroomingTransportPrice: true } },
+        pet: { select: { defaultGroomingPrice: true, defaultGroomingWithTransportPrice: true, defaultGroomingTransportPrice: true, defaultGroomingTransportMode: true } },
         transportSharedWith: { select: { id: true, tenantId: true, userId: true, status: true, transportMode: true, transportPrice: true } },
         service: { select: { id: true, basePrice: true, category: { select: { id: true, name: true } },
           priceRules: { where: { active: true, targetType: "pet" }, select: { targetId: true, price: true } },

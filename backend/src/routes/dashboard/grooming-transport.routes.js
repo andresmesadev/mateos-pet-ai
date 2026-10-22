@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const prisma = require('../../lib/prisma');
+const { savePetGroomingDefaults } = require('../../services/appointment-pet-grooming-sync.service');
 const { APPOINTMENT_INCLUDE, mapAppointmentRow, bogotaDayStart } = require('./shared');
 const { TransportError, validMoney, pricingAppointment, prepareTransport, assertTransportCanChange, dateKey } = require('../../services/grooming-transport.service');
 const canPrice = req => Boolean(req.access?.capabilities.appointmentPrice || req.access?.capabilities.administration || (!req.access && req.actor?.type === 'admin'));
@@ -51,6 +52,7 @@ router.post('/grooming/transport/quote', async (req, res) => {
 
 router.put('/appointments/:id/transport', async (req, res) => {
   try {
+    const afterCommit = [];
     const updated = await prisma.$transaction(async tx => {
       const ids = [...new Set([req.params.id, ...(req.body?.mode === 'shared' && typeof req.body.sharedWithId === 'string' ? [req.body.sharedWithId] : [])])].sort();
       for (const id of ids) await tx.$queryRaw`SELECT id FROM "Appointment" WHERE id = ${id} AND "tenantId" = ${req.tenant.tenantId} FOR UPDATE`;
@@ -58,8 +60,10 @@ router.put('/appointments/:id/transport', async (req, res) => {
       if (req.access?.role === 'groomer' && appointment.staffId !== req.actor.staffId) throw new TransportError('La atención debe estar asignada a tu usuario.', 403);
       const result = await prepareTransport({ appointment, transport: req.body, canConfirm: canPrice(req) }, tx);
       await assertTransportCanChange(tx, appointment, result.data);
+      await savePetGroomingDefaults(tx, appointment, { price: result.quote.servicePrice, transport: result.data, canPrice: canPrice(req), afterCommit });
       return tx.appointment.update({ where: { id: appointment.id }, data: result.data, include: APPOINTMENT_INCLUDE });
     });
+    for (const publish of afterCommit) await publish();
     const mapped = mapAppointmentRow(updated);
     res.json(canPrice(req) || req.access?.capabilities.cash ? mapped : { ...mapped, finalPrice: null, priceResolution: null, transport: { ...mapped.transport, price: null }, hasResolvedPrice: mapped.finalPrice != null });
   } catch (error) { fail(res, error); }

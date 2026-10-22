@@ -7,8 +7,9 @@ const { TargetExistenceReaderPort } = require("../../application/ports/target-ex
  * incorporar su estructura completa a Servicios — solo lee lo necesario.
  */
 class PrismaTargetExistenceReader extends TargetExistenceReaderPort {
+  constructor(client = prisma) { super(); this.client = client; }
   async clientExists(clientId, tenantId = null) {
-    const client = await prisma.user.findFirst({
+    const client = await this.client.user.findFirst({
       where: { id: clientId, ...(tenantId ? { tenantId } : {}) },
       select: { id: true },
     });
@@ -16,7 +17,7 @@ class PrismaTargetExistenceReader extends TargetExistenceReaderPort {
   }
 
   async petExists(petId, tenantId = null) {
-    const pet = await prisma.pet.findFirst({
+    const pet = await this.client.pet.findFirst({
       where: { id: petId, ...(tenantId ? { tenantId } : {}) },
       select: { id: true },
     });
@@ -24,7 +25,7 @@ class PrismaTargetExistenceReader extends TargetExistenceReaderPort {
   }
 
   async getPetAttributes(petId, tenantId = null) {
-    const pet = await prisma.pet.findFirst({
+    const pet = await this.client.pet.findFirst({
       where: { id: petId, ...(tenantId ? { tenantId } : {}) },
       select: { breed: true },
     });

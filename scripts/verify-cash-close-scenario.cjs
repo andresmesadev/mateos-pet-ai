@@ -49,6 +49,11 @@ module.exports = async function verifyCashClose({ prisma, base, context, page, o
   assert.equal(await prisma.transaction.count({ where: { tenantId } }), paymentsBeforeDelivery);
   check('completed service explicitly explains pending physical delivery; confirming handover records it without creating another payment');
   await page.goto(base + '/dashboard/pos?tab=caja&date=' + date);
+  const openingPanel = page.getByRole('region', { name: 'Dinero base de caja', exact: true });
+  await openingPanel.getByLabel('Base de efectivo (COP)', { exact: true }).fill('50000');
+  const openingSaved = page.waitForResponse(response => response.url().includes('/cash/opening') && response.request().method() === 'PUT');
+  await openingPanel.getByRole('button', { name: 'Confirmar base', exact: true }).click();
+  assert.equal((await openingSaved).status(), 200);
   const panel = page.getByRole('region', { name: 'Cierre del día y comisiones', exact: true });
   await panel.getByRole('button', { name: 'Cerrar día', exact: true }).waitFor();
   await panel.getByText('Saldo tras reservar comisiones', { exact: true }).waitFor();
@@ -69,6 +74,7 @@ module.exports = async function verifyCashClose({ prisma, base, context, page, o
   await page.screenshot({ path: path.join(output, '40-cash-close-commissions.png'), fullPage: true, animations: 'disabled' });
   await panel.getByRole('button', { name: 'Cerrar día', exact: true }).click();
   const closeDialog = page.getByRole('dialog', { name: 'Guardar cierre del día', exact: true });
+  await closeDialog.getByLabel('Efectivo que dejas para la siguiente jornada (COP)', { exact: true }).fill('25000');
   for (const [width, height] of [[320,568], [360,640], [390,720], [430,760], [768,1000], [1440,1000]]) {
     await page.setViewportSize({ width, height });
     await closeDialog.waitFor();

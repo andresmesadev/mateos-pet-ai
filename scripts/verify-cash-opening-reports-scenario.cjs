@@ -1,0 +1,90 @@
+const assert = require('node:assert/strict');
+const path = require('node:path');
+module.exports = async ({ prisma, base, context, page, tenantId, output, check }) => {
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
+  const day = offset => new Date(Date.parse(today + 'T12:00:00Z') + offset * 86400000).toISOString().slice(0, 10);
+  const previous = day(-1), raceDay = day(-2), legacyDay = day(-3);
+  const get = async date => { const r = await context.request.get(base + '/api/proxy/dashboard/cash/opening?date=' + date); assert.equal(r.status(), 200, await r.text()); return r.json(); };
+  const put = (date, amount, extra = {}) => context.request.put(base + '/api/proxy/dashboard/cash/opening', { data: { date, amount, ...extra } });
+  await prisma.eventType.createMany({ data: [{ name: 'CierreDíaGenerado', originContext: 'Finanzas' }], skipDuplicates: true });
+  await prisma.dailyClose.create({ data: { tenantId, date: new Date(legacyDay + 'T00:00:00Z'), incomeTotal: 0, expenseTotal: 0, netAmount: 0, staffBreakdown: [] } });
+  const legacy = await get(legacyDay); assert.equal(legacy.openingCashAmount, null); assert.equal(legacy.retainedCashAmount, null);
+  assert.equal((await put(legacyDay, 0)).status(), 409);
+  assert.equal((await put(day(1), 0)).status(), 400);
+  assert.equal((await put(previous, 50000)).status(), 200);
+  const close = await context.request.post(base + '/api/proxy/dashboard/daily-close', { data: { date: previous, expectedOpeningCashAmount: 50000, retainedCashAmount: 30000 } });
+  assert.equal(close.status(), 201, await close.text());
+  const previousClose = await close.json(); assert.equal(previousClose.incomeTotal, 0); assert.equal(previousClose.netAmount, 0);
+  const state = await get(today); assert.equal(state.opening, null); assert.equal(state.suggestion.amount, 30000); assert.equal(state.suggestion.date, previous);
+  const counts = await Promise.all([prisma.transaction.count({ where: { tenantId } }), prisma.expense.count({ where: { tenantId } }), prisma.commission.count({ where: { tenantId } })]);
+  await page.goto(base + '/dashboard/pos?tab=caja&date=' + today);
+  const opening = page.getByRole('region', { name: 'Dinero base de caja', exact: true });
+  await page.waitForFunction(() => document.querySelector('input[aria-label="Base de efectivo (COP)"]')?.value === '30000');
+  const saved = page.waitForResponse(r => r.url().includes('/cash/opening') && r.request().method() === 'PUT');
+  await opening.getByRole('button', { name: 'Confirmar base', exact: true }).click(); assert.equal((await saved).status(), 200);
+  assert.equal((await get(today)).opening.sourceDailyCloseId, previousClose.id);
+  assert.deepEqual(await Promise.all([prisma.transaction.count({ where: { tenantId } }), prisma.expense.count({ where: { tenantId } }), prisma.commission.count({ where: { tenantId } })]), counts);
+  assert.equal((await put(today, 30000, { tenantId: 'legacy-clinic', actor: { id: 'forged' } })).status(), 200);
+  assert.equal(await prisma.cashOpening.count({ where: { tenantId: 'legacy-clinic' } }), 0);
+  const futureSuggestion = await new (require('../backend/src/contexts/finance/infrastructure/persistence/prisma-cash-opening.repository').PrismaCashOpeningRepository)().previousSuggestion(tenantId, new Date(day(1) + 'T00:00:00Z'));
+  assert.equal(futureSuggestion, null);
+  check('previous retained cash is only a suggestion; confirming base creates no income/expense, respects tenant identity, unknown old closes and an intervening open day');
+
+  const category = await prisma.serviceCategory.findFirst({ where: { tenantId, name: 'grooming' } }) || await prisma.serviceCategory.create({ data: { tenantId, name: 'grooming' } });
+  const service = await prisma.service.create({ data: { tenantId, categoryId: category.id, name: 'Servicio de reparto ficticio', duration: 20 } });
+  const workers = await Promise.all([0.5, 0.3].map((rate, i) => prisma.staff.create({ data: { tenantId, name: 'Profesional caja ' + i, role: 'groomer', contractType: 'service', commissionRate: rate } })));
+  const at = new Date(today + 'T12:00:00-05:00');
+  for (const [i, total, serviceAmount, staffAmount] of [[0, 120000, 80000, 40000], [1, 80000, 50000, 15000]]) {
+    const sale = await prisma.transaction.create({ data: { tenantId, total, paymentMethod: i ? 'transfer' : 'cash', recordedActorId: 'fixture:operator', paidAt: at,
+      items: { create: [{ description: service.name, itemKind: 'service', serviceId: service.id, quantity: 1, unitPrice: serviceAmount, total: serviceAmount }, { description: 'Adicional sin reparto', itemKind: 'manual', quantity: 1, unitPrice: total - serviceAmount, total: total - serviceAmount }] } }, include: { items: true } });
+    const item = sale.items.find(row => row.serviceId === service.id);
+    const data = { tenantId, transactionItemId: item.id, serviceId: service.id, staffId: workers[i].id, resolvedPrice: serviceAmount, priceSource: 'manual_override', splitRate: i ? 0.3 : 0.5, staffShare: staffAmount, businessShare: serviceAmount - staffAmount, serviceCategory: 'grooming', completedAt: at };
+    await prisma.commission.create({ data });
+    if (!i) await prisma.commission.create({ data: { ...data, status: 'voided', voidedAt: at, voidReason: 'Fixture anulada' } });
+  }
+  await prisma.expense.create({ data: { tenantId, date: at, amount: 10000, description: 'Insumos ficticios', responsible: 'Operador', category: 'supplies' } });
+  await prisma.staff.update({ where: { id: workers[0].id }, data: { contractType: 'fixed', commissionRate: null } });
+  const report = await context.request.get(base + '/api/proxy/dashboard/reports/summary?period=month'); assert.equal(report.status(), 200); const summary = await report.json();
+  assert.equal(summary.revenue.value, 200000); assert.equal(summary.expenses.value, 10000); assert.equal(summary.professionalShare.value, 55000); assert.equal(summary.afterProfessionalShare.value, 135000);
+  assert.equal(summary.professionals.length, 2);
+  await page.goto(base + '/dashboard/pos?tab=reportes');
+  const section = page.getByRole('region', { name: 'Resumen del período', exact: true });
+  await section.getByRole('heading', { name: 'Parte de los profesionales', exact: true }).waitFor();
+  assert.match(await section.innerText(), /55\.000/); assert.match(await section.innerText(), /135\.000/);
+  const downloadReady = page.waitForEvent('download'); await page.getByRole('button', { name: 'Exportar Excel', exact: true }).click();
+  const file = await downloadReady; const Excel = require('../frontend/node_modules/exceljs'); const workbook = new Excel.Workbook();
+  await workbook.xlsx.readFile(await file.path()); assert.equal(workbook.getWorksheet('Resumen').getCell('B14').value, 55000); assert.equal(workbook.getWorksheet('Resumen').getCell('B15').value, 135000);
+  assert.equal(workbook.getWorksheet('Profesionales').rowCount, 4);
+  await page.getByRole('button', { name: 'Vista de impresión', exact: true }).click();
+  const print = page.getByRole('dialog', { name: 'Vista de impresión del reporte', exact: true });
+  await print.getByRole('heading', { name: 'Participación de profesionales', exact: true }).waitFor();
+  await print.getByRole('button', { name: 'Cerrar', exact: true }).first().click();
+  check('reports and real Excel/print include 50% and 30% professional shares, exclude voids and preserve history after a contract changes');
+
+  await page.goto(base + '/dashboard/pos?tab=caja&date=' + today);
+  const panel = page.getByRole('region', { name: 'Cierre del día y comisiones', exact: true });
+  await panel.getByRole('button', { name: 'Cerrar día', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Guardar cierre del día', exact: true });
+  await dialog.getByLabel('Efectivo que dejas para la siguiente jornada (COP)', { exact: true }).fill('25000');
+  await page.setViewportSize({ width: 390, height: 720 });
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await page.screenshot({ path: path.join(output, '60-cash-opening-close-mobile.png'), animations: 'disabled' });
+  const closeURL = base + '/api/proxy/dashboard/daily-close';
+  await page.route(closeURL, async route => { if (route.request().method() !== 'POST') return route.continue(); const result = await route.fetch(); assert.equal(result.status(), 201); await route.abort('failed'); });
+  await dialog.getByRole('button', { name: 'Confirmar cierre del día', exact: true }).click(); await dialog.waitFor({ state: 'hidden' }); await page.unroute(closeURL);
+  const frozen = await prisma.dailyClose.findFirstOrThrow({ where: { tenantId, date: new Date(today + 'T00:00:00Z') } });
+  assert.equal(Number(frozen.openingCashAmount), 30000); assert.equal(Number(frozen.retainedCashAmount), 25000); assert.equal(Number(frozen.incomeTotal), 200000); assert.equal(Number(frozen.netAmount), 190000);
+  assert.equal((await put(today, 0)).status(), 409); assert.equal(await prisma.cashOpening.count({ where: { tenantId, date: new Date(today + 'T00:00:00Z') } }), 1);
+  check('mobile close recovers a lost response and freezes opening/retained cash without counting base as income or paying professionals twice');
+
+  const finance = require('../backend/src/contexts/finance');
+  await finance.saveCashOpening({ tenantId, date: raceDay, amount: 0 });
+  const race = await Promise.allSettled([finance.saveCashOpening({ tenantId, date: raceDay, amount: 999 }), finance.generateDailyClose({ tenantId, date: raceDay, retainedCashAmount: 0, expectedOpeningCashAmount: 0 })]);
+  assert(race.some(row => row.status === 'rejected'));
+  const raceClose = await prisma.dailyClose.findFirst({ where: { tenantId, date: new Date(raceDay + 'T00:00:00Z') } });
+  const raceOpening = await prisma.cashOpening.findFirstOrThrow({ where: { tenantId, date: new Date(raceDay + 'T00:00:00Z') } });
+  if (raceClose) { assert.equal(Number(raceClose.openingCashAmount), 0); assert.equal(Number(raceOpening.amount), 0); }
+  else assert.equal(Number(raceOpening.amount), 999);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  check('concurrent base correction and close cannot produce a close with a stale base snapshot');
+};

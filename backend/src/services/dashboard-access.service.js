@@ -44,9 +44,15 @@ function actorSnapshot(actor, prefix) {
     [`${prefix}ActorName`]: actor?.name || null, [`${prefix}ActorRole`]: actor?.type || null };
 }
 
+function appointmentBookingCategory(service) {
+  const category = service?.category?.name ?? service?.category;
+  return { grooming: 'grooming', veterinary: 'veterinary', other: 'veterinary' }[category] ?? null;
+}
+
 function serviceModule(row) {
   const category = row?.service?.category?.name ?? row?.category?.name;
   if (category === "grooming" || category === "veterinary") return category;
+  if (category === 'other' && (row?.service?.requiresAppointment ?? row?.requiresAppointment)) return 'veterinary';
   const type = String(row?.availabilityBucket || row?.serviceType || "").toLowerCase();
   if (/groom|baño|bath|corte|peluquer|spa|deslan|antipulgas|colorimetr/.test(type)) return "grooming";
   if (/vet|consult|vacun|despar|cirug|ecograf|laboratorio|rayos|urgenc/.test(type)) return "veterinary";
@@ -64,4 +70,4 @@ function operationalPet(pet) {
     operationalAlerts: pet.operationalAlerts ?? null, _count: { appointments: pet._count?.appointments ?? 0 } };
 }
 
-module.exports = { MODULES, EXTRA_PERMISSIONS, ROLES, effectiveAccess, actorSnapshot, serviceModule, moduleAllowsAppointment, operationalPet };
+module.exports = { MODULES, EXTRA_PERMISSIONS, ROLES, effectiveAccess, actorSnapshot, serviceModule, appointmentBookingCategory, moduleAllowsAppointment, operationalPet };

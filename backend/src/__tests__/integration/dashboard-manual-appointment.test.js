@@ -27,10 +27,10 @@ const body = {
   dateKey: "2099-04-15", hour: 11,
 };
 
-function appFor(tenantId = "tenant-a") {
+function appFor(tenantId = "tenant-a", activeModules) {
   const app = express();
   app.use(express.json());
-  app.use((req, _res, next) => { req.tenant = { tenantId }; next(); });
+  app.use((req, _res, next) => { req.tenant = { tenantId }; if (activeModules) req.access = { activeModules, capabilities: { services: true, administration: true } }; next(); });
   app.use("/api/dashboard", appointmentsRoutes);
   return app;
 }
@@ -143,4 +143,25 @@ test("impide consultar horarios de un servicio de otro establecimiento", async (
     .query({ dateKey: body.dateKey, serviceId: "svc-other" });
   expect(response.status).toBe(404);
   expect(listAvailableSlotsForDate).not.toHaveBeenCalled();
+});
+
+test('Vacunación in Otros honors its booking flag and uses veterinary availability', async () => {
+  prisma.service.findFirst.mockResolvedValue({ id: 'svc-1', active: true, requiresAppointment: true, category: { name: 'other' } });
+  expect((await request(appFor()).get('/api/dashboard/appointments/available-slots').query({ dateKey: body.dateKey, serviceId: 'svc-1' })).status).toBe(200);
+  expect(listAvailableSlotsForDate).toHaveBeenCalledWith(expect.objectContaining({ serviceType: 'vet', tenantId: 'tenant-a' }));
+  expect((await request(appFor()).post('/api/dashboard/appointments').send(body)).status).toBe(201);
+  expect(createAppointment).toHaveBeenCalledWith(expect.objectContaining({ serviceId: 'svc-1', serviceType: 'vet' }));
+});
+
+test('Otros without an appointment flag remains unbookable', async () => {
+  prisma.service.findFirst.mockResolvedValue({ id: 'svc-1', active: true, requiresAppointment: false, category: { name: 'other' } });
+  expect((await request(appFor()).post('/api/dashboard/appointments').send(body)).status).toBe(422);
+  expect(createAppointment).not.toHaveBeenCalled();
+});
+
+test('Otros cannot bypass a disabled veterinary module', async () => {
+  prisma.service.findFirst.mockResolvedValue({ id: 'svc-1', active: true, requiresAppointment: true, category: { name: 'other' } });
+  expect((await request(appFor('tenant-a', ['grooming'])).get('/api/dashboard/appointments/available-slots').query({ dateKey: body.dateKey, serviceId: 'svc-1' })).status).toBe(403);
+  expect((await request(appFor('tenant-a', ['grooming'])).post('/api/dashboard/appointments').send(body)).status).toBe(403);
+  expect(createAppointment).not.toHaveBeenCalled();
 });

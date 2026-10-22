@@ -39,6 +39,17 @@ const createService = createCreateServiceUseCase({ serviceRepository, serviceCat
 const updateService = createUpdateServiceUseCase({ serviceRepository, serviceCategoryReader, businessConfigReader, eventPublisher });
 const deactivateService = createDeactivateServiceUseCase({ serviceRepository, eventPublisher });
 const changeServicePrice = createChangeServicePriceUseCase({ serviceRepository, priceRuleRepository, targetExistenceReader, eventPublisher });
+// Same domain command, bound to the caller's transaction. Publish only after commit.
+async function changePetServicePriceInTransaction(input, { tx, afterCommit }) {
+  if (!tx || !Array.isArray(afterCommit) || input.target?.type !== 'pet') throw new Error('Pet price transaction required');
+  const change = createChangeServicePriceUseCase({
+    serviceRepository: new PrismaServiceRepository(tx),
+    priceRuleRepository: new PrismaPriceRuleRepository(tx),
+    targetExistenceReader: new PrismaTargetExistenceReader(tx),
+    eventPublisher: { publish: async (name, payload) => { afterCommit.push(() => eventPublisher.publish(name, payload)); } },
+  });
+  return change(input);
+}
 const resolveServicePrice = createResolveServicePriceUseCase({ serviceRepository, priceRuleRepository, targetExistenceReader });
 const listAvailableServices = createListAvailableServicesUseCase({ serviceRepository, serviceCategoryReader, businessConfigReader });
 const getServiceCategory = createGetServiceCategoryUseCase({ serviceRepository, serviceCategoryReader });
@@ -49,6 +60,7 @@ module.exports = {
   updateService,
   deactivateService,
   changeServicePrice,
+  changePetServicePriceInTransaction,
   resolveServicePrice,
   listAvailableServices,
   getServiceCategory,

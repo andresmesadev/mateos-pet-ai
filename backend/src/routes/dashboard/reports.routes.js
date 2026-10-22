@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const prisma = require("../../lib/prisma");
+const { commissionReserve } = require('../../contexts/finance/domain/rules/financial-summary.rules');
 const { bogotaMonthBounds, currentBogotaYearMonth, readReportPeriod, readReportYear, dateRange, cents, metric } = require('./report-period');
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -26,7 +27,7 @@ router.get("/reports/summary", async (req, res) => {
       revCurrent, revPrev,
       apptCurrent, apptPrev,
       clientsCurrent, clientsPrev,
-      petsCurrent, petsPrev, expenseCurrent, expensePrev, establishment,
+      petsCurrent, petsPrev, expenseCurrent, expensePrev, establishment, professionalGroups, previousProfessional, professionalNames,
     ] = await prisma.$transaction([
       prisma.transaction.aggregate({ _sum: { total: true }, _count: { _all: true }, where: { ...tf, status: 'active', paidAt: dateRange(current) } }),
       prisma.transaction.aggregate({ _sum: { total: true }, _count: { _all: true }, where: { ...tf, status: 'active', paidAt: dateRange(prev) } }),
@@ -39,11 +40,22 @@ router.get("/reports/summary", async (req, res) => {
       prisma.expense.aggregate({ _sum: { amount: true }, where: { ...tf, status: 'active', date: dateRange(current) } }),
       prisma.expense.aggregate({ _sum: { amount: true }, where: { ...tf, status: 'active', date: dateRange(prev) } }),
       prisma.tenant.findUnique({ where: { id: tenantId }, select: { id: true, name: true } }),
+      prisma.commission.groupBy({ by: ['staffId'], where: { ...tf, status: 'active', completedAt: dateRange(current) }, _sum: { staffShare: true }, _count: { _all: true } }),
+      prisma.commission.aggregate({ where: { ...tf, status: 'active', completedAt: dateRange(prev) }, _sum: { staffShare: true } }),
+      prisma.staff.findMany({ where: tf, select: { id: true, name: true } }),
     ], { isolationLevel: 'RepeatableRead' });
+
+    const names = new Map(professionalNames.map(row => [row.id, row.name]));
+    const professionals = professionalGroups.map(row => ({ staffId: row.staffId, name: names.get(row.staffId) ?? 'Sin asignar', amount: Number(row._sum.staffShare ?? 0), count: row._count._all })).filter(row => row.amount > 0);
+    const reserve = commissionReserve({ netAmount: (cents(revCurrent._sum.total) - cents(expenseCurrent._sum.amount)) / 100, staffBreakdown: professionals.map(row => ({ staffShare: row.amount })) });
+    const previousReserve = commissionReserve({ netAmount: (cents(revPrev._sum.total) - cents(expensePrev._sum.amount)) / 100, staffBreakdown: [{ staffShare: Number(previousProfessional._sum.staffShare ?? 0) }] });
 
     res.json({
       ...metadata,
       establishment,
+      professionalShare: metric(reserve.staffCommissionTotal, previousReserve.staffCommissionTotal, true),
+      afterProfessionalShare: metric(reserve.netAfterCommissions, previousReserve.netAfterCommissions, true),
+      professionals,
       revenue: metric(revCurrent._sum.total, revPrev._sum.total, true),
       expenses: metric(expenseCurrent._sum.amount, expensePrev._sum.amount, true),
       difference: metric((cents(revCurrent._sum.total) - cents(expenseCurrent._sum.amount)) / 100, (cents(revPrev._sum.total) - cents(expensePrev._sum.amount)) / 100, true),

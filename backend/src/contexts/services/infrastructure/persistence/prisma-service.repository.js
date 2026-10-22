@@ -4,6 +4,7 @@ const { ServiceNotFoundError } = require("../../domain/errors");
 const { ServiceDeletionBlockedError } = require("../../domain/errors/service-deletion-blocked.error");
 
 class PrismaServiceRepository extends ServiceRepositoryPort {
+  constructor(client = prisma) { super(); this.client = client; }
   async deleteRetiredIfUnused({ tenantId, serviceId, confirmName }) {
     return prisma.$transaction(async (tx) => {
       const rows = await tx.$queryRaw`SELECT id FROM "Service" WHERE id = ${serviceId} AND "tenantId" = ${tenantId} FOR UPDATE`;
@@ -24,25 +25,25 @@ class PrismaServiceRepository extends ServiceRepositoryPort {
     });
   }
   async findById(serviceId) {
-    return prisma.service.findUnique({ where: { id: serviceId } });
+    return this.client.service.findUnique({ where: { id: serviceId } });
   }
 
   async findActiveByNameAndCategory(tenantId, categoryId, name) {
-    return prisma.service.findFirst({
+    return this.client.service.findFirst({
       where: { tenantId, categoryId, name, active: true },
     });
   }
 
   async create(data) {
-    return prisma.service.create({ data });
+    return this.client.service.create({ data });
   }
 
   async update(serviceId, data) {
-    return prisma.service.update({ where: { id: serviceId }, data });
+    return this.client.service.update({ where: { id: serviceId }, data });
   }
 
   async listAvailable({ tenantId, categoryId, includeInactive }) {
-    return prisma.service.findMany({
+    return this.client.service.findMany({
       where: {
         tenantId,
         ...(categoryId ? { categoryId } : {}),

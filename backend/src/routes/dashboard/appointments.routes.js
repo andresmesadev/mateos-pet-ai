@@ -4,7 +4,7 @@ const prisma = require("../../lib/prisma");
 const { isMinutePrecisionHour } = require("../../lib/timezone");
 const { saveConsultationRecord, ClinicalRevisionError } = require("../../services/clinical-record-revision.service");
 const ERRORS = require("../../constants/errors");
-const { moduleAllowsAppointment, serviceModule, actorSnapshot } = require("../../services/dashboard-access.service");
+const { moduleAllowsAppointment, serviceModule, actorSnapshot, appointmentBookingCategory } = require("../../services/dashboard-access.service");
 const {
   getBogotaYmd,
   bogotaDayStart,
@@ -36,7 +36,8 @@ const {
 // Entregable Puente: Completar Cita pasa por el contexto Agenda; el side-effect
 // legacy de comisión (commission.service.js) fue retirado — ver contexts/index.js.
 const { completeAppointment, removeAppointment } = require("../../contexts");
-const { changeServicePrice } = require("../../contexts/services");
+const { changePetServicePriceInTransaction } = require("../../contexts/services");
+const { savePetGroomingDefaults } = require('../../services/appointment-pet-grooming-sync.service');
 const { ServiceNotFoundError, PriceRuleTargetNotFoundError, DuplicatePriceRuleError, InvalidPriceError } = require("../../contexts/services/domain/errors");
 const {
   AppointmentNotFoundError,
@@ -62,6 +63,7 @@ const GROOMING_TYPES = [
 const VETERINARY_APPOINTMENT_FILTER = {
   OR: [
     { service: { is: { category: { is: { name: "veterinary" } } } } },
+    { serviceType: { in: VET_SERVICE_TYPES }, service: { is: { category: { is: { name: 'other' } } } } },
     { serviceId: null, serviceType: { in: VET_SERVICE_TYPES } },
   ],
 };
@@ -90,7 +92,7 @@ function validateVetAppointment(appt) {
     return { status: 422, error: `No se puede registrar atención en una cita ${appt.status}` };
   }
   const isVet = appt.serviceId
-    ? appt.service?.category?.name === "veterinary"
+    ? appt.service?.category?.name === "veterinary" || (appt.service?.category?.name === 'other' && VET_SERVICE_TYPES.includes(appt.serviceType?.toLowerCase()))
     : VET_SERVICE_TYPES.includes(appt.serviceType?.toLowerCase());
   if (!isVet) {
     return { status: 422, error: "Solo se puede registrar atención clínica en citas veterinarias" };
@@ -251,12 +253,7 @@ router.get("/appointments/consultations/search", async (req, res) => {
         ...(tenantId ? { tenantId } : {}),
         status: { notIn: BLOCKED_STATUSES },
         AND: [
-          {
-            OR: [
-              { service: { is: { category: { is: { name: "veterinary" } } } } },
-              { serviceId: null, serviceType: { in: VET_SERVICE_TYPES } },
-            ],
-          },
+          VETERINARY_APPOINTMENT_FILTER,
           {
             OR: [
               { petName: nameFilter },
@@ -364,7 +361,7 @@ router.get("/appointments/available-slots", async (req, res) => {
     if (!service) return res.status(404).json({ error: "Servicio no encontrado en este establecimiento" });
     if (req.access && !moduleAllowsAppointment(req.access, service)) return res.status(403).json({ error: "El módulo de este servicio está desactivado" });
     if (!service.requiresAppointment) return res.status(422).json({ error: "Este servicio no admite citas" });
-    const bucket = { veterinary: "vet", grooming: "grooming" }[service.category?.name];
+    const bucket = { veterinary: "vet", grooming: "grooming" }[appointmentBookingCategory(service)];
     if (!bucket) return res.status(422).json({ error: "Este servicio no admite reserva de horario" });
 
     let slots = await listAvailableSlotsForDate({ dateKey, serviceType: bucket, tenantId, manual: true });
@@ -415,7 +412,7 @@ router.post("/appointments", async (req, res) => {
     if (!service.requiresAppointment) {
       return res.status(422).json({ error: "Este servicio no admite citas" });
     }
-    const bucket = { veterinary: "vet", grooming: "grooming" }[service.category?.name];
+    const bucket = { veterinary: "vet", grooming: "grooming" }[appointmentBookingCategory(service)];
     if (!bucket) return res.status(422).json({ error: "Este servicio no admite reserva de horario" });
     const available = await isSlotAvailable({ dateKey, hour: Number(hour), serviceType: bucket, tenantId, manual: true });
     if (!available) return res.status(409).json({ error: "El horario no está disponible para este servicio" });
@@ -545,21 +542,22 @@ router.patch("/appointments/:id/agreed-price", async (req, res) => {
       return res.status(422).json({ error: "La cita necesita mascota y servicio para guardar una tarifa propia." });
     }
 
-    await changeServicePrice({
-      serviceId: appointment.serviceId,
-      tenantId: appointment.tenantId ?? null,
-      target: { type: "pet", petId: appointment.petId },
-      newPrice: amount,
+    const afterCommit = [];
+    const updated = await prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM "Appointment" WHERE id = ${appointment.id} AND "tenantId" = ${tenantId} FOR UPDATE`;
+      const current = await tx.appointment.findFirst({ where: { id: appointment.id, tenantId }, include: APPOINTMENT_INCLUDE });
+      if (!current || ['completed', 'cancelled', 'no_show'].includes(current.status) || current.petId !== appointment.petId || current.serviceId !== appointment.serviceId || (current.transportMode && current.transportMode !== 'none')) throw new (require('../../services/grooming-transport.service').TransportError)('La atención cambió. Actualiza la cita antes de guardar.', 409);
+      if (serviceModule(current) === 'grooming') {
+        await savePetGroomingDefaults(tx, current, { price: amount, canPrice: true, afterCommit, forceAgreement: true });
+      } else {
+        await changePetServicePriceInTransaction({ serviceId: current.serviceId, tenantId, target: { type: 'pet', petId: current.petId }, newPrice: amount }, { tx, afterCommit });
+      }
+      return tx.appointment.update({ where: { id: current.id }, data: { finalPrice: amount, ...actorSnapshot(req.actor, 'price') }, include: APPOINTMENT_INCLUDE });
     });
-
-    const changed = await prisma.appointment.updateMany({
-      where: { id: appointment.id, tenantId: appointment.tenantId, status: appointment.status, transportMode: appointment.transportMode ?? "none" },
-      data: { finalPrice: amount, ...actorSnapshot(req.actor, "price") },
-    });
-    if (changed.count !== 1) return res.status(409).json({ error: "La atención cambió. La tarifa de la mascota quedó guardada; actualiza la cita antes de modificar su cobro." });
-    const updated = await prisma.appointment.findUnique({ where: { id: appointment.id }, include: APPOINTMENT_INCLUDE });
+    for (const publish of afterCommit) await publish();
     res.json(mapForActor(req, updated));
   } catch (error) {
+    if (error.code === 'GROOMING_TRANSPORT') return res.status(error.status).json({ error: error.message });
     if (error instanceof ServiceNotFoundError || error instanceof PriceRuleTargetNotFoundError) {
       return res.status(404).json({ error: "Servicio o mascota no encontrado en este establecimiento." });
     }
@@ -596,6 +594,7 @@ router.patch("/appointments/:id", async (req, res) => {
     }
 
     const data = {};
+    const afterCommit = [];
 
     // Status transition
     if (status !== undefined) {
@@ -675,9 +674,11 @@ router.patch("/appointments/:id", async (req, res) => {
       ? { staffId: existing.staffId, serviceId: existing.serviceId }
       : {};
     async function write(db) {
-    if (existing.transportMode && existing.transportMode !== 'none') {
+    if ((existing.transportMode && existing.transportMode !== 'none') || finalPrice !== undefined) {
       await db.$queryRaw`SELECT id FROM "Appointment" WHERE id = ${id} AND "tenantId" = ${tenantId} FOR UPDATE`;
       const current = await db.appointment.findFirst({ where: { id, tenantId } });
+      if (!current) throw new AppointmentNotFoundError(id);
+      if (finalPrice !== undefined && (current.petId !== existing.petId || current.serviceId !== existing.serviceId)) throw new (require('../../services/grooming-transport.service').TransportError)('La mascota o el servicio cambió. Actualiza la cita.', 409);
       if (['completed', 'cancelled', 'no_show'].includes(current.status) && (finalPrice !== undefined || status !== undefined)) return res.status(409).json({ error: 'La atención ya se cerró. Actualiza la agenda.' });
       if (['cancelled', 'no_show'].includes(status) && await db.appointment.count({ where: { tenantId, transportSharedWithId: id, status: { notIn: ['cancelled', 'no_show'] } } })) return res.status(422).json({ error: 'Este domicilio cubre otras citas. Reasigna sus traslados antes de cancelar.' });
     }
@@ -705,6 +706,10 @@ router.patch("/appointments/:id", async (req, res) => {
     } else {
       updated = await db.appointment.update({ where: { id }, data, include: APPOINTMENT_INCLUDE });
     }
+    if (finalPrice !== undefined) {
+      await savePetGroomingDefaults(db, updated, { price: data.finalPrice, transport: finalPrice == null ? undefined : { transportMode: updated.transportMode ?? 'none', transportPrice: updated.transportPrice ?? null }, canPrice: true, afterCommit });
+      updated = await db.appointment.findUnique({ where: { id }, include: APPOINTMENT_INCLUDE });
+    }
     return updated;
     }
     const updated = automatic ? await prisma.$transaction(async tx => {
@@ -715,10 +720,12 @@ router.patch("/appointments/:id", async (req, res) => {
       const service = selectedServiceId ? await tx.service.findFirst({ where: { id: selectedServiceId, tenantId }, include: { category: true } }) : null;
       await assertStaffAssignment(tx, { staffId: assignmentId, tenantId, date: existing.date, service, serviceType: existing.serviceType, appointmentId: id });
       return write(tx);
-    }) : existing.transportMode && existing.transportMode !== 'none' ? await prisma.$transaction(tx => write(tx)) : await write(prisma);
+    }) : (existing.transportMode && existing.transportMode !== 'none') || finalPrice !== undefined ? await prisma.$transaction(tx => write(tx)) : await write(prisma);
     if (res.headersSent) return;
+    for (const publish of afterCommit) await publish();
     res.json(mapForActor(req, updated));
   } catch (error) {
+    if (error.code === 'GROOMING_TRANSPORT') return res.status(error.status).json({ error: error.message });
     if (['STAFF_UNAVAILABLE', 'STAFF_SELECTION_REQUIRED'].includes(error.code)) return res.status(error.status).json({ error: error.message, code: error.code, choices: error.choices });
     if (isDuplicatePetAppointment(error)) return res.status(409).json({ error: new DuplicatePetAppointmentError().message, code: 'DUPLICATE_PET_APPOINTMENT' });
     console.error("[Dashboard] Patch appointment error:", error);

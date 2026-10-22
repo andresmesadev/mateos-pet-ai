@@ -225,6 +225,15 @@ async function main() {
     if (process.argv.includes('--grooming-transport')) {
       await require('./verify-grooming-transport-scenario.cjs')({ prisma, base, browser, context, page, output, check, tenantId: session.user.tenantId });
     }
+    if (process.argv.includes('--pet-grooming-sync')) {
+      await require('./verify-pet-grooming-sync-scenario.cjs')({ prisma, base, context, page, output, check, tenantId: session.user.tenantId });
+    }
+    if (process.argv.includes('--bookable-other-services')) {
+      await require('./verify-bookable-other-services-scenario.cjs')({ prisma, base, context, page, check, tenantId: session.user.tenantId });
+    }
+    if (process.argv.includes('--cash-opening-reports')) {
+      await require('./verify-cash-opening-reports-scenario.cjs')({ prisma, base, context, page, output, check, tenantId: session.user.tenantId });
+    }
     if (process.argv.includes('--inventory-registration')) {
       await require('./verify-inventory-registration-browser.cjs')({ prisma, base, page, output, check, tenantId: session.user.tenantId });
     }

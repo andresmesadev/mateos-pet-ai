@@ -19,11 +19,18 @@ export async function createReportWorkbook(summary: ReportSummary, breakdown: Re
     ["Moneda", "COP"], [],
     ["Indicador", "Período seleccionado", "Período anterior", "Diferencia"],
   ]);
-  for (const [name, metric] of [["Ingresos", summary.revenue], ["Gastos", summary.expenses], ["Diferencia", summary.difference], ["Citas vigentes", summary.appointments], ["Clientes nuevos", summary.newClients], ["Mascotas atendidas", summary.petsAttended]] as const) overview.addRow([name, metric.value, metric.prev, metric.delta]);
-  for (let row = 11; row <= 13; row++) for (let col = 2; col <= 4; col++) overview.getCell(row, col).numFmt = '"$" #,##0.00;[Red]-"$" #,##0.00';
+  for (const [name, metric] of [["Ingresos", summary.revenue], ["Gastos", summary.expenses], ["Diferencia", summary.difference], ["Parte de los profesionales", summary.professionalShare], ["Saldo tras reservar profesionales", summary.afterProfessionalShare], ["Citas vigentes", summary.appointments], ["Clientes nuevos", summary.newClients], ["Mascotas atendidas", summary.petsAttended]] as const) overview.addRow([name, metric.value, metric.prev, metric.delta]);
+  for (let row = 11; row <= 15; row++) for (let col = 2; col <= 4; col++) overview.getCell(row, col).numFmt = '"$" #,##0.00;[Red]-"$" #,##0.00';
   overview.addRow(["Cobros activos", summary.transactionCount]);
   overview.addRow([]);
   overview.addRow(["Lectura", "Movimientos activos. La diferencia no equivale a utilidad ni efectivo físico."]);
+  overview.addRow(['Profesionales', 'Reserva generada; no confirma entregas ni concilia gastos manuales. La base de efectivo no suma ingresos.']);
+  const professionals = book.addWorksheet('Profesionales');
+  professionals.columns = [{ width: 40 }, { width: 18 }, { width: 24 }];
+  professionals.addRow(['Profesional', 'Servicios', 'Parte generada (COP)']);
+  summary.professionals.forEach(row => professionals.addRow([row.name, row.count, row.amount]));
+  professionals.addRow(['Total', null, summary.professionalShare.value]);
+  professionals.getColumn(3).numFmt = '"$" #,##0.00';
   const payments = book.addWorksheet("Medios de pago");
   payments.columns = [{ width: 32 }, { width: 18 }, { width: 26 }];
   payments.addRow(["Medio de pago", "Cobros", "Importe (COP)"]);

@@ -11,6 +11,7 @@ module.exports = async function verifyTransport({ prisma, base, context, page, o
     { name: 'CobroLiquidado', originContext: 'Finanzas' },
     { name: 'CierreDíaGenerado', originContext: 'Finanzas' },
     { name: 'ServicioCreado', originContext: 'Servicios' },
+    { name: 'ServicioActualizado', originContext: 'Servicios' },
   ], skipDuplicates: true });
   await page.goto(base + '/dashboard/settings?tab=localizacion');
   // Historical zone fixture keeps price precedence covered after removing its settings UI.
@@ -368,9 +369,11 @@ module.exports = async function verifyTransport({ prisma, base, context, page, o
   assert.equal(await dialog.getByLabel('Valor del domicilio (COP)', { exact: true }).inputValue(), '');
   const pendingTransport = await saveTransport();
   assert.equal(pendingTransport.transport.price, null); assert.equal(pendingTransport.transport.pending, true);
+  const pendingHabitual = await prisma.pet.findUniqueOrThrow({ where: { id: pet.id } });
+  assert.equal(pendingHabitual.defaultGroomingTransportPrice, null);
   await reopenTransport();
-  await dialog.getByText('· acuerdo de la mascota', { exact: false }).waitFor();
-  assert.equal(await dialog.getByLabel('Valor del domicilio (COP)', { exact: true }).inputValue(), '8000');
+  await dialog.getByText('Por confirmar', { exact: true }).waitFor();
+  assert.equal(await dialog.getByLabel('Valor del domicilio (COP)', { exact: true }).inputValue(), '');
   await dialog.getByLabel('Valor del domicilio (COP)', { exact: true }).fill('9000');
   const manualTransport = await saveTransport();
   assert.equal(manualTransport.transport.price, 9000); assert.equal(manualTransport.finalPrice, 104000);

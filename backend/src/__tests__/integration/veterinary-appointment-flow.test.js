@@ -5,6 +5,7 @@ jest.mock("../../lib/prisma", () => {
   const client = {
     $queryRaw: jest.fn().mockResolvedValue([]),
     staff: { findFirst: jest.fn() },
+    service: { findFirst: jest.fn() },
     appointment: { findFirst: jest.fn(), updateMany: jest.fn(), findUnique: jest.fn(), update: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
   };
   client.$transaction = jest.fn(async run => run(client));
@@ -55,6 +56,17 @@ test("starting an unassigned consultation claims it atomically for the authentic
     data: expect.objectContaining({ status: "in_progress", staffId: "vet-1" }),
   }));
   expect(prisma.appointment.update).not.toHaveBeenCalled();
+});
+
+test('the veterinarian can start a booked vaccination while its catalogue category stays Otros', async () => {
+  const vaccination = { ...appointment, serviceId: 'vaccine-service', service: { name: 'Vacunación', category: { name: 'other' }, basePrice: null } };
+  prisma.appointment.findFirst.mockResolvedValue(vaccination);
+  prisma.appointment.updateMany.mockResolvedValue({ count: 1 });
+  prisma.appointment.findUnique.mockResolvedValue({ ...vaccination, status: 'in_progress', staffId: 'vet-1' });
+  prisma.service.findFirst.mockResolvedValue({ id: 'vaccine-service', duration: 15, category: { name: 'other' } });
+  const response = await request(app).patch('/api/dashboard/appointments/appointment-1').send({ status: 'in_progress' });
+  expect(response.status).toBe(200);
+  expect(response.body).toMatchObject({ serviceId: 'vaccine-service', serviceCategory: 'other', status: 'in_progress' });
 });
 
 test("a simultaneous claim does not overwrite the veterinarian who started first", async () => {

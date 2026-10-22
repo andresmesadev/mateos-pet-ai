@@ -25,8 +25,9 @@ function createGenerateDailyCloseUseCase({
   dailyCloseRepository,
   eventPublisher,
   businessDayGate,
+  openingRepository,
 }) {
-  return async function execute({ tenantId, date }, ctx) {
+  return async function execute({ tenantId, date, retainedCashAmount, expectedOpeningCashAmount }, ctx) {
     if (!tenantId) {
       throw new MissingTenantError();
     }
@@ -40,6 +41,11 @@ function createGenerateDailyCloseUseCase({
     if (existing) {
       throw new DuplicateDailyCloseError(ymd);
     }
+    const { CashOpeningError, validCashAmount } = require('../../domain/rules/cash-opening.rules');
+    if (retainedCashAmount !== undefined && !validCashAmount(retainedCashAmount)) throw new CashOpeningError('Indica cuánto efectivo dejas en caja; 0 también es válido.');
+    const opening = openingRepository ? await openingRepository.findByDate(tenantId, label, ctx) : null;
+    if (retainedCashAmount !== undefined && !opening) throw new CashOpeningError('Confirma primero el dinero base de esta jornada.', 422);
+    if (expectedOpeningCashAmount !== undefined && (!validCashAmount(expectedOpeningCashAmount) || !opening || Math.round(Number(opening.amount) * 100) !== Math.round(expectedOpeningCashAmount * 100))) throw new CashOpeningError('La base cambió. Actualiza Caja y revisa el cierre.', 409);
 
     const [charges, expenses, commissions, completedAppointments] = await Promise.all([
       transactionRepository.listByDateRange(tenantId, start, end, ctx),
@@ -69,6 +75,8 @@ function createGenerateDailyCloseUseCase({
         expenseTotal: summary.expenseTotal,
         netAmount: summary.netAmount,
         staffBreakdown: summary.staffBreakdown,
+        ...(opening ? { openingCashAmount: Number(opening.amount) } : {}),
+        ...(retainedCashAmount !== undefined ? { retainedCashAmount } : {}),
       }, ctx);
     } catch (err) {
       if (err && err.code === "UNIQUE_DAILY_CLOSE_VIOLATION") {

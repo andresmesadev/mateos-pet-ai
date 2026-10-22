@@ -6,7 +6,7 @@ class TransportError extends Error {
 }
 const MODES = ['none', 'round_trip', 'pickup', 'delivery', 'shared'];
 const PRICING_INCLUDE = {
-  pet: { select: { defaultGroomingPrice: true, defaultGroomingWithTransportPrice: true, defaultGroomingTransportPrice: true } },
+  pet: { select: { defaultGroomingPrice: true, defaultGroomingWithTransportPrice: true, defaultGroomingTransportPrice: true, defaultGroomingTransportMode: true } },
   service: { select: { basePrice: true, category: { select: { name: true } }, priceRules: { where: { active: true, targetType: 'pet' }, select: { targetId: true, price: true } } } },
   transportSharedWith: { select: { id: true, tenantId: true, userId: true, status: true, transportMode: true, transportPrice: true } },
 };

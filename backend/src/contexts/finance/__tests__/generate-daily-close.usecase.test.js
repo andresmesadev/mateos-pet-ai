@@ -8,7 +8,7 @@ const {
 } = require("./fakes");
 const { DuplicateDailyCloseError, IncompleteDailyCloseError, MissingTenantError } = require("../domain/errors");
 
-function buildUseCase({ charges = [], expenses = [], commissions = [], dailyCloses = [], completedAppointments = [] } = {}) {
+function buildUseCase({ charges = [], expenses = [], commissions = [], dailyCloses = [], completedAppointments = [], opening } = {}) {
   const transactionRepository = createFakeTransactionRepository(charges);
   const expenseRepository = createFakeExpenseRepository(expenses);
   const commissionReader = createFakeCommissionReader(commissions);
@@ -27,11 +27,22 @@ function buildUseCase({ charges = [], expenses = [], commissions = [], dailyClos
     completedAppointmentsReader,
     dailyCloseRepository,
     eventPublisher,
+    openingRepository: { findByDate: async () => opening ?? null },
   });
   return { execute, eventPublisher };
 }
 
 const DATE = "2026-07-01";
+
+test('opening and retained cash are frozen but neither inflates income, expenses or net', async () => {
+  const { execute } = buildUseCase({ opening: { amount: 50000 }, charges: [{ tenantId: 't1', total: 100000, paidAt: new Date(DATE + 'T12:00:00Z') }] });
+  const { dailyClose } = await execute({ tenantId: 't1', date: DATE, retainedCashAmount: 30000, expectedOpeningCashAmount: 50000 });
+  expect(dailyClose).toMatchObject({ openingCashAmount: 50000, retainedCashAmount: 30000, incomeTotal: 100000, expenseTotal: 0, netAmount: 100000 });
+});
+test('retaining cash requires a confirmed opening and detects a concurrently corrected base', async () => {
+  await expect(buildUseCase().execute({ tenantId: 't1', date: DATE, retainedCashAmount: 0 })).rejects.toMatchObject({ code: 'CASH_OPENING', status: 422 });
+  await expect(buildUseCase({ opening: { amount: 50000 } }).execute({ tenantId: 't1', date: DATE, retainedCashAmount: 0, expectedOpeningCashAmount: 1 })).rejects.toMatchObject({ status: 409 });
+});
 
 test('a close with a completed appointment and its pending obligation records zero received income', async () => {
   const { execute } = buildUseCase({ completedAppointments: [{ id: 'pending-appointment', hasSystemCharge: true }] });

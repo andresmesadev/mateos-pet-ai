@@ -15,7 +15,17 @@ export function PetGroomingPrices({ petId, onEditStateChange }: { petId: string;
   const [ready, setReady] = useState(false); const [saving, setSaving] = useState(false); const [message, setMessage] = useState("");
   const [previousTotal, setPreviousTotal] = useState<number | null>(null);
   const [saved, setSaved] = useState({ center: "", transport: "", mode: "" });
+  const [revision, setRevision] = useState(0);
   const dirty = ready && (center !== saved.center || transport !== saved.transport || mode !== saved.mode);
+  useEffect(() => {
+    const refresh = (event: Event) => {
+      if ((event as CustomEvent<{ petId: string }>).detail?.petId !== petId) return;
+      if (dirty || saving) { setMessage('Se actualizaron los habituales desde una cita. Conservamos tus cambios pendientes; vuelve a abrir la ficha para consultar lo guardado.'); return; }
+      setRevision(value => value + 1);
+    };
+    window.addEventListener('pet-grooming-updated', refresh);
+    return () => window.removeEventListener('pet-grooming-updated', refresh);
+  }, [petId, dirty, saving]);
   useEffect(() => { onEditStateChange?.({ dirty, saving }); }, [dirty, saving, onEditStateChange]);
   useEffect(() => () => onEditStateChange?.({ dirty: false, saving: false }), [onEditStateChange]);
   useEffect(() => {
@@ -24,7 +34,7 @@ export function PetGroomingPrices({ petId, onEditStateChange }: { petId: string;
       if (!response.ok) throw new Error("No se pudieron cargar los precios de peluquería."); return response.json();
     }).then(body => { if (!controller.signal.aborted) { const prices = { center: body.center == null ? "" : String(body.center), transport: body.transport == null ? "" : String(body.transport), mode: body.mode ?? "" }; setCenter(prices.center); setTransport(prices.transport); setMode(prices.mode); setSaved(prices); setPreviousTotal(body.previousTotal ?? null); setReady(true); } }).catch(cause => { if (!controller.signal.aborted) setMessage(cause.message); });
     return () => controller.abort();
-  }, [petId, tenant]);
+  }, [petId, tenant, revision]);
   async function save(event: React.FormEvent) {
     event.preventDefault(); if (saving) return; setSaving(true); setMessage("");
     try {
@@ -36,13 +46,13 @@ export function PetGroomingPrices({ petId, onEditStateChange }: { petId: string;
   }
   return <form onSubmit={save} aria-label="Precios de peluquería" className="space-y-4 rounded-xl border border-primary/15 bg-primary/[0.03] p-4 sm:p-5">
     <h3 className="flex items-center gap-2 text-sm font-semibold"><Scissors aria-hidden="true" className="h-4 w-4 text-primary" />Peluquería y domicilio</h3>
-    <p className="text-xs text-muted-foreground">Valores habituales para próximas citas. Cambiar el precio o domicilio de una atención no actualiza automáticamente esta ficha; las citas completadas y sus cobros conservan sus valores.</p>
+    <p className="text-xs text-muted-foreground">Aquí se guardan los valores habituales de esta mascota. Al modificar y guardar el precio o domicilio en una cita de peluquería, también se actualiza este expediente para próximas reservas. Los cobros anteriores conservan sus importes.</p>
     <fieldset disabled={!ready || saving} className="grid gap-4 sm:grid-cols-2">
       <div className="space-y-2 sm:col-span-2"><label htmlFor={`${fieldId}-mode`} className="block text-sm font-semibold">¿Cómo llega habitualmente?</label><select id={`${fieldId}-mode`} value={mode} onChange={event => setMode(event.target.value)} className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="">Sin indicar</option>{["none", "round_trip", "pickup", "delivery"].map(value => <option key={value} value={value}>{transportLabels[value]}</option>)}</select></div>
       <div className="space-y-2"><label htmlFor={`${fieldId}-service`} className="block text-sm font-semibold">Valor del servicio (COP)</label><Input id={`${fieldId}-service`} type="number" min="0" max="99999999.99" step="0.01" value={center} onChange={event => setCenter(event.target.value)} className="h-11" placeholder="Por confirmar" /></div>
       <div className="space-y-2"><label htmlFor={`${fieldId}-transport`} className="block text-sm font-semibold">Valor del domicilio (COP)</label><Input id={`${fieldId}-transport`} type="number" min="0" max="99999999.99" step="0.01" value={transport} onChange={event => setTransport(event.target.value)} className="h-11" placeholder="Por confirmar" /></div>
     </fieldset>
-    <p className="text-xs text-muted-foreground">Domicilio adicional al servicio, con recogida y entrega. Vacío: por confirmar. 0: gratuito.</p>
+    <p className="text-xs text-muted-foreground">Domicilio adicional al servicio, según la modalidad habitual. Vacío: por confirmar. 0: gratuito.</p>
     {previousTotal != null && <p className="text-sm text-amber-800">Total anterior con domicilio: {formatCOP(previousTotal)}. Confirma ambos valores antes de reemplazarlo.</p>}
     <div className="flex justify-end"><Button type="submit" variant="outline" className="min-h-11 gap-2 border-primary/20 bg-background text-primary" disabled={!ready || saving || !dirty}><Save aria-hidden="true" className="h-4 w-4" />{saving ? "Guardando…" : "Guardar peluquería y domicilio"}</Button></div>
     {message && <p role="status" className="text-sm">{message}</p>}

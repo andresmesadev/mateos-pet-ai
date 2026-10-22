@@ -110,7 +110,8 @@ function resolveAppointmentTotal(appointment, zone = null) {
   const inclusive = appointment.pet?.defaultGroomingWithTransportPrice;
   const fee = appointment.pet?.defaultGroomingTransportPrice;
   const personalBase = service.source !== PRICE_SOURCES.SERVICE_BASE_PRICE && service.finalPrice != null;
-  if (mode === "round_trip" && fee != null) {
+  const habitualMode = appointment.pet?.defaultGroomingTransportMode;
+  if (fee != null && (mode === habitualMode || (mode === 'round_trip' && (!habitualMode || habitualMode === 'round_trip')))) {
     referencePrice = Number(fee);
     referenceSource = "pet_agreement";
   } else if (mode === "round_trip" && inclusive != null) {

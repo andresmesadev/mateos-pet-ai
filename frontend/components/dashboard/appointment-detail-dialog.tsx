@@ -65,7 +65,8 @@ function AppointmentDetailContent({ appointment, onClose, onUpdated, onDeleted, 
   const own = access?.capabilities.administration || !appointment.staffId || appointment.staffId === access?.staffId;
   const transitions = getStatusTransitions(appointment.status).filter(t => access?.capabilities.administration || (access?.role === "receptionist" ? ["confirmed", "arrived", "cancelled", "no_show"].includes(t.next) : own && ["arrived", "in_progress", "completed"].includes(t.next))).filter((transition) => (!graceExpired || !["confirmed", "arrived"].includes(transition.next)) && (!previousDayArrival || transition.next !== "in_progress"));
   const canEditPrice = Boolean(access?.capabilities.appointmentPrice && own) && !readOnly && !["completed", "cancelled", "no_show"].includes(appointment.status);
-  const canSavePetPrice = Boolean(access?.capabilities.administration && appointment.petId && appointment.serviceId && (!appointment.transport || appointment.transport.mode === 'none'));
+  const groomingPrice = appointment.serviceCategory === 'grooming' || appointment.serviceType === 'grooming';
+  const canSavePetPrice = Boolean(access?.capabilities.administration && appointment.petId && appointment.serviceId && !groomingPrice && (!appointment.transport || appointment.transport.mode === 'none'));
   const canRecord = access?.capabilities.clinical && own && VET_SERVICE_TYPES.includes(appointment.serviceType?.toLowerCase()) &&
     (appointment.status === "in_progress" || appointment.status === "completed") && !!appointment.petId;
 
@@ -134,6 +135,7 @@ function AppointmentDetailContent({ appointment, onClose, onUpdated, onDeleted, 
       if (!response.ok) throw new Error(payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string" ? payload.error : "Comprueba el precio guardado antes de volver a intentarlo.");
       if (!payload || typeof payload !== "object" || !("id" in payload) || payload.id !== appointment.id || !("date" in payload) || typeof payload.date !== "string" || !Number.isFinite(Date.parse(payload.date)) || !("status" in payload) || typeof payload.status !== "string" || !("priceResolution" in payload) || !payload.priceResolution || typeof payload.priceResolution !== "object" || !("servicePrice" in payload.priceResolution) || typeof payload.priceResolution.servicePrice !== "number" || Math.round(payload.priceResolution.servicePrice * 100) !== Math.round(amount * 100)) throw new Error("La respuesta no confirma el precio. Conservamos tu valor; actualiza la cita para comprobar el guardado.");
       onUpdated(payload as TodayAppointment);
+      if (groomingPrice && appointment.petId) window.dispatchEvent(new CustomEvent('pet-grooming-updated', { detail: { petId: appointment.petId } }));
       setEditingPrice(false);
     } catch (cause) {
       setError(cause instanceof Error ? `No se pudo guardar el precio. ${cause.message}` : "No se pudo guardar el precio. Intenta de nuevo.");
@@ -167,7 +169,9 @@ function AppointmentDetailContent({ appointment, onClose, onUpdated, onDeleted, 
 
             {canEditPrice && editingPrice && <form onSubmit={savePrice} className="rounded-2xl border border-teal-200 bg-teal-50/60 p-4 sm:p-5">
               <h3 className="font-semibold text-slate-950">Precio para {appointment.petName}</h3>
-              <p className="mt-1 text-sm text-slate-600">{canSavePetPrice
+              <p className="mt-1 text-sm text-slate-600">{groomingPrice && appointment.petId
+                ? `Al guardar se actualizarán esta cita y el valor habitual de peluquería en el expediente de ${appointment.petName}. Los cobros anteriores conservan sus importes.`
+                : canSavePetPrice
                 ? `Se guardará para ${appointment.petName} en ${appointment.serviceName ?? formatService(appointment.serviceType)} y se usará en próximas citas del mismo servicio que no tengan precio fijado. También fija el precio de esta cita. Puedes editar la tarifa desde su ficha.`
                 : "El valor se guardará solo para esta cita. Las tarifas del catálogo y de futuras visitas las administra el responsable del negocio."}</p>
               <label htmlFor="appointment-price" className="mt-4 block text-sm font-semibold text-slate-800">Valor de esta cita (COP)</label>

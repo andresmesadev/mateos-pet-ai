@@ -3,6 +3,7 @@ const request = require('supertest');
 jest.mock('../../lib/prisma', () => ({
   tenant: { findUnique: jest.fn() }, transaction: { aggregate: jest.fn(), groupBy: jest.fn() }, transactionItem: { aggregate: jest.fn() },
   expense: { aggregate: jest.fn() }, user: { count: jest.fn() }, appointment: { count: jest.fn(), findMany: jest.fn() }, $transaction: jest.fn(),
+  commission: { groupBy: jest.fn(), aggregate: jest.fn() }, staff: { findMany: jest.fn() },
 }));
 const prisma = require('../../lib/prisma');
 const { allowVeterinaryDashboard } = require('../../middleware/allowVeterinaryDashboard');
@@ -22,6 +23,19 @@ beforeEach(() => {
   prisma.expense.aggregate.mockResolvedValue(aggregate('5000.10'));
   prisma.appointment.count.mockResolvedValue(2); prisma.user.count.mockResolvedValue(1);
   prisma.appointment.findMany.mockResolvedValue([{ petId: 'pet-a' }, { petId: null }]);
+  prisma.commission.groupBy.mockResolvedValue([]); prisma.commission.aggregate.mockResolvedValue({ _sum: { staffShare: null } }); prisma.staff.findMany.mockResolvedValue([]);
+});
+
+test('reports deduct the recorded professional share once, preserving movements and historical contract decisions', async () => {
+  prisma.commission.groupBy.mockResolvedValue([{ staffId: 'staff-a', _sum: { staffShare: '2000.25' }, _count: { _all: 2 } }]);
+  prisma.commission.aggregate.mockResolvedValue({ _sum: { staffShare: '100' } });
+  prisma.staff.findMany.mockResolvedValue([{ id: 'staff-a', name: 'Profesional de prueba' }]);
+  const response = await request(app()).get('/reports/summary');
+  expect(response.status).toBe(200); expect(response.body.difference.value).toBe(7500.19);
+  expect(response.body.professionalShare.value).toBe(2000.25); expect(response.body.afterProfessionalShare.value).toBe(5499.94);
+  expect(response.body.professionals).toEqual([{ staffId: 'staff-a', name: 'Profesional de prueba', amount: 2000.25, count: 2 }]);
+  expect(prisma.commission.groupBy.mock.calls[0][0].where).toEqual(expect.objectContaining({ tenantId: 'tenant-a', status: 'active', completedAt: expect.any(Object) }));
+  expect(prisma.commission.groupBy.mock.calls[0][0].where).not.toHaveProperty('staff');
 });
 
 test('límites de Bogotá: antes de medianoche, febrero bisiesto y semanas entre años', () => {
