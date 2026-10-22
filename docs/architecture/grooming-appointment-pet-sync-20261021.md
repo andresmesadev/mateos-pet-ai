@@ -49,3 +49,9 @@ Sin tablas ni migraciones nuevas. Pruebas de guardado de dos mascotas distintas,
 regla de servicio existente, cero, modalidad y pendiente, Tenant/permisos,
 rollback y conservación de cobros/citas cerradas; recorrido real en Chrome de
 edición → expediente → recarga → nueva reserva. Ejecutar lint, tests y build.
+
+## Decisiones arquitectónicas diferidas
+
+No se modifican retrospectivamente atenciones cobradas o jornadas cerradas ni
+se infiere un precio habitual individual a partir de traslados compartidos.
+Los cambios de otras categorías de servicio requieren su propio alcance.

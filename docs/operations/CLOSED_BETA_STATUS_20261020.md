@@ -1,5 +1,17 @@
 # Beta cerrada de la veterinaria propia — estado al 20 de octubre de 2026
 
+**Actualización del 22 de octubre:** 2.55.0 publicada a las 14:14 Colombia:
+base/efectivo reservado en Caja, participación profesional en reportes,
+sincronización de habituales y servicios de Otros agendables. Auditoría de
+dependencias corregida con Next.js 16.4.2; CI y lecturas productivas aprobados.
+[Certificación](../history/RELEASE_2_55_0_VPS_20261022.md). La ventana 2.54.0
+se conserva como incidente: 248 muestras, 20,586 horas, ocho fallidas y cero
+huecos; timeouts y una respuesta degradada por OpenAI, sin certificar su
+resolución por esta publicación. Observación vigente 2.55.0. Los pasos 9 y 10
+siguen pendientes de estabilidad/aceptación; no se hicieron consumos históricos,
+aperturas, cierres ni pagos reales para probar la versión. Los apartados
+inferiores conservan sus cortes históricos y se leen con estas actualizaciones.
+
 **Actualización del 21 de octubre:** 2.54.0 publicada a las 17:34 Colombia:
 protección diaria de duplicados por mascota/servicio y retiro auditado de
 reservas erróneas desde Agenda. CI y comprobaciones productivas aprobados;

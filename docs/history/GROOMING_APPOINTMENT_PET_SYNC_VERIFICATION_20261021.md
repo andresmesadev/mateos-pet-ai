@@ -1,5 +1,9 @@
 # Guardado de cita y expediente — verificación local del 21/10/2026
 
+Actualización posterior: publicado el 22/10 en 2.55.0.
+[Certificación productiva](RELEASE_2_55_0_VPS_20261022.md).
+El contenido inferior conserva el corte de verificación local.
+
 Solicitud: modificar y guardar precio/domicilio en una cita debe persistir
 también los habituales en el expediente, para cualquier mascota del Tenant.
 [Definición en cinco etapas](../architecture/grooming-appointment-pet-sync-20261021.md).

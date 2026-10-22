@@ -1,5 +1,9 @@
 # Vacunación y Otros agendables — verificación local del 22/10/2026
 
+Actualización posterior: publicado el 22/10 en 2.55.0.
+[Certificación productiva](RELEASE_2_55_0_VPS_20261022.md).
+El contenido inferior conserva el corte de verificación local.
+
 ## Causa comprobada
 
 Lectura productiva sin escrituras: Vacunación está activa, con

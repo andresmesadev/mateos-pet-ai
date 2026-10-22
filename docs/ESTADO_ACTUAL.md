@@ -1,9 +1,17 @@
 # Estado actual del proyecto
 
-**Publicación 2.55.0 en preparación (22 de octubre):** el responsable autorizó
-commit, push y despliegue del lote local siguiente. [Registro de publicación](history/RELEASE_2_55_0_VPS_20261022.md).
-Hasta certificar el despliegue, las menciones inferiores de producción 2.54.0
-describen el estado anterior y la evidencia de pruebas conserva su fecha.
+**Publicado el 22 de octubre — 2.55.0:** base de caja confirmada, efectivo
+dejado al cierre y sugerencia para la siguiente apertura; reportes/Excel/
+impresión con participación profesional histórica. Guardado de precio y
+domicilio de peluquería sincronizado con la ficha de cada mascota; servicios
+de Otros agendables mediante capacidad veterinaria. Next.js 16.4.2 corrige la
+auditoría bloqueante aparecida durante CI. Cinco jobs aprobados, respaldo
+cifrado verificado, 65 migraciones y 14 pantallas HTTPS correctas. Inventario
+y cierre histórico conservados; WhatsApp pausado. [Registro de publicación](history/RELEASE_2_55_0_VPS_20261022.md).
+La ventana anterior 2.54.0 tuvo ocho muestras fallidas y se conserva como
+incidente. La nueva observación 2.55.0 no certifica todavía 48 horas ni cierra
+la aceptación operativa de beta. Las validaciones locales inferiores conservan
+su fecha; los tres ajustes descritos ya están publicados.
 
 **Mejora local del 22 de octubre — base de caja y reportes:** Caja permite
 confirmar el efectivo inicial, registrar cuánto se deja al cerrar y sugerirlo
@@ -13,8 +21,8 @@ reservarla, usando comisiones históricas. 217 suites / 1822 tests backend,
 13 comprobaciones nuevas Chrome/PostgreSQL y 63 de regresión, 10 pruebas de
 reportes/Excel, lint/build aprobados. Migración aditiva 65 verificada únicamente
 en PostgreSQL desechable. [Alcance y evidencia](history/CASH_OPENING_PROFESSIONAL_REPORTS_VERIFICATION_20261022.md).
-Este lote y los dos ajustes siguientes siguen locales: sin commit, push ni
-despliegue; producción conserva 2.54.0 y sus 64 migraciones.
+Publicado posteriormente en 2.55.0 con migración aditiva 65; sin rellenar
+importes desconocidos de cierres anteriores.
 
 **Corrección local del 22 de octubre — Otros agendables:** Vacunación y los
 servicios activos de Otros con «Requiere cita» ya aparecen y pueden reservarse
@@ -22,8 +30,7 @@ mediante la agenda veterinaria, conservando categoría comercial, permisos y
 check de reparto. 216 suites / 1804 tests backend y 18 comprobaciones
 Chrome/PostgreSQL (incluida la sincronización previa de expediente), lint/build
 aprobados. [Causa y evidencia](history/BOOKABLE_OTHER_SERVICES_VERIFICATION_20261022.md).
-Este ajuste y el guardado conjunto de peluquería siguen locales; producción
-conserva 2.54.0.
+Este ajuste y el guardado conjunto de peluquería fueron publicados en 2.55.0.
 
 **Corrección local del 21 de octubre — guardado conjunto:** modificar y guardar
 precio/domicilio de una cita abierta de peluquería actualiza también el
@@ -31,7 +38,7 @@ expediente de su mascota. Aplica a todas las mascotas del Tenant, conserva
 cobros históricos y no crea overrides ocultos al guardar habituales.
 216 suites / 1800 tests backend, 14 comprobaciones Chrome/PostgreSQL del código
 final, lint y build aprobados. [Alcance y evidencia](history/GROOMING_APPOINTMENT_PET_SYNC_VERIFICATION_20261021.md).
-Este lote todavía no está publicado; producción conserva 2.54.0.
+Publicado posteriormente en 2.55.0; conserva atenciones/cobros históricos.
 
 **Publicado el 21 de octubre — 2.54.0:** bloqueo diario de citas repetidas
 por mascota y servicio, retiro por error desde Agenda con motivo/auditoría y

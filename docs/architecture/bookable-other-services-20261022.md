@@ -38,3 +38,9 @@ conservación del serviceId y área vet, exclusión de no agendables/retirados,
 módulo veterinario desactivado y Tenant ajeno. Confirmar visibilidad clínica y
 protección frente a duplicados. Ejecutar backend, lint/build y Chrome real en
 PostgreSQL desechable. Los cambios previos de guardado de peluquería se conservan.
+
+## Decisiones arquitectónicas diferidas
+
+No se introduce una configuración de capacidad independiente para Otros ni una
+reclasificación comercial automática. Un área operativa adicional requerirá
+su propio diseño; este ajuste reutiliza la agenda veterinaria existente.

@@ -1,5 +1,9 @@
 # Base de caja y participación profesional: verificación local
 
+Actualización posterior: publicado el 22/10 en 2.55.0.
+[Certificación productiva](RELEASE_2_55_0_VPS_20261022.md).
+El contenido inferior conserva el corte previo a la autorización y publicación.
+
 Fecha: 22/10/2026. Estado: implementado y probado localmente, sin publicación.
 [Diseño de cinco etapas](../architecture/cash-opening-and-professional-reports-20261022.md).
 
