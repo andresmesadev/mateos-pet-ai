@@ -1,5 +1,14 @@
 # Beta cerrada de la veterinaria propia — estado al 20 de octubre de 2026
 
+**Actualización de seguridad del 22 de octubre, 18:36 Colombia:** 2.55.1
+publicada con Node corregido y puertos internos locales. Endurecimiento del
+host y nueve actualizaciones estándar aplicados; CI, salud y accesos aprobados.
+[Certificación](../history/RELEASE_2_55_1_SECURITY_20261022.md). La observación
+2.55.0 se conserva incompleta (52 muestras, 4,25003 horas, cero fallos/huecos);
+observación vigente 2.55.1. Sigue pendiente resolver el soporte Ubuntu 20.04 y
+Docker, además de los criterios de aceptación de beta. No equivale a una
+certificación de seguridad completa o de 48 horas de estabilidad.
+
 **Actualización del 22 de octubre:** 2.55.0 publicada a las 14:14 Colombia:
 base/efectivo reservado en Caja, participación profesional en reportes,
 sincronización de habituales y servicios de Otros agendables. Auditoría de

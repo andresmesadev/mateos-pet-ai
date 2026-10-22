@@ -1,5 +1,17 @@
 # Estado actual del proyecto
 
+**Publicado el 22 de octubre — 2.55.1 (seguridad):** Node 24.22.1 / OpenSSL
+3.5.9 en ambos contenedores, ip-address 10.7.4 y puertos internos únicamente
+en localhost. SSH/TLS/permisos endurecidos y nueve actualizaciones estándar del
+host aplicadas con respaldo. 217 suites / 1822 tests, 166 auxiliares y cinco
+jobs CI aprobados; 14 pantallas HTTPS correctas, PostgreSQL/inventario/cierre
+histórico conservados. [Certificación](history/RELEASE_2_55_1_SECURITY_20261022.md).
+**Pendiente importante:** Ubuntu 20.04 sin Pro/ESM informa 174 parches de
+seguridad pendientes. Docker también está limitado por el repositorio Focal.
+La actualización parcial no certifica saneamiento completo del servidor;
+[plan de resolución](operations/VPS_OS_MAINTENANCE_PLAN_20261022.md).
+WhatsApp sigue pausado; observación vigente 2.55.1, sin certificar aún 48 horas.
+
 **Publicado el 22 de octubre — 2.55.0:** base de caja confirmada, efectivo
 dejado al cierre y sugerencia para la siguiente apertura; reportes/Excel/
 impresión con participación profesional histórica. Guardado de precio y

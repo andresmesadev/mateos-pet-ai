@@ -1,7 +1,7 @@
 # VPS: decisión de soporte y mantenimiento del sistema operativo
 
 Revisión preventiva del 22/10/2026. Aplicación 2.55.0 al iniciar la revisión,
-Node parcheado y cierre de exposición preparados como patch 2.55.1. El informe
+Node parcheado y cierre de exposición publicados como patch 2.55.1. El informe
 de Ubuntu indica 174 actualizaciones de seguridad fuera de acceso sin ESM.
 Los nueve paquetes del repositorio estándar ya se actualizaron; no equivale a
 resolver ese déficit. Docker para Focal tampoco ofrece una versión posterior
