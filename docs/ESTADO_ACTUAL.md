@@ -1,10 +1,13 @@
 # Estado actual del proyecto
 
-**23 de octubre — ajuste local de Agenda:** Inicio muestra hasta diez citas
-por página con navegación; las canceladas se ocultan de Inicio y las vistas
-del calendario, conservando historial. 23 pruebas, lint y build aprobados.
-Comprobación visual pendiente porque el control de navegador está desactivado;
-sin publicar aún. [Alcance y evidencia](history/AGENDA_VISIBILITY_VERIFICATION_20261023.md).
+**23 de octubre — 2.55.2 publicada:** Inicio muestra hasta diez citas por
+página con navegación; las canceladas se ocultan de Inicio y de las vistas
+del calendario, conservando historial. Cinco jobs CI, 217 suites/1.822 tests
+backend y 170 auxiliares aprobados. Salud HTTPS correcta, respaldo cifrado y
+65 migraciones conservadas. Nueva observación desde las 14:04 Colombia;
+la anterior se conserva con 21 muestras y cero fallos, sin certificar 48 horas.
+La comprobación visual sigue pendiente porque Work desactiva el control del
+navegador. [Certificación](history/RELEASE_2_55_2_VPS_20261023.md).
 
 **23 de octubre — mantenimiento de VPS completado:** misma instancia en
 Ubuntu 24.04.5 LTS y Docker 29.9.2, paquetes al día y firewall persistente

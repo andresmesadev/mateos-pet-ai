@@ -62,6 +62,11 @@ no una huella integral anterior/posterior de la base operativa.
 
 ## Continuidad de la beta
 
+**Cambio posterior:** la publicación [2.55.2, a las 14:04](../history/RELEASE_2_55_2_VPS_20261023.md)
+conservó la ventana del mantenimiento con 21 muestras sin fallos y creó otra.
+La ventana descrita abajo corresponde al cierre de esta intervención; ya no
+es la activa después de esa publicación.
+
 La operación real iniciada el 19/10 conserva sus registros y aceptación.
 La observación anterior `ventana-2.55.1-20261022T233613Z` se conserva:
 **203 muestras, tres fallidas** por timeout de salud de 25 s, a las

@@ -1,5 +1,11 @@
 # Beta cerrada de la veterinaria propia — estado al 22 de octubre de 2026
 
+**Publicación posterior — 23/10, 14:04:** [2.55.2](../history/RELEASE_2_55_2_VPS_20261023.md)
+publicada con paginación de diez citas y canceladas ocultas del calendario.
+La ventana posterior al mantenimiento de Ubuntu quedó conservada con 21 muestras
+sin fallos; nueva observación `ventana-2.55.2-20261023T190410Z`, todavía sin
+48 horas certificadas. Los diez ítems conservan sus avances y pendientes.
+
 **Actualización posterior — 23/10:** [mantenimiento de VPS completado](VPS_OS_MAINTENANCE_RESULT_20261023.md).
 Ubuntu 24.04.5/Docker 29.9.2 resuelven el pendiente del host del ítem 3.
 Respaldos de volumen y acceso de recuperación comprobados y retirado este

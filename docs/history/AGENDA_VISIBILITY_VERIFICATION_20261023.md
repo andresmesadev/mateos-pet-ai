@@ -1,9 +1,10 @@
 # Agenda: diez citas por página y canceladas ocultas
 
-**Estado: candidato 2.55.2, verificado automáticamente, 23/10/2026.**
-El responsable autorizó commit, push y despliegue. Publicación pendiente de CI
-y comprobaciones productivas. La comprobación visual en navegador sigue
-pendiente por la configuración de Work; no se presenta como aprobada.
+**Publicado como 2.55.2 el 23/10/2026.** El responsable autorizó commit, push
+y despliegue; CI y comprobaciones productivas completados. Véase la
+[certificación de publicación](RELEASE_2_55_2_VPS_20261023.md).
+La comprobación visual en navegador sigue pendiente por la configuración de
+Work; no se presenta como aprobada.
 
 ## Alcance solicitado y solución
 
@@ -41,6 +42,5 @@ No se editaron datos reales para verificarlo.
   No se ejecutó la comprobación visual ni se presenta como aprobada. No se
   usaron controles alternativos del navegador para eludir esa restricción.
 
-Se eligió **patch 2.55.2**, sin cambios de schema. La publicación conservará
-la ventana anterior e iniciará otra de 48 horas; este registro de verificación
-previa no acredita por sí solo el despliegue.
+Se eligió **patch 2.55.2**, sin cambios de schema. La publicación conservó
+la ventana anterior e inició otra de 48 horas, identificada en su certificación.
