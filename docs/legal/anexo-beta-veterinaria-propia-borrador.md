@@ -1,8 +1,17 @@
 # Revisión de alcance: operación en la veterinaria propia
 
-**Borrador de trabajo, 16 de octubre de 2026. No aprobado para datos reales.** Complementa la preparación operativa; no reemplaza ni modifica retroactivamente el paquete 1.1 leído para escenarios ficticios. No registra firmas, autorizaciones o cumplimiento ya obtenidos.
+**Borrador documental preparado el 16/10; alcance actualizado el 22/10/2026.**
+El responsable confirmó operación real desde el lunes 19/10: clientes, citas de
+peluquería y veterinaria, venta de medicamentos y pagos. Este documento recoge
+decisiones documentales aún por completar; no significa que la base activa sea
+ficticia ni que la operación no haya empezado. No reemplaza el paquete histórico
+1.1 ni afirma firmas, autorizaciones o cumplimiento no comprobados.
 
-**Áreas elegidas por el responsable:** agenda y recepción; caja e inventario aplazados. Revisar primero las finalidades y datos mínimos de ese alcance, sin extenderlo a cobros, stock o atención clínica por el solo hecho de estar disponibles en el producto.
+**Áreas actualmente utilizadas, confirmadas por el responsable:** clientes,
+agenda de peluquería/veterinaria, medicamentos/inventario y pagos. El aplazamiento
+de caja/inventario fue una decisión inicial histórica y ya no describe el alcance.
+La historia clínica de la consulta revisada se conserva en el registro habitual;
+agendar/cobrar esa consulta no acredita por sí solo el uso de historia digital.
 
 **Canal de arranque confirmado:** solo dashboard; WhatsApp bloqueado y sin credenciales operativas. El historial anterior se conserva en archivo separado en solo lectura y respaldos, sin copiar clientes o conversaciones a la base activa nueva. Revisar conservación y acceso a ese archivo según el procedimiento existente; este cambio no afirma haber suprimido sus datos ni haber informado a titulares.
 
@@ -10,7 +19,11 @@
 
 Reutilizar la identidad y contactos que el responsable ya proporcionó en la copia privada de `.cache/private/legal/`; no volver a publicarlos ni pedirlos por chat. Confirmar si esa persona actúa en nombre propio o si la operación real requiere identificar otro responsable. Conservar por separado el historial 1.1 y este borrador.
 
-El responsable revisa y completa los puntos siguientes antes de incluir datos reales. Si la veterinaria ya informa a sus clientes mediante documentos vigentes, contrastarlos y preparar los ajustes aplicables; no solicitar una nueva autorización genérica por defecto ni presentar este anexo como formulario aceptado por ellos.
+El responsable revisa y completa los puntos siguientes para documentar el alcance
+real ya utilizado. Si la veterinaria ya informa a sus clientes mediante documentos
+vigentes, contrastarlos y preparar los ajustes aplicables; no solicitar una nueva
+autorización genérica por defecto ni presentar este anexo como formulario aceptado
+por ellos.
 
 | Punto que debe decidirse | Registro en la copia privada |
 | --- | --- |

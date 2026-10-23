@@ -1,12 +1,18 @@
 # Plan de preparación para beta cerrada
 
-**Estado contrastado el 20 de octubre de 2026:** consultar la [revisión actual de
-los diez pasos](CLOSED_BETA_STATUS_20261020.md). La veterinaria ya usa Agenda,
-Caja e Inventario; 2.52.0 está publicada y los últimos ajustes siguen locales.
-Acta/aceptación, medición de jornada y estabilidad actual permanecen abiertos.
+**Estado contrastado el 22 de octubre de 2026:** consultar la [revisión actual de
+los diez pasos](CLOSED_BETA_STATUS_20261022.md). La veterinaria ya usa Agenda,
+Caja e Inventario con datos reales desde el lunes 19/10; 2.55.1 está publicada
+y los lotes antes locales ya se publicaron. Clientes, citas de peluquería y
+veterinaria, medicamentos y pagos están en uso, con buen funcionamiento reportado.
+Responsables, soporte e ingresos de la jornada revisada están confirmados.
+Comprobaciones de stock/base/reportes, medición, recuperación actual, decisiones
+documentales y estabilidad técnica permanecen abiertas. La migración de Ubuntu
+se completó el 23/10 con respaldo recuperable del volumen; ver
+[resultados y nueva observación](VPS_OS_MAINTENANCE_RESULT_20261023.md).
 Los apartados fechados a continuación conservan el estado histórico de cada revisión.
 
-**Revisión vigente — 16 de octubre de 2026:** el responsable indicó que se usará primero en su veterinaria y luego se comercializará. La [revisión de beta operativa propia](OWN_CLINIC_BETA_REVIEW_20261016.md) recoge el estado actual de 2.48.0 y las tareas concretas. El paquete individual ficticio no habilita por sí solo datos/operaciones reales. Se conserva el aplazamiento de la línea empresarial: la preparación del dashboard y la habilitación de WhatsApp se evalúan por separado. Las condiciones de beta comercial externa de este documento se mantienen para esa etapa posterior.
+**Revisión histórica — 16 de octubre de 2026:** el responsable indicó que se usará primero en su veterinaria y luego se comercializará. La [revisión de beta operativa propia](OWN_CLINIC_BETA_REVIEW_20261016.md) recoge el estado de 2.48.0 en esa fecha y las tareas concretas. El paquete individual ficticio no habilita por sí solo datos/operaciones reales. Se conserva el aplazamiento de la línea empresarial: la preparación del dashboard y la habilitación de WhatsApp se evalúan por separado. Las condiciones de beta comercial externa de este documento se mantienen para esa etapa posterior.
 
 **Fecha de evaluación inicial, histórica:** 2026-09-19
 

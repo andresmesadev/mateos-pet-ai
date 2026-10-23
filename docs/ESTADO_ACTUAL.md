@@ -1,5 +1,34 @@
 # Estado actual del proyecto
 
+**23 de octubre — ajuste local de Agenda:** Inicio muestra hasta diez citas
+por página con navegación; las canceladas se ocultan de Inicio y las vistas
+del calendario, conservando historial. 23 pruebas, lint y build aprobados.
+Comprobación visual pendiente porque el control de navegador está desactivado;
+sin publicar aún. [Alcance y evidencia](history/AGENDA_VISIBILITY_VERIFICATION_20261023.md).
+
+**23 de octubre — mantenimiento de VPS completado:** misma instancia en
+Ubuntu 24.04.5 LTS y Docker 29.9.2, paquetes al día y firewall persistente
+verificado. Dashboard disponible desde las 12:16 Colombia; aplicación
+2.55.1 y 65 migraciones conservadas. Caja/reportes/comisiones leídos sin
+registrar operaciones. Respaldos completos Oracle y lógico cifrado verificados;
+consola temporal retirada. [Resultados y límites](operations/VPS_OS_MAINTENANCE_RESULT_20261023.md).
+La nueva observación empezó a las 12:17; no certifica aún 48 horas y conserva
+los fallos anteriores. El pendiente de host del corte del 22/10 queda resuelto;
+restauración actual, capacidad y aceptación puntual siguen abiertas.
+
+## Corte histórico del 22 de octubre
+
+**Beta revisada el 22 de octubre:** [tabla vigente de los diez ítems](operations/CLOSED_BETA_STATUS_20261022.md).
+**Operación real desde el lunes 19/10**, confirmada por el responsable: clientes,
+citas de peluquería/veterinaria, venta de medicamentos y pagos; buen funcionamiento
+reportado. Mejoras 2.53.0–2.55.1 publicadas; responsables, soporte e ingresos de
+la jornada revisada confirmados. Siguen pendientes comprobaciones puntuales de
+stock/base/reportes, medición de carga, recuperación actual, decisiones documentales
+y estabilidad técnica. El [monitoreo está activo](operations/REAL_OPERATION_STABILITY_REVIEW_20261022.md):
+las ventanas cambiaron con los despliegues; el avance operativo no vuelve a cero.
+La actualización mayor de Ubuntu se aplazó al 23/10, con acceso a recuperación
+y respaldo del volumen antes de intervenir; no se inició ni se reinició la VPS.
+
 **Publicado el 22 de octubre — 2.55.1 (seguridad):** Node 24.22.1 / OpenSSL
 3.5.9 en ambos contenedores, ip-address 10.7.4 y puertos internos únicamente
 en localhost. SSH/TLS/permisos endurecidos y nueve actualizaciones estándar del
@@ -69,8 +98,8 @@ local completa; cinco jobs CI aprobados, respaldo cifrado verificado, 63
 migraciones y 14 destinos HTTPS autenticados correctos. Stock y jornada cerrada
 conservados; WhatsApp pausado. CI y despliegue se registran en la
 [evidencia de publicación](history/RELEASE_2_53_0_VPS_20261020.md).
-La [revisión actual de beta](operations/CLOSED_BETA_STATUS_20261020.md) conserva
-pendiente la aceptación clínica/inventario; la organización del paso 10 y los
+La [revisión actual de beta](operations/CLOSED_BETA_STATUS_20261022.md) conserva
+pendientes comprobaciones puntuales de inventario/base/reportes; la operación real del paso 10 y los
 ingresos de la primera jornada ya fueron confirmados. Los estados de jornada
 abierta de las publicaciones inferiores son capturas históricas: la revisión
 del 20 de octubre confirmó el cierre oficial del 19.

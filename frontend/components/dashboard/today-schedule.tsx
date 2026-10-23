@@ -25,6 +25,8 @@ import {
 import { getPetEmoji } from "@/lib/pets";
 import { proxyUrl } from "@/lib/api";
 import { useTenant } from "@/lib/use-tenant";
+import { agendaPage, visibleAgendaAppointments } from "@/lib/agenda-display";
+import { Button } from "@/components/ui/button";
 
 const COP = new Intl.NumberFormat("es-CO", {
   style: "currency",
@@ -112,6 +114,7 @@ export function TodaySchedule({ appointments: initial, initialReview = false, co
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [polling, setPolling] = useState(false);
   const [refreshError, setRefreshError] = useState(false);
+  const [page, setPage] = useState(1);
   useEffect(() => {
     // Synchronize the server refresh without remounting an open appointment dialog.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -122,10 +125,17 @@ export function TodaySchedule({ appointments: initial, initialReview = false, co
   const capitalized = header.charAt(0).toUpperCase() + header.slice(1);
   const needsAttention = (appointment: TodayAppointment) => prices ? appointmentNeedsReview(appointment) :
     ["pending", "confirmed", "arrived", "in_progress"].includes(appointment.status) && (["arrived", "in_progress"].includes(appointment.status) || !appointment.staffName);
-  const attentionCount = appointments.filter(needsAttention).length;
+  const agendaAppointments = visibleAgendaAppointments(appointments);
+  const attentionCount = agendaAppointments.filter(needsAttention).length;
   const selectedFilter = filter ?? (onlyNeedsAttention ? "review" : "all");
   const groupLabel = DAY_GROUPS.find(group => group.key === selectedFilter)?.label;
-  const visibleAppointments = appointments.filter(appointment => selectedFilter === "review" ? needsAttention(appointment) : matchesDayGroup(appointment, selectedFilter));
+  const visibleAppointments = agendaAppointments.filter(appointment => selectedFilter === "review" ? needsAttention(appointment) : matchesDayGroup(appointment, selectedFilter));
+  const pagination = agendaPage(visibleAppointments, page);
+  useEffect(() => {
+    // A different day, tenant or filter starts its list on the first page.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPage(1);
+  }, [selectedFilter, capitalized, tenant]);
   useEffect(() => { onAppointmentsChange?.(appointments); }, [appointments, onAppointmentsChange]);
   function changeFilter(next: HomeScheduleFilter) { if (onFilterChange) onFilterChange(next); else setOnlyNeedsAttention(next === "review"); }
 
@@ -193,13 +203,13 @@ export function TodaySchedule({ appointments: initial, initialReview = false, co
 
         <CardContent className={compact ? "flex min-h-0 flex-1 flex-col" : undefined}>
           {refreshError && <p role="alert" className="mb-3 rounded-lg bg-amber-50 p-3 text-xs text-amber-900">No se pudo actualizar. Se muestran los últimos datos cargados.</p>}
-          {appointments.length > 0 && !compact && <DaySummary appointments={appointments} prices={prices} />}
-          {appointments.length > 0 && <div className="mb-2 flex flex-wrap items-center gap-2 border-b border-slate-100 pb-3">
+          {agendaAppointments.length > 0 && !compact && <DaySummary appointments={agendaAppointments} prices={prices} />}
+          {agendaAppointments.length > 0 && <div className="mb-2 flex flex-wrap items-center gap-2 border-b border-slate-100 pb-3">
             <button type="button" onClick={() => changeFilter("all")} aria-pressed={selectedFilter === "all"} className={`min-h-9 rounded-lg px-3 text-sm font-semibold ${selectedFilter === "all" ? "bg-teal-700 text-white" : "text-slate-600 hover:bg-slate-100"}`}>Todas las citas</button>
             <button type="button" onClick={() => changeFilter("review")} aria-pressed={selectedFilter === "review"} className={`min-h-9 rounded-lg px-3 text-sm font-semibold ${selectedFilter === "review" ? "bg-teal-700 text-white" : "text-slate-600 hover:bg-slate-100"}`}>Por revisar ({attentionCount})</button>
           </div>}
           {groupLabel && <p role="status" className="mb-3 text-sm font-semibold text-teal-800">Mostrando: {groupLabel.toLocaleLowerCase("es-CO")}</p>}
-          {appointments.length === 0 ? (
+          {agendaAppointments.length === 0 ? (
             <div className="flex flex-wrap items-center justify-between gap-3 py-5">
               <div>
                 <p className="text-sm font-semibold text-slate-900">No hay citas para hoy</p>
@@ -211,7 +221,7 @@ export function TodaySchedule({ appointments: initial, initialReview = false, co
             <p className="py-8 text-center text-sm text-slate-600">{groupLabel ? `No hay citas en «${groupLabel}» ahora.` : "No hay citas que requieran revisión ahora."}</p>
           ) : (
             <ul className="divide-y" aria-label="Citas de la agenda">
-              {(compact ? visibleAppointments.slice(0, 8) : visibleAppointments).map((appt) => (
+              {pagination.appointments.map((appt) => (
                 <li key={appt.id} className="flex flex-wrap items-center gap-x-2 rounded-xl transition-colors hover:bg-slate-50 focus-within:bg-slate-50 xl:grid xl:grid-cols-[minmax(0,1fr)_16rem]">
                   <button type="button" onClick={() => { setStartInPriceEdit(false); setSelected(appt); }} aria-label={`Abrir cita de ${appt.petName}, ${formatColombiaTime(appt.date)}`} className="grid min-w-0 flex-1 grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-3 rounded-xl px-2 py-3 text-left focus-visible:outline-2 focus-visible:outline-teal-700 sm:grid-cols-[5.5rem_minmax(0,1fr)_7.5rem_1rem] sm:px-3">
                     <span className="whitespace-nowrap text-sm font-bold tabular-nums text-slate-950">{formatColombiaTime(appt.date)}</span>
@@ -239,7 +249,15 @@ export function TodaySchedule({ appointments: initial, initialReview = false, co
               ))}
             </ul>
           )}
-          {compact && <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t pt-4 text-sm"><p className="text-xs text-muted-foreground">{visibleAppointments.length > 8 ? `8 de ${visibleAppointments.length} citas en este filtro` : `${visibleAppointments.length} citas en este filtro`}</p><Link prefetch={false} href={homeHref("/dashboard/calendar", tenant)} className="inline-flex min-h-10 items-center font-semibold text-primary underline underline-offset-4">Abrir agenda completa</Link></div>}
+          <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t pt-4 text-sm">
+            <p className="text-xs text-muted-foreground" aria-live="polite">{pagination.pages > 1 ? `${pagination.start}–${pagination.end} de ${pagination.total} citas en este filtro` : `${pagination.total} citas en este filtro`}</p>
+            {pagination.pages > 1 && <nav aria-label="Páginas de la agenda de hoy" className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" disabled={pagination.page === 1} onClick={() => setPage(pagination.page - 1)} aria-label="Página anterior de citas">Anterior</Button>
+              <span className="text-xs text-muted-foreground">Página {pagination.page} de {pagination.pages}</span>
+              <Button variant="outline" disabled={pagination.page === pagination.pages} onClick={() => setPage(pagination.page + 1)} aria-label="Página siguiente de citas">Siguiente</Button>
+            </nav>}
+            {compact && <Link prefetch={false} href={homeHref("/dashboard/calendar", tenant)} className="inline-flex min-h-10 items-center font-semibold text-primary underline underline-offset-4">Abrir agenda completa</Link>}
+          </div>
         </CardContent>
       </Card>
 

@@ -1,6 +1,10 @@
-# Paso 7 — Documentación del piloto interno
+# Paso 7 — Documentación y alcance de la operación
 
-**Actualizado:** 14 de octubre de 2026. **Alcance confirmado:** solo pruebas internas con datos ficticios. Identificadores reales de participantes siguen sujetos a tratamiento de datos.
+**Actualizado:** 22 de octubre de 2026. **Alcance actual confirmado:** operación
+real de la veterinaria desde el 19/10, con clientes, citas, medicamentos y pagos.
+El [anexo de operación propia](anexo-beta-veterinaria-propia-borrador.md) recoge
+ese alcance y las decisiones documentales pendientes. El paquete 1.1 siguiente
+corresponde al ensayo ficticio histórico del 14/10; no describe la base activa.
 
 ## Paquete
 

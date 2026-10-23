@@ -4,9 +4,26 @@
 
 Usar junto al [procedimiento del piloto](INTERNAL_PILOT_RUNBOOK.md). Las casillas vacías son decisiones pendientes, no valores asumidos. La primera jornada se habilita por áreas comprobadas; la venta del SaaS, Stripe y campañas no condicionan ese arranque.
 
-**Alcance confirmado el 16 de octubre:** agenda y recepción primero; caja e inventario después. Su catálogo/conteo/conciliación se preparará antes de ampliar esas áreas y no condiciona la primera jornada acotada. El responsable/suplente, soporte y fecha de apertura aún deben completarse en el acta privada.
+**Seguimiento actualizado el 22/10:** consultar el [estado vigente de los diez ítems](CLOSED_BETA_STATUS_20261022.md).
+La operación es real desde el lunes 19/10: clientes, citas de peluquería y
+veterinaria, venta de medicamentos y registro de pagos. No se usan datos
+ficticios para esas operaciones. Responsable/suplente, cuentas personales,
+reporte presencial y comparación con registro habitual están confirmados; los
+ingresos de la jornada revisada también. No volver a solicitar esas decisiones.
+Las tablas y casillas siguientes son la plantilla privada para documentar lo que
+falte y jornadas nuevas; no prueban por sí solas que se haya aceptado cada área.
 
-**Canal y datos de arranque:** solo dashboard, sin WhatsApp. [Base limpia activa](DASHBOARD_ONLY_CLEAN_START_20261016.md), sin datos del piloto y sin servicios/personal copiados. Revisar las listas privadas y aprobar datos correctos antes de cargar agendas reales. El archivo anterior no aparece en la operación activa.
+**Alcance inicial del 16 de octubre, histórico:** agenda y recepción primero;
+caja e inventario después. El catálogo/conteo/conciliación debía prepararse antes
+de ampliar esas áreas. El alcance real posterior sustituye esa limitación de
+arranque. Quedan comprobaciones específicas de stock/base/reportes, recuperación
+y decisiones documentales; la historia clínica revisada se conserva en el
+registro habitual confirmado, sin exigir duplicarla.
+
+**Canal y datos de arranque:** solo dashboard, sin WhatsApp. La [base limpia del
+16/10](DASHBOARD_ONLY_CLEAN_START_20261016.md) es el corte histórico de apertura;
+después se cargaron datos y se registró operación real. No volver a vaciarla ni
+reimportar para repetir ese arranque. Conservar las decisiones y fuentes privadas.
 
 ## Acta breve de la primera jornada
 
@@ -47,7 +64,11 @@ Estas hojas son revisión manual; **no existe un importador nuevo ni se cargan f
 1. Revisar duplicados, unidades y política de lote antes de crear cada producto desde Inventario.
 2. Registrar existencias físicas aprobadas mediante entrada y motivo de apertura; guardar referencia privada del movimiento. No volver a cargar el mismo lote/corte por un timeout.
 3. Conciliar el total cargado contra conteo físico y movimientos. Los ajustes se hacen por operaciones trazables, sin alterar historia.
-4. En caja, acordar qué cobros/gastos se empiezan a registrar desde el corte. Conservar la conciliación del efectivo/bancos separada si el sistema no modela ese saldo de apertura.
+4. En caja, acordar qué cobros/gastos se empiezan a registrar desde el corte.
+   Desde 2.55.0, confirmar la base de efectivo en Caja; no es ingreso. Al cerrar,
+   registrar cuánto se deja; aparece como sugerencia para la siguiente apertura
+   y debe confirmarse. No inventar saldos de jornadas anteriores ni registrar
+   ventas/gastos ficticios para cuadrarlos. Conciliar bancos por separado.
 
 ## Recorrido de aceptación de los empleados
 

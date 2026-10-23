@@ -39,11 +39,16 @@ necesidad de resolver el soporte de terceros como Docker.
 
 ## Estado y límites
 
-No se ejecutó cambio de versión mayor, reinicio ni asociación de cuenta/licencia.
-Falta decidir ruta y asegurar acceso a recuperación/snapshot para proceder con
-esa operación. Las correcciones independientes del host/aplicación continúan.
-No se declara la VPS completamente saneada mientras siga sin cobertura ESM o
-sin migrar a una distribución soportada.
+**Completado el 23/10/2026**, después de iniciar sesión el responsable y
+autorizar la consola temporal: actualización en sitio 20.04 → 22.04 →
+24.04.5 LTS, Docker 29.9.2, respaldos de volumen disponibles, arranque y
+firewall comprobados. Dashboard reabierto a las 12:16 Colombia. Consola y
+clave temporales retiradas. No se necesitó Ubuntu Pro.
+
+El [informe de ejecución](VPS_OS_MAINTENANCE_RESULT_20261023.md) contiene
+resultados reales, respaldo de la base operativa, límite de la comparación
+de huellas y nueva ventana de observación. No sustituye un ensayo de
+restauración actual ni certifica 48 horas o seguridad absoluta.
 
 Fuentes primarias: [soporte de Ubuntu](https://ubuntu.com/about/release-cycle),
 [Docker en Ubuntu](https://docs.docker.com/engine/install/ubuntu/),

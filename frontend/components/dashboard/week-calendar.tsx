@@ -15,6 +15,7 @@ import { previewMonthAppointments } from "@/lib/calendar-preview";
 import { useDashboardAccess } from "@/components/dashboard/dashboard-access-provider";
 import { NewAppointmentDialog } from "@/components/dashboard/new-appointment-dialog";
 import { filterOwnerAppointments } from "@/lib/contact-navigation";
+import { visibleAgendaAppointments } from "@/lib/agenda-display";
 
 // ── Constants ─────────────────────────────────────────────────
 
@@ -350,7 +351,7 @@ export function WeekCalendar({
   }, [router, preview]);
 
   const { mondayYmd } = data;
-  const appointments = filterOwnerAppointments(data.appointments.filter(a => !removedAppointments.has(a.id)).map((appointment) => updatedAppointments[appointment.id] ?? appointment), owner?.id);
+  const appointments = filterOwnerAppointments(visibleAgendaAppointments(data.appointments.filter(a => !removedAppointments.has(a.id)).map((appointment) => updatedAppointments[appointment.id] ?? appointment)), owner?.id);
   const today = todayYmd();
 
   // Current day for Day/Scheduler view — default to today if within week, else monday
@@ -377,7 +378,7 @@ export function WeekCalendar({
   const visibleMonthResult = preview
     ? { key: monthKey, appointments: previewMonthAppointments(monthDate.year, monthDate.month), error: false }
     : monthResult;
-  const monthAppointments = filterOwnerAppointments(visibleMonthResult?.appointments.filter(a => !removedAppointments.has(a.id)).map((appointment) => updatedAppointments[appointment.id] ?? appointment) ?? [], owner?.id);
+  const monthAppointments = filterOwnerAppointments(visibleAgendaAppointments(visibleMonthResult?.appointments.filter(a => !removedAppointments.has(a.id)).map((appointment) => updatedAppointments[appointment.id] ?? appointment) ?? []), owner?.id);
 
   useEffect(() => {
     if (view !== "month" || preview) return;

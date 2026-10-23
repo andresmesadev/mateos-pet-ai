@@ -1,4 +1,9 @@
-# Beta cerrada de la veterinaria propia — estado al 20 de octubre de 2026
+# Beta cerrada de la veterinaria propia — corte histórico del 20 de octubre de 2026
+
+**Seguimiento sustituido:** consultar el [estado vigente de los diez ítems al
+22 de octubre](CLOSED_BETA_STATUS_20261022.md). Se conserva este corte y sus
+notas posteriores como historial; las tablas, conteos y lotes «locales» de abajo
+no describen la situación actual.
 
 **Actualización de seguridad del 22 de octubre, 18:36 Colombia:** 2.55.1
 publicada con Node corregido y puertos internos locales. Endurecimiento del
@@ -53,7 +58,7 @@ Posteriormente se confirmó y documentó la organización del paso 10, como se
 detalla abajo. No confundir ese uso con una beta comercial externa aprobada ni
 con estabilidad certificada.
 
-## Los diez pasos originales
+## Los diez pasos originales — captura histórica del 20/10
 
 | Paso | Estado comprobado | Trabajo que permanece |
 | --- | --- | --- |
@@ -89,7 +94,7 @@ Hay una cuenta activa de administración y una de veterinaria. El perfil activo
 de peluquería no tiene credencial propia; completar ese acceso solo si esa persona
 va a operar el sistema. Su ausencia no impide que administración registre su trabajo.
 
-## Qué está terminado en local y todavía no está publicado
+## Lote local al revisar el 20/10 — publicado después en 2.53.0
 
 1. Separación del menú y accesos rápidos en móvil.
 2. Formato móvil del diálogo de cierre diario.
@@ -105,7 +110,7 @@ lint y compilación correctos. Inventario: 45 comprobaciones PostgreSQL; backend
 214 suites y 1.766 pruebas, según sus verificaciones. Estos resultados locales
 no convierten el lote en una publicación productiva.
 
-## Comprobación actual de operación y respaldo
+## Comprobación histórica de operación y respaldo — 20/10
 
 - VPS en commit `472bd06`, checkout limpio y versión HTTPS 2.52.0, HTTP 200,
   base `ok`. Backend/frontend en ejecución, cero reinicios.
