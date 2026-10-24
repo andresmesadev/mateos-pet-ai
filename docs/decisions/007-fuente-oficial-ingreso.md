@@ -35,6 +35,11 @@ La coexistencia permitida por `@@unique([appointmentId, origin])` queda así def
 
 ## Decisión 4 — Invariante del precio: vive en Agenda
 
+**Reconciliación posterior, 24/10/2026:** el [ADR 030](030-precio-diferido-servicios-no-peluqueria.md)
+limita la exigencia de precio al finalizar a Peluquería. Las demás atenciones sin
+tarifa se completan pendientes de valoración en Caja, sin obligación ni comisión
+por cero ficticio. Se conserva la verificación de completitud del cierre.
+
 Una cita facturable no puede transicionar a `completed` sin precio resuelto. **El precio cero es un precio resuelto** (una cortesía genera cobro de sistema por 0); el precio **indeterminado** no lo es.
 
 La invariante es precondición del comando "completar" en Agenda, que consulta a Servicios (el resolutor de precio) en el momento de la transición y rechaza con error de dominio visible para el operador — mismo patrón de los ADR 002 ("resolver precio consulta atributos de mascota") y ADR 004 ("resolver disponibilidad consulta servicios"): el contexto dueño de la operación consulta al contexto dueño del dato, en el momento de la operación.

@@ -281,16 +281,28 @@ describe("POST /api/dashboard/appointments/:id/complete", () => {
     expect(prisma.commission.create).not.toHaveBeenCalled();
   });
 
-  test("rejects completion without a resolved price (ADR 007-D4)", async () => {
-    prisma.appointment.findFirst.mockResolvedValue({ ...BASE_APPT, status: "in_progress", finalPrice: null });
+  test("grooming rejects completion without a resolved price (ADR 030)", async () => {
+    prisma.appointment.findFirst.mockResolvedValue({ ...BASE_APPT, serviceType: 'grooming', status: "in_progress", finalPrice: null });
 
     const app = buildApp({ isSuperAdmin: false, tenantId: TENANT_A });
     const res = await request(app).post("/api/dashboard/appointments/appt-1/complete").send({});
 
     expect(res.status).toBe(422);
-    expect(res.body.error).toMatch(/precio/);
+    expect(res.body.error).toMatch(/valor.*peluquería/);
     expect(prisma.appointment.update).not.toHaveBeenCalled();
     expect(prisma.transaction.create).not.toHaveBeenCalled();
+  });
+
+  test('a vaccination can complete before Caja values it, without a charge or commission', async () => {
+    const visit = { ...BASE_APPT, status: 'in_progress', serviceType: 'vet', service: { name: 'Vacunación', category: { name: 'other' }, basePrice: null } };
+    prisma.appointment.findFirst.mockResolvedValue(visit);
+    prisma.appointment.findUnique.mockResolvedValue({ ...visit, status: 'completed' });
+    prisma.eventType.findUnique.mockResolvedValue({ id: 'et-1', name: 'CitaCompletada', active: true });
+    prisma.domainEvent.create.mockImplementation(async ({ data }) => ({ id: 'de-1', createdAt: new Date(), ...data }));
+    const res = await request(buildApp({ isSuperAdmin: false, tenantId: TENANT_A })).post('/api/dashboard/appointments/appt-1/complete').send({});
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ status: 'completed', finalPrice: null, payment: { status: 'pending', transactionId: null } });
+    expect(prisma.transaction.create).not.toHaveBeenCalled(); expect(prisma.commission.create).not.toHaveBeenCalled();
   });
 
   test("rejects completion from a non-completable status", async () => {

@@ -67,7 +67,7 @@ function createRecordCommissionOnAppointmentCompletedUseCase({
       ctx
     );
 
-    await eventPublisher.publish("ComisiónRegistrada", { commission });
+    await (ctx?.eventPublisher ?? eventPublisher).publish("ComisiónRegistrada", { commission });
 
     return { commission };
   };

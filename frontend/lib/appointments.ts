@@ -42,7 +42,7 @@ export type TodayAppointment = {
   clientName: string | null;
   clientAddress?: string | null;
   clientNeighborhood?: string | null;
-  payment?: { transactionId: string; status: "pending" | "paid"; needsReview: boolean; total?: number } | null;
+  payment?: { transactionId: string | null; status: "pending" | "paid"; needsReview: boolean; total?: number } | null;
   petId: string | null;
   serviceId?: string | null;
   serviceCategory?: string | null;
@@ -62,7 +62,12 @@ export type TodayAppointment = {
 export function appointmentNeedsReview(appointment: TodayAppointment): boolean {
   if (!["pending", "confirmed", "arrived", "in_progress"].includes(appointment.status)) return false;
   return appointment.status === "arrived" || appointment.status === "in_progress" ||
-    appointment.finalPrice === null || !appointment.staffName;
+    (isGroomingAppointment(appointment) && appointment.finalPrice === null) || !appointment.staffName;
+}
+
+export function isGroomingAppointment(appointment: Pick<TodayAppointment, 'serviceCategory' | 'serviceType'>): boolean {
+  if (appointment.serviceCategory) return appointment.serviceCategory === 'grooming';
+  return /groom|baño|bath|corte|peluquer|spa|deslan|antipulgas|colorimetr/i.test(appointment.serviceType ?? '');
 }
 
 export type AppointmentPet = {

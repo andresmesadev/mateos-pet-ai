@@ -84,15 +84,28 @@ function resolvePrice({ manualOverride = null, petAgreedPrice = null, petDefault
  * @returns {PriceResolution}
  */
 function resolveAppointmentPrice(appointment) {
+  const grooming = isGroomingAppointment(appointment);
+  // A completed, unvalued visit must not silently acquire a later catalogue tariff.
+  if (appointment.status === 'completed' && appointment.finalPrice == null && !grooming) return resolvePrice();
   const agreedRule = appointment.status === "completed" && appointment.finalPrice == null
     ? null
     : appointment.service?.priceRules?.find((rule) => rule.targetId === appointment.petId);
   return resolvePrice({
     manualOverride:   appointment.finalPrice               != null ? Number(appointment.finalPrice)               : null,
     petAgreedPrice:  agreedRule?.price                     != null ? Number(agreedRule.price)                       : null,
-    petDefaultPrice:  appointment.pet?.defaultGroomingPrice != null ? Number(appointment.pet.defaultGroomingPrice) : null,
+    petDefaultPrice:  grooming && appointment.pet?.defaultGroomingPrice != null ? Number(appointment.pet.defaultGroomingPrice) : null,
     serviceBasePrice: appointment.service?.basePrice        != null ? Number(appointment.service.basePrice)        : null,
   });
+}
+
+function isGroomingAppointment(appointment) {
+  const category = appointment.service?.category?.name ?? appointment.serviceCategory;
+  if (category) return category === 'grooming';
+  return /groom|baño|bath|corte|peluquer|spa|deslan|antipulgas|colorimetr/i.test(String(appointment.serviceType ?? ''));
+}
+
+function isDeferredAppointmentPrice(appointment) {
+  return appointment.status === 'completed' && appointment.finalPrice == null && !isGroomingAppointment(appointment);
 }
 
 function resolveProductPrice({ productBasePrice = null } = {}) {
@@ -146,4 +159,4 @@ function resolveAppointmentTotal(appointment, zone = null) {
   };
 }
 
-module.exports = { resolvePrice, resolveAppointmentPrice, resolveAppointmentTotal, resolveProductPrice, PRICE_SOURCES };
+module.exports = { resolvePrice, resolveAppointmentPrice, resolveAppointmentTotal, resolveProductPrice, PRICE_SOURCES, isGroomingAppointment, isDeferredAppointmentPrice };

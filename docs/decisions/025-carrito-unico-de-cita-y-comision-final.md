@@ -4,6 +4,12 @@
 
 ## Reconciliación y cinco etapas
 
+**Excepción posterior, 24/10/2026:** el [ADR 030](030-precio-diferido-servicios-no-peluqueria.md)
+permite crear la primera obligación al confirmar el pago de una cita no
+peluquería completada sin tarifa. La operación utiliza el mismo workflow
+idempotente y la misma transacción de inventario, pago y comisión; no genera una
+segunda venta. El resto de este ADR conserva su alcance.
+
 1. Función: Cobrar una cita abre POS con propietario, mascota, servicio y domicilio propuestos; permite editar sus valores y añadir productos/servicios. La tarifa de ficha es una referencia inicial y no se modifica al cobrar. No se crea una segunda venta para la misma atención.
 2. Casos: solo una obligación de cita completada, activa y no pagada admite checkout; confirma importe final, medio y operador una sola vez. Reintentos con la misma clave recuperan el recibo. Stock, pago y corrección de comisión confirman o revierten juntos. Un pago histórico/confirmado no es editable. Precios cero explícitos en componentes de cita son válidos; extras conservan sus validaciones. Comisión usa solo la línea principal de peluquería, nunca domicilio, productos ni servicios adicionales independientes.
 3. Arquitectura: ampliar el workflow POS existente y su operación recuperable. Inventario valida/prepara productos y registra salidas; Finanzas valida artículos y liquida la misma Transaction pendiente; Staff reutiliza anulación+reemplazo del ADR 009 para corregir la base si cambió. El resolver central entrega la propuesta y reconoce el override explícito; no se actualiza la tarifa habitual ni el snapshot original de la cita. Cierres y liquidaciones bloquean correcciones de comisión ya consolidadas; si no cambia la base se conserva la comisión. Identidad/Tenant provienen de sesión. Los eventos se publican tras confirmar la transacción, nunca dentro de un intento que pueda revertirse.

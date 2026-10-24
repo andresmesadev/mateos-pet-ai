@@ -101,6 +101,18 @@ const { PrismaSaleServiceReader } = require('./infrastructure/persistence/prisma
 const recordSaleServiceCommission = transactionalCommand(createRecordSaleServiceCommissionUseCase({ sourceReader: new PrismaSaleServiceReader(), staffRepository, serviceCategoryReader, businessConfigReader, commissionRepository, dailyCloseReader: new PrismaDailyCloseReader(), settlementCoverageReader: new PrismaSettlementCoverageReader(), businessDayGate: new PrismaBusinessDayGate(), staffFinanceGate: new PrismaStaffFinanceGate() }), { unitOfWork: new PrismaUnitOfWork(), eventPublisher });
 
 module.exports = {
+  async recordDeferredCheckoutCommission(input, ctx) {
+    if (!ctx?.tx || !ctx.eventPublisher) throw new Error('Deferred commission requires transactional events');
+    const { civilDateKey } = require('../shared/business-day');
+    const { CommissionDayClosedError, CommissionInActiveSettlementError } = require('./domain/errors');
+    const day = civilDateKey(input.completedAt);
+    await new PrismaBusinessDayGate().acquire(input.tenantId, day, ctx);
+    await new PrismaStaffFinanceGate().acquire(input.tenantId, input.staffId, ctx);
+    if (await new PrismaDailyCloseReader().findByCivilDay(input.tenantId, input.completedAt, ctx)) throw new CommissionDayClosedError(day);
+    const settlement = await new PrismaSettlementCoverageReader().findActiveCovering(input.staffId, input.completedAt, ctx);
+    if (settlement) throw new CommissionInActiveSettlementError(input.appointmentId, settlement.id);
+    return recordCommissionOnAppointmentCompleted(input, ctx);
+  },
   async voidSaleCommissions({ tenantId, transactionId, reason }, ctx) {
     if (!ctx?.tx || !ctx.eventPublisher) throw new Error('Void sale commissions requires transaction');
     const rows = await commissionRepository.listByTransaction(tenantId, transactionId, ctx);

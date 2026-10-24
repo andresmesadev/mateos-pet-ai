@@ -532,7 +532,7 @@ router.post("/clients/with-pets", async (req, res) => {
       if ([p.defaultGroomingPrice, p.defaultGroomingTransportPrice].some(value => value != null && !validMoney(value))) {
         return res.status(400).json({ error: `Mascota ${i + 1}: indica valores válidos de peluquería y domicilio. Vacío significa pendiente; 0 es gratuito.` });
       }
-      const quote = resolveAppointmentTotal({ pet: {
+      const quote = resolveAppointmentTotal({ serviceType: 'grooming', pet: {
         defaultGroomingPrice: p.defaultGroomingPrice ?? null,
         defaultGroomingTransportPrice: p.defaultGroomingTransportPrice ?? null,
       }, transportMode: 'round_trip' });

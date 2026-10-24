@@ -462,7 +462,7 @@ router.delete('/appointments/:id', async (req, res) => {
 
 // POST /appointments/:id/complete — Entregable Puente, caso de uso 1.
 // Transición + comisión + cobro de sistema en UNA transacción (Etapa 2);
-// exige precio resuelto (ADR 007-D4).
+// ADR 030: peluquería exige precio; otros servicios pueden valorarse en Caja.
 router.post("/appointments/:id/complete", async (req, res) => {
   try {
     const { tenantId } = req.tenant;

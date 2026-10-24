@@ -24,6 +24,14 @@ test('veterinary checkout does not propose a grooming transport button or line',
   const result = await request(app).get('/cash/appointments/visit/checkout');
   expect(result.status).toBe(200); expect(result.body.canAddTransport).toBe(false); expect(result.body.lines).toHaveLength(1);
 });
+
+test('a deferred non-grooming visit opens Caja with an empty price and no fabricated charge id', async () => {
+  prisma.appointment.findFirst.mockResolvedValue({ id: 'visit', serviceType: 'vet', status: 'completed', service: { name: 'Vacunación' } });
+  mapAppointmentRow.mockReturnValue({ payment: { status: 'pending', transactionId: null }, priceResolution: { finalPrice: null }, transport: { price: 0 } });
+  const result = await request(app).get('/cash/appointments/visit/checkout');
+  expect(result.status).toBe(200); expect(result.body.transactionId).toBeNull();
+  expect(result.body.lines).toEqual([expect.objectContaining({ description: 'Vacunación', unitPrice: '', appointmentComponent: 'service' })]);
+});
 test('a paid charge remains read-only and an unavailable appointment is not exposed', async () => {
   mapAppointmentRow.mockReturnValue({ payment: { status: 'paid' } });
   expect((await request(app).get('/cash/appointments/visit/checkout')).status).toBe(409);

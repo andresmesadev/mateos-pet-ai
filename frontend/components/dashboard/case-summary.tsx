@@ -3,7 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import type { ReactNode } from "react";
 import { useDashboardAccess } from "./dashboard-access-provider";
-import { formatColombiaDateTime, formatService, formatStatus, statusBadgeClass, type TodayAppointment } from "@/lib/appointments";
+import { formatColombiaDateTime, formatService, formatStatus, statusBadgeClass, isGroomingAppointment, type TodayAppointment } from "@/lib/appointments";
 
 /** Operational identity only: clinical and grooming notes stay in their authorized screens. */
 export function CaseSummary({ appointment, showPrice = false, compact = false, actions }: { appointment: TodayAppointment; showPrice?: boolean; compact?: boolean; actions?: ReactNode }) {
@@ -21,7 +21,7 @@ export function CaseSummary({ appointment, showPrice = false, compact = false, a
       visibleRows.push(["Peluquería (COP)", appointment.priceResolution?.servicePrice == null ? "Pendiente" : `$ ${appointment.priceResolution.servicePrice.toLocaleString("es-CO")}`]);
       visibleRows.push(["Transporte (COP)", appointment.transport.pending ? "Por confirmar" : appointment.transport.mode === "shared" ? "Incluido en otra cita" : appointment.transport.price == null ? "Pendiente" : `$ ${appointment.transport.price.toLocaleString("es-CO")}`]);
     }
-    visibleRows.push(["Total de esta cita (COP)", appointment.finalPrice == null ? "Sin precio definido" : `$ ${appointment.finalPrice.toLocaleString("es-CO")}`]);
+    visibleRows.push(["Total de esta cita (COP)", appointment.finalPrice == null ? isGroomingAppointment(appointment) ? "Sin precio definido" : "Se define al registrar el pago" : `$ ${appointment.finalPrice.toLocaleString("es-CO")}`]);
   }
   return <section aria-label="Resumen de la atención" className={`rounded-xl border border-border p-4 ${compact ? "bg-white sm:p-5" : "bg-muted/30"}`}>
     <div className="mb-4 flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-semibold">{compact ? "Datos de la cita" : "Datos de esta visita"}</h3>{actions}{!compact && <Badge className={statusBadgeClass(appointment.status)}>{formatStatus(appointment.status)}</Badge>}</div>

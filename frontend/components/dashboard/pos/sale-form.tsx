@@ -21,7 +21,7 @@ import { ProductPicker } from "@/components/dashboard/inventory/product-picker";
 import type { InventoryProduct } from "@/lib/inventory";
 
 type ClientResult = { id: string; name: string | null; phone: string; pets: { id: string; name: string; type: string }[] };
-export type AppointmentCheckout = { appointmentId: string; transactionId: string; client: ClientResult; petId: string; lines: CheckoutLine[]; canAddTransport?: boolean };
+export type AppointmentCheckout = { appointmentId: string; transactionId: string | null; client: ClientResult; petId: string; lines: CheckoutLine[]; canAddTransport?: boolean };
 const METHODS = [{ value: "cash", icon: Banknote }, { value: "transfer", icon: Landmark }, { value: "card", icon: CreditCard }, { value: "other", icon: Wallet }] as const;
 const PAYMENT_GUIDANCE: Record<PaymentMethod, { label: string; placeholder: string; hint: string }> = {
   cash: { label: "Nota del cobro", placeholder: "Observación de esta venta", hint: "Revisa el efectivo recibido y entrega el cambio indicado." },

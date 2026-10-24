@@ -1,5 +1,5 @@
 // Utilidades compartidas entre todos los subrouters del dashboard
-const { resolveAppointmentTotal } = require("../../services/domain/price-resolver.service");
+const { resolveAppointmentTotal, isDeferredAppointmentPrice } = require("../../services/domain/price-resolver.service");
 
 const BOGOTA_OFFSET_MS = 5 * 3600 * 1000; // UTC-5
 
@@ -37,7 +37,7 @@ function mapAppointmentRow(a) {
     clientName: a.user?.name ?? null,
     clientAddress: a.user?.address ?? null,
     clientNeighborhood: a.user?.neighborhood ?? null,
-    payment: a.transactions?.[0] ? { transactionId: a.transactions[0].id, status: a.transactions[0].paidAt == null ? 'pending' : 'paid', needsReview: a.transactions[0].paidAt == null || !a.transactions[0].recordedActorId, total: Number(a.transactions[0].total) } : null,
+    payment: a.transactions?.[0] ? { transactionId: a.transactions[0].id, status: a.transactions[0].paidAt == null ? 'pending' : 'paid', needsReview: a.transactions[0].paidAt == null || !a.transactions[0].recordedActorId, total: Number(a.transactions[0].total) } : isDeferredAppointmentPrice(a) ? { transactionId: null, status: 'pending', needsReview: true } : null,
     petId: a.petId ?? null,
     serviceId: a.serviceId ?? null,
     serviceName: a.service?.name ?? null,

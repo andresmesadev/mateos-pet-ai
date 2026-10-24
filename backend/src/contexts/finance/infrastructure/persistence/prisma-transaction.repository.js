@@ -41,8 +41,20 @@ class PrismaTransactionRepository extends TransactionRepositoryPort {
   }
 
   async lockByAppointment(tenantId, appointmentId, ctx) {
+    // Serialize checkout even when an unvalued visit has no Transaction yet.
+    await ctx.tx.$queryRaw`SELECT id FROM "Appointment" WHERE "tenantId" = ${tenantId} AND id = ${appointmentId} FOR UPDATE`;
     await ctx.tx.$queryRaw`SELECT id FROM "Transaction" WHERE "tenantId" = ${tenantId} AND "appointmentId" = ${appointmentId} AND origin = 'system_appointment_completed' AND status = 'active' FOR UPDATE`;
     return ctx.tx.transaction.findFirst({ where: { tenantId, appointmentId, origin: 'system_appointment_completed', status: 'active' } });
+  }
+
+  async findDeferredAppointment(tenantId, appointmentId, ctx) {
+    const { isDeferredAppointmentPrice } = require('../../../../services/domain/price-resolver.service');
+    const row = await ctx.tx.appointment.findFirst({ where: { tenantId, id: appointmentId }, include: { service: { select: { category: { select: { name: true } } } } } });
+    return row && isDeferredAppointmentPrice(row) ? row : null;
+  }
+
+  async valueDeferredAppointment(tenantId, appointmentId, servicePrice, ctx) {
+    await ctx.tx.appointment.update({ where: { id: appointmentId, tenantId, status: 'completed', finalPrice: null }, data: { finalPrice: servicePrice } });
   }
 
   async createManualSale(data, ctx) {

@@ -7,7 +7,7 @@ import { useActionConfirmation } from "./action-confirmation";
 import { useDashboardAccess } from "./dashboard-access-provider";
 import { proxyUrl } from "@/lib/api";
 import { tenantQuery, useTenant } from "@/lib/use-tenant";
-import { arrivalWindowExpired, type TodayAppointment } from "@/lib/appointments";
+import { arrivalWindowExpired, isGroomingAppointment, type TodayAppointment } from "@/lib/appointments";
 import { AppointmentPaymentLink } from './appointment-payment-link';
 import { useGroomerSelection } from './use-groomer-selection';
 
@@ -47,5 +47,5 @@ export function AppointmentQuickActions({ appointment, onUpdated }: { appointmen
   }
   if (!action) return <AppointmentPaymentLink appointment={appointment} />;
   const Icon = action.icon;
-  return <div className="flex flex-wrap items-center gap-2">{confirmation}{groomerSelection.dialog}<Button type="button" size="sm" variant="outline" aria-label={`${action.label}: ${appointment.petName}`} disabled={busy || (action.status === "completed" && (appointment.hasResolvedPrice === false || appointment.transport?.pending))} onClick={() => void update()}><Icon aria-hidden="true" className="size-4" />{busy ? "Guardando…" : action.label}</Button>{error && <p role="alert" className="max-w-xs text-xs text-red-700">{error}</p>}</div>;
+  return <div className="flex flex-wrap items-center gap-2">{confirmation}{groomerSelection.dialog}<Button type="button" size="sm" variant="outline" aria-label={`${action.label}: ${appointment.petName}`} disabled={busy || (action.status === "completed" && isGroomingAppointment(appointment) && (appointment.hasResolvedPrice === false || appointment.transport?.pending))} onClick={() => void update()}><Icon aria-hidden="true" className="size-4" />{busy ? "Guardando…" : action.label}</Button>{error && <p role="alert" className="max-w-xs text-xs text-red-700">{error}</p>}</div>;
 }

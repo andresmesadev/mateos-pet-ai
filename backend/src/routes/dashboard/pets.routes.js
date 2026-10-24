@@ -65,7 +65,7 @@ router.get("/pets/:id/prices", async (req, res) => {
 const { resolveAppointmentTotal } = require('../../services/domain/price-resolver.service');
 const groomingPriceFields = { id: true, defaultGroomingPrice: true, defaultGroomingWithTransportPrice: true, defaultGroomingTransportPrice: true, defaultGroomingTransportMode: true };
 function petGroomingPrices(pet) {
-  const price = resolveAppointmentTotal({ pet, transportMode: ['pickup', 'delivery'].includes(pet.defaultGroomingTransportMode) ? pet.defaultGroomingTransportMode : 'round_trip' });
+  const price = resolveAppointmentTotal({ pet, serviceType: 'grooming', transportMode: ['pickup', 'delivery'].includes(pet.defaultGroomingTransportMode) ? pet.defaultGroomingTransportMode : 'round_trip' });
   return { id: pet.id, mode: pet.defaultGroomingTransportMode ?? null, center: price.servicePrice, transport: price.transportReferencePrice,
     previousTotal: price.transportReferencePrice == null && pet.defaultGroomingWithTransportPrice != null ? Number(pet.defaultGroomingWithTransportPrice) : null,
     quotedTotal: price.quotedTotalPrice };

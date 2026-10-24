@@ -33,7 +33,12 @@ function buildConfirmPosSale({ inventory, finance, staff, repository, accessRead
       const prepared = await inventory.prepareSale(state, lines.map(i => ({ ...i, itemKind: i.itemKind ?? (state.access.capabilities.services ? 'service' : 'product') })));
       if (command.appointmentCheckout) {
         const local = { ...state.ctx, eventPublisher: { async publish(name, payload) { checkoutEvents.push({ name, payload }); } } };
-        const { transaction, servicePrice } = await finance.registerAppointmentSale({ tenantId, actor: state.access.snapshot, access: state.access, command, items: prepared, now: state.now }, local);
+        const { transaction, servicePrice, deferredAppointment } = await finance.registerAppointmentSale({ tenantId, actor: state.access.snapshot, access: state.access, command, items: prepared, now: state.now }, local);
+        if (deferredAppointment?.staffId && deferredAppointment.serviceId) {
+          await staff.recordDeferredCheckoutCommission({ tenantId, appointmentId: deferredAppointment.id,
+            staffId: deferredAppointment.staffId, serviceId: deferredAppointment.serviceId,
+            resolvedPrice: servicePrice, priceSource: 'manual_override', completedAt: state.now }, local);
+        }
         try { await staff.correctCheckoutCommission({ tenantId, appointmentId: command.appointmentId, servicePrice, actor: state.access.snapshot }, local); }
         catch (error) { if (error instanceof CommissionDayClosedError || error instanceof CommissionInActiveSettlementError) fail('COMMISSION_CONSOLIDATED', error.message, 409); throw error; }
         if (staff.recordSaleCommissions) await staff.recordSaleCommissions({ tenantId, transaction, access: state.access }, local);

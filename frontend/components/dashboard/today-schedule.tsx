@@ -17,6 +17,7 @@ import { AppointmentQuickActions } from "./appointment-quick-actions";
 import {
   type TodayAppointment,
   appointmentNeedsReview,
+  isGroomingAppointment,
   formatColombiaTime,
   formatService,
   formatStatus,
@@ -46,7 +47,7 @@ function DaySummary({ appointments, prices }: { appointments: TodayAppointment[]
     (a) => a.status !== "cancelled" && a.status !== "no_show"
   );
   const withPrice = active.filter((a) => a.finalPrice !== null);
-  const withoutPrice = active.filter((a) => a.finalPrice === null);
+  const withoutPrice = active.filter((a) => isGroomingAppointment(a) && a.finalPrice === null);
   const total = withPrice.reduce((sum, a) => sum + (a.finalPrice ?? 0), 0);
 
   return (
@@ -243,7 +244,7 @@ export function TodaySchedule({ appointments: initial, initialReview = false, co
                   </button>
                   <div className="flex flex-wrap items-center justify-end gap-2 px-2 pb-2 sm:py-2">
                     <AppointmentQuickActions appointment={appt} onUpdated={updated => { setAppointments(current => current.map(value => value.id === updated.id ? updated : value)); if (compact) router.refresh(); }} />
-                    {access?.capabilities.appointmentPrice && appt.finalPrice === null && !["completed", "cancelled", "no_show"].includes(appt.status) && <button type="button" onClick={() => { setStartInPriceEdit(true); setSelected(appt); }} className="shrink-0 rounded-lg px-2 py-2 text-xs font-semibold text-amber-800 underline underline-offset-2 hover:bg-amber-50 focus-visible:outline-2 focus-visible:outline-amber-700">Definir precio</button>}
+                    {access?.capabilities.appointmentPrice && isGroomingAppointment(appt) && appt.finalPrice === null && !["completed", "cancelled", "no_show"].includes(appt.status) && <button type="button" onClick={() => { setStartInPriceEdit(true); setSelected(appt); }} className="shrink-0 rounded-lg px-2 py-2 text-xs font-semibold text-amber-800 underline underline-offset-2 hover:bg-amber-50 focus-visible:outline-2 focus-visible:outline-amber-700">Definir precio</button>}
                   </div>
                 </li>
               ))}

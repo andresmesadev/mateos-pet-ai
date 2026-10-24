@@ -23,6 +23,7 @@ const unitOfWork = new PrismaUnitOfWork();
 // asignados (precondiciones del caso de uso — no es un fallo silencioso: sin
 // staff/servicio no existe hecho de reparto que registrar).
 dispatcher.subscribe("CitaCompletada", async (payload, ctx) => {
+  if (payload.priceDeferred === true) return; // ADR 030: commission is recorded when valued in Caja.
   if (!payload.staffId || !payload.serviceId) {
     logger.info("[Integración] CitaCompletada sin staff/servicio — no genera comisión", {
       appointmentId: payload.appointmentId,
@@ -45,6 +46,7 @@ dispatcher.subscribe("CitaCompletada", async (payload, ctx) => {
 
 // Finanzas: registra el cobro de sistema — el ingreso oficial del servicio (ADR 007-D1).
 dispatcher.subscribe("CitaCompletada", async (payload, ctx) => {
+  if (payload.priceDeferred === true) return; // Unknown price is not a zero-value obligation.
   await finance.recordChargeOnAppointmentCompleted(
     {
       tenantId: payload.tenantId,

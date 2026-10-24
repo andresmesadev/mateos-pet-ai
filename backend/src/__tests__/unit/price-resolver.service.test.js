@@ -1,6 +1,7 @@
 const { resolveAppointmentPrice, PRICE_SOURCES } = require("../../services/domain/price-resolver.service");
 
 const appointment = {
+  serviceType: 'grooming',
   status: "confirmed",
   petId: "luna",
   finalPrice: null,

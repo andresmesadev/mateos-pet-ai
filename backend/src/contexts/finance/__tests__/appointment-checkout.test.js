@@ -30,6 +30,30 @@ test('zero is an explicit free appointment component while empty or negative pri
   expect((await s.execute(s.input, s.ctx)).transaction.total).toBe('0.00');
   s.input.items[0].unitPrice = ''; await expect(s.execute(s.input, s.ctx)).rejects.toThrow();
 });
+
+test('a deferred vaccination receives its first obligation only when Caja submits its actual price', async () => {
+  const s = setup(); s.repo.lockByAppointment.mockResolvedValue(null);
+  s.repo.findDeferredAppointment = jest.fn(async () => ({ id: 'appointment', userId: 'owner', petId: 'pet', staffId: 'vet', serviceId: 'vaccination' }));
+  s.repo.valueDeferredAppointment = jest.fn(); s.repo.createSystemCharge = jest.fn(async () => ({ ...s.charge, id: 'new-charge' }));
+  s.input.items = [s.input.items[0]];
+  const result = await s.execute(s.input, s.ctx);
+  expect(s.repo.valueDeferredAppointment).toHaveBeenCalledWith('tenant', 'appointment', 100000, s.ctx);
+  expect(s.repo.createSystemCharge).toHaveBeenCalledWith({ tenantId: 'tenant', appointmentId: 'appointment', total: '100000.00', paidAt: null }, s.ctx);
+  expect(s.repo.checkoutPending).toHaveBeenCalledWith('new-charge', expect.objectContaining({ paidAt: s.input.now }), s.ctx);
+  expect(result.deferredAppointment.staffId).toBe('vet');
+});
+
+test.each(['unvalued', 'wrong-owner', 'closed', 'transport'])('deferred checkout rejects %s before creating any obligation', async kind => {
+  const s = setup(); s.repo.lockByAppointment.mockResolvedValue(null);
+  s.repo.findDeferredAppointment = jest.fn(async () => ({ id: 'appointment', userId: 'owner', petId: 'pet' }));
+  s.repo.valueDeferredAppointment = jest.fn(); s.repo.createSystemCharge = jest.fn();
+  if (kind !== 'transport') s.input.items = [s.input.items[0]];
+  if (kind === 'unvalued') s.input.items[0].unitPrice = '';
+  if (kind === 'wrong-owner') s.input.command.userId = 'foreign';
+  if (kind === 'closed') s.close.findByDate.mockResolvedValue({ id: 'closed' });
+  await expect(s.execute(s.input, s.ctx)).rejects.toThrow();
+  expect(s.repo.createSystemCharge).not.toHaveBeenCalled(); expect(s.repo.valueDeferredAppointment).not.toHaveBeenCalled();
+});
 test('the existing immutable correction command is invoked only when the primary amount changes, in the payment transaction', async () => {
   const correction = jest.fn(); const ctx = { tx: {}, eventPublisher: {} };
   const execute = createCorrectCheckoutCommissionUseCase({ commissionRepository: { lockByAppointment: async () => ({ id: 'commission', resolvedPrice: 95000, completedAt: new Date() }) }, voidCommission: correction, businessDayGate: { acquire: jest.fn() } });

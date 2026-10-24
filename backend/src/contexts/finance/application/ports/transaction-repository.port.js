@@ -6,6 +6,13 @@
  * el pago una sola vez dentro de la transacción y gate del día.
  */
 class TransactionRepositoryPort {
+  // ADR 030: called only after lockByAppointment has serialized the visit.
+  async findDeferredAppointment(_tenantId, _appointmentId, _ctx) {
+    throw new Error('TransactionRepositoryPort.findDeferredAppointment no implementado');
+  }
+  async valueDeferredAppointment(_tenantId, _appointmentId, _servicePrice, _ctx) {
+    throw new Error('TransactionRepositoryPort.valueDeferredAppointment no implementado');
+  }
   async createSystemCharge(_data) {
     throw new Error("TransactionRepositoryPort.createSystemCharge no implementado");
   }

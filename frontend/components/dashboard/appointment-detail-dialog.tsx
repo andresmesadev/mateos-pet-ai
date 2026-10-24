@@ -25,6 +25,7 @@ import {
   getStatusTransitions,
   arrivalWindowExpired,
   statusBadgeClass,
+  isGroomingAppointment,
   type TodayAppointment,
 } from "@/lib/appointments";
 import { getPetEmoji } from "@/lib/pets";
@@ -64,7 +65,7 @@ function AppointmentDetailContent({ appointment, onClose, onUpdated, onDeleted, 
   const previousDayArrival = appointment.status === "arrived" && new Date(appointment.date).toLocaleDateString("en-CA", { timeZone: "America/Bogota" }) < new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
   const own = access?.capabilities.administration || !appointment.staffId || appointment.staffId === access?.staffId;
   const transitions = getStatusTransitions(appointment.status).filter(t => access?.capabilities.administration || (access?.role === "receptionist" ? ["confirmed", "arrived", "cancelled", "no_show"].includes(t.next) : own && ["arrived", "in_progress", "completed"].includes(t.next))).filter((transition) => (!graceExpired || !["confirmed", "arrived"].includes(transition.next)) && (!previousDayArrival || transition.next !== "in_progress"));
-  const canEditPrice = Boolean(access?.capabilities.appointmentPrice && own) && !readOnly && !["completed", "cancelled", "no_show"].includes(appointment.status);
+  const canEditPrice = isGroomingAppointment(appointment) && Boolean(access?.capabilities.appointmentPrice && own) && !readOnly && !["completed", "cancelled", "no_show"].includes(appointment.status);
   const groomingPrice = appointment.serviceCategory === 'grooming' || appointment.serviceType === 'grooming';
   const canSavePetPrice = Boolean(access?.capabilities.administration && appointment.petId && appointment.serviceId && !groomingPrice && (!appointment.transport || appointment.transport.mode === 'none'));
   const canRecord = access?.capabilities.clinical && own && VET_SERVICE_TYPES.includes(appointment.serviceType?.toLowerCase()) &&

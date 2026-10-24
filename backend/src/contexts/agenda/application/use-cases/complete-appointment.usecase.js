@@ -1,4 +1,5 @@
 const { canComplete } = require("../../domain/rules/status-transition.rules");
+const { isGroomingAppointment } = require('../../../../services/domain/price-resolver.service');
 const {
   AppointmentNotFoundError,
   InvalidStatusTransitionError,
@@ -8,8 +9,8 @@ const {
 /**
  * CompleteAppointmentUseCase — Operación (actor humano). Entregable Puente, caso 1.
  *
- * Invariante ADR 007-D4: una cita facturable no puede completarse sin precio
- * resuelto (el cero es un precio; el indeterminado no).
+ * ADR 030: solo peluquería exige precio resuelto antes de completar.
+ * Otras atenciones sin precio se valoran en Caja; null no significa cortesía.
  * Decisión de Etapa 2: la transición, la comisión (Staff) y el cobro (Finanzas)
  * ocurren en la MISMA transacción lógica — si un reactivo falla, la cita no
  * queda completada.
@@ -32,7 +33,7 @@ function createCompleteAppointmentUseCase({ appointmentRepository, priceResoluti
     if (appointment.transportMode === 'shared' && appointment.transportSharedWith?.status !== 'completed') throw new UnresolvedPriceError(appointmentId, 'Primero completa la cita que cobra el domicilio compartido.');
 
     let priceResolutionResult = priceResolution.resolve(appointment);
-    if (priceResolutionResult.finalPrice == null || priceResolutionResult.transportPending) {
+    if ((isGroomingAppointment(appointment) && priceResolutionResult.finalPrice == null) || priceResolutionResult.transportPending) {
       throw new UnresolvedPriceError(appointmentId);
     }
 
@@ -48,7 +49,7 @@ function createCompleteAppointmentUseCase({ appointmentRepository, priceResoluti
         if (!canComplete(appointment.status)) throw new InvalidStatusTransitionError(appointment.status, "completed");
         if (appointment.transportMode === 'shared' && appointment.transportSharedWith?.status !== 'completed') throw new UnresolvedPriceError(appointmentId, 'Primero completa la cita que cobra el domicilio compartido.');
         priceResolutionResult = priceResolution.resolve(appointment);
-        if (priceResolutionResult.finalPrice == null || priceResolutionResult.transportPending) throw new UnresolvedPriceError(appointmentId);
+        if ((isGroomingAppointment(appointment) && priceResolutionResult.finalPrice == null) || priceResolutionResult.transportPending) throw new UnresolvedPriceError(appointmentId);
       }
       // Freeze the amount used for the charge so future tariff edits do not
       // change the displayed price of this completed appointment.
@@ -71,6 +72,7 @@ function createCompleteAppointmentUseCase({ appointmentRepository, priceResoluti
           serviceType: appointment.serviceType ?? null,
           resolvedPrice: priceResolutionResult.finalPrice,
           priceSource: priceResolutionResult.source,
+          ...(priceResolutionResult.finalPrice == null ? { priceDeferred: true } : {}),
           ...(transportActive ? { totalPrice: priceResolutionResult.totalPrice, transportPrice: priceResolutionResult.transportPrice } : {}),
           completedAt: endedAt,
         },

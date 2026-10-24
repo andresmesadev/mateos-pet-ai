@@ -29,3 +29,5 @@ Se conservan los identificadores y archivos originales. Existen **dos ADR con n�
 | [025-carrito-unico-de-cita-y-comision-final.md](025-carrito-unico-de-cita-y-comision-final.md) | ADR 025 — Carrito único, valor final editable y corrección inmutable de comisión |
 
 Una fecha o estado en un ADR describe su aprobación. Para comprobar implementación/publicación posterior, consultar el [estado actual](../ESTADO_ACTUAL.md), los informes enlazados y las decisiones posteriores del mismo contexto.
+
+- [ADR 030 — Precio diferido fuera de peluquería](030-precio-diferido-servicios-no-peluqueria.md): finalizar la atención sin tarifa y valorarla en Caja.
