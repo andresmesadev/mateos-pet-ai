@@ -1,5 +1,14 @@
 # Estado actual del proyecto
 
+**24 de octubre — 2.57.1 publicada:** POS usa una búsqueda única de productos y
+servicios, abre cada cobro en Todos y permite confirmar la base de caja encima
+del total. Cinco jobs CI aprobados, 32 pruebas locales, lint/build correctos y
+salud HTTPS 200. Base, catálogos, Agenda y reportes verificados con lecturas.
+Respaldo cifrado y mismo PostgreSQL; huellas delimitadas de stock/cierre iguales.
+WhatsApp pausado. Ventana previa conservada con ocho muestras/cero fallos; nueva
+observación desde las 14:37 Colombia. Sin 48 horas certificadas.
+[Certificación y límites](history/RELEASE_2_57_1_VPS_20261024.md).
+
 **24 de octubre — 2.57.0 publicada:** vacunación permite cobrar productos sin
 imponer la línea fija del servicio; el cargo principal fuera de peluquería es
 opcional y editable antes de confirmar. CI aprobado, 219 suites/1.850 tests,

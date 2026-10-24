@@ -1,5 +1,11 @@
 # Beta cerrada de la veterinaria propia — estado al 22 de octubre de 2026
 
+**Publicación posterior — 24/10, 14:37:** [2.57.1](../history/RELEASE_2_57_1_VPS_20261024.md)
+publicada: búsqueda única y base de caja visible al cobrar. CI, salud, catálogos,
+base y reportes correctos; ninguna operación financiera de prueba en producción.
+Ventana 2.57.0 preservada con ocho muestras/cero fallos; nueva observación sin
+certificar 48 horas. Se conservan avances y pendientes de los diez ítems.
+
 **Publicación posterior — 24/10, 13:57:** [2.57.0](../history/RELEASE_2_57_0_VPS_20261024.md)
 publicada: cobro de vacunación por productos y cargo principal opcional fuera
 de peluquería. CI, salud y lecturas operativas correctas, sin pagos ficticios

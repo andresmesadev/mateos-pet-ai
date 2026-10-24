@@ -30,4 +30,5 @@
   verificación el tipo nullable del establecimiento al pasar la propiedad.
 - Revisión visual en navegador pendiente: su uso está deshabilitado en esta
   sesión. No se guardó ni alteró ninguna base, venta o pago real.
-- Preparado localmente; sin commit, push ni despliegue de este lote.
+- Publicado posteriormente con autorización del responsable en
+  [2.57.1](../history/RELEASE_2_57_1_VPS_20261024.md).

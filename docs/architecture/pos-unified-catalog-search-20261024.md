@@ -35,4 +35,5 @@ No cambia reglas de dominio, precios, stock, pagos ni permisos.
 - Revisión visual e interacción en navegador pendientes: el uso del navegador
   local está deshabilitado en esta sesión. No se ejecutó el escenario de cierre
   de caja; se actualizó únicamente su selector del buscador reemplazado.
-- Sin operaciones sobre datos reales, commit, push ni despliegue en este lote.
+- Sin operaciones sobre datos reales en estos ensayos. Publicado posteriormente
+  con autorización en [2.57.1](../history/RELEASE_2_57_1_VPS_20261024.md).
