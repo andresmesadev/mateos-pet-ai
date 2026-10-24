@@ -1,5 +1,12 @@
 # Beta cerrada de la veterinaria propia — estado al 22 de octubre de 2026
 
+**Publicación posterior — 24/10, 12:14:** [2.56.0](../history/RELEASE_2_56_0_VPS_20261024.md)
+publicada: precio pendiente fuera de peluquería hasta Caja y parche de
+body-parser. CI y salud correctos; misma BD, sin operaciones financieras
+de prueba en producción. Ventana anterior conservada con 266 muestras/un fallo;
+nueva observación desde las 12:14:56 Colombia, sin 48 horas certificadas.
+Se conservan los avances operativos y pendientes de los diez ítems.
+
 **Publicación posterior — 23/10, 14:04:** [2.55.2](../history/RELEASE_2_55_2_VPS_20261023.md)
 publicada con paginación de diez citas y canceladas ocultas del calendario.
 La ventana posterior al mantenimiento de Ubuntu quedó conservada con 21 muestras

@@ -1,5 +1,15 @@
 # Estado actual del proyecto
 
+**24 de octubre — 2.56.0 publicada:** Solo Peluquería exige precio para finalizar;
+consulta, vacunación y otros servicios sin tarifa se valoran en Registrar pago.
+Se corrigió la aplicación de la tarifa habitual de peluquería a otras áreas y
+se instaló body-parser 2.4.0 tras el bloqueo de auditoría del primer CI. Cinco
+jobs CI aprobados, 219 suites/1.842 tests, salud HTTPS 200 y lecturas de
+Agenda/Caja/reportes correctas. Respaldo cifrado, 65 migraciones y PostgreSQL
+conservados; WhatsApp pausado. Nueva observación desde las 12:14:56 Colombia;
+la anterior se conserva con 266 muestras y un fallo. No se certifican 48 horas.
+[Certificación y límites](history/RELEASE_2_56_0_VPS_20261024.md).
+
 **23 de octubre — 2.55.2 publicada:** Inicio muestra hasta diez citas por
 página con navegación; las canceladas se ocultan de Inicio y de las vistas
 del calendario, conservando historial. Cinco jobs CI, 217 suites/1.822 tests

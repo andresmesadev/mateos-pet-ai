@@ -1,5 +1,11 @@
 # Operación real desde el 19/10 y continuidad de la observación
 
+**Continuación — 24/10:** publicada [2.56.0](../history/RELEASE_2_56_0_VPS_20261024.md),
+con nueva ventana `ventana-2.56.0-20261024T171456Z` desde las 12:14:56 Colombia.
+La de 2.55.2 queda conservada con 266 muestras y un fallo previo; no se declara
+resuelto ni se suman ventanas para certificar 48 horas. El uso real iniciado
+el 19/10 y los avances operativos se conservan.
+
 **Continuación — 23/10:** el [mantenimiento de Ubuntu](VPS_OS_MAINTENANCE_RESULT_20261023.md)
 se completó y la serie aquí descrita se detuvo expresamente. Terminó con
 203 muestras y tres timeouts de salud anteriores al mantenimiento. Nueva

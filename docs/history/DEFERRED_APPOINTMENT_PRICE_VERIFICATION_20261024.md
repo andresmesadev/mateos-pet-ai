@@ -1,6 +1,7 @@
 # Verificación — precio pendiente fuera de peluquería
 
 24/10/2026. Implementación local de [ADR 030](../decisions/030-precio-diferido-servicios-no-peluqueria.md).
+Publicación posterior: [2.56.0 en VPS](RELEASE_2_56_0_VPS_20261024.md).
 Verificación previa a publicar; producción en este corte continúa en 2.55.2.
 El responsable autorizó despliegue posteriormente en esta sesión. El lote se
 versiona 2.56.0 por la nueva separación entre finalizar atención y valorar en
