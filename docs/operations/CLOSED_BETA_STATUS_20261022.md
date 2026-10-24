@@ -1,5 +1,11 @@
 # Beta cerrada de la veterinaria propia — estado al 22 de octubre de 2026
 
+**Publicación posterior — 24/10, 16:20:** [2.58.0](../history/RELEASE_2_58_0_VPS_20261024.md)
+publicada: efectivo + transferencia en un cobro, base compacta y recuperación de
+sesiones revocadas. CI y lecturas operativas correctas, migración aditiva y
+stock/cierre histórico conservados. No se generaron pagos de prueba en producción.
+Observación nueva sin certificar 48 horas; los diez ítems conservan sus pendientes.
+
 **Publicación posterior — 24/10, 14:37:** [2.57.1](../history/RELEASE_2_57_1_VPS_20261024.md)
 publicada: búsqueda única y base de caja visible al cobrar. CI, salud, catálogos,
 base y reportes correctos; ninguna operación financiera de prueba en producción.

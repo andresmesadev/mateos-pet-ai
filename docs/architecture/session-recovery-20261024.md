@@ -44,4 +44,6 @@ automatiza el cierre por caídas de red. El usuario conserva una acción explíc
   TypeScript correcto, `Generating static pages (33/33)`, salida 0.
 - Sin cambios de backend, credenciales, datos del centro ni cookies manuales.
   Revisión visual en navegador pendiente por estar deshabilitado en esta sesión.
-  Corrección preparada localmente, todavía sin commit, push ni despliegue.
+  Publicada en 2.58.0 el 24/10 a las 16:20 Colombia: recuperación pública GET 200,
+  credencial revocada 403, artefactos compilados comprobados. No se cerró sesión
+  alguna para ensayar. [Certificación](../history/RELEASE_2_58_0_VPS_20261024.md).

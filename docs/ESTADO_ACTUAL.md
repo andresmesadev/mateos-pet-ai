@@ -1,5 +1,14 @@
 # Estado actual del proyecto
 
+**24 de octubre — 2.58.0 publicada:** un cobro admite efectivo + transferencia;
+Caja y reportes distribuyen ambos importes. Base compacta de lectura al cobrar
+y recuperación pública de sesiones revocadas. Cinco jobs CI aprobados, 220
+suites/1.865 tests backend, 197 auxiliares e integración PostgreSQL correctos.
+Salud HTTPS 200, 66 migraciones, mismo PostgreSQL y huellas de stock/cierre
+conservadas. WhatsApp pausado. Nueva observación desde las 16:20 Colombia;
+la anterior queda preservada con 21 muestras/cero fallos, sin certificar 48 horas.
+[Certificación y límites](history/RELEASE_2_58_0_VPS_20261024.md).
+
 **24 de octubre — 2.57.1 publicada:** POS usa una búsqueda única de productos y
 servicios, abre cada cobro en Todos y permite confirmar la base de caja encima
 del total. Cinco jobs CI aprobados, 32 pruebas locales, lint/build correctos y

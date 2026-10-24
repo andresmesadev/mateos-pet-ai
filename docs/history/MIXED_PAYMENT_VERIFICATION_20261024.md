@@ -74,9 +74,9 @@ de inventario nuevas con pago mixto. El workflow de stock no cambió.
 
 ## Publicación posterior
 
-El versionado se evaluó como capacidad funcional nueva para una siguiente
-versión menor; el bump/tag se realizará con la publicación autorizada. Este
-documento no certifica despliegue ni estabilidad de esta variante en producción.
-Aplicar primero la migración aditiva. Después de recibir pagos mixtos, una
+Publicada como capacidad funcional nueva en la versión menor **2.58.0**, el
+24/10 a las 16:20 Colombia. Migración aditiva aplicada (66 migraciones), CI y
+lecturas de producción correctos. [Certificación](RELEASE_2_58_0_VPS_20261024.md).
+No se certifican 48 horas ni una venta mixta real todavía. Después de recibir pagos mixtos, una
 reversión debe conservar soporte de lectura del reparto: no borrar columnas,
 restaurar una base antigua ni reasignar los importes a un solo medio.
