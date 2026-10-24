@@ -55,3 +55,15 @@ usa comandos reales y un adaptador transaccional en memoria: **no certifica la
 concurrencia de PostgreSQL**. Docker local no estaba ejecutándose, por lo que
 no se ejecutó ese ensayo ni se conectaron pruebas a producción. Tampoco se
 certifica una revisión visual de navegador en esta sesión.
+
+## Bloqueo de seguridad resuelto antes del despliegue
+
+El primer CI del lote (commit `00fcf87`) detuvo el job test en npm audit,
+antes de ejecutar Jest: `body-parser@2.3.0`, dependencia transitiva de Express,
+estaba afectado por [GHSA-27r3-jxmh-p828](https://github.com/advisories/GHSA-27r3-jxmh-p828)
+(aviso publicado el 22/10 y actualizado el 23/10). Los otros cuatro jobs pasaron.
+Se actualizó dentro del rango compatible a body-parser 2.4.0, con sus mínimos
+transitivos iconv-lite 0.7.3 y qs 6.16.1; Express permanece en 5.2.1.
+`npm --prefix backend audit --omit=dev --audit-level=high`: found 0 vulnerabilities.
+El cambio de dependencias se valida de nuevo antes de publicar. No se ejecutó
+la carga de prueba del aviso contra producción.
