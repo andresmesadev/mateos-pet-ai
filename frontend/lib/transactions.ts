@@ -1,10 +1,12 @@
-export type PaymentMethod = "cash" | "transfer" | "card" | "other";
+export type SinglePaymentMethod = "cash" | "transfer" | "card" | "other";
+export type PaymentMethod = SinglePaymentMethod | "mixed";
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   cash:     "Efectivo",
   transfer: "Transferencia",
   card:     "Tarjeta",
   other:    "Otro",
+  mixed:    "Efectivo + transferencia",
 };
 
 export const PAYMENT_METHOD_ICONS: Record<PaymentMethod, string> = {
@@ -12,6 +14,7 @@ export const PAYMENT_METHOD_ICONS: Record<PaymentMethod, string> = {
   transfer: "🏦",
   card:     "💳",
   other:    "🔖",
+  mixed:    "💵 + 🏦",
 };
 
 export type TransactionItem = {
@@ -46,6 +49,8 @@ export type Transaction = {
   voidReason?: string | null;
   total: number;
   paymentMethod: PaymentMethod;
+  cashAmount?: number | null;
+  transferAmount?: number | null;
   recordedBy?: { id: string; name: string | null; role: string | null } | null;
   notes: string | null;
   paidAt: string | null;

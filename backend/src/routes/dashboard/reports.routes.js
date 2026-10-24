@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const prisma = require("../../lib/prisma");
+const { paymentShares } = require('../../contexts/finance/domain/payment-allocation');
 const { commissionReserve } = require('../../contexts/finance/domain/rules/financial-summary.rules');
 const { bogotaMonthBounds, currentBogotaYearMonth, readReportPeriod, readReportYear, dateRange, cents, metric } = require('./report-period');
 
@@ -140,7 +141,7 @@ router.get('/reports/breakdown', async (req, res) => {
       _sum: { total: true, quantity: true }, _count: { _all: true },
     });
     const [groups, pending, total, products, services, unclassified] = await prisma.$transaction([
-      prisma.transaction.groupBy({ by: ['paymentMethod'], where: { ...scope, NOT: review }, _sum: { total: true }, _count: { _all: true } }),
+      prisma.transaction.groupBy({ by: ['paymentMethod'], where: { ...scope, NOT: review }, _sum: { total: true, cashAmount: true, transferAmount: true }, _count: { _all: true } }),
       prisma.transaction.aggregate({ where: { ...scope, ...review }, _sum: { total: true }, _count: { _all: true } }),
       prisma.transaction.aggregate({ where: scope, _sum: { total: true }, _count: { _all: true } }),
       itemAggregate({ OR: [{ itemKind: 'product' }, { productId: { not: null } }] }),
@@ -149,13 +150,16 @@ router.get('/reports/breakdown', async (req, res) => {
     ], { isolationLevel: 'RepeatableRead' });
     const byMethod = new Map(['cash', 'transfer', 'card', 'other', 'review', 'unclassified'].map(method => [method, { method, count: 0, total: 0 }]));
     for (const group of groups) {
-      const bucket = byMethod.get(group.paymentMethod) ?? byMethod.get('unclassified');
-      bucket.count += group._count._all; bucket.total = (cents(bucket.total) + cents(group._sum.total)) / 100;
+      for (const part of paymentShares({ paymentMethod: group.paymentMethod, ...group._sum })) {
+        const bucket = byMethod.get(part.method) ?? byMethod.get('unclassified');
+        bucket.count += group._count._all; bucket.total = (cents(bucket.total) + cents(part.amount)) / 100;
+      }
     }
     byMethod.get('review').count = pending._count._all;
     byMethod.get('review').total = Number(pending._sum.total ?? 0);
     const byKind = [['product', products], ['service', services], ['unclassified', unclassified]].map(([kind, result]) => ({ kind, total: Number(result._sum.total ?? 0), quantity: result._sum.quantity ?? 0, lines: result._count._all }));
     res.json({ ...req.reportPeriod.metadata, total: Number(total._sum.total ?? 0), count: total._count._all,
+      mixedCount: groups.filter(group => group.paymentMethod === 'mixed').reduce((sum, group) => sum + group._count._all, 0),
       byMethod: [...byMethod.values()], byKind,
       unallocatedTotal: (cents(total._sum.total) - byKind.reduce((sum, row) => sum + cents(row.total), 0)) / 100,
     });

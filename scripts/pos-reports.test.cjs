@@ -34,6 +34,14 @@ test('desglose reconcilia centavos, cantidades y diferencias sin atribuirlas a s
   assert.equal(parseBreakdown({ ...breakdown, byKind: breakdown.byKind.map(row => ({ ...row, total: row.kind === 'product' ? 0.4 : 0 })), unallocatedTotal: -0.1 }).unallocatedTotal, -0.1);
   for (const row of [{ ...breakdown, total: 0.4 }, { ...breakdown, count: 3 }, { ...breakdown, unallocatedTotal: 0 }, { ...breakdown, byMethod: breakdown.byMethod.map(entry => ({ ...entry, method: 'cash' })) }, { ...breakdown, byKind: [] }]) assert.throws(() => parseBreakdown(row));
 });
+
+test('mixed receipt counts once globally and once in each confirmed method', () => {
+  const mixed = { ...breakdown, count: 1, mixedCount: 1 };
+  assert.equal(parseBreakdown(mixed).count, 1);
+  assert.throws(() => parseBreakdown({ ...mixed, mixedCount: 0 }));
+  assert.throws(() => parseBreakdown({ ...mixed, mixedCount: -1 }));
+  assert.throws(() => parseBreakdown({ ...mixed, mixedCount: 2 }));
+});
 test('ranking y actividad rechazan datos incompletos, sin inventar retención', () => {
   assert.equal(parseServices([{ name: '__proto__', count: 2 }])[0].count, 2);
   assert.equal(parseServices([]).length, 0); assert.throws(() => parseServices([{ name: 'Baño', count: -1 }]));

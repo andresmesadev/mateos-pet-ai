@@ -72,11 +72,13 @@ class PrismaTransactionRepository extends TransactionRepositoryPort {
   }
 
   // ADR 007-D3(a): el POS liquida el cobro de sistema — nunca su monto.
-  async settle(transactionId, { paymentMethod, notes, recordedBy, paidAt }, ctx) {
+  async settle(transactionId, { paymentMethod, cashAmount, transferAmount, notes, recordedBy, paidAt }, ctx) {
     return (ctx?.tx ?? prisma).transaction.update({
       where: { id: transactionId },
       data: {
         ...(paymentMethod !== undefined ? { paymentMethod } : {}),
+        ...(cashAmount !== undefined ? { cashAmount } : {}),
+        ...(transferAmount !== undefined ? { transferAmount } : {}),
         ...(notes !== undefined ? { notes } : {}),
         ...(paidAt !== undefined ? { paidAt } : {}),
         ...(recordedBy ? { recordedActorId: recordedBy.id, recordedActorName: recordedBy.name, recordedActorRole: recordedBy.role } : {}),

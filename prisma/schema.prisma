@@ -1268,7 +1268,7 @@ model AgendaException {
 }
 
 // ── POS / Facturación (TAREA 17) ──────────────────────────────
-// paymentMethod: "cash" | "transfer" | "card" | "other"
+// paymentMethod: "cash" | "transfer" | "card" | "other" | "mixed"
 model Transaction {
   id            String   @id @default(cuid())
   tenantId      String?
@@ -1282,6 +1282,8 @@ model Transaction {
 
   total         Decimal  @db.Decimal(10, 2)
   paymentMethod String   @default("cash")
+  cashAmount    Decimal? @db.Decimal(10, 2) // Only mixed payments; sum must equal total.
+  transferAmount Decimal? @db.Decimal(10, 2)
   recordedActorId String?
   recordedActorName String?
   recordedActorRole String?

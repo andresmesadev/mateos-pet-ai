@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const prisma = require("../../lib/prisma");
+const { paymentTotals } = require('../../contexts/finance/domain/payment-allocation');
 const { HistoryQueryError, readHistoryQuery, readFinancialHistoryPage } = require("./financial-history-page");
 const { getBogotaYmd, bogotaDayStart } = require("./shared");
 const { registerExpense, voidExpense } = require("../../contexts/finance");
@@ -176,13 +177,7 @@ router.get("/metrics/cashbox", async (req, res) => {
     const totalIncome = transactions.reduce((s, t) => s + Number(t.total), 0);
     const totalExpenses = expenses.reduce((s, e) => s + Number(e.amount), 0);
 
-    const incomeByMethod = {};
-    for (const tx of transactions) {
-      const m = tx.paymentMethod;
-      if (!incomeByMethod[m]) incomeByMethod[m] = { method: m, count: 0, total: 0 };
-      incomeByMethod[m].count++;
-      incomeByMethod[m].total += Number(tx.total);
-    }
+    const incomeByMethod = paymentTotals(transactions);
 
     const expensesByCategory = {};
     for (const e of expenses) {
@@ -199,7 +194,7 @@ router.get("/metrics/cashbox", async (req, res) => {
       netBalance: Math.round(totalIncome - totalExpenses),
       transactionCount: transactions.length,
       expenseCount: expenses.length,
-      incomeByMethod: Object.values(incomeByMethod),
+      incomeByMethod,
       expensesByCategory: Object.values(expensesByCategory),
       transactions: transactions.map((t) => ({
         id: t.id,
@@ -208,6 +203,8 @@ router.get("/metrics/cashbox", async (req, res) => {
         petType: t.pet?.type ?? null,
         total: Number(t.total),
         paymentMethod: t.paymentMethod,
+        cashAmount: t.cashAmount == null ? null : Number(t.cashAmount),
+        transferAmount: t.transferAmount == null ? null : Number(t.transferAmount),
         notes: t.notes ?? null,
         paidAt: t.paidAt.toISOString(),
         items: (t.items ?? []).map((i) => ({

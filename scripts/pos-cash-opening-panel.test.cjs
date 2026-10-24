@@ -37,20 +37,17 @@ function panel({ state = opening, amount = '212000', allowed = true, layout = 'c
 
 test('checkout base is visible without nesting a form or adding a sale submit button', () => {
   const view = panel();
-  assert.match(view.html, /Dinero base de caja/);
-  assert.match(view.html, /24\/10\/2026/);
-  assert.match(view.html, /Base guardada: \$ 212000/);
+  assert.match(view.html, /Base de caja/);
+  assert.match(view.html, /\$ 212000/);
   assert.equal(view.form, undefined);
-  assert.equal(view.button.props.type, 'button');
+  assert.equal(view.input, undefined);
+  assert.equal(view.button, undefined);
   assert.equal(view.requests.length, 0);
 });
 
-test('Enter in checkout base stops propagation and saves only the scoped daily opening', async () => {
-  const view = panel({ amount: '213000' });
-  let prevented = false, stopped = false;
-  view.input.props.onKeyDown({ key: 'Enter', preventDefault() { prevented = true; }, stopPropagation() { stopped = true; } });
-  await new Promise(resolve => setImmediate(resolve));
-  assert.equal(prevented, true); assert.equal(stopped, true);
+test('the standalone Caja form saves only the scoped daily opening', async () => {
+  const view = panel({ amount: '213000', layout: 'full' });
+  await view.form.props.onSubmit({ preventDefault() {} });
   assert.equal(view.requests.length, 1);
   assert.match(view.requests[0].url, /cash\/opening\?date=2026-10-24&tenantId=tenant-a$/);
   assert.equal(view.requests[0].options.method, 'PUT');
@@ -69,16 +66,16 @@ test('Caja diaria retains its standalone form and confirms a valid zero base', a
 
 test('opening controls retain administration and closed-day restrictions and respect checkout lock', async () => {
   assert.equal(panel({ allowed: false }).html, '');
-  const closed = panel({ state: { ...opening, closed: true, openingCashAmount: 212000, retainedCashAmount: 200000 } });
+  const closed = panel({ layout: 'full', state: { ...opening, closed: true, openingCashAmount: 212000, retainedCashAmount: 200000 } });
   assert.equal(closed.input, undefined); assert.equal(closed.button, undefined);
   assert.match(closed.html, /Efectivo dejado para la siguiente jornada/);
-  const locked = panel({ disabled: true });
+  const locked = panel({ layout: 'full', disabled: true });
   assert.equal(locked.input.props.disabled, true); assert.equal(locked.button.props.disabled, true);
-  locked.button.props.onClick();
+  await locked.form.props.onSubmit({ preventDefault() {} });
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(locked.requests.length, 0);
   for (const amount of ['', '-1', '1.001']) {
-    const invalid = panel({ amount }); invalid.button.props.onClick();
+    const invalid = panel({ amount, layout: 'full' }); await invalid.form.props.onSubmit({ preventDefault() {} });
     await new Promise(resolve => setImmediate(resolve)); assert.equal(invalid.requests.length, 0);
   }
 });

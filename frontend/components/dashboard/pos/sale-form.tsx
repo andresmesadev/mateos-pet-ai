@@ -16,18 +16,21 @@ import { addCheckoutLine, canRemoveCheckoutLine, clearCheckoutLines, catalogueLi
 import { ReceiptDialog } from "./sale-receipt";
 import { SaleCatalog } from "./sale-catalog";
 import { CashOpeningPanel } from './cash-opening-panel';
+import { MixedPaymentFields } from './mixed-payment-fields';
+import { mixedPaymentIssue } from '@/lib/pos-checkout';
 import { ServiceProfessional } from './service-professional';
 import { draftKey, readStoredDraft, writeStoredDraft, removeStoredDraft, type SaleDraft } from "@/lib/pos-draft";
 import type { InventoryProduct } from "@/lib/inventory";
 
 type ClientResult = { id: string; name: string | null; phone: string; pets: { id: string; name: string; type: string }[] };
 export type AppointmentCheckout = { appointmentId: string; transactionId: string | null; client: ClientResult; petId: string; lines: CheckoutLine[]; canAddTransport?: boolean; requiresServiceLine?: boolean; serviceLine?: CheckoutLine };
-const METHODS = [{ value: "cash", icon: Banknote }, { value: "transfer", icon: Landmark }, { value: "card", icon: CreditCard }, { value: "other", icon: Wallet }] as const;
+const METHODS = [{ value: "cash", icon: Banknote }, { value: "transfer", icon: Landmark }, { value: "card", icon: CreditCard }, { value: "other", icon: Wallet }, { value: 'mixed', icon: Wallet }] as const;
 const PAYMENT_GUIDANCE: Record<PaymentMethod, { label: string; placeholder: string; hint: string }> = {
   cash: { label: "Nota del cobro", placeholder: "Observación de esta venta", hint: "Revisa el efectivo recibido y entrega el cambio indicado." },
   transfer: { label: "Referencia de la transferencia", placeholder: "Ej. Banco y número de referencia", hint: "Verifica el abono en la cuenta del negocio antes de confirmar." },
   card: { label: "Referencia del comprobante", placeholder: "Ej. Número de autorización o comprobante", hint: "Confirma que el datáfono aprobó el pago. No ingreses datos de la tarjeta." },
   other: { label: "Detalle del pago", placeholder: "Ej. Medio utilizado y referencia", hint: "Verifica que recibiste el valor completo y describe el medio utilizado." },
+  mixed: { label: 'Referencia de la transferencia', placeholder: 'Ej. Banco y referencia', hint: 'Confirma ambas partes; el cambio se calcula solo sobre el efectivo.' },
 };
 const newLine = (itemKind: CheckoutLine["itemKind"]): CheckoutLine => ({ id: crypto.randomUUID(), description: "", quantity: "1", unitPrice: "", itemKind });
 
@@ -94,6 +97,7 @@ export function SaleForm({ draftScope, appointment, cashDate }: { draftScope: st
   const [lines, setLines] = useState<CheckoutLine[]>(appointment?.lines ?? []);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [received, setReceived] = useState("");
+  const [cashAmount, setCashAmount] = useState(''), [transferAmount, setTransferAmount] = useState('');
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -123,7 +127,7 @@ export function SaleForm({ draftScope, appointment, cashDate }: { draftScope: st
   function persist(stage: SaleDraft["stage"]) {
     if (!draftScope) return false;
     try {
-      const draft: SaleDraft = { version: 1, scope: draftScope, updatedAt: Date.now(), stage, lines, client, petId, paymentMethod, received, notes, ...(operationKey.current ? { operationKey: operationKey.current, ...(operationBody.current ? { operationBody: operationBody.current } : {}) } : {}) };
+      const draft: SaleDraft = { version: 1, scope: draftScope, updatedAt: Date.now(), stage, lines, client, petId, paymentMethod, cashAmount, transferAmount, received, notes, ...(operationKey.current ? { operationKey: operationKey.current, ...(operationBody.current ? { operationBody: operationBody.current } : {}) } : {}) };
       writeStoredDraft(sessionStorage, localStorage, draft);
       return true;
     } catch (cause) { storageFailed.current = true; setDraftNotice(cause instanceof Error ? cause.message : "Tu navegador no permite conservar esta venta. Habilita el almacenamiento antes de cobrar."); return false; }
@@ -138,7 +142,7 @@ export function SaleForm({ draftScope, appointment, cashDate }: { draftScope: st
             operationKey.current = restored.operationKey ?? null;
             operationBody.current = restored.operationBody ?? null;
             setCanRecover(!!restored.operationKey);
-            setLines(appointmentSale && restored.stage === 'preparing' && !restored.operationKey ? withoutEmptyTransport(restored.lines) : restored.lines); setClient(restored.client); setPetId(restored.petId); setPaymentMethod(restored.paymentMethod); setReceived(restored.received); setNotes(restored.notes); setGeneration(value => value + 1);
+            setLines(appointmentSale && restored.stage === 'preparing' && !restored.operationKey ? withoutEmptyTransport(restored.lines) : restored.lines); setClient(restored.client); setPetId(restored.petId); setPaymentMethod(restored.paymentMethod); setCashAmount(restored.cashAmount ?? ''); setTransferAmount(restored.transferAmount ?? ''); setReceived(restored.received); setNotes(restored.notes); setGeneration(value => value + 1);
             setDraftNotice("Recuperamos la venta que dejaste en preparación.");
             if (restored.stage === "verify") { setUncertain(true); setError(restored.operationKey ? "Este cobro se estaba enviando. Consulta su resultado o reintenta la misma venta." : "Este cobro anterior no conserva una clave de recuperación. Compruébalo en Caja antes de descartarlo."); }
           } else sessionStorage.removeItem(key);
@@ -152,9 +156,9 @@ export function SaleForm({ draftScope, appointment, cashDate }: { draftScope: st
     if (!draftReady || !draftScope || transaction || storageFailed.current) return;
     try {
       if (!lines.length && !client && !notes && !uncertain && !saving) sessionStorage.removeItem(draftKey(draftScope));
-      else writeStoredDraft(sessionStorage, localStorage, { version: 1, scope: draftScope, updatedAt: Date.now(), stage: uncertain || saving ? "verify" : "preparing", lines, client, petId, paymentMethod, received, notes, ...(operationKey.current ? { operationKey: operationKey.current, ...(operationBody.current ? { operationBody: operationBody.current } : {}) } : {}) } satisfies SaleDraft);
+      else writeStoredDraft(sessionStorage, localStorage, { version: 1, scope: draftScope, updatedAt: Date.now(), stage: uncertain || saving ? "verify" : "preparing", lines, client, petId, paymentMethod, cashAmount, transferAmount, received, notes, ...(operationKey.current ? { operationKey: operationKey.current, ...(operationBody.current ? { operationBody: operationBody.current } : {}) } : {}) } satisfies SaleDraft);
     } catch { storageFailed.current = true; queueMicrotask(() => setDraftNotice("Tu navegador no permite conservar esta venta al salir.")); }
-  }, [draftReady, draftScope, transaction, lines, client, petId, paymentMethod, received, notes, uncertain, saving]);
+  }, [draftReady, draftScope, transaction, lines, client, petId, paymentMethod, cashAmount, transferAmount, received, notes, uncertain, saving]);
   const productIds = JSON.stringify([...new Set(lines.flatMap(line => line.productId ? [line.productId] : []))].sort());
   useEffect(() => {
     if (uncertain || transaction || productIds === "[]") return;
@@ -175,7 +179,9 @@ export function SaleForm({ draftScope, appointment, cashDate }: { draftScope: st
     return [line.id, local || status?.error || (status?.product ? catalogueLineIssue(line, status.product, quantities[status.product.id] ?? 0) : null)];
   }));
   const totalCents = lines.reduce((total, line) => total + lineTotalCents(line), 0);
-  const change = cashChange(totalCents, received);
+  const cashDueCents = paymentMethod === 'mixed' ? moneyInCents(cashAmount) ?? 0 : totalCents;
+  const usesCash = paymentMethod === 'cash' || paymentMethod === 'mixed';
+  const change = cashChange(cashDueCents, received);
   const selectedPet = client?.pets.find(pet => pet.id === petId);
   const paymentGuidance = PAYMENT_GUIDANCE[paymentMethod];
   const units = lines.reduce((total, line) => total + (/^\d+$/.test(line.quantity) && Number.isSafeInteger(Number(line.quantity)) ? Number(line.quantity) : 0), 0);
@@ -240,14 +246,15 @@ export function SaleForm({ draftScope, appointment, cashDate }: { draftScope: st
       event.preventDefault();
     }
   }
-  function reset() { if (appointment) { if (draftScope) removeStoredDraft(sessionStorage, localStorage, draftScope); router.push(`/dashboard/pos?tab=venta${tenant ? '&tenant=' + encodeURIComponent(tenant) : ''}`); return; } operationKey.current = null; operationBody.current = null; setCanRecover(false); setLines([]); setClient(null); setPetId(""); setReceived(""); setNotes(""); setPaymentMethod("cash"); setError(""); setUncertain(false); setTransaction(null); setReceiptOpen(false); setClearOpen(false); setCatalogue({}); setCatalogTab('all'); setValidationShown(false); setCartNotice(""); setEditingLineId(null); setGeneration(value => value + 1); }
+  function reset() { setCashAmount(''); setTransferAmount(''); if (appointment) { if (draftScope) removeStoredDraft(sessionStorage, localStorage, draftScope); router.push(`/dashboard/pos?tab=venta${tenant ? '&tenant=' + encodeURIComponent(tenant) : ''}`); return; } operationKey.current = null; operationBody.current = null; setCanRecover(false); setLines([]); setClient(null); setPetId(""); setReceived(""); setNotes(""); setPaymentMethod("cash"); setError(""); setUncertain(false); setTransaction(null); setReceiptOpen(false); setClearOpen(false); setCatalogue({}); setCatalogTab('all'); setValidationShown(false); setCartNotice(""); setEditingLineId(null); setGeneration(value => value + 1); }
   async function submit(event?: React.FormEvent) {
     event?.preventDefault();
     if (inFlight.current || checking || updating || (uncertain && !operationKey.current) || !access) return;
     setValidationShown(true);
     const issue = validateCheckout(lines, access.capabilities);
     if (issue) { setError(issue); return; }
-    if (paymentMethod === "cash" && (!change || change.missing > 0)) { setError("Ingresa el efectivo recibido. Debe cubrir el total de la venta."); return; }
+    if (paymentMethod === 'mixed') { const issue = mixedPaymentIssue(totalCents, cashAmount, transferAmount); if (issue) { setError(issue); return; } }
+    if (usesCash && (!change || change.missing > 0)) { setError("Ingresa el efectivo recibido. Debe cubrir la parte en efectivo de la venta."); return; }
     const retry = !!operationKey.current;
     // A retry uses its frozen body; never preflight an already committed uncertain sale.
     if (!retry && productIds !== "[]") {
@@ -261,7 +268,7 @@ export function SaleForm({ draftScope, appointment, cashDate }: { draftScope: st
       } finally { inFlight.current = false; setChecking(false); }
     }
     operationKey.current ??= crypto.randomUUID();
-    operationBody.current ??= JSON.stringify({ ...(appointment ? { appointmentCheckout: true, appointmentId: appointment.appointmentId } : {}), userId: client?.id ?? null, petId: petId || null, paymentMethod, notes: notes.trim() || null, items: (retry ? lines : withoutEmptyTransport(lines)).map(line => ({ description: line.description.trim(), itemKind: line.itemKind, quantity: Number(line.quantity), unitPrice: moneyInCents(line.unitPrice)! / 100, ...(line.appointmentComponent ? { appointmentComponent: line.appointmentComponent } : {}), ...(line.serviceId ? { serviceId: line.serviceId, performedByStaffId: line.performedByStaffId || null } : {}), ...(line.productId ? { productId:line.productId, priceVersion:line.priceVersion } : {}) })) });
+    operationBody.current ??= JSON.stringify({ ...(appointment ? { appointmentCheckout: true, appointmentId: appointment.appointmentId } : {}), userId: client?.id ?? null, petId: petId || null, paymentMethod, ...(paymentMethod === 'mixed' ? { cashAmount: moneyInCents(cashAmount)! / 100, transferAmount: moneyInCents(transferAmount)! / 100 } : {}), notes: notes.trim() || null, items: (retry ? lines : withoutEmptyTransport(lines)).map(line => ({ description: line.description.trim(), itemKind: line.itemKind, quantity: Number(line.quantity), unitPrice: moneyInCents(line.unitPrice)! / 100, ...(line.appointmentComponent ? { appointmentComponent: line.appointmentComponent } : {}), ...(line.serviceId ? { serviceId: line.serviceId, performedByStaffId: line.performedByStaffId || null } : {}), ...(line.productId ? { productId:line.productId, priceVersion:line.priceVersion } : {}) })) });
     setCanRecover(true);
     if (!persist("verify")) { setError("No se pudo conservar la clave de esta venta. Habilita el almacenamiento del navegador antes de cobrar."); return; }
     inFlight.current = true; setSaving(true); setError("");
@@ -300,9 +307,9 @@ export function SaleForm({ draftScope, appointment, cashDate }: { draftScope: st
   }
   if (!draftReady) return <p role="status" className="rounded-xl border bg-white p-6">Preparando la venta…</p>;
   if (transaction) return <section className="mx-auto max-w-2xl overflow-hidden rounded-2xl border bg-white">
-    <div className="border-b bg-emerald-50 p-7 text-center"><CheckCircle2 className="mx-auto h-10 w-10 text-primary" /><h3 className="mt-3 text-2xl font-bold">Cobro registrado</h3><p className="mt-2 text-3xl font-bold tabular-nums text-primary">{formatPosMoney(transaction.total)}</p><p className="mt-2 text-sm text-muted-foreground">{PAYMENT_METHOD_LABELS[transaction.paymentMethod]} · {transaction.clientName || "Venta de mostrador"}</p>{paymentMethod === "cash" && change && <p className="mt-3 text-base font-semibold">Cambio para entregar: {formatPosMoney(change.change)}</p>}</div>
+    <div className="border-b bg-emerald-50 p-7 text-center"><CheckCircle2 className="mx-auto h-10 w-10 text-primary" /><h3 className="mt-3 text-2xl font-bold">Cobro registrado</h3><p className="mt-2 text-3xl font-bold tabular-nums text-primary">{formatPosMoney(transaction.total)}</p><p className="mt-2 text-sm text-muted-foreground">{PAYMENT_METHOD_LABELS[transaction.paymentMethod]} · {transaction.clientName || "Venta de mostrador"}</p>{usesCash && change && <p className="mt-3 text-base font-semibold">Cambio para entregar: {formatPosMoney(change.change)}</p>}</div>
     <div className="space-y-5 p-6"><p className="break-all text-xs text-muted-foreground">Referencia guardada: {transaction.id}</p><div className="grid gap-3 sm:grid-cols-2"><Button size="lg" onClick={reset}><Plus className="mr-2 h-4 w-4" />Nuevo cobro</Button><Button size="lg" variant="outline" onClick={() => setReceiptOpen(true)}><ReceiptText className="mr-2 h-4 w-4" />Ver comprobante</Button></div><Link className="block text-center text-sm font-semibold text-primary underline underline-offset-4" href={cashHref}>Consultar movimientos de Caja</Link></div>
-    <ReceiptDialog transaction={receiptOpen ? transaction : null} onClose={() => setReceiptOpen(false)} cash={paymentMethod === "cash" && change ? { received: moneyInCents(received)! / 100, change: change.change } : undefined} />
+    <ReceiptDialog transaction={receiptOpen ? transaction : null} onClose={() => setReceiptOpen(false)} cash={usesCash && change ? { received: moneyInCents(received)! / 100, change: change.change } : undefined} />
   </section>;
   return <>
     <p role="status" className="mb-3 text-xs text-muted-foreground">{draftNotice || (draftScope ? "La venta en preparación se conserva en esta pestaña durante 12 horas." : "")}</p>
@@ -383,11 +390,12 @@ export function SaleForm({ draftScope, appointment, cashDate }: { draftScope: st
             {!!lines.length && <ul aria-label="Artículos del resumen de venta" className="mt-3 max-h-40 space-y-2 overflow-y-auto border-t pt-3 text-xs">{lines.map(line => <li key={line.id} className="flex items-start justify-between gap-3"><span className="min-w-0 break-words"><strong className="font-medium">{line.description || "Artículo sin descripción"}</strong><span className="mt-0.5 block text-muted-foreground">Cantidad: {line.quantity || "—"}</span></span><span className="shrink-0 font-semibold tabular-nums">{formatPosMoney(lineTotalCents(line) / 100)}</span></li>)}</ul>}
           </div>
           <fieldset disabled={locked} className="space-y-4 p-5">
-            <div><h3 className="mb-3 text-sm font-semibold">Método de pago</h3><div className="grid grid-cols-2 gap-2">{METHODS.map(({ value, icon: Icon }) => <button type="button" key={value} data-pos-payment aria-pressed={paymentMethod === value} onClick={() => { setPaymentMethod(value); setError(""); }} className={`flex min-h-12 items-center gap-2 rounded-xl border px-3 text-sm font-medium ${paymentMethod === value ? "border-primary bg-accent text-primary ring-1 ring-primary" : "hover:bg-muted"}`}><Icon className="h-4 w-4 shrink-0" />{PAYMENT_METHOD_LABELS[value]}</button>)}</div></div>
-            {paymentMethod === "cash" ? <div className="space-y-3">
+            <div><h3 className="mb-3 text-sm font-semibold">Método de pago</h3><div className="grid grid-cols-2 gap-2">{METHODS.map(({ value, icon: Icon }) => <button type="button" key={value} data-pos-payment aria-pressed={paymentMethod === value} onClick={() => { setPaymentMethod(value); setError(""); }} className={`flex min-h-12 items-center gap-2 rounded-xl border px-3 text-sm font-medium ${value === 'mixed' ? 'col-span-2 justify-center' : ''} ${paymentMethod === value ? "border-primary bg-accent text-primary ring-1 ring-primary" : "hover:bg-muted"}`}><Icon className="h-4 w-4 shrink-0" />{PAYMENT_METHOD_LABELS[value]}</button>)}</div></div>
+            {paymentMethod === 'mixed' && <MixedPaymentFields totalCents={totalCents} cash={cashAmount} transfer={transferAmount} onCash={value => { setCashAmount(value); setError(''); }} onTransfer={value => { setTransferAmount(value); setError(''); }} />}
+            {usesCash ? <div className="space-y-3">
               <label htmlFor="pos-received" className="block text-sm font-semibold">Efectivo recibido (COP)</label><Input id="pos-received" inputMode="decimal" placeholder="Ej. 100000" value={received} onChange={event => { setReceived(event.target.value); setError(""); }} className="h-12 text-lg tabular-nums" />
-              <Button type="button" variant="outline" className="w-full" disabled={!totalCents} onClick={() => { setReceived(String(totalCents / 100)); setError(""); }}>Recibí el valor exacto</Button>
-              <div className="grid grid-cols-2 gap-2">{[20000, 50000, 100000, 200000].map(amount => <button type="button" key={amount} disabled={!totalCents || amount * 100 < totalCents} onClick={() => { setReceived(String(amount)); setError(""); }} className="min-h-10 rounded-lg border bg-background/50 text-sm font-medium tabular-nums hover:border-primary disabled:opacity-35" aria-label={`Recibí ${formatPosMoney(amount)}`}>{formatPosMoney(amount)}</button>)}</div>
+              <Button type="button" variant="outline" className="w-full" disabled={!cashDueCents} onClick={() => { setReceived(String(cashDueCents / 100)); setError(""); }}>Recibí el valor exacto</Button>
+              <div className="grid grid-cols-2 gap-2">{[20000, 50000, 100000, 200000].map(amount => <button type="button" key={amount} disabled={!cashDueCents || amount * 100 < cashDueCents} onClick={() => { setReceived(String(amount)); setError(""); }} className="min-h-10 rounded-lg border bg-background/50 text-sm font-medium tabular-nums hover:border-primary disabled:opacity-35" aria-label={`Recibí ${formatPosMoney(amount)}`}>{formatPosMoney(amount)}</button>)}</div>
               <p className="text-xs text-muted-foreground">Los importes rápidos reemplazan el efectivo recibido.</p>
               <div aria-live="polite" className={`rounded-xl border p-4 ${change?.missing ? "border-amber-200 bg-amber-50 text-amber-950" : "border-emerald-200 bg-emerald-50 text-emerald-950"}`}><p className="text-sm">{!change ? "Ingresa el efectivo para calcular el cambio" : change.missing ? "Falta por recibir" : "Cambio para entregar"}</p><strong className="mt-1 block text-2xl tabular-nums">{formatPosMoney(change?.missing || change?.change || 0)}</strong></div>
             </div> : null}

@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const prisma = require("../../lib/prisma");
+const { PAYMENT_METHODS: VALID_PAYMENT_METHODS, paymentTotals } = require('../../contexts/finance/domain/payment-allocation');
 const { HistoryQueryError, readHistoryQuery, readFinancialHistoryPage } = require("./financial-history-page");
 const { getBogotaYmd, bogotaDayStart, mapTransaction } = require("./shared");
 const { guardManualSaleLink, settleSystemCharge, voidManualSale } = require("../../contexts/finance");
@@ -24,7 +25,6 @@ function mapTransactionDomainError(res, error) {
 
 // ── POS / Facturación (TAREA 17) ──────────────────────────────────────────────
 
-const VALID_PAYMENT_METHODS = ["cash", "transfer", "card", "other"];
 
 const TRANSACTION_INCLUDE = {
   user: { select: { id: true, name: true, phone: true } },
@@ -61,7 +61,7 @@ router.post("/transactions", async (req, res) => {
 router.post("/transactions/:id/settle", async (req, res) => {
   try {
     const { tenantId } = req.tenant;
-    const { paymentMethod, notes } = req.body ?? {};
+    const { paymentMethod, cashAmount, transferAmount, notes } = req.body ?? {};
     if (paymentMethod && !VALID_PAYMENT_METHODS.includes(paymentMethod)) {
       return res.status(400).json({ error: `paymentMethod inválido. Valores: ${VALID_PAYMENT_METHODS.join(", ")}` });
     }
@@ -79,6 +79,7 @@ router.post("/transactions/:id/settle", async (req, res) => {
       tenantId,
       appointmentId: target.appointmentId,
       paymentMethod,
+      cashAmount, transferAmount,
       notes,
       recordedBy: { id: req.actor?.staffId ? `staff:${req.actor.staffId}` : req.actor?.email ? `admin:${req.actor.email}` : null, name: req.actor?.name ?? null, role: req.actor?.type ?? null },
     });
@@ -217,13 +218,7 @@ router.get("/metrics/revenue", async (req, res) => {
     }
 
     // Breakdown by payment method
-    const byMethod = {};
-    for (const tx of txCurrent) {
-      const m = tx.paymentMethod;
-      if (!byMethod[m]) byMethod[m] = { method: m, count: 0, total: 0 };
-      byMethod[m].count++;
-      byMethod[m].total += Number(tx.total);
-    }
+    const byMethod = paymentTotals(txCurrent);
 
     res.json({
       period,
@@ -232,7 +227,7 @@ router.get("/metrics/revenue", async (req, res) => {
       delta: Math.round(totalCurrent - totalPrev),
       transactionCount: txCurrent.length,
       byItem: Object.values(byItem).sort((a, b) => b.total - a.total),
-      byMethod: Object.values(byMethod).sort((a, b) => b.total - a.total),
+      byMethod: byMethod.sort((a, b) => b.total - a.total),
     });
   } catch (error) {
     console.error("[Dashboard] Revenue metrics error:", error);

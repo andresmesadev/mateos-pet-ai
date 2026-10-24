@@ -125,3 +125,8 @@ export function cashChange(totalCents: number, received: string): { change: numb
 export function formatPosMoney(amount: number): string {
   return new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(amount);
 }
+export function mixedPaymentIssue(totalCents: number, cash: string, transfer: string): string | null {
+  const a = moneyInCents(cash), b = moneyInCents(transfer);
+  return a === null || b === null || a <= 0 || b <= 0 || a + b !== totalCents
+    ? 'Efectivo y transferencia deben ser mayores que cero y sumar el total.' : null;
+}

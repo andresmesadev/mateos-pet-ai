@@ -8,7 +8,7 @@ export type RevenueMonth = { month: number; revenue: number; year: number };
 export type ActivityMonth = { label: string; newClients: number; returningVisits: number };
 export const METHOD_LABELS = { cash: "Efectivo", transfer: "Transferencia", card: "Tarjeta", other: "Otro", review: "Por revisar", unclassified: "Sin identificar" };
 export const KIND_LABELS = { product: "Productos", service: "Servicios", unclassified: "Sin clasificación" };
-export type ReportBreakdown = ReportMetadata & { total: number; count: number; byMethod: { method: keyof typeof METHOD_LABELS; count: number; total: number }[]; byKind: { kind: keyof typeof KIND_LABELS; quantity: number; lines: number; total: number }[]; unallocatedTotal: number };
+export type ReportBreakdown = ReportMetadata & { total: number; count: number; mixedCount?: number; byMethod: { method: keyof typeof METHOD_LABELS; count: number; total: number }[]; byKind: { kind: keyof typeof KIND_LABELS; quantity: number; lines: number; total: number }[]; unallocatedTotal: number };
 export const REPORT_MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
 const object = (value: unknown): Record<string, unknown> => {
@@ -64,7 +64,8 @@ export function parseBreakdown(value: unknown): ReportBreakdown {
   if (methods.length !== 6 || new Set(methods.map(entry => entry.method)).size !== 6 || !methods.every(entry => Object.hasOwn(METHOD_LABELS, object(entry).method as string) && amount(entry.total) && count(entry.count))) fail();
   if (kinds.length !== 3 || new Set(kinds.map(entry => entry.kind)).size !== 3 || !kinds.every(entry => Object.hasOwn(KIND_LABELS, object(entry).kind as string) && amount(entry.total) && count(entry.quantity) && count(entry.lines))) fail();
   const cents = (n: number) => Math.round(n * 100);
-  if (methods.reduce((sum, entry) => sum + cents(entry.total), 0) !== cents(row.total as number) || methods.reduce((sum, entry) => sum + entry.count, 0) !== row.count || kinds.reduce((sum, entry) => sum + cents(entry.total), 0) + cents(row.unallocatedTotal as number) !== cents(row.total as number)) fail();
+  if (row.mixedCount !== undefined && (!count(row.mixedCount) || (row.mixedCount as number) > (row.count as number))) fail();
+  if (methods.reduce((sum, entry) => sum + cents(entry.total), 0) !== cents(row.total as number) || methods.reduce((sum, entry) => sum + entry.count, 0) - ((row.mixedCount as number | undefined) ?? 0) !== row.count || kinds.reduce((sum, entry) => sum + cents(entry.total), 0) + cents(row.unallocatedTotal as number) !== cents(row.total as number)) fail();
   return row as ReportBreakdown;
 }
 export function reportMoney(value: number) {

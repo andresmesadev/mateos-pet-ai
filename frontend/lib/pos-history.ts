@@ -27,7 +27,7 @@ export function initialHistoryRange(period: string, today: string) {
 export function filterTransactions(rows: Transaction[], query: string, method: PaymentMethod | "all" | "review", status: "all" | "active" | "voided", origin: HistoryOrigin = "all") {
   const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const terms = normalize(query.trim()).split(/\s+/).filter(Boolean);
-  return rows.filter(row => (method === "all" || (method === "review" ? transactionNeedsReview(row) : !transactionNeedsReview(row) && row.paymentMethod === method)) &&
+  return rows.filter(row => (method === "all" || (method === "review" ? transactionNeedsReview(row) : !transactionNeedsReview(row) && (row.paymentMethod === method || (row.paymentMethod === 'mixed' && ['cash', 'transfer'].includes(method))))) &&
     (status === "all" || (row.status ?? "active") === status) &&
     (origin === "all" || (row.origin ?? "legacy") === origin) &&
     terms.every(term => normalize([row.id, row.clientName, row.clientPhone, row.petName, row.recordedBy?.name, ...row.items.map(item => item.description)].filter(Boolean).join(" ")).includes(term)));
@@ -56,7 +56,8 @@ export function isHistoryTransaction(value: unknown): value is Transaction {
   return typeof row.id === "string" && !!row.id && Number.isFinite(row.total) && row.total >= 0 &&
     ((row.paidAt === null && row.paymentStatus === "pending" && row.origin === "system_appointment_completed") || (typeof row.paidAt === "string" && Number.isFinite(Date.parse(row.paidAt)) && row.paymentStatus !== "pending")) && [undefined, "active", "voided"].includes(row.status) &&
     [undefined, "manual_pos_sale", "system_appointment_completed", "legacy"].includes(row.origin) &&
-    ["cash", "transfer", "card", "other"].includes(row.paymentMethod) &&
+    ["cash", "transfer", "card", "other", "mixed"].includes(row.paymentMethod) &&
+    (row.paymentMethod !== 'mixed' || (typeof row.cashAmount === 'number' && typeof row.transferAmount === 'number' && Number.isFinite(row.cashAmount) && Number.isFinite(row.transferAmount) && row.cashAmount > 0 && row.transferAmount > 0 && Math.round(row.cashAmount * 100) + Math.round(row.transferAmount * 100) === Math.round(row.total * 100))) &&
     [row.clientName, row.clientPhone, row.petName, row.notes, row.voidReason].every(field => field == null || typeof field === "string") &&
     (row.voidedAt == null || (typeof row.voidedAt === "string" && Number.isFinite(Date.parse(row.voidedAt)))) &&
     (row.recordedBy == null || (typeof row.recordedBy.id === "string" && (row.recordedBy.name == null || typeof row.recordedBy.name === "string"))) &&

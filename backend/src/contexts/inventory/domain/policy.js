@@ -51,7 +51,7 @@ function normalizedIntent(value, field) {
     return value.map(v => normalizedIntent(v));
   }
   if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, normalizedIntent(v, k)]));
-  if (['referenceCost', 'salePrice', 'unitCost', 'unitPrice'].includes(field) && value != null) {
+  if (['referenceCost', 'salePrice', 'unitCost', 'unitPrice', 'cashAmount', 'transferAmount'].includes(field) && value != null) {
     if (field === 'salePrice' && value === '') return null;
     return amount(cents(value, 'Importe', true));
   }

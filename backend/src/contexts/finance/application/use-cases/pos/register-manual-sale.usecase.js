@@ -1,5 +1,6 @@
 const { InvalidTransactionOperationError, DailyCloseAlreadyExistsForDateError } = require('../../../domain/errors');
 const { civilDateKey, civilDateLabel } = require('../../../../shared/business-day');
+const { PAYMENT_METHODS, resolvePayment } = require('../../../domain/payment-allocation');
 function financialCents(value) {
   const s = typeof value === 'number' && Number.isFinite(value) ? String(value) : value;
   if (typeof s !== 'string' || !/^\d{1,8}(\.\d{1,2})?$/.test(s)) throw new InvalidTransactionOperationError('Precio inválido: máximo dos decimales.');
@@ -39,7 +40,7 @@ function createRegisterManualSaleUseCase({ transactionRepository, referencesRead
     if (!ctx) throw new Error('RegisterManualSale requires shared transaction');
     if (!Array.isArray(items) || !items.length || items.length > 100) throw new InvalidTransactionOperationError('Agrega entre 1 y 100 artículos.');
     const paymentMethod = command.paymentMethod ?? 'cash';
-    if (!['cash', 'transfer', 'card', 'other'].includes(paymentMethod)) throw new InvalidTransactionOperationError('Método de pago inválido.');
+    if (!PAYMENT_METHODS.includes(paymentMethod)) throw new InvalidTransactionOperationError('Método de pago inválido.');
     if (!access.capabilities.cash || (!access.capabilities.administration && command.paidAt)) throw new InvalidTransactionOperationError('No puedes cambiar la fecha del cobro.');
     const paidAt = command.paidAt ? new Date(command.paidAt) : now;
     if (!Number.isFinite(paidAt.getTime())) throw new InvalidTransactionOperationError('Fecha de cobro inválida.');
@@ -48,9 +49,10 @@ function createRegisterManualSaleUseCase({ transactionRepository, referencesRead
     await referencesReader.validate(tenantId, command, ctx);
     await guardManualSaleLink({ tenantId, appointmentId: command.appointmentId }, ctx);
     const computed = saleAmounts(items, access);
+    const payment = resolvePayment({ ...command, paymentMethod }, computed.total);
     if (command.notes != null && (typeof command.notes !== 'string' || command.notes.length > 2000)) throw new InvalidTransactionOperationError('Nota demasiado larga.');
     return transactionRepository.createManualSale({ id, tenantId, userId: command.userId || null, petId: command.petId || null,
-      appointmentId: command.appointmentId || null, paymentMethod, paidAt, origin: 'manual_pos_sale', total: computed.total,
+      appointmentId: command.appointmentId || null, ...payment, paidAt, origin: 'manual_pos_sale', total: computed.total,
       recordedActorId: actor.actorId, recordedActorName: actor.actorName, recordedActorRole: actor.actorRole,
       notes: command.notes?.trim() || null, items: { create: computed.items } }, ctx);
   };

@@ -31,7 +31,7 @@ function readHistoryQuery(query, kind) {
     from, to, page: integer("page", 1, 1_000_000), pageSize: integer("pageSize", 10, 50),
     status: choice("status", ["all", "active", "voided"]),
     ...(kind === "transactions" ? {
-      method: choice("method", ["all", "cash", "transfer", "card", "other", "review"]),
+      method: choice("method", ["all", "cash", "transfer", "card", "other", "mixed", "review"]),
       origin: choice("origin", ["all", "manual_pos_sale", "system_appointment_completed", "legacy"]),
     } : { category: choice("category", ["all", "supplies", "utilities", "rent", "salary", "equipment", "marketing", "other"]) }),
     terms: search.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es").trim().split(/\s+/).filter(Boolean),
@@ -52,7 +52,9 @@ function historySql(kind, tenantId, query, { allDates = false } = {}) {
     if (query.confirmedOnly) conditions.push(Prisma.sql`NOT ${review}`);
     if (query.origin !== "all") conditions.push(Prisma.sql`COALESCE(t."origin", 'legacy') = ${query.origin}`);
     if (query.method === "review") conditions.push(review);
-    else if (query.method !== "all") conditions.push(Prisma.sql`t."paymentMethod" = ${query.method} AND NOT ${review}`);
+    else if (query.method !== "all") conditions.push(['cash', 'transfer'].includes(query.method)
+      ? Prisma.sql`(t."paymentMethod" = ${query.method} OR t."paymentMethod" = 'mixed') AND NOT ${review}`
+      : Prisma.sql`t."paymentMethod" = ${query.method} AND NOT ${review}`);
   } else if (query.category !== "all") conditions.push(Prisma.sql`t."category" = ${query.category}`);
   const haystack = transactions ? Prisma.sql`concat_ws(' ', t."id", t."recordedActorName",
     (SELECT concat_ws(' ', u."name", u."phone") FROM "User" u WHERE u."id" = t."userId"),

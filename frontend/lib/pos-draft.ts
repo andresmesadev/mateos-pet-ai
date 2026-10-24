@@ -6,6 +6,7 @@ export type SaleDraft = {
   version: 1; scope: string; updatedAt: number; stage: "preparing" | "verify";
   lines: CheckoutLine[]; client: DraftClient | null; petId: string;
   paymentMethod: PaymentMethod; received: string; notes: string;
+  cashAmount?: string; transferAmount?: string;
   operationKey?: string;
   operationBody?: string;
 };
@@ -56,7 +57,8 @@ export function readDraft(raw: string | null, scope: string, now = Date.now()): 
       (line.serviceId === undefined || text(line.serviceId, 100)) && (line.performedByStaffId === undefined || text(line.performedByStaffId, 100)) && (line.commissionSplit === undefined || typeof line.commissionSplit === 'boolean') && (line.serviceCategory === undefined || text(line.serviceCategory, 50)) &&
       (line.serviceQuote === undefined || (line.itemKind === "service" && line.serviceQuote && ["catalog", "pet"].includes(line.serviceQuote.source) && text(line.serviceQuote.petId, 100) && text(line.serviceQuote.petName, 250) && text(line.serviceQuote.unitPrice, 30) && text(line.serviceQuote.description, 250))))) return null;
     if (!text(draft.petId, 100) || !text(draft.received, 30) || !text(draft.notes, 2000) ||
-      !["cash", "transfer", "card", "other"].includes(draft.paymentMethod)) return null;
+      !["cash", "transfer", "card", "other", "mixed"].includes(draft.paymentMethod) ||
+      (draft.cashAmount !== undefined && !text(draft.cashAmount, 30)) || (draft.transferAmount !== undefined && !text(draft.transferAmount, 30))) return null;
     const client = draft.client;
     if (client !== null && (!client || !text(client.id, 100) || !(client.name === null || text(client.name, 250)) ||
       !text(client.phone, 100) || !Array.isArray(client.pets) || client.pets.length > 20 || !client.pets.every(pet =>

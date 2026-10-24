@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { proxyUrl } from "@/lib/api";
-import { cashChange, formatPosMoney } from "@/lib/pos-checkout";
+import { cashChange, formatPosMoney, moneyInCents, mixedPaymentIssue } from "@/lib/pos-checkout";
+import { MixedPaymentFields } from './mixed-payment-fields';
 import { PAYMENT_METHOD_LABELS, type PaymentMethod, type Transaction } from "@/lib/transactions";
 import { tenantQuery, useTenant } from "@/lib/use-tenant";
 import { FormAdditional, FormDialogBody, FormDialogContent, FormDialogFooter, FormDialogHeader, FormField, FormSection } from "../form-layout";
@@ -14,7 +15,8 @@ import { ProtectedDialog, useDialogEditGuard } from "../protected-dialog";
 import { dashboardRequest } from "@/lib/dashboard-request";
 import { isHistoryTransaction, transactionNeedsReview } from "@/lib/pos-history";
 
-export type PaymentAttempt = { paymentMethod: PaymentMethod; notes: string | null };
+export type PaymentAttempt = { paymentMethod: PaymentMethod; cashAmount?: number; transferAmount?: number; notes: string | null };
+const matchesAttempt = (value: Transaction, attempt: PaymentAttempt) => value.paymentMethod === attempt.paymentMethod && (value.notes ?? null) === attempt.notes && (attempt.paymentMethod !== 'mixed' || (value.cashAmount === attempt.cashAmount && value.transferAmount === attempt.transferAmount));
 type Props = { transaction: Transaction; onClose: () => void; onSaved: () => void; onReturnFocus: () => void; initialAttempt?: PaymentAttempt; onUncertainChange?: (attempt: PaymentAttempt | undefined) => void };
 
 export function ReviewPaymentDialog(props: Props) {
@@ -28,13 +30,17 @@ function PaymentEditor({ transaction, onClose, onSaved, onReturnFocus, initialAt
   const tenant = useTenant();
   const [method, setMethod] = useState<PaymentMethod>(initialAttempt?.paymentMethod ?? transaction.paymentMethod);
   const [received, setReceived] = useState("");
+  const [cashAmount, setCashAmount] = useState(String(initialAttempt?.cashAmount ?? transaction.cashAmount ?? ''));
+  const [transferAmount, setTransferAmount] = useState(String(initialAttempt?.transferAmount ?? transaction.transferAmount ?? ''));
   const [notes, setNotes] = useState(initialAttempt ? initialAttempt.notes ?? "" : transaction.notes ?? "");
   const [saving, setSaving] = useState(false);
   const [attempt, setAttempt] = useState<PaymentAttempt | undefined>(initialAttempt);
   const busy = useRef(false);
   const feedback = useFormFeedback();
-  const close = useDialogEditGuard(method !== transaction.paymentMethod || !!received || notes !== (transaction.notes ?? ""), saving);
-  const change = cashChange(Math.round(transaction.total * 100), received);
+  const close = useDialogEditGuard(method !== transaction.paymentMethod || !!received || !!cashAmount || !!transferAmount || notes !== (transaction.notes ?? ""), saving);
+  const usesCash = method === 'cash' || method === 'mixed';
+  const cashDue = method === 'mixed' ? moneyInCents(cashAmount) ?? 0 : Math.round(transaction.total * 100);
+  const change = cashChange(cashDue, received);
   const url = proxyUrl(`/api/dashboard/transactions/${encodeURIComponent(transaction.id)}` + tenantQuery(tenant));
   function valid(value: unknown): value is Transaction {
     return isHistoryTransaction(value) && value.id === transaction.id && value.origin === transaction.origin && value.status === "active" &&
@@ -48,7 +54,7 @@ function PaymentEditor({ transaction, onClose, onSaved, onReturnFocus, initialAt
       const { response, payload } = await dashboardRequest(url, { cache: "no-store" });
       if (!response.ok || !valid(payload)) throw new Error("No se pudo comprobar el cobro. Conservamos los datos; vuelve a comprobar.");
       if (!transactionNeedsReview(payload)) {
-        if (payload.paymentMethod !== attempt.paymentMethod || (payload.notes ?? null) !== attempt.notes) throw new Error("El cobro fue revisado con otros datos. Cierra y actualiza Caja antes de continuar.");
+        if (!matchesAttempt(payload, attempt)) throw new Error("El cobro fue revisado con otros datos. Cierra y actualiza Caja antes de continuar.");
         uncertain(undefined); onSaved();
       } else {
         uncertain(undefined);
@@ -61,17 +67,18 @@ function PaymentEditor({ transaction, onClose, onSaved, onReturnFocus, initialAt
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy.current || attempt) return;
-    const cashError: Record<string, string> = method === "cash" && (!change || change.missing > 0)
-      ? { "payment-received": "Ingresa el efectivo recibido; debe cubrir el importe del servicio." } : {};
+    if (method === 'mixed') { const issue = mixedPaymentIssue(Math.round(transaction.total * 100), cashAmount, transferAmount); if (issue) { feedback.setSubmitError(issue); return; } }
+    const cashError: Record<string, string> = usesCash && (!change || change.missing > 0)
+      ? { "payment-received": "Ingresa el efectivo recibido; debe cubrir la parte en efectivo del cobro." } : {};
     if (!feedback.validate(event.currentTarget, {}, cashError)) return;
     busy.current = true; setSaving(true);
-    const intended = { paymentMethod: method, notes: notes.trim() || null };
+    const intended: PaymentAttempt = { paymentMethod: method, notes: notes.trim() || null, ...(method === 'mixed' ? { cashAmount: moneyInCents(cashAmount)! / 100, transferAmount: moneyInCents(transferAmount)! / 100 } : {}) };
     let sent = false;
     try {
       const current = await dashboardRequest(url, { cache: "no-store" });
       if (!current.response.ok || !valid(current.payload)) throw new Error("No se pudo consultar el cobro. Conservamos los datos; intenta de nuevo.");
       if (!transactionNeedsReview(current.payload)) {
-        if (current.payload.paymentMethod === method && (current.payload.notes ?? null) === intended.notes) { onSaved(); return; }
+        if (matchesAttempt(current.payload, intended)) { onSaved(); return; }
         throw new Error("El cobro ya fue revisado. Cierra y actualiza Caja para consultar los datos actuales.");
       }
       sent = true;
@@ -83,7 +90,7 @@ function PaymentEditor({ transaction, onClose, onSaved, onReturnFocus, initialAt
         if (response.status < 500) sent = false;
         throw new Error(payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string" ? payload.error : "No se pudo guardar la revisión del pago.");
       }
-      if (!valid(payload) || transactionNeedsReview(payload) || payload.paymentMethod !== method || (payload.notes ?? null) !== intended.notes) throw new Error("La respuesta no confirma los datos guardados. Comprueba el resultado.");
+      if (!valid(payload) || transactionNeedsReview(payload) || !matchesAttempt(payload, intended)) throw new Error("La respuesta no confirma los datos guardados. Comprueba el resultado.");
       uncertain(undefined);
       onSaved();
     } catch (cause) {
@@ -104,10 +111,11 @@ function PaymentEditor({ transaction, onClose, onSaved, onReturnFocus, initialAt
                 {Object.entries(PAYMENT_METHOD_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
               </select>
             </FormField>
-            {method === "cash" && <>
+            {method === 'mixed' && <MixedPaymentFields totalCents={Math.round(transaction.total * 100)} cash={cashAmount} transfer={transferAmount} onCash={setCashAmount} onTransfer={setTransferAmount} />}
+            {usesCash && <>
               <FormField id="payment-received" label="Efectivo recibido (COP)" hint="Sin separadores de miles. Ejemplo: 100000." error={feedback.errors["payment-received"]}>
                 <Input id="payment-received" inputMode="decimal" maxLength={11} value={received} {...feedback.fieldProps("payment-received", true)} onChange={event => { setReceived(event.target.value); feedback.clearField("payment-received"); }} placeholder="Ej. 100000" />
-                <Button type="button" variant="outline" className="min-h-11 w-full whitespace-normal" onClick={() => { setReceived(String(transaction.total)); feedback.clearField("payment-received"); }}>Recibí el valor exacto</Button>
+                <Button type="button" variant="outline" className="min-h-11 w-full whitespace-normal" onClick={() => { setReceived(String(cashDue / 100)); feedback.clearField("payment-received"); }}>Recibí el valor exacto</Button>
               </FormField>
               <p role="status" aria-live="polite" className="flex flex-wrap justify-between gap-2 rounded-xl bg-muted p-3 text-sm"><span>{change?.missing ? "Falta por recibir" : "Cambio"}</span><strong>{formatPosMoney(change?.missing || change?.change || 0)}</strong></p>
             </>}

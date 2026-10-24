@@ -36,6 +36,7 @@ export async function createReportWorkbook(summary: ReportSummary, breakdown: Re
   payments.addRow(["Medio de pago", "Cobros", "Importe (COP)"]);
   breakdown.byMethod.forEach(row => payments.addRow([METHOD_LABELS[row.method], row.count, row.total]));
   payments.addRow(["Total", breakdown.count, breakdown.total]);
+  payments.addRow(['Los pagos mixtos figuran en ambos medios; el total cuenta cada cobro una sola vez.']);
   payments.addRow([]);
   payments.addRow(["Por revisar", "Cobros de citas sin método confirmado por un responsable."]);
   payments.getColumn(3).numFmt = '"$" #,##0.00';

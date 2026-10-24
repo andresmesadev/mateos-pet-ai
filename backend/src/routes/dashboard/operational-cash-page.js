@@ -1,6 +1,7 @@
 const { Prisma } = require("@prisma/client");
 const { readHistoryQuery, historySql, HistoryQueryError } = require("./financial-history-page");
 const { getBogotaYmd, mapTransaction } = require("./shared");
+const { paymentShares } = require('../../contexts/finance/domain/payment-allocation');
 
 function cashQuery(input, access) {
   const today = getBogotaYmd();
@@ -32,17 +33,23 @@ async function readOperationalCash(prisma, tenantId, input, access) {
   if (appointmentId) sql.where = Prisma.sql`${sql.where} AND t."appointmentId" = ${appointmentId}`;
   const review = Prisma.sql`(t."origin" = 'system_appointment_completed' AND (t."paidAt" IS NULL OR t."recordedActorId" IS NULL OR t."recordedActorId" = ''))`;
   return prisma.$transaction(async tx => {
-    const groups = await tx.$queryRaw(Prisma.sql`SELECT ${review} AS "review", (t."paidAt" IS NULL) AS "unpaid", t."paymentMethod" AS "method", count(*)::int AS "count", COALESCE(sum(t."total"), 0) AS "amount"
+    const groups = await tx.$queryRaw(Prisma.sql`SELECT ${review} AS "review", (t."paidAt" IS NULL) AS "unpaid", t."paymentMethod" AS "method", count(*)::int AS "count", COALESCE(sum(t."total"), 0) AS "amount", sum(t."cashAmount") AS "cashAmount", sum(t."transferAmount") AS "transferAmount"
       FROM ${sql.source} WHERE ${sql.where} GROUP BY ${review}, (t."paidAt" IS NULL), t."paymentMethod"`);
     const [pending] = await tx.$queryRaw(Prisma.sql`SELECT count(*)::int AS "count" FROM "Transaction" t WHERE t."tenantId" = ${tenantId} AND t."status" = 'active' AND ${review}`);
-    const summaryCash = { methods: Object.fromEntries(["cash", "transfer", "card", "other"].map(method => [method, { count: 0, cents: 0 }])), reviewCount: 0, reviewCents: 0, pendingCents: 0 };
+    const summaryCash = { methods: Object.fromEntries(["cash", "transfer", "card", "other"].map(method => [method, { count: 0, cents: 0 }])), reviewCount: 0, reviewCents: 0, pendingCents: 0, mixedCount: 0 };
     let total = 0, totalCents = 0;
     for (const group of groups) {
       const cents = Math.round(Number(group.amount) * 100);
       total += group.count;
       if (group.unpaid) summaryCash.pendingCents += cents; else totalCents += cents;
       if (group.review) { summaryCash.reviewCount += group.count; summaryCash.reviewCents += cents; }
-      else if (summaryCash.methods[group.method]) summaryCash.methods[group.method] = { count: group.count, cents };
+      else {
+        if (group.method === 'mixed') summaryCash.mixedCount += group.count;
+        for (const part of paymentShares({ paymentMethod: group.method, total: group.amount, cashAmount: group.cashAmount, transferAmount: group.transferAmount })) {
+          const bucket = summaryCash.methods[part.method];
+          if (bucket) { bucket.count += group.count; bucket.cents += Math.round(part.amount * 100); }
+        }
+      }
     }
     const totalPages = Math.max(1, Math.ceil(total / query.pageSize)), page = Math.min(query.page, totalPages);
     const ids = await tx.$queryRaw(Prisma.sql`SELECT t."id" FROM ${sql.source} WHERE ${sql.where} ORDER BY t."paidAt" DESC, t."id" DESC LIMIT ${query.pageSize} OFFSET ${(page - 1) * query.pageSize}`);

@@ -126,6 +126,8 @@ function mapTransaction(t) {
     appointmentId: t.appointmentId ?? null,
     total: Number(t.total),
     paymentMethod: t.paymentMethod,
+    cashAmount: t.cashAmount == null ? null : Number(t.cashAmount),
+    transferAmount: t.transferAmount == null ? null : Number(t.transferAmount),
       recordedBy: t.recordedActorId ? { id: t.recordedActorId, name: t.recordedActorName, role: t.recordedActorRole } : null,
     notes: t.notes ?? null,
     paidAt: t.paidAt?.toISOString() ?? null,

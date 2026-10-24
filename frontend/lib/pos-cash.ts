@@ -1,4 +1,4 @@
-import type { PaymentMethod, Transaction } from "./transactions";
+import type { PaymentMethod, SinglePaymentMethod, Transaction } from "./transactions";
 import { isHistoryPage, type HistoryPage } from "./financial-history-page";
 import { isHistoryTransaction, transactionNeedsReview } from "./pos-history";
 
@@ -12,8 +12,9 @@ export function isCashData(value: unknown): value is CashData {
     Array.isArray(cash.toReview) && cash.toReview.length === cash.data.filter(transactionNeedsReview).length && cash.data.every(row => cash.toReview.includes(row.id) === transactionNeedsReview(row)) &&
     Number.isFinite(cash.totalRegistered) && cash.totalRegistered === cash.summary.activeTotal && typeof cash.hasMore === "boolean" && cash.hasMore === (cash.page < cash.totalPages) &&
     !!summary && integer(summary.reviewCount) && integer(summary.reviewCents) &&
-    ["cash", "transfer", "card", "other"].every(method => { const group = summary.methods?.[method as PaymentMethod]; return !!group && integer(group.count) && integer(group.cents); }) &&
-    summary.reviewCount + Object.values(summary.methods).reduce((sum, group) => sum + group.count, 0) === cash.total &&
+    ["cash", "transfer", "card", "other"].every(method => { const group = summary.methods?.[method as SinglePaymentMethod]; return !!group && integer(group.count) && integer(group.cents); }) &&
+    integer(summary.mixedCount ?? 0) && (summary.mixedCount ?? 0) <= cash.total &&
+    summary.reviewCount + Object.values(summary.methods).reduce((sum, group) => sum + group.count, 0) - (summary.mixedCount ?? 0) === cash.total &&
     (summary.pendingCents === undefined || (integer(summary.pendingCents) && summary.pendingCents <= summary.reviewCents)) &&
     summary.reviewCents + Object.values(summary.methods).reduce((sum, group) => sum + group.cents, 0) === Math.round(cash.totalRegistered * 100) + (summary.pendingCents ?? 0);
 }
@@ -22,21 +23,24 @@ export type CashFilter = "all" | "review" | "registered";
 export type CashMethod = PaymentMethod | "all";
 
 export function summarizeCash(rows: Transaction[], reviewIds: Set<string>) {
-  const methods: Record<PaymentMethod, { count: number; cents: number }> = {
+  const methods: Record<SinglePaymentMethod, { count: number; cents: number }> = {
     cash: { count: 0, cents: 0 }, transfer: { count: 0, cents: 0 },
     card: { count: 0, cents: 0 }, other: { count: 0, cents: 0 },
   };
-  let reviewCents = 0, reviewCount = 0, pendingCents = 0;
+  let reviewCents = 0, reviewCount = 0, pendingCents = 0, mixedCount = 0;
   for (const row of rows) {
     const cents = Math.round(row.total * 100);
     if (row.paymentStatus === 'pending') pendingCents += cents;
     if (reviewIds.has(row.id)) { reviewCents += cents; reviewCount++; }
-    else {
+    else if (row.paymentMethod === 'mixed') {
+      mixedCount++; methods.cash.count++; methods.cash.cents += Math.round((row.cashAmount ?? 0) * 100);
+      methods.transfer.count++; methods.transfer.cents += Math.round((row.transferAmount ?? 0) * 100);
+    } else {
       const method = methods[row.paymentMethod] ?? methods.other;
       method.count++; method.cents += cents;
     }
   }
-  return { methods, reviewCents, reviewCount, pendingCents };
+  return { methods, reviewCents, reviewCount, pendingCents, mixedCount };
 }
 
 export function filterCash(rows: Transaction[], reviewIds: Set<string>, query: string, filter: CashFilter, method: CashMethod) {
@@ -46,7 +50,7 @@ export function filterCash(rows: Transaction[], reviewIds: Set<string>, query: s
     const reviewing = reviewIds.has(row.id);
     if (filter === "review" && !reviewing || filter === "registered" && reviewing) return false;
     // An unreviewed system charge has a stored default, not a confirmed method.
-    if (method !== "all" && (reviewing || row.paymentMethod !== method)) return false;
+    if (method !== "all" && (reviewing || (row.paymentMethod !== method && !(row.paymentMethod === 'mixed' && ['cash', 'transfer'].includes(method))))) return false;
     const text = normalize([row.clientName, row.clientPhone, row.petName, row.id, row.recordedBy?.name, ...row.items.map(item => item.description)].filter(Boolean).join(" "));
     return terms.every(term => text.includes(term));
   });

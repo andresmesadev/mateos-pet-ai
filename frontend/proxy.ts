@@ -22,7 +22,7 @@ const authenticatedProxy = auth(async (req, event: NextFetchEvent) => {
     const response = await fetch(apiUrl("/api/dashboard/access"), {
       headers: makeServerHeaders(req.auth, req.nextUrl.searchParams.get("tenant")), cache: "no-store",
     });
-    if (!response.ok) return new NextResponse("No se pudieron comprobar tus permisos. Vuelve a iniciar sesión o reintenta.", { status: response.status === 401 ? 401 : 503 });
+    if (!response.ok) return recoveryRedirect(req, response.status === 401 || response.status === 403 ? 'session' : 'unavailable');
     const access: DashboardAccess = await response.json();
     const permitted = path.startsWith("/print") ? access.capabilities.administration || access.capabilities.clinical
       : access.navigation.some(href => path === href || (href !== "/dashboard" && path.startsWith(href + "/")));
@@ -32,8 +32,14 @@ const authenticatedProxy = auth(async (req, event: NextFetchEvent) => {
       return NextResponse.redirect(home);
     }
     return NextResponse.next();
-  } catch { return new NextResponse("El servidor de datos no está disponible. Reintenta para acceder.", { status: 503 }); }
+  } catch { return recoveryRedirect(req, 'unavailable'); }
 });
+
+function recoveryRedirect(req: NextRequest, reason: 'session' | 'unavailable') {
+  const target = new URL('/session-recovery', req.nextUrl);
+  target.searchParams.set('reason', reason);
+  return NextResponse.redirect(target, { headers: { 'Cache-Control': 'no-store' } });
+}
 
 export function proxy(req: NextRequest, event: NextFetchEvent) {
   if (rejectsPageAction(req.method, req.nextUrl.pathname, req.headers)) {
