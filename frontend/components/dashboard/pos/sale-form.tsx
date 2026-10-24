@@ -12,7 +12,7 @@ import { proxyUrl } from "@/lib/api";
 import { getPetEmoji } from "@/lib/pets";
 import { tenantQuery, useTenant } from "@/lib/use-tenant";
 import { PAYMENT_METHOD_LABELS, type PaymentMethod, type Transaction } from "@/lib/transactions";
-import { addCheckoutLine, catalogueLineIssue, cashChange, checkoutPriceLabel, formatPosMoney, lineTotalCents, moneyInCents, productQuantities, validateCheckout, withoutEmptyTransport, MAX_POS_QUANTITY, type CatalogueSnapshot, type CheckoutLine } from "@/lib/pos-checkout";
+import { addCheckoutLine, canRemoveCheckoutLine, clearCheckoutLines, catalogueLineIssue, cashChange, checkoutPriceLabel, formatPosMoney, lineTotalCents, moneyInCents, productQuantities, validateCheckout, withoutEmptyTransport, MAX_POS_QUANTITY, type CatalogueSnapshot, type CheckoutLine } from "@/lib/pos-checkout";
 import { ReceiptDialog } from "./sale-receipt";
 import { ServiceCatalog } from "./service-catalog";
 import { ServiceProfessional } from './service-professional';
@@ -21,7 +21,7 @@ import { ProductPicker } from "@/components/dashboard/inventory/product-picker";
 import type { InventoryProduct } from "@/lib/inventory";
 
 type ClientResult = { id: string; name: string | null; phone: string; pets: { id: string; name: string; type: string }[] };
-export type AppointmentCheckout = { appointmentId: string; transactionId: string | null; client: ClientResult; petId: string; lines: CheckoutLine[]; canAddTransport?: boolean };
+export type AppointmentCheckout = { appointmentId: string; transactionId: string | null; client: ClientResult; petId: string; lines: CheckoutLine[]; canAddTransport?: boolean; requiresServiceLine?: boolean; serviceLine?: CheckoutLine };
 const METHODS = [{ value: "cash", icon: Banknote }, { value: "transfer", icon: Landmark }, { value: "card", icon: CreditCard }, { value: "other", icon: Wallet }] as const;
 const PAYMENT_GUIDANCE: Record<PaymentMethod, { label: string; placeholder: string; hint: string }> = {
   cash: { label: "Nota del cobro", placeholder: "Observación de esta venta", hint: "Revisa el efectivo recibido y entrega el cambio indicado." },
@@ -85,6 +85,7 @@ async function readCatalogue(ids: string[], tenant: string | null, signal?: Abor
 
 export function SaleForm({ draftScope, appointment }: { draftScope: string | null; appointment?: AppointmentCheckout }) {
   const appointmentSale = !!appointment;
+  const requiresServiceLine = appointment?.requiresServiceLine !== false;
   const router = useRouter();
   const access = useDashboardAccess();
   const tenant = useTenant();
@@ -104,7 +105,7 @@ export function SaleForm({ draftScope, appointment }: { draftScope: string | nul
   const [draftReady, setDraftReady] = useState(false);
   const [draftNotice, setDraftNotice] = useState("");
   const [discardOpen, setDiscardOpen] = useState(false);
-  const [catalogTab, setCatalogTab] = useState<"all" | "products" | "services">(appointment ? "all" : "products");
+  const [catalogTab, setCatalogTab] = useState<"all" | "products" | "services">(appointment && requiresServiceLine ? "all" : "products");
   const [catalogue, setCatalogue] = useState<Record<string, CatalogueStatus>>({});
   const [checking, setChecking] = useState(false);
   const [validationShown, setValidationShown] = useState(false);
@@ -180,7 +181,12 @@ export function SaleForm({ draftScope, appointment }: { draftScope: string | nul
   const units = lines.reduce((total, line) => total + (/^\d+$/.test(line.quantity) && Number.isSafeInteger(Number(line.quantity)) ? Number(line.quantity) : 0), 0);
   const cashHref = `/dashboard/pos?tab=caja${tenant ? "&tenant=" + encodeURIComponent(tenant) : ""}`;
   function setLine(id: string, field: keyof CheckoutLine, value: string) { if (field === "description" || field === "unitPrice") setEditingLineId(id); setLines(previous => previous.map(line => line.id === id ? { ...line, [field]: value } : line)); setError(""); }
-  function removeLine(id: string) { setLines(previous => previous.filter(line => line.id !== id || line.appointmentComponent === 'service')); if (editingLineId === id) setEditingLineId(null); setCartNotice(""); setError(""); }
+  function removeLine(id: string) { setLines(previous => previous.filter(line => line.id !== id || !canRemoveCheckoutLine(line, requiresServiceLine))); if (editingLineId === id) setEditingLineId(null); setCartNotice(""); setError(""); }
+  function addAppointmentService() {
+    if (requiresServiceLine || !appointment?.serviceLine || lines.some(line => line.appointmentComponent === 'service')) return;
+    addCartLine(appointment.serviceLine);
+    setEditingLineId(appointment.serviceLine.id);
+  }
   function addTransport() {
     if (!appointment?.canAddTransport || lines.some(line => line.appointmentComponent === 'transport')) return;
     addCartLine({ id: 'appointment-transport', description: 'Domicilio de peluquería', quantity: '1', unitPrice: appointment.lines.find(line => line.appointmentComponent === 'transport')?.unitPrice ?? '', itemKind: 'service', appointmentComponent: 'transport' });
@@ -334,7 +340,7 @@ export function SaleForm({ draftScope, appointment }: { draftScope: string | nul
         <section className="overflow-hidden rounded-2xl border bg-white">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
             <div className="flex items-center gap-2"><ShoppingCart className="h-5 w-5 text-primary" /><h3 className="font-semibold">Carrito</h3><span className="rounded-full bg-muted px-2 py-0.5 text-xs">{lines.length} {lines.length === 1 ? "artículo" : "artículos"}</span></div>
-            <div className="flex flex-wrap items-center gap-3">{appointment?.canAddTransport && !lines.some(line => line.appointmentComponent === 'transport') && <Button type="button" variant="outline" size="sm" onClick={addTransport}><Plus className="h-4 w-4" />Agregar domicilio</Button>}{!!lines.length && <button type="button" onClick={() => setClearOpen(true)} className="flex min-h-9 items-center gap-1.5 text-sm text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" />Vaciar</button>}</div>
+            <div className="flex flex-wrap items-center gap-3">{!requiresServiceLine && appointment?.serviceLine && !lines.some(line => line.appointmentComponent === 'service') && <Button type="button" variant="outline" size="sm" onClick={addAppointmentService}><Plus className="h-4 w-4" />Agregar cargo de servicio</Button>}{appointment?.canAddTransport && !lines.some(line => line.appointmentComponent === 'transport') && <Button type="button" variant="outline" size="sm" onClick={addTransport}><Plus className="h-4 w-4" />Agregar domicilio</Button>}{!!lines.length && <button type="button" onClick={() => setClearOpen(true)} className="flex min-h-9 items-center gap-1.5 text-sm text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" />Vaciar</button>}</div>
           </div>
           {!lines.length ? <div className="px-5 py-8 text-center"><ShoppingBag className="mx-auto h-7 w-7 text-muted-foreground" /><p className="mt-3 font-semibold">Tu carrito está vacío</p><p className="mt-1 text-sm text-muted-foreground">Selecciona un producto o servicio del catálogo de arriba.</p></div> :
           <ul className="divide-y">{lines.map((line, index) => {
@@ -354,7 +360,7 @@ export function SaleForm({ draftScope, appointment }: { draftScope: string | nul
                 </div>
                 <div><label htmlFor={`pos-quantity-${line.id}`} className="mb-1.5 block text-xs font-medium">Cantidad</label><div className="flex items-center rounded-xl border bg-white"><button type="button" aria-label={`Quitar una unidad de ${line.description || `artículo ${index + 1}`}`} disabled={!!line.appointmentComponent || !quantityValid || Number(line.quantity) <= 1} onClick={() => changeQuantity(line, -1)} className="flex h-10 w-9 shrink-0 items-center justify-center rounded-l-xl hover:bg-muted disabled:opacity-40"><Minus className="h-3.5 w-3.5" /></button><Input id={`pos-quantity-${line.id}`} inputMode="numeric" maxLength={10} disabled={!!line.appointmentComponent} value={line.quantity} onChange={event => setLine(line.id, "quantity", event.target.value)} aria-label={`Cantidad del artículo ${index + 1}`} aria-invalid={!!issue} aria-describedby={issue ? issueId : undefined} className="h-10 min-w-0 rounded-none border-x border-y-0 px-1 text-center shadow-none" /><button type="button" aria-label={`Agregar una unidad de ${line.description || `artículo ${index + 1}`}`} disabled={!!line.appointmentComponent || !quantityValid || atLimit} onClick={() => changeQuantity(line, 1)} className="flex h-10 w-9 shrink-0 items-center justify-center rounded-r-xl hover:bg-muted disabled:opacity-40"><Plus className="h-3.5 w-3.5" /></button></div></div>
                 <div className="text-left sm:text-right"><p className="text-xs text-muted-foreground">Subtotal</p><p className="mt-2 break-words text-sm font-bold tabular-nums">{formatPosMoney(lineTotalCents(line) / 100)}</p></div>
-                <button type="button" disabled={line.appointmentComponent === 'service'} aria-label={`Quitar artículo ${index + 1}`} className="flex h-9 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-red-50 hover:text-destructive focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-30" onClick={() => removeLine(line.id)}><Trash2 className="h-4 w-4" /></button>
+                <button type="button" disabled={!canRemoveCheckoutLine(line, requiresServiceLine)} aria-label={`Quitar artículo ${index + 1}`} className="flex h-9 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-red-50 hover:text-destructive focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-30" onClick={() => removeLine(line.id)}><Trash2 className="h-4 w-4" /></button>
               </div>
               {line.serviceId && line.commissionSplit && <ServiceProfessional line={line} setLines={setLines} disabled={locked} />}
               {line.itemKind === 'service' && !line.serviceId && !line.appointmentComponent && <p className="mt-2 text-xs text-muted-foreground">Artículo manual sin reparto. Para registrar comisión, agrega el servicio desde el catálogo y selecciona al profesional.</p>}
@@ -364,7 +370,7 @@ export function SaleForm({ draftScope, appointment }: { draftScope: string | nul
             </li>;
           })}</ul>}
           {cartNotice && <p role="status" className="border-t bg-accent/30 px-5 py-3 text-sm text-primary">{cartNotice}</p>}
-          {access?.capabilities.services && <p className="border-t px-5 py-3 text-xs leading-relaxed text-muted-foreground">{appointment ? "Los valores son una referencia editable para esta atención. La comisión usa el valor final de la peluquería principal; domicilio, productos y otros servicios quedan por fuera. Tu tarifa habitual no cambia." : <>Para cobrar una cita pendiente con adicionales, abre su botón de pago desde Agenda o <Link className="font-semibold text-primary underline" href={cashHref}>Caja diaria</Link>.</>}</p>}
+          {access?.capabilities.services && <p className="border-t px-5 py-3 text-xs leading-relaxed text-muted-foreground">{appointment ? requiresServiceLine ? "Los valores son una referencia editable para esta atención. La comisión de la peluquería principal excluye domicilio y productos; los servicios adicionales usan su propio reparto. Tu tarifa habitual no cambia." : "Selecciona la vacuna o los productos utilizados del inventario. Puedes cobrar solo esos artículos o agregar un cargo de servicio si corresponde." : <>Para cobrar una cita pendiente con adicionales, abre su botón de pago desde Agenda o <Link className="font-semibold text-primary underline" href={cashHref}>Caja diaria</Link>.</>}</p>}
         </section>
       </fieldset>
 
@@ -398,6 +404,6 @@ export function SaleForm({ draftScope, appointment }: { draftScope: string | nul
       </aside>
     </form>
     <Dialog open={discardOpen} onOpenChange={setDiscardOpen}><DialogContent className="border-border bg-white"><DialogHeader><DialogTitle>¿Ya verificaste este cobro?</DialogTitle><DialogDescription>Comprueba en Caja si la venta quedó registrada. Descartar esta preparación no anula ni elimina ningún cobro. Si se registró, evita cobrarla otra vez.</DialogDescription></DialogHeader><DialogFooter><Button variant="outline" onClick={() => setDiscardOpen(false)}>Volver a revisar</Button><Button onClick={() => { reset(); setDiscardOpen(false); }}>Verificado: empezar otra venta</Button></DialogFooter></DialogContent></Dialog>
-    <Dialog open={clearOpen} onOpenChange={setClearOpen}><DialogContent className="border-border bg-white shadow-xl"><DialogHeader><DialogTitle>¿Vaciar esta venta?</DialogTitle><DialogDescription>{appointment ? "Se quitarán los adicionales y se conservarán el servicio y domicilio de la cita." : "Se quitarán los artículos que agregaste."} Todavía no se ha registrado ningún cobro.</DialogDescription></DialogHeader><DialogFooter><Button variant="outline" onClick={() => setClearOpen(false)}>Continuar venta</Button><Button variant="destructive" onClick={() => { setLines(previous => previous.filter(line => !!line.appointmentComponent)); setReceived(""); setError(""); setCartNotice(""); setClearOpen(false); }}>Vaciar artículos</Button></DialogFooter></DialogContent></Dialog>
+    <Dialog open={clearOpen} onOpenChange={setClearOpen}><DialogContent className="border-border bg-white shadow-xl"><DialogHeader><DialogTitle>¿Vaciar esta venta?</DialogTitle><DialogDescription>{appointment && requiresServiceLine ? "Se quitarán los adicionales y se conservarán el servicio y domicilio de la cita." : "Se quitarán los artículos que agregaste."} Todavía no se ha registrado ningún cobro.</DialogDescription></DialogHeader><DialogFooter><Button variant="outline" onClick={() => setClearOpen(false)}>Continuar venta</Button><Button variant="destructive" onClick={() => { setLines(previous => clearCheckoutLines(previous, requiresServiceLine)); setReceived(""); setError(""); setCartNotice(""); setClearOpen(false); }}>Vaciar artículos</Button></DialogFooter></DialogContent></Dialog>
   </>;
 }

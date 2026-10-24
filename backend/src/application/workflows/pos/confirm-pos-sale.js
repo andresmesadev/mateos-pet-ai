@@ -34,7 +34,7 @@ function buildConfirmPosSale({ inventory, finance, staff, repository, accessRead
       if (command.appointmentCheckout) {
         const local = { ...state.ctx, eventPublisher: { async publish(name, payload) { checkoutEvents.push({ name, payload }); } } };
         const { transaction, servicePrice, deferredAppointment } = await finance.registerAppointmentSale({ tenantId, actor: state.access.snapshot, access: state.access, command, items: prepared, now: state.now }, local);
-        if (deferredAppointment?.staffId && deferredAppointment.serviceId) {
+        if (servicePrice !== null && deferredAppointment?.staffId && deferredAppointment.serviceId) {
           await staff.recordDeferredCheckoutCommission({ tenantId, appointmentId: deferredAppointment.id,
             staffId: deferredAppointment.staffId, serviceId: deferredAppointment.serviceId,
             resolvedPrice: servicePrice, priceSource: 'manual_override', completedAt: state.now }, local);

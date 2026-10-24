@@ -53,6 +53,10 @@ class PrismaTransactionRepository extends TransactionRepositoryPort {
     return row && isDeferredAppointmentPrice(row) ? row : null;
   }
 
+  async findCheckoutAppointment(tenantId, appointmentId, ctx) {
+    return ctx.tx.appointment.findFirst({ where: { tenantId, id: appointmentId, status: 'completed' }, include: { service: { select: { category: { select: { name: true } } } } } });
+  }
+
   async valueDeferredAppointment(tenantId, appointmentId, servicePrice, ctx) {
     await ctx.tx.appointment.update({ where: { id: appointmentId, tenantId, status: 'completed', finalPrice: null }, data: { finalPrice: servicePrice } });
   }

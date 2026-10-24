@@ -9,6 +9,17 @@ const context = { exports: {} };
 vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, context);
 const { moneyInCents, validateCheckout, lineTotalCents, cashChange, addCheckoutLine, catalogueLineIssue, productQuantities, checkoutPriceLabel, withoutEmptyTransport } = context.exports;
 const line = (values = {}) => ({ id: "a", description: "Corte de uñas", quantity: "1", unitPrice: "55000", itemKind: "service", ...values });
+
+test('the optional vaccination charge is removable and clearing it preserves no empty row; grooming remains required', () => {
+  const { canRemoveCheckoutLine, clearCheckoutLines } = context.exports;
+  const primary = line({ appointmentComponent: 'service' }), vaccine = line({ id: 'vaccine', itemKind: 'product', unitPrice: '74000' });
+  assert.equal(canRemoveCheckoutLine(primary, false), true); assert.equal(canRemoveCheckoutLine(primary, true), false);
+  assert.equal(canRemoveCheckoutLine(vaccine, true), true);
+  assert.equal(clearCheckoutLines([primary, vaccine], false).length, 0);
+  assert.equal(clearCheckoutLines([primary, vaccine], true)[0], primary);
+  assert.equal(validateCheckout([vaccine], { services: true, retail: true }), null);
+  assert.match(validateCheckout([], { services: true, retail: true }), /Agrega/);
+});
 const both = { services: true, retail: true };
 
 test('El comprobante omite solo domicilio gratuito y conserva servicio gratuito, valor positivo y domicilio aún pendiente', () => {

@@ -1,5 +1,10 @@
 # ADR 025 — Carrito único de cita y comisión sobre peluquería final
 
+**Ampliación posterior, 24/10/2026:** [ADR 031](031-cobro-cita-por-articulos.md)
+hace opcional el componente principal de servicio fuera de peluquería y permite
+cobrar solo los productos elegidos. Si se retira el cargo principal antes de
+confirmar el pago, su comisión se anula sin reemplazo conservando historial.
+
 2026-10-17. El responsable confirmó un solo carrito y pago, valores iniciales editables y comisión sobre el valor final de peluquería, excluyendo domicilio y productos.
 
 ## Reconciliación y cinco etapas

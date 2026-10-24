@@ -30,6 +30,14 @@ export function withoutEmptyTransport(lines: CheckoutLine[]): CheckoutLine[] {
   return lines.filter(line => line.appointmentComponent !== 'transport' || moneyInCents(line.unitPrice) !== 0);
 }
 
+export function canRemoveCheckoutLine(line: CheckoutLine, requiresServiceLine = true): boolean {
+  return line.appointmentComponent !== 'service' || !requiresServiceLine;
+}
+
+export function clearCheckoutLines(lines: CheckoutLine[], requiresServiceLine = true): CheckoutLine[] {
+  return requiresServiceLine ? lines.filter(line => !!line.appointmentComponent) : [];
+}
+
 const MAX_CENTS = 9_999_999_999;
 export const MAX_POS_QUANTITY = 2_147_483_647;
 

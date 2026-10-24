@@ -1,7 +1,7 @@
 const router = require("express").Router();
 const prisma = require("../../lib/prisma");
 const { createHash } = require("node:crypto");
-const { resolvePrice } = require("../../services/domain/price-resolver.service");
+const { resolvePrice, isGroomingAppointment } = require("../../services/domain/price-resolver.service");
 const { APPOINTMENT_INCLUDE, mapAppointmentRow, getBogotaYmd, bogotaDayStart } = require("./shared");
 const { serviceModule, moduleAllowsAppointment } = require("../../services/dashboard-access.service");
 const { readOperationalCash } = require("./operational-cash-page");
@@ -66,12 +66,14 @@ router.get('/cash/appointments/:id/checkout', async (req, res) => {
     if (row.status !== 'completed' || appointment.payment?.status !== 'pending') return res.status(409).json({ error: 'Esta cita no tiene un pago pendiente. Consulta su comprobante en Caja.' });
     const servicePrice = appointment.priceResolution.finalPrice;
     const transportPrice = appointment.transport.price;
+    const requiresServiceLine = isGroomingAppointment(row);
+    const serviceLine = { id: 'appointment-service', description: row.service?.name || row.serviceType || 'Servicio de la atención', quantity: '1', unitPrice: servicePrice == null ? '' : String(servicePrice), itemKind: 'service', appointmentComponent: 'service' };
     return res.json({ appointmentId: row.id, transactionId: appointment.payment.transactionId,
       client: { id: row.userId, name: row.user?.name ?? null, phone: row.user?.phone ?? '', pets: row.petId ? [{ id: row.petId, name: appointment.petName, type: appointment.petType }] : [] },
-      petId: row.petId ?? '', canAddTransport: serviceModule(row) === 'grooming',
+      petId: row.petId ?? '', canAddTransport: requiresServiceLine, requiresServiceLine, serviceLine,
       lines: [
-        { id: 'appointment-service', description: row.service?.name || row.serviceType || 'Servicio de la atención', quantity: '1', unitPrice: servicePrice == null ? '' : String(servicePrice), itemKind: 'service', appointmentComponent: 'service' },
-        ...(serviceModule(row) === 'grooming' && transportPrice != null && Number(transportPrice) > 0 ? [{ id: 'appointment-transport', description: 'Domicilio de peluquería', quantity: '1', unitPrice: String(transportPrice), itemKind: 'service', appointmentComponent: 'transport' }] : []),
+        ...(requiresServiceLine || servicePrice > 0 ? [serviceLine] : []),
+        ...(requiresServiceLine && transportPrice != null && Number(transportPrice) > 0 ? [{ id: 'appointment-transport', description: 'Domicilio de peluquería', quantity: '1', unitPrice: String(transportPrice), itemKind: 'service', appointmentComponent: 'transport' }] : []),
       ] });
   } catch (error) { console.error('[Cash] Checkout read failed:', error.message); return res.status(503).json({ error: 'No se pudo preparar el cobro de la cita.' }); }
 });

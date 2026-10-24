@@ -6,6 +6,9 @@
  * el pago una sola vez dentro de la transacción y gate del día.
  */
 class TransactionRepositoryPort {
+  async findCheckoutAppointment(_tenantId, _appointmentId, _ctx) {
+    throw new Error('TransactionRepositoryPort.findCheckoutAppointment no implementado');
+  }
   // ADR 030: called only after lockByAppointment has serialized the visit.
   async findDeferredAppointment(_tenantId, _appointmentId, _ctx) {
     throw new Error('TransactionRepositoryPort.findDeferredAppointment no implementado');

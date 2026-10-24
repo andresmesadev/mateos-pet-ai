@@ -1,5 +1,9 @@
 # ADR 030 — Finalizar servicios sin peluquería con precio pendiente de Caja
 
+**Ampliación posterior, 24/10/2026:** [ADR 031](031-cobro-cita-por-articulos.md)
+permite confirmar los productos de vacunación sin imponer una línea principal
+de servicio; únicamente peluquería conserva esa obligatoriedad en Caja.
+
 2026-10-24. Petición explícita del responsable: únicamente Peluquería exige
 precio antes de finalizar; los demás servicios utilizan su tarifa configurada
 y, si falta, el equipo la introduce al registrar el pago.

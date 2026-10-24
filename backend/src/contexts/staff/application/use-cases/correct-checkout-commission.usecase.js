@@ -7,8 +7,8 @@ function createCorrectCheckoutCommissionUseCase({ commissionRepository, voidComm
     if (staffFinanceGate && commission.staffId) await staffFinanceGate.acquire(tenantId, commission.staffId, ctx);
     await businessDayGate.acquire(tenantId, civilDateKey(commission.completedAt), ctx);
     return voidCommission({ tenantId, commissionId: commission.id,
-      reason: `Precio final de peluquería confirmado en Caja por ${actor.actorName || actor.actorId} (${actor.actorId}).`,
-      replacement: { resolvedPrice: servicePrice } }, ctx);
+      reason: `${servicePrice === null ? 'Cargo principal retirado; cobro por artículos' : 'Precio final del servicio confirmado'} en Caja por ${actor.actorName || actor.actorId} (${actor.actorId}).`,
+      replacement: servicePrice === null ? null : { resolvedPrice: servicePrice } }, ctx);
   };
 }
 module.exports = { createCorrectCheckoutCommissionUseCase };

@@ -31,3 +31,4 @@ Se conservan los identificadores y archivos originales. Existen **dos ADR con n�
 Una fecha o estado en un ADR describe su aprobación. Para comprobar implementación/publicación posterior, consultar el [estado actual](../ESTADO_ACTUAL.md), los informes enlazados y las decisiones posteriores del mismo contexto.
 
 - [ADR 030 — Precio diferido fuera de peluquería](030-precio-diferido-servicios-no-peluqueria.md): finalizar la atención sin tarifa y valorarla en Caja.
+- [ADR 031 — Cobro de cita por artículos](031-cobro-cita-por-articulos.md): vacunación por productos, con cargo de servicio opcional fuera de peluquería.

@@ -62,3 +62,21 @@ test.each(['closed', 'settled', 'failStock'])('%s rolls back value, obligation, 
   expect(s.state()).toMatchObject({ visit: { finalPrice: null }, charge: null, commissions: [], stock: 11 });
   expect(s.sent).toHaveLength(0);
 });
+
+test('a product-only vaccination pays once and generates no primary-service commission or zero service item', async () => {
+  const s = setup({ split: true });
+  s.input.command.items = [{ description: 'Vacuna hexavalente', itemKind: 'product', productId: 'vaccine', quantity: 1, unitPrice: 74000 }];
+  await s.execute(s.input);
+  expect(s.state().charge).toMatchObject({ total: '74000.00', items: [expect.objectContaining({ description: 'Vacuna hexavalente', itemKind: 'product' })] });
+  expect(s.state().charge.items[0].appointmentComponent).toBeUndefined(); expect(s.state().visit.finalPrice).toBe(0);
+  expect(s.recordCommission).not.toHaveBeenCalled(); expect(s.state().commissions).toHaveLength(0);
+  expect(s.state().stock).toBe(10); expect(s.sent).toHaveLength(1);
+  await s.execute(s.input); expect(s.state().stock).toBe(10); expect(s.sent).toHaveLength(1);
+});
+
+test('a failed product-only checkout rolls back the first charge and preserves the unvalued visit', async () => {
+  const s = setup({ failStock: true });
+  s.input.command.items = [{ description: 'Vacuna hexavalente', itemKind: 'product', productId: 'vaccine', quantity: 1, unitPrice: 74000 }];
+  await expect(s.execute(s.input)).rejects.toThrow(/stock/);
+  expect(s.state()).toMatchObject({ visit: { finalPrice: null }, charge: null, commissions: [], stock: 11 }); expect(s.sent).toHaveLength(0);
+});
