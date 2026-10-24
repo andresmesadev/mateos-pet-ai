@@ -1,5 +1,14 @@
 # Estado actual del proyecto
 
+**24 de octubre — 2.57.0 publicada:** vacunación permite cobrar productos sin
+imponer la línea fija del servicio; el cargo principal fuera de peluquería es
+opcional y editable antes de confirmar. CI aprobado, 219 suites/1.850 tests,
+26 auxiliares, salud 200 y lecturas de Agenda/Inventario/Caja/reportes correctas.
+Sin migraciones, mismo PostgreSQL y huellas delimitadas de stock/cierre conservadas.
+WhatsApp continúa pausado. Nueva ventana desde las 13:57:23 Colombia; la anterior
+se conserva con 21 muestras y cero fallos. Sin 48 horas certificadas.
+[Certificación y límites](history/RELEASE_2_57_0_VPS_20261024.md).
+
 **24 de octubre — 2.56.0 publicada:** Solo Peluquería exige precio para finalizar;
 consulta, vacunación y otros servicios sin tarifa se valoran en Registrar pago.
 Se corrigió la aplicación de la tarifa habitual de peluquería a otras áreas y

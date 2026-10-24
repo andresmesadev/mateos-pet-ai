@@ -1,5 +1,7 @@
 # Verificación local — vacunación sin cargo fijo impuesto
 
+Publicación posterior: [2.57.0 en VPS](RELEASE_2_57_0_VPS_20261024.md).
+
 24/10/2026. Solicitud del responsable tras observar una línea Vacunación por
 cero en un comprobante confirmado. Diseño en [ADR 031](../decisions/031-cobro-cita-por-articulos.md).
 Verificación previa a publicación. El responsable autorizó después el despliegue

@@ -1,5 +1,10 @@
 # Operación real desde el 19/10 y continuidad de la observación
 
+**Continuación — 24/10, 13:57:** [2.57.0 publicada](../history/RELEASE_2_57_0_VPS_20261024.md).
+Nueva ventana `ventana-2.57.0-20261024T185723Z`. La anterior de 2.56.0 queda
+conservada con 21 muestras y cero fallos; no se agregan a otra ventana para
+certificar continuidad. El avance de la operación real desde el 19/10 permanece.
+
 **Continuación — 24/10:** publicada [2.56.0](../history/RELEASE_2_56_0_VPS_20261024.md),
 con nueva ventana `ventana-2.56.0-20261024T171456Z` desde las 12:14:56 Colombia.
 La de 2.55.2 queda conservada con 266 muestras y un fallo previo; no se declara
