@@ -8,7 +8,7 @@ module.exports = async function verifyCashClose({ prisma, base, context, page, o
   await page.evaluate(() => localStorage.clear());
   await page.reload();
   await page.getByRole('button', { name: 'Productos', exact: true }).click();
-  await page.locator('#pos-product-search').fill('Vacuna de ensayo');
+  await page.locator('#pos-catalog-search').fill('Vacuna de ensayo');
   await page.getByRole('link', { name: 'Revisar producto en Inventario', exact: true }).waitFor();
   assert.equal(await page.getByRole('option').count(), 0);
   await page.goto(base + '/dashboard/inventory');
@@ -24,7 +24,7 @@ module.exports = async function verifyCashClose({ prisma, base, context, page, o
   assert.equal(Number(updated.salePrice), 25000);
   await page.goto(base + '/dashboard/pos?tab=venta');
   await page.getByRole('button', { name: 'Productos', exact: true }).click();
-  await page.locator('#pos-product-search').fill('Vacuna de ensayo');
+  await page.locator('#pos-catalog-search').fill('Vacuna de ensayo');
   await page.getByRole('option').filter({ hasText: product.name }).click();
   await page.getByRole('button', { name: 'Recibí el valor exacto', exact: true }).click();
   const paid = page.waitForResponse(response => response.request().method() === 'POST' && response.url().includes('/dashboard/transactions'));

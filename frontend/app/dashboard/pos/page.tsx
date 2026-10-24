@@ -47,6 +47,7 @@ function LoadingSkeleton() {
 export default async function PosPage({ searchParams }: PageProps) {
   await connection();
   const params = await searchParams;
+  const cashDate = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' }).slice(0, 10);
   const { tab: rawTab, date, period, tenant } = params;
   const reportDetail = readReportDetail(params);
   const reportSelection = readReportSelection(params);
@@ -104,7 +105,7 @@ export default async function PosPage({ searchParams }: PageProps) {
       {/* Tab content */}
       {tab === "venta" && (
         <Suspense fallback={<LoadingSkeleton />}>
-          {checkoutError ? <div role="alert" className="space-y-3 rounded-xl border bg-white p-6"><p>{checkoutError}</p><Link href={`/dashboard/pos?tab=caja&appointmentId=${encodeURIComponent(params.appointmentId ?? '')}${tenant ? '&tenant=' + encodeURIComponent(tenant) : ''}`} className="font-semibold text-primary underline">Consultar el pago en Caja</Link></div> : <SaleForm key={draftScope ?? tenant ?? "no-draft"} draftScope={draftScope} appointment={appointment} />}
+          {checkoutError ? <div role="alert" className="space-y-3 rounded-xl border bg-white p-6"><p>{checkoutError}</p><Link href={`/dashboard/pos?tab=caja&appointmentId=${encodeURIComponent(params.appointmentId ?? '')}${tenant ? '&tenant=' + encodeURIComponent(tenant) : ''}`} className="font-semibold text-primary underline">Consultar el pago en Caja</Link></div> : <SaleForm key={draftScope ?? tenant ?? "no-draft"} draftScope={draftScope} appointment={appointment} cashDate={cashDate} />}
         </Suspense>
       )}
 

@@ -14,10 +14,10 @@ import { tenantQuery, useTenant } from "@/lib/use-tenant";
 import { PAYMENT_METHOD_LABELS, type PaymentMethod, type Transaction } from "@/lib/transactions";
 import { addCheckoutLine, canRemoveCheckoutLine, clearCheckoutLines, catalogueLineIssue, cashChange, checkoutPriceLabel, formatPosMoney, lineTotalCents, moneyInCents, productQuantities, validateCheckout, withoutEmptyTransport, MAX_POS_QUANTITY, type CatalogueSnapshot, type CheckoutLine } from "@/lib/pos-checkout";
 import { ReceiptDialog } from "./sale-receipt";
-import { ServiceCatalog } from "./service-catalog";
+import { SaleCatalog } from "./sale-catalog";
+import { CashOpeningPanel } from './cash-opening-panel';
 import { ServiceProfessional } from './service-professional';
 import { draftKey, readStoredDraft, writeStoredDraft, removeStoredDraft, type SaleDraft } from "@/lib/pos-draft";
-import { ProductPicker } from "@/components/dashboard/inventory/product-picker";
 import type { InventoryProduct } from "@/lib/inventory";
 
 type ClientResult = { id: string; name: string | null; phone: string; pets: { id: string; name: string; type: string }[] };
@@ -83,7 +83,7 @@ async function readCatalogue(ids: string[], tenant: string | null, signal?: Abor
   })));
 }
 
-export function SaleForm({ draftScope, appointment }: { draftScope: string | null; appointment?: AppointmentCheckout }) {
+export function SaleForm({ draftScope, appointment, cashDate }: { draftScope: string | null; appointment?: AppointmentCheckout; cashDate: string }) {
   const appointmentSale = !!appointment;
   const requiresServiceLine = appointment?.requiresServiceLine !== false;
   const router = useRouter();
@@ -105,7 +105,7 @@ export function SaleForm({ draftScope, appointment }: { draftScope: string | nul
   const [draftReady, setDraftReady] = useState(false);
   const [draftNotice, setDraftNotice] = useState("");
   const [discardOpen, setDiscardOpen] = useState(false);
-  const [catalogTab, setCatalogTab] = useState<"all" | "products" | "services">(appointment && requiresServiceLine ? "all" : "products");
+  const [catalogTab, setCatalogTab] = useState<"all" | "products" | "services">("all");
   const [catalogue, setCatalogue] = useState<Record<string, CatalogueStatus>>({});
   const [checking, setChecking] = useState(false);
   const [validationShown, setValidationShown] = useState(false);
@@ -240,7 +240,7 @@ export function SaleForm({ draftScope, appointment }: { draftScope: string | nul
       event.preventDefault();
     }
   }
-  function reset() { if (appointment) { if (draftScope) removeStoredDraft(sessionStorage, localStorage, draftScope); router.push(`/dashboard/pos?tab=venta${tenant ? '&tenant=' + encodeURIComponent(tenant) : ''}`); return; } operationKey.current = null; operationBody.current = null; setCanRecover(false); setLines([]); setClient(null); setPetId(""); setReceived(""); setNotes(""); setPaymentMethod("cash"); setError(""); setUncertain(false); setTransaction(null); setReceiptOpen(false); setClearOpen(false); setCatalogue({}); setValidationShown(false); setCartNotice(""); setEditingLineId(null); setGeneration(value => value + 1); }
+  function reset() { if (appointment) { if (draftScope) removeStoredDraft(sessionStorage, localStorage, draftScope); router.push(`/dashboard/pos?tab=venta${tenant ? '&tenant=' + encodeURIComponent(tenant) : ''}`); return; } operationKey.current = null; operationBody.current = null; setCanRecover(false); setLines([]); setClient(null); setPetId(""); setReceived(""); setNotes(""); setPaymentMethod("cash"); setError(""); setUncertain(false); setTransaction(null); setReceiptOpen(false); setClearOpen(false); setCatalogue({}); setCatalogTab('all'); setValidationShown(false); setCartNotice(""); setEditingLineId(null); setGeneration(value => value + 1); }
   async function submit(event?: React.FormEvent) {
     event?.preventDefault();
     if (inFlight.current || checking || updating || (uncertain && !operationKey.current) || !access) return;
@@ -328,8 +328,7 @@ export function SaleForm({ draftScope, appointment }: { draftScope: string | nul
             </div>}
           </div>
           <div className="space-y-4 p-4 sm:p-5">
-            {access?.capabilities.retail && visibleCatalog !== "services" && <ProductPicker use="retail" hideUntilSearch resetAfterSelect inputId="pos-product-search" focusRequest={searchFocus} refreshRequest={catalogReload} quantities={quantities} onSelect={addProduct} />}
-            {access?.capabilities.services && visibleCatalog !== "products" && <ServiceCatalog key={`${tenant ?? "current"}:${access.activeModules.join(",")}:${petId}`} petId={petId} petName={selectedPet?.name} additional={!!appointment} focusRequest={visibleCatalog === "services" ? searchFocus : 0} onAdd={addCartLine} />}
+            <SaleCatalog key={`${tenant ?? 'current'}:${access?.activeModules.join(',')}:${generation}`} filter={visibleCatalog} productsEnabled={!!access?.capabilities.retail} servicesEnabled={!!access?.capabilities.services} petId={petId} petName={selectedPet?.name} additional={!!appointment} focusRequest={searchFocus} refreshRequest={catalogReload} quantities={quantities} disabled={locked} onProduct={addProduct} onService={addCartLine} />
             <details className="mt-4 border-t pt-3"><summary className="cursor-pointer text-xs font-medium text-muted-foreground">Ingreso manual de un artículo</summary><div className="mt-2 flex flex-wrap gap-2">
               {access?.capabilities.retail && <Button type="button" variant="ghost" size="sm" onClick={() => addLine("product")}><Plus className="mr-1 h-3 w-3" />Producto manual · sin inventario</Button>}
               {access?.capabilities.services && <Button type="button" variant="ghost" size="sm" onClick={() => addLine("service")}><Plus className="mr-1 h-3 w-3" />Servicio manual</Button>}
@@ -376,6 +375,7 @@ export function SaleForm({ draftScope, appointment }: { draftScope: string | nul
 
       <aside className="xl:sticky xl:top-28">
         <section className="overflow-hidden rounded-2xl border bg-white">
+          <CashOpeningPanel key={`opening:${tenant ?? 'current'}:${cashDate}`} date={cashDate} tenant={tenant ?? undefined} layout="checkout" disabled={locked} />
           <div className="bg-[#1b353b] px-5 py-4 text-white"><p className="text-sm text-white/75">Total a cobrar · COP</p><p className="mt-1 break-words text-3xl font-bold tracking-tight tabular-nums" aria-live="polite">{formatPosMoney(totalCents / 100)}</p><p className="mt-2 text-xs text-white/75">{lines.length} {lines.length === 1 ? "artículo" : "artículos"} · {units} {units === 1 ? "unidad" : "unidades"}</p></div>
           <div className="border-b px-5 py-4">
             <h3 className="text-sm font-semibold">Resumen de la venta</h3>
