@@ -19,6 +19,7 @@ const build=()=>{
   const app=express(),limits=createDashboardRateLimits();
   app.use(limits.dashboardProxyRateLimit,resolveTenant,limits.dashboardRateLimit);
   app.get('/read',(_req,res)=>res.json({ok:true}));
+  app.get('/access',(_req,res)=>res.json({ok:true}));
   return app;
 };
 const read=(app,id,tenant='capacity-tenant')=>request(app).get('/read')
@@ -35,6 +36,15 @@ test('one actor remains limited to 60 even across tabs; another actor and tenant
   await read(app,'capacity-a').expect(429);
   await read(app,'capacity-b').expect(200);
   await read(app,'capacity-a','other-capacity-tenant').expect(200);
+});
+
+test('a busy operator can still revalidate permissions without resetting the operations cap',async()=>{
+  const app=build();for(let i=0;i<60;i++)await read(app,'capacity-a').expect(200);
+  await read(app,'capacity-a').expect(429);
+  const probe=()=>request(app).get('/access').set('X-Internal-Token','capacity-test-only').set('X-Tenant-Id','capacity-tenant').set('X-Staff-Id','capacity-a').set('X-Staff-Session-Version','1');
+  for(let i=0;i<60;i++)await probe().expect(200);
+  await probe().expect(429);await read(app,'capacity-a').expect(429);
+  await request(app).get('/access').set('X-Internal-Token','capacity-test-only').set('X-Tenant-Id','capacity-tenant').set('X-Staff-Id','capacity-a').set('X-Staff-Session-Version','2').expect(403);
 });
 
 test('raw identity headers cannot bypass authentication or the 60/min unauthenticated IP cap',async()=>{

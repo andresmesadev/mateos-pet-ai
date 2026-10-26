@@ -129,7 +129,8 @@ async function handler(
     headers: {
       "Content-Type":
         response.headers.get("Content-Type") ?? "application/json",
-      ...(path[0] === "operational-assistants" ? { "Cache-Control": "no-store" } : {}),
+      ...(["operational-assistants", "access"].includes(path[0]) ? { "Cache-Control": "no-store" } : {}),
+      ...(response.headers.get("Retry-After") ? { "Retry-After": response.headers.get("Retry-After")! } : {}),
     },
   });
 }

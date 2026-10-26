@@ -22,9 +22,14 @@ const dashboardKey = (req) => {
     ? ["staff", actor.staffId] : typeof actor?.email === "string" && actor.email
       ? ["admin", actor.email.trim().toLowerCase()] : null;
   if (!req.tenant || !principal) return "ip:" + ipKeyGenerator(req.ip);
-  return "actor:" + createHash("sha256").update(JSON.stringify([
+  const identity = "actor:" + createHash("sha256").update(JSON.stringify([
     req.tenant.tenantId ?? "central", ...principal,
   ])).digest("hex");
+  // Permission probes run during navigation, prefetch and workspace refresh.
+  // A busy cash/clinical screen must not consume their budget and resemble a
+  // revoked session. Authentication precedes BOTH bounded actor buckets.
+  const accessProbe = ["GET", "HEAD"].includes(req.method) && ["/access", "/access/"].includes(req.path);
+  return identity + (accessProbe ? ":access" : ":operations");
 };
 const createDashboardRateLimits = () => ({
   // Choosing the ingress ceiling never grants access; resolveTenant still
