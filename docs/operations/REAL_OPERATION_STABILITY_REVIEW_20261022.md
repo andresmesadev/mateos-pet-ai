@@ -1,5 +1,11 @@
 # Operación real desde el 19/10 y continuidad de la observación
 
+**Continuación — 26/10, 14:57:** [2.58.1 publicada](../history/RELEASE_2_58_1_VPS_20261026.md).
+Nueva ventana `ventana-2.58.1-20261026T195700Z`, servicio activo desde las 14:57:01
+Colombia. La anterior 2.58.0 se preserva con 559 muestras y seis fallos de sondeo,
+del 24/10 16:20:13 al 26/10 14:50:50. No se declaran resueltos esos fallos ni
+se suman ventanas para certificar 48 horas; continúa la operación real del centro.
+
 **Continuación — 24/10, 16:20:** [2.58.0 publicada](../history/RELEASE_2_58_0_VPS_20261024.md).
 Nueva ventana `ventana-2.58.0-20261024T212012Z`, servicio activo desde las 16:20:13
 Colombia. La anterior 2.57.1 se preserva con 21 muestras y cero fallos, de 14:37:54

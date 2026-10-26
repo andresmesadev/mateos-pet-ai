@@ -1,5 +1,15 @@
 # Estado actual del proyecto
 
+**26 de octubre — 2.58.1 publicada:** permisos con presupuesto independiente y
+reconexión temporal que conserva el workspace, para corregir las recuperaciones
+repetidas observadas en Edge. CI completo: 220 suites/1.866 tests, lint y tres
+integraciones PostgreSQL aprobados; 207 auxiliares locales. Salud 200 y sesión
+vigente de Lina 5/5 accesos; sesión anterior 403. Credenciales, stock y datos
+históricos conservados; 66 migraciones y mismo PostgreSQL. WhatsApp pausado.
+Nueva observación desde las 14:57 Colombia. Serie anterior preservada con 559
+muestras y seis fallos; no se certifican 48 horas.
+[Certificación y límites](history/RELEASE_2_58_1_VPS_20261026.md).
+
 **24 de octubre — 2.58.0 publicada:** un cobro admite efectivo + transferencia;
 Caja y reportes distribuyen ambos importes. Base compacta de lectura al cobrar
 y recuperación pública de sesiones revocadas. Cinco jobs CI aprobados, 220

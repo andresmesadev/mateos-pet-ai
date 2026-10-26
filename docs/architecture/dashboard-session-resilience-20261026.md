@@ -72,6 +72,9 @@ Verificación final local:
   test inexistente. CI completo debe aprobar antes de un eventual despliegue.
 - Diff sin errores de espacios. Sin comprobación visual en el navegador de Lina.
 
-Corrección local: todavía sin commit, push ni despliegue. Producción sigue en
-2.58.0; durante este diagnóstico solo se hicieron lecturas de cuenta y permisos,
-sin cambiar contraseña, credenciales ni datos operativos.
+Publicada como **2.58.1 el 26/10 a las 14:57 Colombia**, tras autorización expresa
+del responsable. El CI completo aprobó 220 suites/1.866 tests, lint y las tres
+integraciones PostgreSQL. Producción confirma sesión vigente 5/5 HTTP 200 y
+versión anterior 403; credenciales, stock e histórico financiero conservan sus
+huellas. [Certificación y límites](../history/RELEASE_2_58_1_VPS_20261026.md).
+Durante diagnóstico y publicación no se cambiaron contraseña ni datos operativos.

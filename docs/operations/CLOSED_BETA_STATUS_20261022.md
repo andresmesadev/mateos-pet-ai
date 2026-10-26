@@ -1,5 +1,12 @@
 # Beta cerrada de la veterinaria propia — estado al 22 de octubre de 2026
 
+**Publicación posterior — 26/10, 14:57:** [2.58.1](../history/RELEASE_2_58_1_VPS_20261026.md)
+publicada: presupuesto independiente de permisos y continuidad ante fallos
+temporales. CI completo aprobado; acceso vigente de Lina y lecturas operativas
+correctas. Credenciales y huellas de datos conservadas; sin operaciones de prueba
+en producción. Ventana anterior preservada con 559 muestras/seis fallos; nueva
+observación sin certificar 48 horas. Los diez ítems conservan sus pendientes.
+
 **Publicación posterior — 24/10, 16:20:** [2.58.0](../history/RELEASE_2_58_0_VPS_20261024.md)
 publicada: efectivo + transferencia en un cobro, base compacta y recuperación de
 sesiones revocadas. CI y lecturas operativas correctas, migración aditiva y
