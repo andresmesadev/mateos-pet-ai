@@ -52,6 +52,17 @@ afterAll(() => {
 });
 
 describe("getHealthStatus", () => {
+  test("limita el sondeo de OpenAI a 8 segundos sin reintentos", () => {
+    jest.isolateModules(() => {
+      require("../health.service");
+    });
+
+    expect(OpenAI).toHaveBeenCalledWith(expect.objectContaining({
+      timeout: 8_000,
+      maxRetries: 0,
+    }));
+  });
+
   test("status 'ok' cuando la BD y OpenAI responden bien", async () => {
     prisma.$queryRaw.mockResolvedValue([{ "?column?": 1 }]);
     mockModelsList.mockResolvedValue({ data: [] });
@@ -90,6 +101,59 @@ describe("getHealthStatus", () => {
     const result = await getHealthStatus();
     expect(result.services.openai).toBe("error");
     expect(mockModelsList).not.toHaveBeenCalled();
+  });
+
+  test("un timeout de OpenAI conserva la señal de degradación y la salud de BD", async () => {
+    prisma.$queryRaw.mockResolvedValue([{ "?column?": 1 }]);
+    const timeout = new Error("Request timed out.");
+    timeout.name = "APIConnectionTimeoutError";
+    mockModelsList.mockRejectedValue(timeout);
+
+    const result = await getHealthStatus();
+
+    expect(result.status).toBe("degraded");
+    expect(result.services).toEqual({ database: "ok", openai: "error", inboundWorker: "ok" });
+    expect(mockModelsList).toHaveBeenCalledTimes(1);
+  });
+
+  test("el SDK real aborta a los 8 segundos y el controlador responde 503 sin reintentar", async () => {
+    jest.useFakeTimers();
+    const ActualOpenAI = jest.requireActual("openai");
+    const stalledFetch = jest.fn((_url, { signal }) => new Promise((_resolve, reject) => {
+      signal.addEventListener("abort", () => {
+        const error = new Error("Aborted");
+        error.name = "AbortError";
+        reject(error);
+      }, { once: true });
+    }));
+    OpenAI.mockImplementationOnce(options => new ActualOpenAI({
+      ...options,
+      fetch: stalledFetch,
+    }));
+
+    try {
+      let getHealth;
+      jest.isolateModules(() => {
+        require("../../lib/prisma").$queryRaw.mockResolvedValue([{ "?column?": 1 }]);
+        ({ getHealth } = require("../../controllers/health.controller"));
+      });
+      const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+      const response = getHealth({}, res);
+
+      await jest.advanceTimersByTimeAsync(7_999);
+      expect(res.json).not.toHaveBeenCalled();
+      await jest.advanceTimersByTimeAsync(1);
+      await response;
+
+      expect(stalledFetch).toHaveBeenCalledTimes(1);
+      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+        status: "degraded",
+        services: { database: "ok", openai: "error", inboundWorker: "ok" },
+      }));
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   test("status 'degraded' si el worker entrante falla", async () => {

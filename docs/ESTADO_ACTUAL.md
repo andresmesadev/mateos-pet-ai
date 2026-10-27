@@ -1,5 +1,11 @@
 # Estado actual del proyecto
 
+**27 de octubre — preparación de 2.58.2:** espera de OpenAI en el chequeo de
+salud limitada a ocho segundos y sin reintentos, conservando `degraded`/503
+ante un fallo. Publicación autorizada; pendiente CI y comprobación de la VPS.
+No cambia precios, sesiones, base de datos ni el motor conversacional.
+[Alcance y verificación](history/RELEASE_2_58_2_VPS_20261027.md).
+
 **26 de octubre — 2.58.1 publicada:** permisos con presupuesto independiente y
 reconexión temporal que conserva el workspace, para corregir las recuperaciones
 repetidas observadas en Edge. CI completo: 220 suites/1.866 tests, lint y tres

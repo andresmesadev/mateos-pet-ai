@@ -6,6 +6,10 @@ const { version: APP_VERSION } = require("../../package.json");
 
 const openaiClient = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
+  // The public probe gives up after 25 s. Report a dependency failure before
+  // that deadline instead of retaining the SDK's 10-minute timeout/retries.
+  timeout: 8_000,
+  maxRetries: 0,
 });
 
 const checkDatabase = async () => {
