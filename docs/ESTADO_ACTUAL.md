@@ -1,9 +1,13 @@
 # Estado actual del proyecto
 
-**27 de octubre — preparación de 2.58.2:** espera de OpenAI en el chequeo de
-salud limitada a ocho segundos y sin reintentos, conservando `degraded`/503
-ante un fallo. Publicación autorizada; pendiente CI y comprobación de la VPS.
-No cambia precios, sesiones, base de datos ni el motor conversacional.
+**27 de octubre — 2.58.2 publicada a las 16:35 Colombia:** espera de OpenAI en
+salud limitada a ocho segundos y sin reintentos, conservando `degraded`/503.
+CI aprobado: cinco jobs, 220 suites/1.869 tests backend. Respaldo cifrado
+verificado; solo backend sustituido, mismo PostgreSQL y frontend. Cinco
+lecturas autenticadas 200, huellas de stock/histórico/credenciales idénticas.
+Salud inicial 503 por OpenAI en 8,1 s, después 200 en 3,5 s; dependencia
+intermitente, ítem 9 abierto. Ventana anterior preservada: 308 muestras/seis
+fallos; nueva observación identificada para 2.58.2, sin certificar 48 horas.
 [Alcance y verificación](history/RELEASE_2_58_2_VPS_20261027.md).
 
 **26 de octubre — 2.58.1 publicada:** permisos con presupuesto independiente y
