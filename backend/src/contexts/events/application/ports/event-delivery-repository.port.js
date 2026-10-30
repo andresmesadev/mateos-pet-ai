@@ -1,5 +1,5 @@
 class EventDeliveryRepositoryPort {
-  async create(_data) {
+  async create(_data, _ctx) {
     throw new Error("EventDeliveryRepositoryPort.create no implementado");
   }
   async listByDomainEvent(_domainEventId) {

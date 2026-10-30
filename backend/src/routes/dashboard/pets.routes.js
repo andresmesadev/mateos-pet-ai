@@ -562,7 +562,7 @@ router.get("/pets/:id/report", async (req, res) => {
       where: tenantId ? { id, tenantId } : { id },
       include: {
         owner: { select: { id: true, name: true, phone: true, email: true, address: true } },
-        tenant: { select: { name: true, phone: true, email: true, address: true, logoUrl: true } },
+        tenant: { select: { name: true, contactPhone: true, email: true, address: true, logoUrl: true } },
       },
     });
     if (!pet) return res.status(404).json({ error: "Pet not found" });

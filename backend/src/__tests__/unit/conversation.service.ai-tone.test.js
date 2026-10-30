@@ -12,15 +12,26 @@ jest.mock("../../services/openai.service", () => ({
 }));
 jest.mock("../../services/business-config.service", () => ({
   getBusinessHours: jest.fn(),
+  getActiveModules: jest.fn(),
 }));
 
 const { generateReply: generateReplyWithAI } = require("../../services/openai.service");
-const { getBusinessHours } = require("../../services/business-config.service");
+const { getBusinessHours, getActiveModules } = require("../../services/business-config.service");
 const { generateReply, STEPS } = require("../../services/conversation.service");
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => { jest.clearAllMocks(); getActiveModules.mockResolvedValue(["veterinary", "grooming"]); });
 
 describe("generateReply — el wizard de reserva ya es elegible para reformularse con IA", () => {
+  test.each([["veterinary", "Veterinaria:", "Peluquería:"], ["grooming", "Peluquería:", "Veterinaria:"], ["retail", "Pet shop:", "Veterinaria:"]])("horarios propios de %s, sin anunciar áreas desactivadas", async (module, own, absent) => {
+    getActiveModules.mockResolvedValue([module]);
+    getBusinessHours.mockResolvedValue({ mon: { active: true, open: "09:30", close: "13:45" }, tue: { active: false }, wed: { active: false }, thu: { active: false }, fri: { active: false }, sat: { active: false }, sun: { active: false } });
+    const result = await generateReply({ analysis: { intent: "ask_info" }, session: {}, semanticContext: "", userMessage: "¿Cuál es el horario de atención?" }, { tenantId: "own-tenant" });
+    expect(result.reply).toContain(own); expect(result.reply).not.toContain(absent);
+    expect(result.reply).toContain("09:30–13:45");
+    if (module === 'retail') { expect(result.reply).not.toContain("Peluquería:"); expect(result.reply).not.toContain("buscas cita"); }
+    expect(getActiveModules).toHaveBeenCalledWith("own-tenant");
+    expect(generateReplyWithAI).not.toHaveBeenCalled();
+  });
   test("la respuesta de recogida no se convierte en una confirmación inventada por la IA", async () => {
     generateReplyWithAI.mockResolvedValue("Listo, ya programé la recogida y la cita");
     const result = await generateReply({ analysis: { intent: "schedule_appointment" },

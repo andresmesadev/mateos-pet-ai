@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, CalendarDays, Check, CircleDollarSign, Clock3, HeartPulse, MessageCircleMore, PawPrint, Scissors, Sparkles, UsersRound } from "lucide-react";
 import styles from "./landing.module.css";
+import { ProductBrand } from "@/components/brand/product-brand";
 
 export const metadata: Metadata = {
-  title: "Mateos Pet AI | Una operación más simple para tu negocio de mascotas",
+  title: "Huella Nex | Una operación más simple para tu negocio de mascotas",
   description: "Organiza agenda, clientes, servicios, equipo y finanzas en una plataforma para negocios de salud y bienestar animal, con empleados digitales especializados.",
 };
 
@@ -15,7 +16,7 @@ const capabilities = [
 ];
 
 function Brand() {
-  return <Link href="/" className={styles.brand} aria-label="Mateos Pet AI, inicio"><span className={styles.brandMark} aria-hidden="true"><PawPrint size={21} strokeWidth={2.5} /></span><span>mateos<span className={styles.brandAccent}>pet</span><span className={styles.brandAi}>ai</span></span></Link>;
+  return <Link href="/" className={styles.brand} aria-label="Huella Nex, inicio"><ProductBrand size="md" /></Link>;
 }
 
 function Header() {
@@ -24,7 +25,7 @@ function Header() {
 
 function OperationPreview() {
   return <div className={styles.preview} aria-label="Vista ilustrativa de una jornada en la plataforma">
-    <div className={styles.previewTop}><div className={styles.previewLogo}><PawPrint size={16} /> mateos pet</div><span className={styles.previewToday}>Tu operación, en un lugar</span></div>
+    <div className={styles.previewTop}><div className={styles.previewLogo}><ProductBrand size="sm" /></div><span className={styles.previewToday}>Tu operación, en un lugar</span></div>
     <div className={styles.previewBody}><div className={styles.previewIntro}><span>Hoy en tu negocio</span><strong>Todo empieza aquí.</strong></div><div className={styles.previewColumns}>
       <div className={styles.appointmentPanel}><div className={styles.panelTitle}><CalendarDays size={17} /> Agenda del día</div>
         <div className={styles.appointment}><span className={styles.time}>09:00</span><span className={styles.appointmentIcon}><Scissors size={17} /></span><span><strong>Baño y peluquería</strong><small>Una cita por atender</small></span><span className={styles.statusDot} /></div>
@@ -36,7 +37,7 @@ function OperationPreview() {
 }
 
 function Hero() {
-  return <section className={styles.hero}><div className={styles.heroInner}><div className={styles.heroCopy}><p className={styles.kicker}><span className={styles.kickerDot} /> Para quienes cuidan mascotas</p><h1>Tu negocio de mascotas, <span>en sintonía.</span></h1><p className={styles.heroDescription}>Agenda, clientes, servicios, equipo y finanzas conectados en una sola plataforma. Con empleados digitales que ayudan a que cada día fluya mejor.</p><div className={styles.heroActions}><Link href="/onboarding" className={styles.primaryButton}>Empieza con Mateos Pet <ArrowRight size={18} /></Link><a href="#plataforma" className={styles.textButton}>Conoce la plataforma <ArrowRight size={17} /></a></div><p className={styles.heroFootnote}>Para peluquerías y negocios veterinarios.</p></div><OperationPreview /></div></section>;
+  return <section className={styles.hero}><div className={styles.heroInner}><div className={styles.heroCopy}><p className={styles.kicker}><span className={styles.kickerDot} /> Para quienes cuidan mascotas</p><h1>Tu negocio de mascotas, <span>en sintonía.</span></h1><p className={styles.heroDescription}>Agenda, clientes, servicios, equipo y finanzas conectados en una sola plataforma. Con empleados digitales que ayudan a que cada día fluya mejor.</p><div className={styles.heroActions}><Link href="/onboarding" className={styles.primaryButton}>Empieza con Huella Nex <ArrowRight size={18} /></Link><a href="#plataforma" className={styles.textButton}>Conoce la plataforma <ArrowRight size={17} /></a></div><p className={styles.heroFootnote}>Para veterinarias, pet shops y peluquerías caninas y felinas.</p></div><OperationPreview /></div></section>;
 }
 
 function Platform() {
@@ -44,7 +45,7 @@ function Platform() {
 }
 
 function HowItWorks() {
-  return <section id="como-funciona" className={styles.how}><div className={styles.howInner}><div className={styles.howCopy}><p className={styles.sectionEyebrow}>Personas y tecnología, juntas</p><h2>Tu equipo hace lo que mejor sabe hacer. La plataforma acompaña el resto.</h2><p>Mateos Pet AI reúne la operación del establecimiento y permite que empleados digitales especializados apoyen las tareas repetitivas, sin perder de vista el trabajo del equipo humano.</p><Link href="/onboarding" className={styles.darkButton}>Conocer los planes <ArrowRight size={18} /></Link></div><div className={styles.flow}>
+  return <section id="como-funciona" className={styles.how}><div className={styles.howInner}><div className={styles.howCopy}><p className={styles.sectionEyebrow}>Personas y tecnología, juntas</p><h2>Tu equipo hace lo que mejor sabe hacer. La plataforma acompaña el resto.</h2><p>Huella Nex reúne la operación del establecimiento y permite que empleados digitales especializados apoyen las tareas repetitivas, sin perder de vista el trabajo del equipo humano.</p><Link href="/onboarding" className={styles.darkButton}>Conocer los planes <ArrowRight size={18} /></Link></div><div className={styles.flow}>
     <div className={styles.flowItem}><span><UsersRound size={23} /></span><div><strong>Tu equipo</strong><p>Atiende a las mascotas y toma las decisiones importantes.</p></div><Check size={18} className={styles.flowCheck} /></div>
     <div className={styles.flowItem}><span><MessageCircleMore size={23} /></span><div><strong>Empleados digitales</strong><p>Apoyan conversaciones, citas y recordatorios.</p></div><Check size={18} className={styles.flowCheck} /></div>
     <div className={styles.flowItem}><span><Sparkles size={23} /></span><div><strong>Una operación conectada</strong><p>La información queda disponible para trabajar con más claridad.</p></div><Check size={18} className={styles.flowCheck} /></div>
@@ -52,9 +53,9 @@ function HowItWorks() {
 }
 
 function FinalCta() {
-  return <section className={styles.finalCta}><div className={styles.finalInner}><div><p className={styles.finalEyebrow}>El siguiente paso</p><h2>Haz espacio para lo que más importa.</h2><p>Conoce los planes y empieza a organizar tu negocio con Mateos Pet AI.</p></div><Link href="/onboarding" className={styles.lightButton}>Crear mi cuenta <ArrowRight size={18} /></Link></div></section>;
+  return <section className={styles.finalCta}><div className={styles.finalInner}><div><p className={styles.finalEyebrow}>El siguiente paso</p><h2>Haz espacio para lo que más importa.</h2><p>Conoce los planes y empieza a organizar tu negocio con Huella Nex.</p></div><Link href="/onboarding" className={styles.lightButton}>Crear mi cuenta <ArrowRight size={18} /></Link></div></section>;
 }
 
 export default function LandingPage() {
-  return <div className={styles.page}><Header /><main><Hero /><Platform /><HowItWorks /><FinalCta /></main><footer className={styles.footer}><div className={styles.footerInner}><Brand /><span>Una operación más simple para quienes cuidan mascotas.</span><div><Link href="/login">Ingresar</Link><Link href="/onboarding">Crear cuenta</Link></div><small>© {new Date().getFullYear()} Mateos Pet AI</small></div></footer></div>;
+  return <div className={styles.page}><Header /><main><Hero /><Platform /><HowItWorks /><FinalCta /></main><footer className={styles.footer}><div className={styles.footerInner}><Brand /><span>Una operación más simple para quienes cuidan mascotas.</span><div><Link href="/login">Ingresar</Link><Link href="/onboarding">Crear cuenta</Link></div><small>© {new Date().getFullYear()} Huella Nex</small></div></footer></div>;
 }

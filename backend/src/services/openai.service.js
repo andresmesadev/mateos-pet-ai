@@ -1,5 +1,7 @@
 const OpenAI = require("openai");
 const { validateAnalysis } = require("./analysis-contract.service");
+const { executeTenantAi } = require('./ai-quota.service');
+const { MAX_COMPLETION_TOKENS } = require('./ai-metering.service');
 
 let _client = null;
 
@@ -143,7 +145,7 @@ const analyzeMessage = async (input) => {
     // entre el system prompt y el mensaje actual. Antes: siempre exactamente
     // dos mensajes (system+user), sin memoria de turnos previos.
     const startedAt = Date.now();
-    const response = await getClient().chat.completions.create({
+    const request = {
       model: "gpt-4.1-mini",
       response_format: { type: "json_object" },
       messages: [
@@ -152,7 +154,9 @@ const analyzeMessage = async (input) => {
         ...history,
         { role: "user", content: userMessage },
       ],
-    });
+    };
+    const response = await executeTenantAi('analyze', request, options => getClient().chat.completions.create(
+      { ...request, ...(options ? { max_completion_tokens: MAX_COMPLETION_TOKENS, store: false } : {}) }, ...(options ? [options] : [])));
     console.info("[AssistantAI] Usage:", { operation: "analyze", model: response.model || "gpt-4.1-mini", elapsedMs: Date.now() - startedAt, totalTokens: response.usage?.total_tokens ?? null });
 
     const content = response.choices?.[0]?.message?.content;
@@ -282,7 +286,7 @@ const generateReply = async ({
     // enriquecido de buildReplyUserPrompt, no el texto crudo, para no
     // duplicar el turno actual dos veces en el prompt).
     const startedAt = Date.now();
-    const response = await getClient().chat.completions.create({
+    const request = {
       model: "gpt-4.1-mini",
       messages: [
         { role: "system", content: buildReplySystemPrompt(contextText) },
@@ -299,7 +303,9 @@ const generateReply = async ({
           }),
         },
       ],
-    });
+    };
+    const response = await executeTenantAi('reply', request, options => getClient().chat.completions.create(
+      { ...request, ...(options ? { max_completion_tokens: MAX_COMPLETION_TOKENS, store: false } : {}) }, ...(options ? [options] : [])));
     console.info("[AssistantAI] Usage:", { operation: "reply", model: response.model || "gpt-4.1-mini", elapsedMs: Date.now() - startedAt, totalTokens: response.usage?.total_tokens ?? null });
 
     const reply = response.choices?.[0]?.message?.content?.trim();

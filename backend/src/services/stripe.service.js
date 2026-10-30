@@ -150,12 +150,14 @@ const updateSubscriptionPrice = async (subscriptionId, newPriceId) => {
   }
 };
 
-/**
- * Verifica la firma del webhook y construye el evento Stripe.
- * @param {Buffer} rawBody
- * @param {string} signature  — header stripe-signature
- * @returns {import('stripe').Stripe.Event|null}
- */
+/** Opens the provider-hosted portal; it does not change local activation. */
+const createBillingPortalSession = async (customerId, returnUrl) => {
+  const stripe = getStripe();
+  if (!stripe) return null;
+  return stripe.billingPortal.sessions.create({ customer: customerId, return_url: returnUrl });
+};
+
+/** Verifies the signature before exposing a provider event to billing routes. */
 const constructWebhookEvent = (rawBody, signature) => {
   const stripe = getStripe();
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -175,6 +177,7 @@ module.exports = {
   cancelSubscription,
   getSubscription,
   createCheckoutSession,
+  createBillingPortalSession,
   updateSubscriptionPrice,
   constructWebhookEvent,
 };

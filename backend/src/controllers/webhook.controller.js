@@ -10,6 +10,8 @@ const { recordDeliveryReceipts } = require("../services/whatsapp-delivery-receip
 // duplicar ni un fragmento de su lógica.
 const { enqueueInboundJob, enqueueOperatorJob } = require("../services/inbound-job.service");
 const { requestInboundDrain } = require("../jobs/inbound-message.job");
+const { receiver } = require('../services/whatsapp-route.service');
+const { runProviderScope } = require('../lib/provider-execution');
 
 const verifyWebhook = (req, res, next) => {
   if (!isWhatsAppEnabled()) return res.sendStatus(503);
@@ -34,6 +36,18 @@ const verifyWebhook = (req, res, next) => {
 const receiveWebhook = async (req, res, next) => {
   if (!isWhatsAppEnabled()) return res.sendStatus(503);
   try {
+    if (process.env.WHATSAPP_MULTITENANT_ENABLED === 'true' && !req.providerRouted) {
+      for (const entry of req.body?.entry || []) for (const change of entry.changes || []) {
+        // Coexistence history/echo/account events are not new customer turns.
+        if (change.field !== 'messages') continue;
+        const route = await receiver(change.value?.metadata?.phone_number_id, entry.id);
+        if (!route) continue;
+        await runProviderScope({ tenantId: route.tenantId, whatsapp: route }, () => receiveWebhook({ ...req, providerRouted: true,
+          body: { object: req.body.object, entry: [{ id: entry.id, changes: [change] }] } },
+          { sendStatus: code => { if (code !== 200) throw new Error('WHATSAPP_INGRESS_UNAVAILABLE'); } }, error => { throw error; }));
+      }
+      return res.sendStatus(200);
+    }
     await recordDeliveryReceipts(req.body);
     const internal = await require('../contexts').operatorChannel.ingress(req.body, enqueueOperatorJob);
     // parseIncomingMessage (no processIncomingMessage) solo para obtener un

@@ -1,5 +1,7 @@
 const cron = require("node-cron");
 const { isWhatsAppEnabled } = require("../lib/whatsapp-runtime");
+const { outbound } = require('../services/whatsapp-route.service');
+const { runProviderScope } = require('../lib/provider-execution');
 const { processIncomingMessage } = require("../contexts/receptionist");
 const { sendMessage } = require("../contexts/communication");
 const operatorChannel = () => require('../contexts').operatorChannel;
@@ -58,6 +60,24 @@ const processOneJob = async () => {
   if (!isWhatsAppEnabled()) return false;
   let job = await claimNextInboundJob();
   if (!job) return false;
+  if (process.env.WHATSAPP_MULTITENANT_ENABLED === 'true' && !job.providerRoute) {
+    // A pre-migration job has no proven credential revision. Do not adopt a
+    // new grant, even when the business still uses the same phone number.
+    await markInboundJobFailed(job, Object.assign(new Error('PROVIDER_ROUTE_CHANGED'), { code: 'PROVIDER_ROUTE_CHANGED' }));
+    return true;
+  }
+  if (job.providerRoute) {
+    try {
+      const route = await outbound(job.providerRoute.tenantId, job.providerRoute);
+      if (!route) throw Object.assign(new Error('PROVIDER_ROUTE_CHANGED'), { code: 'PROVIDER_ROUTE_CHANGED' });
+      return await runProviderScope({ tenantId: route.tenantId, whatsapp: route }, () => processClaimedJob(job));
+    } catch (error) { await markInboundJobFailed(job, error); return true; }
+  }
+  return processClaimedJob(job);
+};
+
+const processClaimedJob = async (initialJob) => {
+  let job = initialJob;
   const startedAt = Date.now();
   let leaseError = null;
   let renewing = false;

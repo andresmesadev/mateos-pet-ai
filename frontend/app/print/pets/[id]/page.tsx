@@ -50,7 +50,7 @@ export type PetReport = {
   };
   tenant: {
     name: string;
-    phone: string;
+    contactPhone: string | null;
     email: string | null;
     address: string | null;
     logoUrl: string | null;

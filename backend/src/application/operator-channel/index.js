@@ -10,8 +10,13 @@ const { buildOperatorWhatsappProvider } = require('../../contexts/communication/
 const { buildOperationalInterpreter } = require('../../contexts/agents/infrastructure/operational/interpreter');
 const { buildOperatorMaintenance } = require('./maintenance');
 function buildOperatorChannel({ prisma, accessReader, buildOperational, env = process.env, fetcher, provider, clock, settings = p.config(env) }) {
-  const routeConfig = () => ({ receiver: env.WHATSAPP_PHONE_NUMBER_ID || '', hash: env.WHATSAPP_ACCESS_TOKEN ? p.mac(settings.key, 'route-config', {
-    receiver: env.WHATSAPP_PHONE_NUMBER_ID || '', keyVersion: settings.keyVersion, tokenFingerprint: p.digest(env.WHATSAPP_ACCESS_TOKEN) }) : null });
+  const routeConfig = () => {
+    const scope = require('../../lib/provider-execution').providerScope();
+    const receiver = scope ? scope.whatsapp?.receiver : env.WHATSAPP_PHONE_NUMBER_ID;
+    const token = scope ? scope.whatsapp?.accessToken : env.WHATSAPP_ACCESS_TOKEN;
+    return { receiver: receiver || '', hash: token ? p.mac(settings.key, 'route-config', {
+      receiver: receiver || '', keyVersion: settings.keyVersion, tokenFingerprint: p.digest(token) }) : null };
+  };
   const authority = buildOperatorAuthority({ prisma, settings, fetcher, issuerUrl: env.OPERATOR_AUTHORITY_URL, clock });
   const access = buildOperatorAccess({ prisma, authority, accessReader, routeConfig, clock });
   const linking = buildOperatorLinking({ prisma, authority, accessReader, routeConfig, clock });

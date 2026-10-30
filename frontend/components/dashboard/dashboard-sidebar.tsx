@@ -18,7 +18,6 @@ import {
   LogOut,
   Menu,
   X,
-  PawPrint,
   Stethoscope,
   Scissors,
   Package,
@@ -31,6 +30,7 @@ import { useDashboardAccess } from "@/components/dashboard/dashboard-access-prov
 import { homeForRole, ROLE_NAMES } from "@/lib/dashboard-access";
 import { useTenant } from "@/lib/use-tenant";
 import { homeHref } from "@/lib/home-workspace";
+import { ProductBrand } from "@/components/brand/product-brand";
 
 // ── Estructura de navegación ──────────────────────────────────
 
@@ -129,15 +129,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     >
       {/* Marca */}
       <Link prefetch={false} href={homeHref(homeForRole(teamRole), tenant)} onClick={onNavigate} className="flex items-center gap-3 border-b border-sidebar-border px-5 py-5 focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-teal-700">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-700 text-white">
-          <PawPrint className="h-5 w-5" />
-        </div>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-bold leading-tight tracking-tight text-teal-950">
-            Mateos Pet AI
-          </p>
-          <p className="truncate text-xs font-medium text-sidebar-foreground/60">Tu espacio de trabajo</p>
-        </div>
+        <ProductBrand size="md" subtitle="Tu espacio de trabajo" />
       </Link>
 
       {/* Navegación */}

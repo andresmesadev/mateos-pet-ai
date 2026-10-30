@@ -1,9 +1,22 @@
 # Plan Maestro de Evolución
-## La Constitución de la Plataforma Operativa Inteligente · Mateos Pet
+
+> Actualización editorial de marca — 28/10/2026: se usa Huella Nex por solicitud de Andrés. Se conservan las fechas, versiones, decisiones y condiciones originales; esta edición no registra nuevas aprobaciones ni autorizaciones de clientes.
+
+## La Constitución de la Plataforma Operativa Inteligente · Huella Nex
 
 **Versión:** 1.1  
 **Fecha:** 2026-06-30  
 **Estado:** Documento vivo — fuente oficial de verdad sobre la evolución del producto
+
+**Identidad aclarada por el responsable el 27/10/2026:** Mateos Pet es el centro
+veterinario donde Andrés y Lina validan la operación real; el software adopta Huella Nex el 28/10/2026. Nexo Web es la iniciativa de desarrollo
+de Andrés, todavía sin constituir como empresa. El producto surgió de su
+necesidad de gestionar el centro y pretende comercializarse después de su
+validación. El 28/10 Andrés eligió **Huella Nex** y autorizó aplicar el nombre
+y el logo «Vínculo»; su público abarca veterinarias, pet shops y peluquerías
+caninas y felinas. Esta adopción no cierra los controles pendientes de beta.
+[Origen, etapas e identidades](IDENTIDAD_DEL_PRODUCTO.md). Esta aclaración no
+modifica la arquitectura ni el roadmap técnico aprobado.
 
 ---
 
@@ -78,8 +91,16 @@ La plataforma permite administrar desde un único lugar toda la operación diari
 - Clínica veterinaria
 - Peluquería canina
 - Peluquería felina
+- Pet shop
 
 Cada negocio activa únicamente los módulos que necesita. La plataforma no obliga a usar funcionalidades que no forman parte de su operación.
+
+**Alcance aclarado el 28/10/2026:** Huella Nex mantiene una base de producto
+común; Mateos Pet es su primer establecimiento de uso real, con datos y
+configuración propios. Colombia es el primer mercado de validación y la proyección
+internacional requiere adaptaciones regionales verificadas. Ver
+[alcance del producto](ALCANCE_DEL_PRODUCTO.md); esta aclaración no crea una fase
+ni modifica el roadmap técnico aprobado.
 
 ### Qué NO estamos construyendo
 
@@ -508,7 +529,7 @@ Los diez entregables del roadmap interno (7.1 → 7.10) completos, la decisión 
 
 ### FASE 8 — Calidad del Motor Conversacional
 **Estado:** roadmap interno 8.1 → 8.3 completado, con extensión 8.4 también completada. Declarada el 2026-09-02, tras el ADR 010. Esta aclaración documental distingue el cierre de entregables de un cierre formal de fase; no declara una fase nueva.
-**Origen:** informe comparativo externo (`Mateos Pet AI vs. Sancho Agent IA`, 2026-09-01), que auditó memoria/estado/flujo del motor conversacional y encontró carencias funcionales reales, verificadas contra el código antes de aceptarse.
+**Origen:** informe comparativo externo (informe del software frente a Sancho Agent IA (título actualizado editorialmente), 2026-09-01), que auditó memoria/estado/flujo del motor conversacional y encontró carencias funcionales reales, verificadas contra el código antes de aceptarse.
 
 **Objetivo estratégico**
 Cerrar las carencias reales del motor conversacional en las tres capas que determinan su calidad: memoria (qué recuerda el modelo), estado (cómo se gobierna el wizard) y flujo (cómo se procesa cada mensaje entrante) — sin introducir dominio de negocio nuevo ni reescribir el motor.

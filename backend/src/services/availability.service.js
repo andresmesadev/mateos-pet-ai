@@ -1,5 +1,5 @@
 /**
- * Motor de disponibilidad para Mateos Pet.
+ * Motor de disponibilidad de Huella Nex, configurado por establecimiento.
  * Reglas de día hábil, horario y slots. Calendario en America/Bogota.
  *
  * Entregable 6.2 (Fase 6) — Agenda Multi-Establecimiento: Reconciliación

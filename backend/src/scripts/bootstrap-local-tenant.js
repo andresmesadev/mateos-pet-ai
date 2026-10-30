@@ -11,7 +11,7 @@ async function main() {
   let tenant = await prisma.tenant.findUnique({ where: { phone } });
   if (!tenant) {
     tenant = await prisma.tenant.create({
-      data: { name: "Mateos Pet AI", slug: "mateos-pet-ai", phone },
+      data: { name: "Centro de demostración", slug: "mateos-pet-ai", phone },
     });
   }
 

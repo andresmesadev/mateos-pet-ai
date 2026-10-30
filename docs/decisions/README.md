@@ -4,6 +4,8 @@ Se conservan los identificadores y archivos originales. Existen **dos ADR con n�
 
 | Archivo | Decisión |
 | --- | --- |
+| [034-medicion-ia-duracion-y-contexto.md](034-medicion-ia-duracion-y-contexto.md) | ADR 034 — Medición previa de audio por minuto iniciado y texto por bloques, sin activar cupos reales. |
+| [033-modelo-comercial-dashboard-ia-whatsapp.md](033-modelo-comercial-dashboard-ia-whatsapp.md) | ADR 033 — Dashboard e IA con cupo gestionados por Huella Nex; WhatsApp propio pagado a Meta. Decisión comercial aceptada, implementación pendiente. |
 | [001-congelamiento-diseno-entregable-2.1.md](001-congelamiento-diseno-entregable-2.1.md) | ADR 001 — Congelamiento del diseño del Entregable 2.1 (Sistema Operativo de Servicios) |
 | [002-resolver-precio-consulta-atributos-mascota.md](002-resolver-precio-consulta-atributos-mascota.md) | ADR 002 — Resolver Precio del Servicio puede consultar atributos de Mascota vía puerto de lectura |
 | [003-disponibilidad-staff-convivencia-fase1.md](003-disponibilidad-staff-convivencia-fase1.md) | ADR 003 — Convivencia entre `StaffAvailability` (nuevo) y `Staff.availability` (Fase 1) |

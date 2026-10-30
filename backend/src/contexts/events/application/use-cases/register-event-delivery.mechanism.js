@@ -13,7 +13,7 @@
  * @param {import("../ports/domain-event-publisher.port").DomainEventPublisherPort} deps.eventPublisher
  */
 function createRegisterEventDeliveryMechanism({ eventDeliveryRepository, eventPublisher }) {
-  return async function registerEventDelivery({ domainEventId, consumer, status, failureReason = null }) {
+  return async function registerEventDelivery({ domainEventId, consumer, status, failureReason = null }, ctx) {
     if (status !== "delivered" && status !== "failed") {
       throw new Error('registerEventDelivery: status debe ser "delivered" o "failed" (nunca "pending").');
     }
@@ -23,7 +23,7 @@ function createRegisterEventDeliveryMechanism({ eventDeliveryRepository, eventPu
       consumer,
       status,
       failureReason: status === "failed" ? failureReason : null,
-    });
+    }, ctx);
 
     if (status === "failed") {
       await eventPublisher.publish("EntregaFallida", { delivery });

@@ -77,7 +77,7 @@ for(const status of [401,403])test('actual session rejection '+status+' immediat
   const f=await authenticated();f.advance(30000);f.requests[1].resolve(new Response('',{status}));await settle();assert(!containsWorkspace(f));assert.deepEqual(f.redirects,['/session-recovery?reason=session']);f.advance(60000);f.event('focus');assert.equal(f.requests.length,2);f.unmount();
 });
 test('commercial suspension still removes protected content',async()=>{
-  const f=await authenticated();f.advance(30000);f.requests[1].resolve(new Response('',{status:402}));await settle();assert.equal(f.render().type,f.Recovery);assert(!containsWorkspace(f));f.unmount();
+  const f=await authenticated();f.advance(30000);f.requests[1].resolve(new Response('',{status:402}));await settle();assert.equal(f.render().type,f.Recovery);assert(!containsWorkspace(f));assert.deepEqual(f.redirects,['/dashboard/billing']);f.advance(60000);f.event('focus');assert.equal(f.requests.length,2);f.unmount();
 });
 test('focus and online bursts are single-flight and tenant changes discard stale responses',async()=>{
   const f=fixture();f.mount();for(let i=0;i<12;i++){f.event('focus');f.event('online');}assert.equal(f.requests.length,1);

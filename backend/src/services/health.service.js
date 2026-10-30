@@ -1,6 +1,7 @@
 const OpenAI = require("openai");
 const prisma = require("../lib/prisma");
 const { getInboundWorkerHealth } = require("./operational-health.service");
+const { recordOpenAIProbe } = require("./provider-health-observation");
 
 const { version: APP_VERSION } = require("../../package.json");
 
@@ -24,14 +25,17 @@ const checkDatabase = async () => {
 
 const checkOpenAI = async () => {
   if (!process.env.OPENAI_API_KEY) {
+    recordOpenAIProbe(false);
     console.error("[Health] OPENAI_API_KEY is not configured");
     return "error";
   }
 
   try {
     await openaiClient.models.list({ limit: 1 });
+    recordOpenAIProbe(true);
     return "ok";
   } catch (error) {
+    recordOpenAIProbe(false);
     console.error("[Health] OpenAI check failed:", error.message);
     return "error";
   }

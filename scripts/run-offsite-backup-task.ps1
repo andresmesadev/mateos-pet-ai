@@ -6,7 +6,7 @@ param(
 $ErrorActionPreference = 'Stop'
 try {
     Set-Location -LiteralPath (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
-    & $NodeExecutable (Join-Path $PSScriptRoot 'copy-offsite-backup.cjs') --identity $IdentityPath --host $SshDestination
+    & $NodeExecutable (Join-Path $PSScriptRoot 'copy-offsite-backup.cjs') --identity $IdentityPath --host $SshDestination --max-age-hours 1
     exit $LASTEXITCODE
 } catch {
     Write-Error 'No se pudo ejecutar la copia cifrada. Comprueba rutas, permisos y disponibilidad del equipo.' -ErrorAction Continue

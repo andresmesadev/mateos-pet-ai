@@ -9,11 +9,11 @@ const source = fs.readFileSync(path.join(__dirname, "../frontend/components/dash
 // Exercise the component's event boundary without relying on browser-specific
 // dialog suppression. Other sections are inert; the actual form is checked in Chrome.
 function render({ dirty = false, saving = false } = {}) {
-  const listeners = {}, writes = [], states = [], cleanups = [];
+  const listeners = {}, writes = [], states = [], cleanups = [], revealed = [];
   const location = { href: "http://localhost:3001/dashboard/settings?tenant=tenant%20a&tab=general", pathname: "/dashboard/settings", origin: "http://localhost:3001" };
   const history = { replaceState: (_state, _title, url) => writes.push(url), pushState: (_state, _title, url) => writes.push(url) };
   const window = { location, history, addEventListener: (name, callback) => { listeners[name] = callback; }, removeEventListener: () => {}, confirm: () => false };
-  const document = { addEventListener: (name, callback) => { listeners[name] = callback; }, removeEventListener: () => {} };
+  const document = { addEventListener: (name, callback) => { listeners[name] = callback; }, removeEventListener: () => {}, getElementById: id => ({ scrollIntoView: options => revealed.push({ id, options }) }) };
   class Element { closest() { return this.anchor; } }
   let index = 0;
   const react = {
@@ -24,7 +24,7 @@ function render({ dirty = false, saving = false } = {}) {
   const jsx = (type, props) => ({ type, props });
   const module = { exports: {} };
   vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText, {
-    exports: module.exports, module, URL, window, document, Element,
+    exports: module.exports, module, URL, window, document, Element, requestAnimationFrame: callback => callback(),
     require(name) {
       if (name === "react") return react;
       if (name === "react/jsx-runtime") return { jsx, jsxs: jsx };
@@ -38,7 +38,7 @@ function render({ dirty = false, saving = false } = {}) {
     if (!value || typeof value !== "object") return [];
     return [value, ...nodes(value.props?.children)];
   }
-  return { listeners, writes, states, Element, buttons: nodes(tree).filter((node) => node.type === "button"), cleanups };
+  return { listeners, writes, states, Element, buttons: nodes(tree).filter((node) => node.type === "button"), cleanups, revealed };
 }
 
 test("al recargar con cambios cancela beforeunload y solicita el aviso del navegador", () => {
@@ -58,6 +58,7 @@ test("una pestaña con cambios solicita descarte sin cambiar la URL", () => {
   const view = render({ dirty: true });
   view.buttons.find((button) => button.props.id === "settings-tab-areas").props.onClick();
   assert.equal(view.writes.length, 0);
+  assert.equal(view.revealed.length, 0);
   assert.equal(view.states.find((state) => state.slot === 3).value.tab, "areas");
 });
 
@@ -67,6 +68,8 @@ test("cambiar de sección conserva el establecimiento y el resto de los parámet
   const url = new URL(view.writes[0], "http://localhost:3001");
   assert.equal(url.searchParams.get("tenant"), "tenant a");
   assert.equal(url.searchParams.get("tab"), "areas");
+  assert.equal(view.revealed[0].id, "settings-panel-areas");
+  assert.equal(view.revealed[0].options.block, "start");
 });
 
 test("un enlace a otro módulo pide confirmación antes de perder el borrador", () => {

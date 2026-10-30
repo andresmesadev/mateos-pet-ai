@@ -1,0 +1,7 @@
+.brand{display:inline-flex;align-items:center;gap:10px;min-width:0;color:#223e50;font-family:var(--font-geist-sans),Arial,sans-serif;letter-spacing:normal;line-height:1.2;vertical-align:middle}
+.symbol{display:block;flex:none;object-fit:contain}
+.copy{display:flex;flex-direction:column;gap:4px;min-width:0}
+.name{font-weight:750;letter-spacing:-.035em;white-space:nowrap}
+.sm .name{font-size:16px}.md .name{font-size:19px}.lg .name{font-size:25px}
+.subtitle{font-size:11px;font-weight:450;letter-spacing:normal;color:#526b6b;line-height:1.4}
+@media(max-width:380px){.lg .name{font-size:22px}.brand{gap:8px}.md .name{font-size:17px}.md .symbol{width:34px;height:34px}}

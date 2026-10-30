@@ -7,6 +7,7 @@ import { signIn } from "next-auth/react";
 import { ArrowLeft, ArrowRight, Check, Eye, EyeOff, HeartPulse, Scissors, ShoppingBag, ShieldCheck, LoaderCircle } from "lucide-react";
 import { RegistrationShell } from "@/components/onboarding/registration-shell";
 import styles from "@/components/onboarding/registration.module.css";
+import { onboardingProvisioning, onboardingNotice, onboardingSupportHref, type OnboardingProvisioning } from "@/lib/onboarding-result";
 
 const ACTIVITIES = [
   { id: "veterinary", label: "Veterinaria", icon: HeartPulse },
@@ -32,12 +33,16 @@ export default function OnboardingPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [registered, setRegistered] = useState(false);
+  const [provisioning, setProvisioning] = useState<OnboardingProvisioning>("unknown");
+  const [signedIn, setSignedIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorField, setErrorField] = useState<string | null>(null);
   const submitting = useRef(false);
+  const created = useRef(false);
   const title = useRef<HTMLHeadingElement>(null);
   const validSlug = form.slug.length >= 2 && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(form.slug);
   const status = availability?.slug === form.slug ? availability.status : "checking";
+  const notice = registered ? onboardingNotice(provisioning) : null;
 
   useEffect(() => { title.current?.focus(); }, [step]);
   useEffect(() => {
@@ -66,7 +71,7 @@ export default function OnboardingPage() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (submitting.current || registered) return;
+    if (submitting.current || created.current) return;
     setError(null); setErrorField(null);
     if (step === 1) {
       if (!form.activeModules.length || !validSlug || status !== "available") return;
@@ -82,19 +87,23 @@ export default function OnboardingPage() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...form, name: form.name.trim(), ownerName: form.ownerName.trim(), email: form.email.trim().toLowerCase() }),
       });
-      const data = await response.json();
+      const data = await response.json().catch(() => null);
       if (!response.ok) {
-        if (data.field) { setStep(["name", "slug", "activeModules"].includes(data.field) ? 1 : 2); setErrorField(data.field); }
-        throw new Error(data.error || "No pudimos confirmar el registro. Intenta iniciar sesión antes de repetirlo.");
+        if (data?.field) { setStep(["name", "slug", "activeModules"].includes(data.field) ? 1 : 2); setErrorField(data.field); }
+        throw new Error(data?.error || "No pudimos confirmar el registro. Intenta iniciar sesión antes de repetirlo.");
       }
       // Commit succeeded: any sign-in failure must never repeat registration.
+      created.current = true;
       setRegistered(true);
+      const preparation = onboardingProvisioning(data?.provisioning);
+      setProvisioning(preparation);
       const password = form.password;
       setForm(current => ({ ...current, password: "" })); setConfirmPassword("");
       try {
         const result = await signIn("credentials", { email: form.email.trim().toLowerCase(), password, redirect: false });
-        if (!result || result.error) throw new Error("signin");
-        router.replace("/onboarding/success"); router.refresh();
+        if (!result || result.error || result.ok !== true) throw new Error("signin");
+        setSignedIn(true);
+        if (preparation === "ready") { router.replace("/onboarding/success"); router.refresh(); }
       } catch { setError("Tu cuenta ya está creada. Inicia sesión con tu correo y contraseña para continuar."); }
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "No pudimos confirmar el registro. Intenta iniciar sesión antes de repetirlo.");
@@ -110,13 +119,13 @@ export default function OnboardingPage() {
       </ol>
       <p className={styles.stepLabel}>Paso {step} de 3</p>
       <h2 ref={title} tabIndex={-1} className={styles.title}>{step === 1 ? "Cuéntanos sobre tu negocio" : step === 2 ? "Crea tu acceso de administrador" : registered ? "Tu cuenta ya está creada" : "Todo listo para comenzar"}</h2>
-      <p className={styles.description}>{step === 1 ? "Un espacio propio para tu veterinaria, peluquería o pet shop." : step === 2 ? "Usarás este correo y contraseña para ingresar y administrar tu negocio." : "Revisa tus datos antes de crear la cuenta."}</p>
+      <p className={styles.description}>{registered ? "Continúa con tu cuenta existente. No necesitas repetir el registro." : step === 1 ? "Un espacio propio para tu veterinaria, peluquería o pet shop." : step === 2 ? "Usarás este correo y contraseña para ingresar y administrar tu negocio." : "Revisa tus datos antes de crear la cuenta."}</p>
 
       <form onSubmit={submit} className={styles.form}>
         {step === 1 && <>
           <div className={styles.field}>
             <label htmlFor="business-name">Nombre del negocio</label>
-            <input id="business-name" name="organization" autoComplete="organization" placeholder="Ej. Veterinaria Mateos Pet" value={form.name} minLength={2} maxLength={120} required aria-invalid={errorField === "name"} onChange={event => {
+            <input id="business-name" name="organization" autoComplete="organization" placeholder="Ej. Mi negocio de mascotas" value={form.name} minLength={2} maxLength={120} required aria-invalid={errorField === "name"} onChange={event => {
               const name = event.target.value; setError(null); setErrorField(null);
               setForm(current => ({ ...current, name, slug: customSlug ? current.slug : toSlug(name) }));
             }} />
@@ -156,13 +165,19 @@ export default function OnboardingPage() {
             <div><dt>Actividades</dt><dd>{ACTIVITIES.filter(activity => form.activeModules.includes(activity.id)).map(activity => activity.label).join(", ")}</dd></div>
             <div><dt>Administrador</dt><dd>{form.ownerName}<span>{form.email.trim().toLowerCase()}</span></dd></div>
           </dl>
-          <div className={styles.planNote}><ShieldCheck size={21} aria-hidden="true" /><div><strong>Empieza con el plan gratuito</strong><p>Crear tu cuenta no genera un cobro. Podrás revisar y contratar un plan desde Facturación.</p></div></div>
-          <p className={styles.notice}>Esta cuenta administrará un negocio nuevo. Si ya tienes uno registrado, <Link href="/login">ingresa con tu cuenta</Link>.</p>
+          {!registered && <><div className={styles.planNote}><ShieldCheck size={21} aria-hidden="true" /><div><strong>Empieza con acceso de evaluación</strong><p>Crear tu cuenta no genera un cobro. Podrás revisar y contratar un plan desde Facturación.</p></div></div>
+          <p className={styles.notice}>Esta cuenta administrará un negocio nuevo. Si ya tienes uno registrado, <Link href="/login">ingresa con tu cuenta</Link>.</p></>}
         </>}
+        {notice && <section className={styles.pendingNotice} role="status" aria-label="Preparación de la cuenta">
+          <h3>{notice.title}</h3><p>{notice.description}</p>
+          <p>Solicita al equipo de Huella Nex revisar el negocio <strong>{form.slug}</strong>. No vuelvas a crear la cuenta ni compartas tu contraseña.</p>
+          <a href={onboardingSupportHref(form.slug)}>Solicitar revisión por correo</a>
+          <p>La conexión de WhatsApp y la habilitación de IA se configuran por separado.</p>
+        </section>}
         {error && <div className={styles.alert} role="alert"><p>{error}</p>{step === 3 && <Link href="/login">Ir a iniciar sesión</Link>}</div>}
         <div className={styles.actions}>
           {step > 1 && !registered && <button className={styles.secondary} type="button" disabled={busy} onClick={() => move(step - 1)}><ArrowLeft size={16} aria-hidden="true" />Atrás</button>}
-          {registered && !busy ? <Link className={styles.primary} href="/login">Iniciar sesión<ArrowRight size={16} aria-hidden="true" /></Link> : <button className={styles.primary} type="submit" disabled={busy || (step === 1 && (!validSlug || status !== "available" || !form.activeModules.length || form.name.trim().length < 2))}>
+          {registered && !busy ? <Link className={styles.primary} href={signedIn ? "/dashboard" : "/login"}>{signedIn ? "Entrar a mi negocio" : "Iniciar sesión"}<ArrowRight size={16} aria-hidden="true" /></Link> : <button className={styles.primary} type="submit" disabled={busy || (step === 1 && (!validSlug || status !== "available" || !form.activeModules.length || form.name.trim().length < 2))}>
             {busy ? <><LoaderCircle size={17} aria-hidden="true" />Creando tu acceso…</> : <>{step === 3 ? "Crear mi cuenta" : step === 2 ? "Revisar mis datos" : "Continuar"}<ArrowRight size={17} aria-hidden="true" /></>}
           </button>}
         </div>

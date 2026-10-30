@@ -11,8 +11,8 @@ class EventsRegisterEventDeliveryAdapter extends EventDeliveryPort {
     this.registerEventDelivery = registerEventDelivery;
   }
 
-  async register({ domainEventId, consumer, status, failureReason = null }) {
-    return this.registerEventDelivery({ domainEventId, consumer, status, failureReason });
+  async register({ domainEventId, consumer, status, failureReason = null }, ctx) {
+    return this.registerEventDelivery({ domainEventId, consumer, status, failureReason }, ctx);
   }
 }
 

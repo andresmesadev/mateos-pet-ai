@@ -3,6 +3,9 @@ const path = require("path");
 const { randomUUID } = require("crypto");
 const OpenAI = require("openai");
 const axios = require("axios");
+const { currentWhatsAppRoute } = require('./whatsapp-route.service');
+const { executeTenantAi, isAiQuotaEnabled } = require('./ai-quota.service');
+const { measureAudio } = require('./audio-duration.service');
 
 const GRAPH_API_VERSION = "v25.0";
 const WHISPER_MODEL = "whisper-1";
@@ -15,8 +18,9 @@ const openai = new OpenAI({
   maxRetries: 2,
 });
 
-const getAccessToken = () =>
-  String(process.env.WHATSAPP_ACCESS_TOKEN || "").trim();
+const getAccessToken = async () => {
+  try { return (await currentWhatsAppRoute())?.accessToken ?? ''; } catch { return ''; }
+};
 
 const ensureTempDir = () => {
   if (!fs.existsSync(TEMP_DIR)) {
@@ -51,9 +55,9 @@ const safeUnlink = async (filepath) => {
  */
 const downloadWhatsAppAudio = async (mediaId) => {
   const id = String(mediaId || "").trim();
-  const accessToken = getAccessToken();
+  const accessToken = await getAccessToken();
 
-  if (!id) {
+  if (!/^\d{1,128}$/.test(id)) {
     console.error("[Audio] mediaId is required");
     return null;
   }
@@ -71,21 +75,27 @@ const downloadWhatsAppAudio = async (mediaId) => {
     const metaUrl = `https://graph.facebook.com/${GRAPH_API_VERSION}/${id}`;
     const metaResponse = await axios.get(metaUrl, {
       timeout: 15000,
+      maxRedirects: 0,
       headers: { Authorization: `Bearer ${accessToken}` },
     });
 
     const mediaUrl = metaResponse.data?.url;
     const mimeType = metaResponse.data?.mime_type;
 
-    if (!mediaUrl) {
+    const parsedUrl = typeof mediaUrl === 'string' ? new URL(mediaUrl) : null;
+    if (!parsedUrl || parsedUrl.protocol !== 'https:' || parsedUrl.username || parsedUrl.password || (parsedUrl.port && parsedUrl.port !== '443') ||
+      !(parsedUrl.hostname === 'lookaside.fbsbx.com' || parsedUrl.hostname.endsWith('.fbcdn.net'))) {
       console.error("[Audio] Meta did not return media URL");
       return null;
     }
 
+    const downloadToken = await getAccessToken();
+    if (!downloadToken) return null;
     const fileResponse = await axios.get(mediaUrl, {
       timeout: 20000,
+      maxRedirects: 0,
       maxContentLength: 20 * 1024 * 1024,
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: { Authorization: `Bearer ${downloadToken}` },
       responseType: "arraybuffer",
     });
 
@@ -98,8 +108,7 @@ const downloadWhatsAppAudio = async (mediaId) => {
     console.log("[Audio] Audio downloaded:", filepath);
     return filepath;
   } catch (error) {
-    const detail = error.response?.data || error.message;
-    console.error("[Audio] downloadWhatsAppAudio error:", detail);
+    console.error("[Audio] downloadWhatsAppAudio failed");
     if (filepath) {
       await safeUnlink(filepath);
     }
@@ -123,10 +132,12 @@ const transcribeAudio = async (filepath) => {
   try {
     console.log("[Audio] Transcribing audio");
 
-    const transcription = await openai.audio.transcriptions.create({
+    const measurement = isAiQuotaEnabled() ? await measureAudio(filePath) : { inputBytes: fs.statSync(filePath).size };
+    const transcription = await executeTenantAi('transcription', measurement.inputBytes, options => openai.audio.transcriptions.create({
       file: fs.createReadStream(filePath),
       model: WHISPER_MODEL,
-    });
+      ...(options ? { response_format: 'verbose_json' } : {}),
+    }, ...(options ? [options] : [])), measurement);
 
     const text =
       typeof transcription === "string"

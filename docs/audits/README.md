@@ -1,5 +1,7 @@
 # Auditorías fechadas
 
+- [Huella Nex como producto general — 28 de octubre](HUELLA_NEX_PRODUCT_REVIEW_20261028.md): revisión independiente del código y recorridos generales, con pruebas sintéticas; siete hallazgos y límites explícitos, sin consultar datos de establecimientos.
+
 - [Revisión general de código, documentación y pruebas — 15 de septiembre](REVISION_GENERAL_2026_09_15.md): commit `2e557f3`, backend 2.36.0.
 - [Flujo de agenda — 16 de septiembre](AGENDA_FLOW_AUDIT_20260916.md): inventario de hallazgos y alcance originales.
 

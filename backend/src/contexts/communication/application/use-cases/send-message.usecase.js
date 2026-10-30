@@ -76,7 +76,7 @@ function createSendMessageUseCase({
     }
 
     const result = await deliveryGuard({ tenantId, userId, phone, origin, purpose, channelType: channel.type, conversationId: conversation.id, author, expectedVersion, preparedAt }, async () => {
-    const delivered = await channelProvider.send(channel.type, phone, content);
+    const delivered = await channelProvider.send(channel.type, phone, content, { tenantId, channelId: channel.id });
     if (!delivered) {
       throw new MessageDeliveryFailedError(`proveedor del canal "${channel.type}" no confirmó el envío`);
     }

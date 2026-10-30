@@ -11,7 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DATABASE_URL: postgresql://test:test@127.0.0.1:5432/test
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      # Unit tests mock providers; never expose a real API credential here.
+      OPENAI_API_KEY: test-only-not-a-real-key
       WHATSAPP_VERIFY_TOKEN: test
       WHATSAPP_PHONE_NUMBER_ID: test
       WHATSAPP_ACCESS_TOKEN: test
@@ -28,6 +29,9 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             backend/package-lock.json
+
+      - name: Check publication hygiene
+        run: node scripts/check-release-hygiene.cjs
 
       - name: Install Prisma tooling
         run: npm ci
@@ -164,6 +168,32 @@ jobs:
 
       - name: Build frontend
         run: npm --prefix frontend run build
+
+  commercial-providers-postgres:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+      - name: Install isolated provider test dependencies
+        run: |
+          npm ci
+          npm --prefix backend ci
+      - name: Generate Prisma client without a live database
+        env:
+          DATABASE_URL: postgresql://generate:generate@127.0.0.1:1/generate_only
+        run: npx prisma generate
+      - name: Prepare the pinned disposable PostgreSQL image
+        run: |
+          docker pull mirror.gcr.io/pgvector/pgvector@sha256:1d50c689b0a6511b9ea0a15615281c81a59fd04a08eb35057ec8646fb3a2118a
+          docker tag mirror.gcr.io/pgvector/pgvector@sha256:1d50c689b0a6511b9ea0a15615281c81a59fd04a08eb35057ec8646fb3a2118a pgvector/pgvector:0.8.6-pg18-bookworm
+      - name: Verify quotas, provider isolation and immutable audit against PostgreSQL
+        run: node scripts/verify-commercial-providers-local.cjs
 
   administration-postgres:
     runs-on: ubuntu-latest

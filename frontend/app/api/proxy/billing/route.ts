@@ -1,7 +1,7 @@
 // Proxy para /api/billing/* — añade autenticación NextAuth y pasa el tenantId
 import { auth } from "@/auth";
 import { type NextRequest, NextResponse } from "next/server";
-import type { Session } from "next-auth";
+import { verifyBillingAdministrator, billingTenantId } from "@/lib/billing-access";
 
 const BACKEND_URL = (
   process.env.API_URL ??
@@ -10,20 +10,6 @@ const BACKEND_URL = (
 ).replace(/\/$/, "");
 
 const INTERNAL_API_SECRET = process.env.INTERNAL_API_SECRET ?? "";
-
-async function verifyAdministrativeSession(session: Session) {
-  if (!session.user.staffId) return session.user.role === 'admin';
-  try {
-    const response = await fetch(`${BACKEND_URL}/api/internal/staff-session`, {
-      headers: { "X-Internal-Token": INTERNAL_API_SECRET, "X-Staff-Id": session.user.staffId,
-        "X-Staff-Session-Version": String(session.user.sessionVersion), "X-Tenant-Id": session.user.tenantId ?? "" },
-      cache: "no-store",
-    });
-    if (!response.ok) return false;
-    const current = await response.json() as { role: string };
-    return current.role === "admin";
-  } catch { return false; }
-}
 
 // Entregable 4.4 (Fase 4) — Facturación / Habilitación Comercial: además de
 // checkout (alta inicial), soporta cancel y change-plan (cambio entre planes
@@ -34,6 +20,7 @@ const BACKEND_ACTION_PATHS: Record<string, string> = {
   checkout: "/api/billing/checkout",
   cancel: "/api/billing/cancel",
   "change-plan": "/api/billing/change-plan",
+  portal: "/api/billing/portal",
 };
 
 export async function POST(req: NextRequest) {
@@ -41,8 +28,9 @@ export async function POST(req: NextRequest) {
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (!(await verifyAdministrativeSession(session))) {
-    return NextResponse.json({ error: "Esta acción requiere acceso administrativo" }, { status: 403 });
+  const authorization = await verifyBillingAdministrator(session);
+  if (!authorization.allowed) {
+    return NextResponse.json({ error: authorization.reason === "unavailable" ? "No se pudo comprobar el acceso. Reintenta." : "Esta acción requiere acceso administrativo" }, { status: authorization.status });
   }
 
   const tenantId = session.user.tenantId ?? null;
@@ -50,11 +38,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden: no tenant assigned" }, { status: 403 });
   }
 
-  const body = await req.json();
+  let body;
+  try { body = await req.json(); }
+  catch { return NextResponse.json({ error: "Solicitud de suscripción no válida" }, { status: 400 }); }
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return NextResponse.json({ error: "Solicitud de suscripción no válida" }, { status: 400 });
+  }
   const { action = "checkout", ...rest } = body ?? {};
+  if (typeof action !== "string" || !Object.hasOwn(BACKEND_ACTION_PATHS, action)) {
+    return NextResponse.json({ error: "Acción de suscripción desconocida" }, { status: 400 });
+  }
   const backendPath = BACKEND_ACTION_PATHS[action];
-  if (!backendPath) {
-    return NextResponse.json({ error: `Acción desconocida: ${action}` }, { status: 400 });
+  const resolvedTenant = billingTenantId(session, rest.tenantId);
+  if (!resolvedTenant) return NextResponse.json({ error: "Selecciona un establecimiento para gestionar su suscripción" }, { status: 403 });
+  let redirectUrls = {};
+  if (action === "portal" || action === "checkout") {
+    const target = new URL("/dashboard/billing", process.env.NEXTAUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? req.nextUrl.origin);
+    if (session.user.isSuperAdmin) target.searchParams.set("tenant", resolvedTenant);
+    if (action === "portal") redirectUrls = { returnUrl: target.href };
+    else {
+      const success = new URL(target); success.searchParams.set("success", "1");
+      const canceled = new URL(target); canceled.searchParams.set("canceled", "1");
+      redirectUrls = { successUrl: success.href, cancelUrl: canceled.href };
+    }
   }
 
   const res = await fetch(`${BACKEND_URL}${backendPath}`, {
@@ -65,24 +71,29 @@ export async function POST(req: NextRequest) {
     },
     body: JSON.stringify({
       ...rest,
-      tenantId: tenantId ?? rest.tenantId,
+      tenantId: resolvedTenant,
+      ...redirectUrls,
     }),
-  });
+    signal: AbortSignal.timeout(15000),
+  }).catch(() => null);
+  if (!res) return NextResponse.json({ error: "No se pudo consultar el proveedor de facturación. Reintenta." }, { status: 503 });
 
-  const data = await res.json();
+  const data = await res.json().catch(() => null);
+  if (!data) return NextResponse.json({ error: "Respuesta de facturación no disponible. Reintenta." }, { status: 503 });
   return NextResponse.json(data, { status: res.status });
 }
 
-export async function GET() {
+export async function GET(req?: NextRequest) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (!(await verifyAdministrativeSession(session))) {
-    return NextResponse.json({ error: "Esta acción requiere acceso administrativo" }, { status: 403 });
+  const authorization = await verifyBillingAdministrator(session);
+  if (!authorization.allowed) {
+    return NextResponse.json({ error: authorization.reason === "unavailable" ? "No se pudo comprobar el acceso. Reintenta." : "Esta acción requiere acceso administrativo" }, { status: authorization.status });
   }
 
-  const tenantId = session.user.tenantId ?? null;
+  const tenantId = billingTenantId(session, req?.nextUrl.searchParams.get("tenant"));
   if (!tenantId) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -93,8 +104,11 @@ export async function GET() {
       "X-Internal-Token": INTERNAL_API_SECRET,
     },
     cache: "no-store",
-  });
+    signal: AbortSignal.timeout(8000),
+  }).catch(() => null);
+  if (!res) return NextResponse.json({ error: "No se pudo consultar la suscripción. Reintenta." }, { status: 503 });
 
-  const data = await res.json();
+  const data = await res.json().catch(() => null);
+  if (!data) return NextResponse.json({ error: "Respuesta de facturación no disponible. Reintenta." }, { status: 503 });
   return NextResponse.json(data, { status: res.status });
 }

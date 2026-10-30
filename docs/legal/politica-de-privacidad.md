@@ -1,4 +1,7 @@
-# Política de tratamiento de datos — piloto interno de Mateos Pet AI
+# Política de tratamiento de datos — piloto interno de Huella Nex
+
+
+> Actualización editorial de marca — 28/10/2026: se usa Huella Nex por solicitud de Andrés. Se conservan las fechas, versiones, decisiones y condiciones originales; esta edición no registra nuevas aprobaciones ni autorizaciones de clientes.
 
 **Versión:** 1.1, preparada el 14 de octubre de 2026. **Copia:** plantilla pública; contacto completo en la versión privada del responsable. No es una política publicada en la aplicación ni una autorización ya otorgada por participantes.
 
@@ -8,7 +11,7 @@ Responsable: **{{RESPONSABLE}}**, persona natural, con domicilio en **{{CIUDAD}}
 
 Esta versión cubre pruebas internas supervisadas con adultos autorizados, un establecimiento de prueba y escenarios ficticios de clientes, mascotas, agenda, consultas, peluquería, caja e inventario. Los números de WhatsApp y los datos de quienes prueban pueden ser reales aunque el escenario sea ficticio. No se incorporan clientes ajenos a la prueba ni menores en este alcance.
 
-Mateos Pet AI es la denominación del piloto, no una declaración de marca registrada. Antes de un establecimiento externo se deberán definir sus responsabilidades sobre datos de clientes y las del prestador. Esta política interna no cubre automáticamente esa relación.
+Huella Nex es la denominación del piloto, no una declaración de marca registrada. Antes de un establecimiento externo se deberán definir sus responsabilidades sobre datos de clientes y las del prestador. Esta política interna no cubre automáticamente esa relación.
 
 ## 2. Información tratada
 

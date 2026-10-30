@@ -4,16 +4,19 @@ import argparse
 import datetime
 import json
 import os
+import re
 import shutil
 import subprocess
 import time
 
 SQL = """
 SELECT jsonb_build_object(
+ 'database_name',current_database(),
  'database_bytes',pg_database_size(current_database()),
  'max_connections',current_setting('max_connections')::int,
  'client_connections',(select count(*) from pg_stat_activity where backend_type='client backend'),
  'active_clients',(select count(*) from pg_stat_activity where backend_type='client backend' and state='active'),
+ 'other_active_clients',(select count(*) from pg_stat_activity where backend_type='client backend' and state='active' and pid<>pg_backend_pid()),
  'lock_waiters',(select count(*) from pg_stat_activity where wait_event_type='Lock'),
  'long_transactions',(select count(*) from pg_stat_activity where xact_start<now()-interval '60 seconds'),
  'temp_bytes',(select temp_bytes from pg_stat_database where datname=current_database()),
@@ -35,7 +38,20 @@ def cpu_ticks():
     return sum(values[:8]), values[3] + values[4]
 
 
-def sample(previous_ticks):
+def resolve_database():
+    # Read only the database name, never credentials. Do not silently measure
+    # the historical "mateos" database when the application uses another one.
+    database = run(['docker', 'compose', 'exec', '-T', 'backend', 'node', '-e',
+                    'try { const u=new URL(process.env.DATABASE_URL); '
+                    'if(!["postgres:","postgresql:"].includes(u.protocol))process.exit(1); '
+                    'process.stdout.write(decodeURIComponent(u.pathname.slice(1))); '
+                    '} catch { process.exit(1); }'])
+    if not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_-]{0,62}', database):
+        raise ValueError('Invalid database name from backend; observation aborted')
+    return database
+
+
+def sample(previous_ticks, database):
     memory = {}
     with open('/proc/meminfo', encoding='utf8') as source:
         for line in source:
@@ -58,8 +74,10 @@ def sample(previous_ticks):
                            'started_at': state['StartedAt'], 'restarts': restarts})
     db = json.loads(run(['docker', 'compose', 'exec', '-T', '-e',
                          'PGOPTIONS=-c statement_timeout=2000 -c lock_timeout=500',
-                         'db', 'psql', '-X', '-U', 'mateos', '-d', 'mateos', '-At',
+                         'db', 'psql', '-X', '-U', 'mateos', '-d', database, '-At',
                          '-v', 'ON_ERROR_STOP=1'], text=SQL))
+    if db.get('database_name') != database:
+        raise ValueError('Observed database differs from the backend database')
     result = {'at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
               'cpu_count': os.cpu_count(), 'cpu_busy_percent': 100 * (total-idle)/total if total else 0,
               'load_average': os.getloadavg(), 'memory_total': memory['MemTotal'],
@@ -75,12 +93,13 @@ def main():
     args = parser.parse_args()
     if not 2 <= args.samples <= 81 or not 10 <= args.interval_seconds <= 60:
         parser.error('Bounded observation: 2..81 samples, interval 10..60 seconds')
+    database = resolve_database()
     previous = cpu_ticks()
     start = time.monotonic()
     for index in range(args.samples):
         if index:
             time.sleep(max(0, start + index * args.interval_seconds - time.monotonic()))
-        result, previous = sample(previous)
+        result, previous = sample(previous, database)
         print(json.dumps(result, separators=(',', ':')), flush=True)
 
 

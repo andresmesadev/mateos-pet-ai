@@ -65,7 +65,7 @@ app.use(express.json({ limit: "10mb" }));
 app.use("/api/test", testRateLimit);
 
 app.get("/", (req, res) => {
-  res.send("Mateos Pet AI funcionando 🚀");
+  res.send("Huella Nex funcionando 🚀");
 });
 
 const dashboardRoutes = require("./routes/dashboard.routes");
@@ -76,11 +76,12 @@ const { resolveTenant } = require("./middleware/resolveTenant");
 const { requireInternalToken } = require("./middleware/requireInternalToken");
 const { apiKeyAuth } = require("./middleware/apiKeyAuth");
 const publicApiRoutes = require("./routes/public-api.routes");
-app.use("/api/dashboard", dashboardProxyRateLimit, resolveTenant, dashboardRateLimit, dashboardRoutes);
+app.use("/api/dashboard", dashboardProxyRateLimit, resolveTenant, require('./middleware/provider-execution-scope').providerExecutionScope, dashboardRateLimit, dashboardRoutes);
 app.use("/api/internal", publicRateLimit, requireInternalToken, require("./routes/staff-auth.routes"));
 app.use("/api/internal/operator-authority", publicRateLimit, requireInternalToken, require("./routes/operator-authority.routes"));
 // Superficies públicas sin autenticación — rate limit obligatorio (hallazgo A5)
 app.use("/api/billing", publicRateLimit, requireInternalToken, billingRouter);
+app.use('/api/integrations', publicRateLimit, requireInternalToken, require('./routes/integrations.routes'));
 app.use("/api/onboarding", publicRateLimit, onboardingRoutes);
 app.use("/api/public", publicApiRateLimit, apiKeyAuth, publicApiRoutes);
 

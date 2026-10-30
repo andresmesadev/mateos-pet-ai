@@ -85,7 +85,7 @@ function createEvaluateAndExecuteRulesMechanism({
         }
       }
 
-      await eventDelivery.register({ domainEventId: domainEvent.id, consumer: CONSUMER, status: "delivered" });
+      await eventDelivery.register({ domainEventId: domainEvent.id, consumer: CONSUMER, status: "delivered" }, ctx);
     } catch (error) {
       logger.error?.("[Automatizaciones] Fallo al evaluar Reglas para el Evento de Dominio", {
         domainEventId: domainEvent.id,
@@ -97,7 +97,7 @@ function createEvaluateAndExecuteRulesMechanism({
           consumer: CONSUMER,
           status: "failed",
           failureReason: error.message,
-        });
+        }, ctx);
       } catch (_deliveryError) {
         // Nunca propagar — este mecanismo no puede afectar al comando disparador.
       }

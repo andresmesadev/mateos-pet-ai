@@ -1,5 +1,6 @@
 const prisma = require("../../../../lib/prisma");
 const { ChannelRepositoryPort } = require("../../application/ports/channel-repository.port");
+const { findConfiguredWhatsAppTenant } = require('../providers/whatsapp-route-guard');
 
 class PrismaChannelRepository extends ChannelRepositoryPort {
   async create(data) {
@@ -14,15 +15,19 @@ class PrismaChannelRepository extends ChannelRepositoryPort {
     return prisma.channel.findFirst({ where: { tenantId: tenantId ?? null, type } });
   }
 
-  // Resuelve el canal activo por defecto: primero el propio del tenant, si
-  // existe; si no, el global (tenantId null) — Decisión 2, diferida: hoy solo
-  // existe el global.
+  // A stored channel is not a separate provider connection. The inherited
+  // WhatsApp line is available only to its explicitly bound active tenant.
   async findActiveDefault(tenantId) {
     if (tenantId) {
       const own = await prisma.channel.findFirst({ where: { tenantId, active: true } });
-      if (own) return own;
+      if (own) {
+        if (own.type === 'whatsapp' && !(await findConfiguredWhatsAppTenant(tenantId))) return null;
+        return own;
+      }
     }
-    return prisma.channel.findFirst({ where: { tenantId: null, active: true } });
+    const global = await prisma.channel.findFirst({ where: { tenantId: null, active: true } });
+    if (global?.type === 'whatsapp' && !(await findConfiguredWhatsAppTenant(tenantId))) return null;
+    return global;
   }
 
   async deactivate(id) {

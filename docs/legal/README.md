@@ -1,12 +1,48 @@
 # Paso 7 — Documentación y alcance de la operación
 
-**Actualizado:** 22 de octubre de 2026. **Alcance actual confirmado:** operación
+**Marca del software desde el 28/10/2026: Huella Nex.** Nombre y logo elegidos
+por Andrés. A petición expresa suya, los informes históricos y las copias
+legales ya aprobadas también usan Huella Nex mediante edición identificada
+del 28/10. Se conservan sus versiones, fechas, decisiones y condiciones;
+no se registran nuevas aprobaciones ni autorizaciones de clientes.
+Este cambio de identidad del producto no sustituye al centro Mateos Pet como
+establecimiento ni a Lina como responsable de sus datos. La nueva marca no
+acredita una sociedad Nexo Web constituida ni altera términos ya aprobados.
+
+**Cierre documental de la operación real — 27/10/2026:** solicitado por Andrés;
+política 1.2, condiciones 1.0 y anexo adoptados. [Acta y seguimientos abiertos](../operations/CLOSED_BETA_LEGAL_DOCUMENTATION_CLOSURE_20261027.md).
+No se certifica cumplimiento integral ni se consideran realizadas la primera
+entrega/decisión o comprobaciones particulares de proveedores.
+
+**Separación de identidades, confirmada el 27/10:** estas políticas corresponden
+al centro veterinario Mateos Pet. El software
+adopta Huella Nex el 28/10; Nexo Web es la iniciativa de Andrés, sin constitución
+empresarial actual. No se presentan como la misma identidad ni como una sociedad
+prestadora ya constituida. [Aclaración del responsable](../IDENTIDAD_DEL_PRODUCTO.md).
+
+**Actualizado:** 27 de octubre de 2026. **Alcance actual confirmado:** operación
 real de la veterinaria desde el 19/10, con clientes, citas, medicamentos y pagos.
 El [anexo de operación propia](anexo-beta-veterinaria-propia-borrador.md) recoge
 ese alcance y las decisiones documentales pendientes. El paquete 1.1 siguiente
 corresponde al ensayo ficticio histórico del 14/10; no describe la base activa.
 
-## Paquete
+## Paquete de la operación real, adoptado documentalmente
+
+El responsable indicó el 27/10 que no dispone de política/autorización de clientes
+y pidió prepararlas. Confirmó a Lina, persona natural, como responsable de datos;
+ciudad Medellín y contactos del perfil del centro confirmados por Andre.
+
+El [paquete nuevo 1.0](operacion-real/README.md) contiene política, aviso y
+autorización de clientes, condiciones del equipo y seguimiento de adopción.
+Copias privadas en `.cache/private/legal/operacion-real-20261027/`; datos del
+centro completados, matriz de conservación y registro de autorizaciones preparados.
+Andrés confirmó revisión por Lina, acceso a sus canales y criterios de conservación;
+solicitó cerrar el trabajo documental. **Ítem 7 cerrado en ese alcance**.
+El PDF completo 1.2 y mecanismo de entrega están preparados; primera entrega,
+decisiones y comprobaciones particulares de proveedores continúan pendientes.
+No se obtuvieron autorizaciones de clientes por este trabajo.
+
+## Paquete histórico del ensayo individual
 
 1. [Política de tratamiento](politica-de-privacidad.md).
 2. [Condiciones de uso](terminos-de-servicio.md).

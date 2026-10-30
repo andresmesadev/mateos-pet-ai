@@ -1,6 +1,7 @@
 const { parseIncomingMessage } = require("../../../../services/whatsapp.service");
-const { getTenantByPhone } = require("../../../../services/tenant.service");
+const { receiver } = require('../../../../services/whatsapp-route.service');
 const logger = require("../../../../lib/logger");
+const { isWhatsAppEnabled } = require('../../../../lib/whatsapp-runtime');
 
 /**
  * Resuelve el tenantId ANTES de invocar el motor conversacional, reutilizando
@@ -12,11 +13,12 @@ const logger = require("../../../../lib/logger");
  */
 async function resolveTenantId(body) {
   const parsed = parseIncomingMessage(body);
-  if (!parsed?.phoneNumberId) return null;
+  if (!isWhatsAppEnabled() || !parsed?.phoneNumberId) return null;
 
   try {
-    const tenant = await getTenantByPhone(parsed.phoneNumberId);
-    return tenant?.active ? tenant.id : null;
+    const entry = body?.entry?.find(e => e.changes?.some(c => c.value?.metadata?.phone_number_id === parsed.phoneNumberId));
+    const route = await receiver(parsed.phoneNumberId, entry?.id ?? null);
+    return route?.tenantId ?? null;
   } catch (error) {
     logger.error("[Recepcionista IA] Error resolviendo tenant:", error.message);
     return null;

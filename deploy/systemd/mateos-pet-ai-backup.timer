@@ -1,9 +1,9 @@
 [Unit]
-Description=Daily Mateos Pet AI encrypted PostgreSQL backup
+Description=Half-hourly Huella Nex encrypted PostgreSQL backup
 
 [Timer]
-OnCalendar=*-*-* 08:10:00 UTC
-RandomizedDelaySec=10m
+OnCalendar=*-*-* *:00,30:00 UTC
+RandomizedDelaySec=0
 Persistent=true
 Unit=mateos-pet-ai-backup.service
 

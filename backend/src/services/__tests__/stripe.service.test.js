@@ -3,6 +3,7 @@ jest.mock("stripe", () => {
     customers: { create: jest.fn() },
     subscriptions: { create: jest.fn(), cancel: jest.fn(), retrieve: jest.fn(), update: jest.fn() },
     checkout: { sessions: { create: jest.fn() } },
+    billingPortal: { sessions: { create: jest.fn() } },
     webhooks: { constructEvent: jest.fn() },
   };
   const ctor = jest.fn(() => instance);

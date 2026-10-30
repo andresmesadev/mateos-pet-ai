@@ -38,6 +38,9 @@ const recoveryData = (job, error, now) => {
   if (job.phase === "complete") {
     return { ...base, status: "done", finishedAt: now, lastError: null };
   }
+  if (error?.code === 'PROVIDER_ROUTE_CHANGED') {
+    return { ...base, status: 'needs_review', finishedAt: now, lastError: 'PROVIDER_ROUTE_CHANGED' };
+  }
   if (!["pending", "ready"].includes(job.phase)) {
     return { ...base, status: "needs_review", finishedAt: now,
       lastError: `UNCERTAIN_${job.phase}: ${base.lastError}`.slice(0, 2000) };
@@ -72,7 +75,8 @@ const enqueueInboundJob = async ({ provider, providerEventId, payload }) => {
     }
 
     const job = await prisma.inboundJob.create({
-      data: { provider: prov, providerEventId: eventId, payload },
+      data: { provider: prov, providerEventId: eventId, payload,
+        ...(require('../lib/provider-execution').providerScope()?.whatsapp ? { providerRoute: require('../lib/provider-execution').routeSnapshot(require('../lib/provider-execution').providerScope().whatsapp) } : {}) },
     });
 
     return { job, created: true };
@@ -115,6 +119,7 @@ const enqueueOperatorJob = async ({ route, input }) => {
         ...(barrier ? { mode: 'blocked', currentSessionId: null, blockedReason: 'mode_command_pending', modeVersion: { increment: 1 } } : {}) } });
       const envelope = { ...input, admissionModeVersion: String(participant.modeVersion) };
       const job = await tx.inboundJob.create({ data: { id: randomUUID(), provider: 'whatsapp', providerEventId: input.id, payload: envelope, envelopeVersion: 2,
+        ...(require('../lib/provider-execution').providerScope()?.whatsapp ? { providerRoute: require('../lib/provider-execution').routeSnapshot(require('../lib/provider-execution').providerScope().whatsapp) } : {}),
         channelTenantId: route.tenantId, channelRouteId: route.id, channelParticipantId: participant.id, channelOrdinal: participant.admittedOrdinal,
         channelRouteVersion: route.version, channelInputHash: digest(envelope) } });
       return { job, created: true };

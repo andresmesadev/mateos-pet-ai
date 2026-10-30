@@ -1,13 +1,5 @@
 const prisma = require('../lib/prisma');
-const { isReactivationTemplateConfigured, sendReactivationTemplate, renderReactivationTemplate } = require('./reactivation-template.service');
-
-function reactivationContext() {
-  const channelConfigured = Boolean(process.env.WHATSAPP_PHONE_NUMBER_ID?.trim() && process.env.WHATSAPP_ACCESS_TOKEN?.trim());
-  const templateConfigured = isReactivationTemplateConfigured();
-  return { ready: channelConfigured && templateConfigured, templateConfigured, channelConfigured,
-    preview: renderReactivationTemplate('{nombre}'),
-    reason: !channelConfigured ? 'Configura el canal de WhatsApp en Administración antes de enviar.' : !templateConfigured ? 'Falta configurar la plantilla de reactivación aprobada de WhatsApp. Puedes abrir la conversación para revisar el contacto.' : null };
-}
+const { reactivationContext, sendReactivationTemplate } = require('./reactivation-template.service');
 
 function validContactPhone(phone) {
   return typeof phone === 'string' && /^\+?\d{8,15}$/.test(phone.replace(/\s/g, ''));
@@ -15,7 +7,7 @@ function validContactPhone(phone) {
 
 async function sendReactivationCampaign(tenantId, clientIds) {
   if (!tenantId) throw Object.assign(new Error('Selecciona un establecimiento antes de enviar.'), { status: 400 });
-  const context = reactivationContext();
+  const context = await reactivationContext(tenantId);
   if (!context.ready) throw Object.assign(new Error(context.reason), { status: 422 });
   if (!Array.isArray(clientIds) || !clientIds.length || clientIds.length > 500 || clientIds.some(id => typeof id !== 'string' || !id)) {
     throw Object.assign(new Error('Selecciona entre 1 y 500 clientes válidos.'), { status: 400 });

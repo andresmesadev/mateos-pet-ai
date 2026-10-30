@@ -1,19 +1,19 @@
 jest.mock('../lib/prisma', () => ({ user: { findMany: jest.fn(), update: jest.fn() } }));
-jest.mock('../services/reactivation-template.service', () => ({ isReactivationTemplateConfigured: jest.fn(), sendReactivationTemplate: jest.fn(), renderReactivationTemplate: name => `Hola ${name}` }));
+jest.mock('../services/reactivation-template.service', () => ({ reactivationContext: jest.fn(), sendReactivationTemplate: jest.fn() }));
 const prisma = require('../lib/prisma');
 const template = require('../services/reactivation-template.service');
 const { sendReactivationCampaign, reactivationContext } = require('../services/dashboard-reactivation.service');
 const original = { ...process.env };
-beforeEach(() => { jest.clearAllMocks(); process.env.WHATSAPP_PHONE_NUMBER_ID = 'test'; process.env.WHATSAPP_ACCESS_TOKEN = 'test'; template.isReactivationTemplateConfigured.mockReturnValue(true); template.sendReactivationTemplate.mockResolvedValue(true); prisma.user.update.mockResolvedValue({}); prisma.user.findMany.mockResolvedValue([{ id: 'a', name: 'Ana', phone: '573001234567' }]); });
+beforeEach(() => { jest.clearAllMocks(); template.reactivationContext.mockResolvedValue({ ready: true }); template.sendReactivationTemplate.mockResolvedValue(true); prisma.user.update.mockResolvedValue({}); prisma.user.findMany.mockResolvedValue([{ id: 'a', name: 'Ana', phone: '573001234567' }]); });
 afterAll(() => { process.env = original; });
 test('configuration is visible and missing channel blocks before recipients or messages', async () => {
-  delete process.env.WHATSAPP_ACCESS_TOKEN;
-  expect(reactivationContext()).toMatchObject({ ready: false, channelConfigured: false });
+  template.reactivationContext.mockResolvedValue({ ready: false, channelConfigured: false, reason: 'Canal no configurado' });
+  expect(await reactivationContext('tenant-a')).toMatchObject({ ready: false, channelConfigured: false });
   await expect(sendReactivationCampaign('tenant-a', ['a'])).rejects.toMatchObject({ status: 422 });
   expect(prisma.user.findMany).not.toHaveBeenCalled(); expect(template.sendReactivationTemplate).not.toHaveBeenCalled();
 });
 test('missing template blocks; no free-text fallback', async () => {
-  template.isReactivationTemplateConfigured.mockReturnValue(false);
+  template.reactivationContext.mockResolvedValue({ ready: false, templateConfigured: false, reason: 'Plantilla no configurada' });
   await expect(sendReactivationCampaign('tenant-a', ['a'])).rejects.toMatchObject({ status: 422 });
   expect(template.sendReactivationTemplate).not.toHaveBeenCalled();
 });
@@ -33,6 +33,7 @@ test('rejects stale or cross-tenant contacts before sending any', async () => {
 test('deduplicates selection and records only confirmed delivery', async () => {
   expect(await sendReactivationCampaign('tenant-a', ['a', 'a'])).toMatchObject({ sent: 1, total: 1 });
   expect(template.sendReactivationTemplate).toHaveBeenCalledTimes(1); expect(prisma.user.update).toHaveBeenCalledTimes(1);
+  expect(template.reactivationContext).toHaveBeenCalledWith('tenant-a');
 });
 test('partial delivery distinguishes sent, failed and omitted recipients', async () => {
   prisma.user.findMany.mockResolvedValue([{ id: 'a', name: 'Ana', phone: '+57 300 1234567' }, { id: 'b', phone: '573009876543' }, { id: 'c', phone: 'NOPHONE-1' }]);

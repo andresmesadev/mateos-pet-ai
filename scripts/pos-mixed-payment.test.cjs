@@ -44,6 +44,8 @@ test('draft recovery retains split and immutable uncertain operation body', () =
 });
 test('saved mixed receipt prints both real parts without duplicating its total', () => {
   const context = { exports: {}, require: name => {
+    if (name === 'react') return React;
+    if (name === '@/lib/api') return { proxyUrl: value => value };
     if (name === 'react/jsx-runtime') return require('../frontend/node_modules/react/jsx-runtime');
     if (name === 'react-dom') return { createPortal() {} };
     if (name.startsWith('@/lib/')) return load(name.slice('@/lib/'.length));
@@ -55,4 +57,9 @@ test('saved mixed receipt prints both real parts without duplicating its total',
   const html = renderToStaticMarkup(React.createElement(context.exports.SaleReceipt, { transaction: paid, cash: { received: 50000, change: 20000 } }));
   assert.match(html, /Parte en efectivo/); assert.match(html, /Parte en transferencia/);
   assert.match(html, /30\.000/); assert.match(html, /20\.000/); assert.equal((html.match(/Total COP/g) ?? []).length, 1);
+  const transaction = { ...paid, tenantId: 'own-business' };
+  const own = renderToStaticMarkup(React.createElement(context.exports.SaleReceipt, { transaction, establishment: { id: 'own-business', name: 'Tienda propia', contactPhone: 'CONTACT-OWN', address: 'Dirección propia' } }));
+  assert.match(own, /Tienda propia/); assert.match(own, /CONTACT-OWN/);
+  const wrong = renderToStaticMarkup(React.createElement(context.exports.SaleReceipt, { transaction, establishment: { id: 'other', name: 'FOREIGN-ISSUER', contactPhone: 'FOREIGN-PHONE' } }));
+  assert.doesNotMatch(wrong, /FOREIGN-ISSUER|FOREIGN-PHONE/);
 });

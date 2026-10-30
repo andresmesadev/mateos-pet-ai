@@ -46,6 +46,9 @@ async function registerTenantAdministrator(body) {
     data: {
       name: input.name, slug: input.slug, email: input.email,
       plan: "free", activeModules: input.activeModules,
+      // A new business chooses its own opening hours instead of inheriting
+      // the legacy 11–17 fallback used by existing establishments.
+      businessHours: Object.fromEntries(["mon", "tue", "wed", "thu", "fri", "sat", "sun"].map(day => [day, { active: false, open: "", close: "" }])),
       staff: { create: {
         name: input.ownerName, email: input.email, role: "admin",
         serviceScope: "selected", generatesCommission: false,

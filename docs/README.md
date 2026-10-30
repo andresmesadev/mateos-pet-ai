@@ -1,4 +1,4 @@
-# Documentación de Mateos Pet AI
+# Documentación de Huella Nex
 
 Entrada de consulta. Revisión documental: 8 de octubre de 2026.
 
@@ -8,6 +8,12 @@ Entrada de consulta. Revisión documental: 8 de octubre de 2026.
 | --- | --- |
 | Qué está publicado, qué está comprobado localmente y qué sigue pendiente | [Estado actual](ESTADO_ACTUAL.md) |
 | Visión, principios y roadmap | [Plan Maestro](PLAN_MAESTRO.md) |
+| Qué es Huella Nex, para quién sirve y qué pertenece a cada establecimiento | [Alcance del producto](ALCANCE_DEL_PRODUCTO.md) |
+| Qué anuncian los planes y qué condiciones siguen pendientes | [Planes y alcance comprobado, HN-05](architecture/billing-plan-description-hn05-20261029.md) |
+| Qué nombre usa WhatsApp y cómo configurar la plantilla de cada establecimiento | [Identidad del establecimiento en WhatsApp, HN-06](architecture/whatsapp-business-identity-hn06-20261029.md) |
+| Qué ocurre si se crea la cuenta y queda pendiente preparar sus asistentes | [Registro con preparación parcial, HN-07](architecture/onboarding-partial-result-hn07-20261029.md) |
+| Resultado de la revisión final local en los tres tipos de negocio | [Revisión final local del lote, 29/10](audits/HUELLA_NEX_FINAL_LOCAL_REVIEW_20261029.md) |
+| Qué falta para admitir clientes externos a la beta del producto | [Preparación de beta externa, 30/10](audits/HUELLA_NEX_EXTERNAL_BETA_READINESS_20261030.md) |
 | Entidades, responsabilidades y unidad de aislamiento | [Modelo de dominio](architecture/domain-model-v1.md) |
 | Proceso de diseño y aprobación | [Regla de ejecución](PHASE_2_EXECUTION_RULE.md) |
 | Contratos y arquitectura aprobados | [Arquitectura](architecture/README.md) |

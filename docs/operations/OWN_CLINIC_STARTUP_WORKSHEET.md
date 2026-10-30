@@ -1,5 +1,11 @@
 # Puesta en marcha de la veterinaria propia
 
+**Aceptación del alcance manual actual cerrada el 27/10:** [acta del ítem 10](REAL_OPERATION_ACCEPTANCE_CLOSURE_20261027.md).
+Andrés confirmó conciliación de punto de venta/inventario/comisiones y cotejo
+físico coincidente. Las casillas siguientes siguen siendo plantillas para
+jornadas concretas, no comprobaciones globales pendientes que deban repetirse.
+Conservar evidencia privada, excepciones históricas y seguimiento de incidencias.
+
 **Preparado:** 16 de octubre de 2026. Completar la copia de trabajo fuera de Git. No registrar aquí personas, contactos, importes del negocio o evidencias de clientes: este repositorio es público.
 
 Usar junto al [procedimiento del piloto](INTERNAL_PILOT_RUNBOOK.md). Las casillas vacías son decisiones pendientes, no valores asumidos. La primera jornada se habilita por áreas comprobadas; la venta del SaaS, Stripe y campañas no condicionan ese arranque.

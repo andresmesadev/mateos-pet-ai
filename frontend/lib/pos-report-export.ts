@@ -1,10 +1,11 @@
 import { Workbook } from "exceljs";
+import { PRODUCT_NAME } from "./product-brand";
 import { KIND_LABELS, METHOD_LABELS, reportComparisonText, reportDateKey, reportRange, reportsAgree, type ReportSummary, type ReportBreakdown } from "./pos-reports";
 
 export async function createReportWorkbook(summary: ReportSummary, breakdown: ReportBreakdown) {
   if (!reportsAgree(summary, breakdown)) throw new Error("Actualiza el resumen y el desglose antes de exportar.");
   const book = new Workbook();
-  book.creator = "Mateos Pet AI";
+  book.creator = PRODUCT_NAME;
   book.created = new Date(summary.asOf);
   const overview = book.addWorksheet("Resumen");
   overview.columns = [{ width: 38 }, { width: 28 }, { width: 28 }, { width: 23 }];

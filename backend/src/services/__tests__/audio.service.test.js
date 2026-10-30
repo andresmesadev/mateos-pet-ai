@@ -1,5 +1,6 @@
 jest.mock("fs", () => ({
   existsSync: jest.fn(),
+  statSync: jest.fn(() => ({ size: 1024 })),
   mkdirSync: jest.fn(),
   createReadStream: jest.fn(() => "fake-stream"),
   promises: {
@@ -7,6 +8,8 @@ jest.mock("fs", () => ({
     writeFile: jest.fn().mockResolvedValue(undefined),
   },
 }));
+
+jest.mock("../whatsapp-route.service", () => ({ currentWhatsAppRoute: jest.fn(async () => process.env.WHATSAPP_ACCESS_TOKEN ? { accessToken: process.env.WHATSAPP_ACCESS_TOKEN } : null) }));
 
 jest.mock("axios", () => ({ get: jest.fn() }));
 
@@ -49,44 +52,44 @@ describe("downloadWhatsAppAudio", () => {
 
   test("retorna null si falta WHATSAPP_ACCESS_TOKEN", async () => {
     delete process.env.WHATSAPP_ACCESS_TOKEN;
-    await expect(downloadWhatsAppAudio("media-1")).resolves.toBeNull();
+    await expect(downloadWhatsAppAudio("100011")).resolves.toBeNull();
     expect(axios.get).not.toHaveBeenCalled();
   });
 
   test("retorna null si Meta no retorna una url de media", async () => {
     axios.get.mockResolvedValueOnce({ data: {} });
-    await expect(downloadWhatsAppAudio("media-1")).resolves.toBeNull();
+    await expect(downloadWhatsAppAudio("100011")).resolves.toBeNull();
     expect(axios.get).toHaveBeenCalledTimes(1);
   });
 
   test("descarga y guarda el archivo, creando el directorio temporal si no existe", async () => {
     fs.existsSync.mockReturnValue(false);
     axios.get
-      .mockResolvedValueOnce({ data: { url: "https://media.example/f", mime_type: "audio/mpeg" } })
+      .mockResolvedValueOnce({ data: { url: "https://lookaside.fbsbx.com/f", mime_type: "audio/mpeg" } })
       .mockResolvedValueOnce({ data: Buffer.from("audio-bytes") });
 
-    const filepath = await downloadWhatsAppAudio("media-1");
+    const filepath = await downloadWhatsAppAudio("100011");
 
     expect(fs.mkdirSync).toHaveBeenCalledWith(expect.any(String), { recursive: true });
-    expect(filepath).toEqual(expect.stringContaining("wa-audio-media-1-"));
+    expect(filepath).toEqual(expect.stringContaining("wa-audio-100011-"));
     expect(filepath.endsWith(".mp3")).toBe(true);
     expect(fs.promises.writeFile).toHaveBeenCalledWith(filepath, expect.any(Buffer));
   });
 
   test("usa .ogg si no viene mime_type", async () => {
     axios.get
-      .mockResolvedValueOnce({ data: { url: "https://media.example/f" } })
+      .mockResolvedValueOnce({ data: { url: "https://lookaside.fbsbx.com/f" } })
       .mockResolvedValueOnce({ data: Buffer.from("audio-bytes") });
-    const filepath = await downloadWhatsAppAudio("media-1");
+    const filepath = await downloadWhatsAppAudio("100011");
     expect(filepath.endsWith(".ogg")).toBe(true);
   });
 
   test("no crea el directorio temporal si ya existe", async () => {
     fs.existsSync.mockReturnValue(true);
     axios.get
-      .mockResolvedValueOnce({ data: { url: "https://media.example/f", mime_type: "audio/ogg" } })
+      .mockResolvedValueOnce({ data: { url: "https://lookaside.fbsbx.com/f", mime_type: "audio/ogg" } })
       .mockResolvedValueOnce({ data: Buffer.from("audio-bytes") });
-    await downloadWhatsAppAudio("media-1");
+    await downloadWhatsAppAudio("100011");
     expect(fs.mkdirSync).not.toHaveBeenCalled();
   });
 
@@ -97,15 +100,15 @@ describe("downloadWhatsAppAudio", () => {
     ["audio/unknown-format", ".ogg"],
   ])("mapea mime %s a la extensión %s", async (mime, ext) => {
     axios.get
-      .mockResolvedValueOnce({ data: { url: "https://media.example/f", mime_type: mime } })
+      .mockResolvedValueOnce({ data: { url: "https://lookaside.fbsbx.com/f", mime_type: mime } })
       .mockResolvedValueOnce({ data: Buffer.from("audio-bytes") });
-    const filepath = await downloadWhatsAppAudio("media-1");
+    const filepath = await downloadWhatsAppAudio("100011");
     expect(filepath.endsWith(ext)).toBe(true);
   });
 
   test("retorna null si falla la consulta de metadata a Meta (sin filepath que limpiar)", async () => {
     axios.get.mockRejectedValueOnce(new Error("meta down"));
-    await expect(downloadWhatsAppAudio("media-1")).resolves.toBeNull();
+    await expect(downloadWhatsAppAudio("100011")).resolves.toBeNull();
     expect(fs.promises.unlink).not.toHaveBeenCalled();
   });
 
@@ -113,17 +116,17 @@ describe("downloadWhatsAppAudio", () => {
     const error = new Error("meta down");
     error.response = { data: { error: "bad request" } };
     axios.get.mockRejectedValueOnce(error);
-    await expect(downloadWhatsAppAudio("media-1")).resolves.toBeNull();
+    await expect(downloadWhatsAppAudio("100011")).resolves.toBeNull();
   });
 
   test("limpia el archivo temporal si falla la escritura a disco", async () => {
     axios.get
-      .mockResolvedValueOnce({ data: { url: "https://media.example/f", mime_type: "audio/mpeg" } })
+      .mockResolvedValueOnce({ data: { url: "https://lookaside.fbsbx.com/f", mime_type: "audio/mpeg" } })
       .mockResolvedValueOnce({ data: Buffer.from("audio-bytes") });
     fs.promises.writeFile.mockRejectedValueOnce(new Error("disk full"));
 
-    await expect(downloadWhatsAppAudio("media-1")).resolves.toBeNull();
-    expect(fs.promises.unlink).toHaveBeenCalledWith(expect.stringContaining("wa-audio-media-1-"));
+    await expect(downloadWhatsAppAudio("100011")).resolves.toBeNull();
+    expect(fs.promises.unlink).toHaveBeenCalledWith(expect.stringContaining("wa-audio-100011-"));
   });
 });
 
@@ -172,36 +175,36 @@ describe("transcribeAudio", () => {
 describe("processVoiceMessage", () => {
   test("retorna null si la descarga falla, sin intentar transcribir", async () => {
     delete process.env.WHATSAPP_ACCESS_TOKEN;
-    await expect(processVoiceMessage("media-1")).resolves.toBeNull();
+    await expect(processVoiceMessage("100011")).resolves.toBeNull();
     expect(mockTranscriptionsCreate).not.toHaveBeenCalled();
     expect(fs.promises.unlink).not.toHaveBeenCalled();
   });
 
   test("descarga, transcribe y limpia el archivo temporal en éxito", async () => {
     axios.get
-      .mockResolvedValueOnce({ data: { url: "https://media.example/f", mime_type: "audio/ogg" } })
+      .mockResolvedValueOnce({ data: { url: "https://lookaside.fbsbx.com/f", mime_type: "audio/ogg" } })
       .mockResolvedValueOnce({ data: Buffer.from("audio-bytes") });
     mockTranscriptionsCreate.mockResolvedValue({ text: "hola" });
 
-    await expect(processVoiceMessage("media-1")).resolves.toBe("hola");
+    await expect(processVoiceMessage("100011")).resolves.toBe("hola");
     expect(fs.promises.unlink).toHaveBeenCalledWith(
-      expect.stringContaining("wa-audio-media-1-")
+      expect.stringContaining("wa-audio-100011-")
     );
   });
 
   test("limpia el archivo temporal aunque la transcripción falle", async () => {
     axios.get
-      .mockResolvedValueOnce({ data: { url: "https://media.example/f", mime_type: "audio/ogg" } })
+      .mockResolvedValueOnce({ data: { url: "https://lookaside.fbsbx.com/f", mime_type: "audio/ogg" } })
       .mockResolvedValueOnce({ data: Buffer.from("audio-bytes") });
     mockTranscriptionsCreate.mockRejectedValue(new Error("whisper down"));
 
-    await expect(processVoiceMessage("media-1")).resolves.toBeNull();
+    await expect(processVoiceMessage("100011")).resolves.toBeNull();
     expect(fs.promises.unlink).toHaveBeenCalled();
   });
 
   test("retorna null si algo lanza fuera de las capturas internas", async () => {
     axios.get
-      .mockResolvedValueOnce({ data: { url: "https://media.example/f", mime_type: "audio/ogg" } })
+      .mockResolvedValueOnce({ data: { url: "https://lookaside.fbsbx.com/f", mime_type: "audio/ogg" } })
       .mockResolvedValueOnce({ data: Buffer.from("audio-bytes") });
     fs.existsSync
       .mockReturnValueOnce(true) // ensureTempDir: el directorio ya existe
@@ -209,31 +212,31 @@ describe("processVoiceMessage", () => {
         throw new Error("fs boom");
       });
 
-    await expect(processVoiceMessage("media-1")).resolves.toBeNull();
+    await expect(processVoiceMessage("100011")).resolves.toBeNull();
     expect(fs.promises.unlink).toHaveBeenCalled();
   });
 
   test("ignora silenciosamente un fallo de borrado con ENOENT", async () => {
     axios.get
-      .mockResolvedValueOnce({ data: { url: "https://media.example/f", mime_type: "audio/ogg" } })
+      .mockResolvedValueOnce({ data: { url: "https://lookaside.fbsbx.com/f", mime_type: "audio/ogg" } })
       .mockResolvedValueOnce({ data: Buffer.from("audio-bytes") });
     mockTranscriptionsCreate.mockResolvedValue({ text: "hola" });
     const enoent = new Error("no existe");
     enoent.code = "ENOENT";
     fs.promises.unlink.mockRejectedValueOnce(enoent);
 
-    await expect(processVoiceMessage("media-1")).resolves.toBe("hola");
+    await expect(processVoiceMessage("100011")).resolves.toBe("hola");
   });
 
   test("advierte pero no falla si el borrado falla con otro código", async () => {
     axios.get
-      .mockResolvedValueOnce({ data: { url: "https://media.example/f", mime_type: "audio/ogg" } })
+      .mockResolvedValueOnce({ data: { url: "https://lookaside.fbsbx.com/f", mime_type: "audio/ogg" } })
       .mockResolvedValueOnce({ data: Buffer.from("audio-bytes") });
     mockTranscriptionsCreate.mockResolvedValue({ text: "hola" });
     const eperm = new Error("permiso denegado");
     eperm.code = "EPERM";
     fs.promises.unlink.mockRejectedValueOnce(eperm);
 
-    await expect(processVoiceMessage("media-1")).resolves.toBe("hola");
+    await expect(processVoiceMessage("100011")).resolves.toBe("hola");
   });
 });

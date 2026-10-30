@@ -31,6 +31,8 @@ test("creates an administrator atomically with normalized email, real hash and n
   expect(write.select).toEqual({ id: true, name: true, slug: true, plan: true });
   expect(write.data).not.toHaveProperty("phone");
   expect(write.data.plan).toBe("free");
+  expect(Object.keys(write.data.businessHours)).toHaveLength(7);
+  expect(Object.values(write.data.businessHours).every(day => day.active === false && day.open === "" && day.close === "")).toBe(true);
   const staff = write.data.staff.create;
   expect(staff).toMatchObject({ name: input.ownerName, email: input.email, role: "admin", serviceScope: "selected", generatesCommission: false });
   expect(staff.credential.create.email).toBe(input.email);

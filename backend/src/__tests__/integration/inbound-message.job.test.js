@@ -69,6 +69,16 @@ describe("startInboundMessageJob", () => {
 });
 
 describe("processOneJob", () => {
+  test('commercial mode never upgrades a legacy job without a credential snapshot', async () => {
+    const previous = process.env.WHATSAPP_MULTITENANT_ENABLED;
+    process.env.WHATSAPP_MULTITENANT_ENABLED = 'true';
+    try {
+      claimNextInboundJob.mockResolvedValue({ id: 'old-grant', phase: 'pending', payload: {} });
+      await processOneJob();
+      expect(markInboundJobFailed).toHaveBeenCalledWith(expect.objectContaining({ id: 'old-grant' }),expect.objectContaining({ code: 'PROVIDER_ROUTE_CHANGED' }));
+      expect(processIncomingMessage).not.toHaveBeenCalled(); expect(sendMessage).not.toHaveBeenCalled();
+    } finally { if (previous === undefined) delete process.env.WHATSAPP_MULTITENANT_ENABLED; else process.env.WHATSAPP_MULTITENANT_ENABLED = previous; }
+  });
   test.each(["deliveryAccepted", "deliveryUncertain"])("%s never triggers an automatic resend", async flag => {
     claimNextInboundJob.mockResolvedValue({ id: "ambiguous", phase: "ready", replies: [{ userId: "u", phone: "555", content: "test", origin: "agente" }], replyCursor: 0 });
     const error = Object.assign(new Error("delivery requires review"), { [flag]: true });

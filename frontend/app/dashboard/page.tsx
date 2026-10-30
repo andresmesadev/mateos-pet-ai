@@ -5,6 +5,7 @@ import { HomeWorkspace } from "@/components/dashboard/home/workspace";
 import { getDashboardAccess } from "@/lib/dashboard-access-server";
 import { auth } from "@/auth";
 import { QuickActions } from "@/components/dashboard/quick-actions";
+import { ServiceStatusPanel } from "@/components/dashboard/home/service-status";
 import { makeServerHeaders } from "@/lib/api";
 import {
   ListCardSkeleton,
@@ -39,6 +40,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       </section>
 
       <QuickActions tenant={tenant} access={access} />
+      {(session?.user?.isSuperAdmin ? tenant ?? session.user.tenantId : session?.user?.tenantId) && <ServiceStatusPanel key={tenant ?? session?.user?.tenantId} tenantId={(session?.user?.isSuperAdmin ? tenant ?? session.user.tenantId : session?.user?.tenantId)!} />}
 
       <Suspense fallback={<ListCardSkeleton titleWidth="w-40" />}>
         <HomeWorkspace access={access} headers={headers} tenant={tenant} date={date} review={review === "1"} />

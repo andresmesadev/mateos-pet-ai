@@ -1,5 +1,20 @@
 # Plan de preparación para beta cerrada
 
+
+> Actualización editorial de marca — 28/10/2026: se usa Huella Nex por solicitud de Andrés. Se conservan las fechas, versiones, decisiones y condiciones originales; esta edición no registra nuevas aprobaciones ni autorizaciones de clientes.
+
+**Actualización del 27/10 — ítem 10:** [aceptación operativa cerrada](REAL_OPERATION_ACCEPTANCE_CLOSURE_20261027.md)
+para el dashboard del centro propio. Andrés confirma operación real desde el
+19/10, conciliación de punto de venta/inventario/comisiones y cotejo físico
+coincidente. El ítem 9 mantiene sus fallos y revisión pendientes; WhatsApp sigue
+aplazado. Las notas de arranque siguientes conservan su contexto histórico.
+
+**Actualización del 27/10 — ítem 7:** [cerrado documentalmente para la operación real del centro propio](CLOSED_BETA_LEGAL_DOCUMENTATION_CLOSURE_20261027.md)
+por solicitud de Andrés. Política, condiciones y anexo completados/revisados y
+adoptados; primera entrega/decisión y comprobaciones particulares de proveedores
+permanecen en seguimiento. No se certifica cumplimiento integral. Los estados
+anteriores fechados y el cierre ficticio del 14/10 son históricos distintos.
+
 **Estado contrastado el 22 de octubre de 2026:** consultar la [revisión actual de
 los diez pasos](CLOSED_BETA_STATUS_20261022.md). La veterinaria ya usa Agenda,
 Caja e Inventario con datos reales desde el lunes 19/10; 2.55.1 está publicada
@@ -41,6 +56,14 @@ Los apartados fechados a continuación conservan el estado histórico de cada re
 - Los términos y la política de privacidad siguen en borrador.
 
 ## Plan aprobado
+
+**Actualización documental del ítem 7 — 27/10:** se preparó un
+[paquete separado para la operación real](../legal/operacion-real/README.md).
+Lina fue confirmada como responsable persona natural, y Andre confirmó los
+contactos del centro y Medellín. El centro no dispone todavía de política y
+autorización de clientes. Los borradores, matriz y registro privados no acreditan
+su adopción o decisiones de clientes: el ítem 7 del alcance real sigue abierto,
+con revisión/aprobación, conservación, proveedores y entrega pendientes.
 
 **Seguimiento del 9 de octubre de 2026:** la publicación comprobada es [2.45.2](../history/RELEASE_2_45_2_WHATSAPP_20261009.md).
 Se verificaron copia cifrada independiente, restauración local y tarea diaria
@@ -213,7 +236,7 @@ externa continúa recomendada antes de una beta con usuarios reales.
 
 ## Auditoría de limpieza y beta (2026-09-26)
 
-- Neon dejó de ser una dependencia operativa: el proyecto `Mateos Pet AI`
+- Neon dejó de ser una dependencia operativa: el proyecto heredado del software
   (`summer-bar-45935047`) fue eliminado en su consola con autorización expresa
   del operador. La consola mostró que no quedaban proyectos en esa organización.
   `NEON_LOW_USAGE_MODE` se retiró del entorno y del contenedor activo. GitHub
@@ -276,7 +299,7 @@ observación hasta demostrar estabilidad y capacidad bajo tráfico real.
 El texto siguiente conserva la decisión histórica de 2026-09-22; la espera al
 1 de octubre ya no aplica a la base activa.
 
-La consola de Neon confirmó que `Mateos Pet AI` continúa en el plan Free y que
+La consola de Neon confirmó que el proyecto heredado continúa en el plan Free y que
 alcanzó el límite: 103,74 CU-horas consumidas desde el 1 de septiembre frente a
 100 CU-horas incluidas. El proyecto muestra explícitamente `Limit reached`. La
 base ocupa 40,27 MB, ha transferido 0,08 GB y su único compute de producción usa
@@ -325,6 +348,15 @@ del endpoint de salud corresponde exclusivamente al corte de cuota de Neon ya
 registrado en el paso 2. Paso cerrado el 2026-09-22.
 
 ## Registro del paso 4
+
+**Revalidación — 27/10/2026:** criterio original de alerta de salud/worker y
+recepción de un aviso controlado comprobado de nuevo. El responsable recibió
+la prueba `40558217063` y la comprobación normal `40558569586` terminó en verde.
+Conserva solo GitHub por decisión expresa; se observaron huecos de varias horas
+entre ejecuciones, por lo que la programación horaria no acredita esa frecuencia
+efectiva. No se activa Sentry ni se modifica la ventana de observación.
+El diagnóstico de timeouts queda abierto en el ítem 9, separado del criterio
+de alertas que se revalida aquí. [Acta y límites](OBSERVABILITY_REVIEW_20261027.md).
 
 **Actualización 2026-09-23:** el workflow horario volvió a activarse al usar
 la base de la VPS. Ya no espera al reinicio mensual de Neon.

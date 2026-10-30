@@ -34,6 +34,12 @@ export function DashboardAccessProvider({ children }: { children: React.ReactNod
         revoked.current = true;
         setAccess(null); router.replace('/session-recovery?reason=session'); return;
       }
+      if (response.status === 402) {
+        revoked.current = true;
+        setAccess(null); setFailed(true);
+        router.replace('/dashboard/billing' + (tenant ? '?tenant=' + encodeURIComponent(tenant) : ''));
+        return;
+      }
       if (!response.ok) {
         if (response.status === 429) {
           const header = response.headers.get('Retry-After');

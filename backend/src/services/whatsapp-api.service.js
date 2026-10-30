@@ -3,12 +3,12 @@ const { isWhatsAppEnabled } = require("../lib/whatsapp-runtime");
 
 const GRAPH_API_VERSION = "v25.0";
 
-const sendWhatsAppMessage = async (to, message) => {
+const sendWhatsAppMessage = async (to, message, route = null) => {
   if (!isWhatsAppEnabled()) return null;
   const phoneNumberId = String(
-    process.env.WHATSAPP_PHONE_NUMBER_ID || ""
+    route?.receiver ?? process.env.WHATSAPP_PHONE_NUMBER_ID ?? ""
   ).trim();
-  const accessToken = String(process.env.WHATSAPP_ACCESS_TOKEN || "").trim();
+  const accessToken = String(route?.accessToken ?? process.env.WHATSAPP_ACCESS_TOKEN ?? "").trim();
 
   if (!phoneNumberId || !accessToken) {
     console.error(
@@ -35,7 +35,6 @@ const sendWhatsAppMessage = async (to, message) => {
   // solo metadata operativa (longitud, no el texto).
   console.log("[WhatsApp API] Enviando mensaje:", {
     url,
-    to: payload.to,
     phoneNumberId,
     bodyLength: typeof message === "string" ? message.length : null,
   });
@@ -43,6 +42,7 @@ const sendWhatsAppMessage = async (to, message) => {
   try {
     const response = await axios.post(url, payload, {
       timeout: 20000,
+      maxRedirects: 0,
       headers: {
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
@@ -56,17 +56,14 @@ const sendWhatsAppMessage = async (to, message) => {
     return response.data;
   } catch (error) {
     if (error.response?.data) {
-      console.error(
-        "[WhatsApp API] Error de Meta (response.data):",
-        JSON.stringify(error.response.data, null, 2)
-      );
+      console.error("[WhatsApp API] Provider rejected request:", { status: error.response.status, code: error.response.data?.error?.code });
       console.error(
         "[WhatsApp API] HTTP status:",
         error.response.status,
         error.response.statusText
       );
     } else {
-      console.error("[WhatsApp API] Error de red o request:", error.message);
+      console.error("[WhatsApp API] Network request failed");
       error.deliveryUncertain = true;
       throw error;
     }
@@ -85,12 +82,12 @@ const sendWhatsAppMessage = async (to, message) => {
 // nuestro código pueda evitar). Mismo tratamiento de errores/logs que
 // sendWhatsAppMessage — solo cambia la forma del payload (`type: "template"`
 // en vez de `type: "text"`).
-const sendWhatsAppTemplateMessage = async (to, templateName, languageCode, components = []) => {
+const sendWhatsAppTemplateMessage = async (to, templateName, languageCode, components = [], route = null) => {
   if (!isWhatsAppEnabled()) return null;
   const phoneNumberId = String(
-    process.env.WHATSAPP_PHONE_NUMBER_ID || ""
+    route?.receiver ?? process.env.WHATSAPP_PHONE_NUMBER_ID ?? ""
   ).trim();
-  const accessToken = String(process.env.WHATSAPP_ACCESS_TOKEN || "").trim();
+  const accessToken = String(route?.accessToken ?? process.env.WHATSAPP_ACCESS_TOKEN ?? "").trim();
 
   if (!phoneNumberId || !accessToken) {
     console.error(
@@ -121,7 +118,6 @@ const sendWhatsAppTemplateMessage = async (to, templateName, languageCode, compo
 
   console.log("[WhatsApp API] Enviando plantilla:", {
     url,
-    to: payload.to,
     phoneNumberId,
     templateName,
     languageCode,
@@ -129,6 +125,8 @@ const sendWhatsAppTemplateMessage = async (to, templateName, languageCode, compo
 
   try {
     const response = await axios.post(url, payload, {
+      timeout: 20000,
+      maxRedirects: 0,
       headers: {
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
@@ -142,17 +140,14 @@ const sendWhatsAppTemplateMessage = async (to, templateName, languageCode, compo
     return response.data;
   } catch (error) {
     if (error.response?.data) {
-      console.error(
-        "[WhatsApp API] Error de Meta (response.data):",
-        JSON.stringify(error.response.data, null, 2)
-      );
+      console.error("[WhatsApp API] Provider rejected request:", { status: error.response.status, code: error.response.data?.error?.code });
       console.error(
         "[WhatsApp API] HTTP status:",
         error.response.status,
         error.response.statusText
       );
     } else {
-      console.error("[WhatsApp API] Error de red o request:", error.message);
+      console.error("[WhatsApp API] Network request failed");
     }
 
     if (error.config) {

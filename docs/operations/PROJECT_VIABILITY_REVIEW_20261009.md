@@ -1,4 +1,7 @@
-# Viabilidad de Mateos Pet AI y horizonte de diez años
+# Viabilidad de Huella Nex y horizonte de diez años
+
+
+> Actualización editorial de marca — 28/10/2026: se usa Huella Nex por solicitud de Andrés. Se conservan las fechas, versiones, decisiones y condiciones originales; esta edición no registra nuevas aprobaciones ni autorizaciones de clientes.
 
 **Fecha:** 9 de octubre de 2026.
 **Base revisada:** `main`, commit `a6991e4`, producto `2.45.0`.
@@ -59,7 +62,7 @@ La combinación de agenda, historias, inventario, pagos y WhatsApp ya se ofrece 
 
 La IA tampoco es una diferenciación exclusiva: Digitail documenta un asistente que resume historiales y genera comunicaciones para clientes, entre otras funciones. [Documentación oficial de Tails AI](https://help.digitail.io/en/articles/8658432-tails-ai-assistant).
 
-Estas fuentes describen ofertas de sus proveedores; no verifican su calidad, resultados ni cuota de mercado. Sí permiten concluir que necesitamos una razón concreta para que un establecimiento elija Mateos Pet AI.
+Estas fuentes describen ofertas de sus proveedores; no verifican su calidad, resultados ni cuota de mercado. Sí permiten concluir que necesitamos una razón concreta para que un establecimiento elija Huella Nex.
 
 **Mi hipótesis de diferenciación**, todavía por validar, es ofrecer una operación integrada y sencilla para establecimientos que combinan veterinaria y peluquería, con reglas locales, seguimiento y asistencia en WhatsApp que realmente disminuya la carga del personal. Los horarios por servicio, los festivos, los turnos consecutivos y la recuperación ante fallos son relevantes para esa promesa.
 

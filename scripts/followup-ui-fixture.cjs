@@ -5,9 +5,10 @@ module.exports = async function seedFollowups(prisma, tenant) {
   process.env.ADMIN_PASSWORD = 'LocalFollowupCheck2026!';
   process.env.WHATSAPP_PHONE_NUMBER_ID = 'private-test';
   process.env.WHATSAPP_ACCESS_TOKEN = 'private-test';
-  process.env.WHATSAPP_TEMPLATE_REACTIVACION_NAME = 'private-test';
-  process.env.WHATSAPP_TEMPLATE_REACTIVACION_LANG = 'es';
   const template = require('../backend/src/services/reactivation-template.service');
+  // Simulated context only: this harness must never enable a real provider.
+  let channelReady = true;
+  template.reactivationContext = async () => ({ ready: channelReady, previewTemplate: { body: 'Hola {{1}}. Somos {{2}}.', businessName: tenant.name }, reason: channelReady ? null : 'Canal de prueba no configurado.' });
   let mockSends = 0;
   template.sendReactivationTemplate = async ({ clientName }) => { mockSends++; return clientName !== 'Beatriz prueba'; };
   const owners = [];
@@ -65,7 +66,7 @@ module.exports = async function seedFollowups(prisma, tenant) {
     },
     async command(command) {
       if (command === 'followup-fail-once') failDismiss = true;
-      if (command === 'followup-channel-off') delete process.env.WHATSAPP_ACCESS_TOKEN;
+      if (command === 'followup-channel-off') channelReady = false;
       if (command === 'followup-veterinary') await prisma.tenant.update({ where: { id: tenant.id }, data: { activeModules: ['veterinary'] } });
       if (command === 'followup-grooming') await prisma.tenant.update({ where: { id: tenant.id }, data: { activeModules: ['grooming'] } });
       if (command === 'followup-retail') await prisma.tenant.update({ where: { id: tenant.id }, data: { activeModules: ['retail'] } });

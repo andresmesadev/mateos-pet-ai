@@ -29,6 +29,7 @@ test("actual proxy rejects before invoking authentication and covers page reques
     if (id === "./auth") return { auth: () => async () => { calls.push("auth"); return { auth: true }; } };
     if (id === "next/server") return { NextResponse: ResponseStub };
     if (id === "./lib/page-request-policy") return { rejectsPageAction };
+    if (id === "./lib/billing-access") return require('./helpers/billing-access.cjs').loadBillingAccess(async () => { throw Error('Unexpected access validation'); });
     return {};
   } };
   const source = fs.readFileSync(path.join(__dirname, "../frontend/proxy.ts"), "utf8");

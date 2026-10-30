@@ -5,8 +5,9 @@ import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { clearWorkspaceSession, workspaceStorage } from '@/lib/workspace-session';
 import { clearSaleDrafts } from '@/lib/pos-draft';
+import { ProductBrand } from '@/components/brand/product-brand';
 
-export function SessionRecovery({ reason = 'unavailable', onRetry }: { reason?: 'session' | 'unavailable'; onRetry?: () => void }) {
+export function SessionRecovery({ reason = 'unavailable', onRetry }: { reason?: 'session' | 'unavailable' | 'suspended'; onRetry?: () => void }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
   async function leave() {
@@ -19,9 +20,9 @@ export function SessionRecovery({ reason = 'unavailable', onRetry }: { reason?: 
   }
   return <main className="flex min-h-screen items-center justify-center bg-[#f5f9f8] px-4 py-8 text-foreground">
     <section aria-labelledby="session-recovery-title" className="w-full max-w-md space-y-5 rounded-2xl border bg-white p-6 shadow-sm sm:p-8">
-      <p className="text-sm font-semibold text-teal-700">Mateos Pet AI</p>
-      <div className="space-y-2"><h1 id="session-recovery-title" className="text-2xl font-bold">{reason === 'session' ? 'Vuelve a iniciar sesión' : 'No pudimos comprobar tu acceso'}</h1>
-        <p className="text-sm leading-relaxed text-muted-foreground">{reason === 'session' ? 'Tu sesión anterior ya no es válida. Si cambiaron tu contraseña o tu acceso, cierra esta sesión y entra con tus datos actuales.' : 'Puede ser un problema temporal de conexión. Reintenta o cierra la sesión para volver a entrar.'}</p></div>
+      <ProductBrand size="md" />
+      <div className="space-y-2"><h1 id="session-recovery-title" className="text-2xl font-bold">{reason === 'session' ? 'Vuelve a iniciar sesión' : reason === 'suspended' ? 'Acceso del negocio suspendido' : 'No pudimos comprobar tu acceso'}</h1>
+        <p className="text-sm leading-relaxed text-muted-foreground">{reason === 'session' ? 'Tu sesión anterior ya no es válida. Si cambiaron tu contraseña o tu acceso, cierra esta sesión y entra con tus datos actuales.' : reason === 'suspended' ? 'Pide al administrador del establecimiento que revise su suscripción. La operación seguirá bloqueada mientras el negocio esté suspendido.' : 'Puede ser un problema temporal de conexión. Reintenta o cierra la sesión para volver a entrar.'}</p></div>
       <div className="space-y-3">
         <button type="button" disabled={busy} onClick={() => void leave()} className="min-h-12 w-full rounded-xl bg-teal-700 px-4 py-3 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-60">{busy ? 'Cerrando sesión…' : 'Cerrar sesión y volver a entrar'}</button>
         <button type="button" disabled={busy} onClick={() => onRetry ? onRetry() : router.replace('/dashboard')} className="min-h-12 w-full rounded-xl border px-4 py-3 text-sm font-semibold hover:bg-muted disabled:opacity-60">Reintentar acceso</button>

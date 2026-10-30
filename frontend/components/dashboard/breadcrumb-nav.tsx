@@ -19,6 +19,7 @@ const PATH_LABELS: Record<string, string> = {
   recuperacion: "Seguimiento de clientes",
   revenue: "Ingresos",
   settings: "Administración",
+  integrations: "Integraciones",
   clients: "Clientes",
   pets: "Mascotas",
   churn: "Análisis de churn",

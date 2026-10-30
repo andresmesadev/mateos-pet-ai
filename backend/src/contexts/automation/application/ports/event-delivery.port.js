@@ -5,7 +5,7 @@
  * este puerto con `events.registerEventDelivery` (composition root de Eventos).
  */
 class EventDeliveryPort {
-  async register(_data) {
+  async register(_data, _ctx) {
     throw new Error("EventDeliveryPort.register no implementado");
   }
 }

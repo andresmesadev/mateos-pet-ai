@@ -1,7 +1,7 @@
 {
   "name": "mateos-pet-ai",
-  "version": "2.58.2",
-  "description": "",
+  "version": "3.0.0",
+  "description": "Huella Nex — gestión para negocios de mascotas",
   "main": "index.js",
   "scripts": {
     "start": "node src/app.js",
@@ -27,8 +27,8 @@
   },
   "homepage": "https://github.com/andresmesadev/mateos-pet-ai#readme",
   "dependencies": {
-    "@prisma/adapter-pg": "^7.10.0",
-    "@prisma/client": "^7.10.0",
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
     "@sentry/node": "^10.57.0",
     "axios": "^1.16.1",
     "cors": "^2.8.6",
@@ -38,6 +38,7 @@
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
     "googleapis": "^173.0.0",
+    "music-metadata": "12.3.2",
     "node-cron": "^4.2.1",
     "openai": "^6.37.0",
     "pg": "^8.16.0",

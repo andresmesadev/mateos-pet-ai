@@ -2,6 +2,22 @@
 
 Este archivo se carga automáticamente en cada sesión de Codex.
 
+## Identidad del producto y del negocio
+
+Leer `docs/IDENTIDAD_DEL_PRODUCTO.md`: **Huella Nex es el nombre del software
+elegido por Andrés el 28/10/2026**.
+Su público incluye veterinarias, pet shops y peluquerías caninas y felinas.
+Mateos Pet es la veterinaria de Andrés
+y Lina, adquirida hace aproximadamente siete años, donde lo validan con datos
+y operación reales desde el 19/10/2026. Andrés es desarrollador e impulsor del
+proyecto con ayuda de IA, para uso propio primero y comercialización posterior.
+**Nexo Web es su iniciativa de desarrollo, todavía sin constituir como empresa.**
+No atribuirle sociedad, NIT o representante legal existentes. La adopción de
+marca no acredita registro de marca/dominio ni cierra la preparación de beta.
+No confundir producto, establecimiento y eventual prestador comercial. Los
+identificadores técnicos heredados se conservan por compatibilidad; no renombrar
+dominios, bases de datos, despliegues o claves de sesión por sustitución global.
+
 ## Antes de contribuir
 
 Si vas a desarrollar una funcionalidad, proponer una mejora o participar en este proyecto, debes leer primero:

@@ -18,6 +18,7 @@ function proxyFixture({ status = 200, session = { user: { role: 'vet', staffId: 
     if (name === 'next/server') return { NextResponse };
     if (name === './lib/api') return { apiUrl: value => 'http://fixture.invalid' + value, makeServerHeaders: () => ({ 'X-Internal-Token': 'fixture-only' }) };
     if (name === './lib/page-request-policy') return policy.exports;
+    if (name === './lib/billing-access') return require('./helpers/billing-access.cjs').loadBillingAccess(context.fetch);
     throw Error(name);
   } };
   vm.runInNewContext(compile('frontend/proxy.ts'), context);
@@ -56,6 +57,7 @@ function recoveryFixture({ fail = false, blockedStorage = false, reason = 'sessi
       if (name === 'next/navigation') return { useRouter: () => ({ replace: value => calls.push(['navigate', value]) }) };
       if (name === '@/lib/workspace-session') return { workspaceStorage: () => null, clearWorkspaceSession: () => calls.push(['workspace-cleared']) };
       if (name === '@/lib/pos-draft') return { clearSaleDrafts: () => calls.push(['temporary-drafts-cleared']) };
+      if (name === '@/components/brand/product-brand') return { ProductBrand: () => React.createElement('span', null, 'Huella Nex') };
       throw Error(name);
     },
   };

@@ -29,6 +29,7 @@ const OpenAI = require("openai");
 const operationalHealth = require("../operational-health.service");
 const mockModelsList = OpenAI.__mockModelsList;
 const { getHealthStatus } = require("../health.service");
+const { readOpenAIProbe } = require('../provider-health-observation');
 
 const ORIGINAL_ENV = { ...process.env };
 
@@ -169,5 +170,6 @@ describe("getHealthStatus", () => {
 
     expect(result.status).toBe("degraded");
     expect(result.services.inboundWorker).toBe("error");
+    expect(readOpenAIProbe()).toMatchObject({ ok: true });
   });
 });

@@ -37,7 +37,7 @@ router.post("/staff-login", async (req, res) => {
       where: { email },
       include: { staff: { include: { tenant: { select: { active: true } } } } },
     });
-    if (!credential || !credential.active || !credential.staff.active || !["vet", "groomer", "receptionist", "admin"].includes(credential.staff.role) || !credential.staff.tenantId || credential.staff.tenant?.active === false) {
+    if (!credential || !credential.active || !credential.staff.active || !["vet", "groomer", "receptionist", "admin"].includes(credential.staff.role) || !credential.staff.tenantId || (credential.staff.tenant?.active === false && staffAccessRole(credential.staff) !== "admin")) {
       return res.status(401).json({ error: "Credenciales incorrectas" });
     }
     if (!(await verifyPassword(password, credential.passwordHash))) {

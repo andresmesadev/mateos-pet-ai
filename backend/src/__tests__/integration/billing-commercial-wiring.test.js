@@ -32,7 +32,12 @@ function buildApp() {
 const TENANT_WITH_SUB = { id: "tenant-1", stripeSubscriptionId: "sub_123" };
 const TENANT_WITHOUT_SUB = { id: "tenant-2", stripeSubscriptionId: null };
 
-beforeEach(() => jest.clearAllMocks());
+const originalEnv = process.env;
+beforeEach(() => {
+  jest.clearAllMocks();
+  process.env = { ...originalEnv, STRIPE_PRICE_ID_BASIC: 'price_basic', STRIPE_PRICE_ID_PRO: 'price_pro' };
+});
+afterEach(() => { process.env = originalEnv; });
 
 describe("POST /api/billing/cancel", () => {
   test("cancela la suscripción y actualiza el tenant a inactivo", async () => {
@@ -73,7 +78,7 @@ describe("POST /api/billing/cancel", () => {
 describe("POST /api/billing/change-plan", () => {
   test("actualiza la suscripción existente en vez de crear una nueva", async () => {
     prisma.tenant.findUnique.mockResolvedValue(TENANT_WITH_SUB);
-    updateSubscriptionPrice.mockResolvedValue({ status: "active", current_period_end: 1234567890 });
+    updateSubscriptionPrice.mockResolvedValue({ id: 'sub_123', status: "active", current_period_end: 1234567890, items: { data: [{ price: { id: 'price_pro' } }] } });
     prisma.tenant.update.mockResolvedValue({ id: "tenant-1", active: true, subscriptionStatus: "active" });
 
     const res = await request(buildApp())

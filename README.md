@@ -1,4 +1,19 @@
-# Mateos Pet AI
+# Huella Nex
+
+**Versión 3.0.0** — publicación autorizada el 30/10/2026. Incluye la identidad
+del producto y la preparación general para los tres tipos de negocio.
+El número de versión no declara abierta la beta externa ni activa WhatsApp/IA
+comercial. [Alcance y estado de publicación](docs/history/RELEASE_3_0_0_20261030.md).
+
+**Gestión para negocios de mascotas.** Nombre y logo elegidos por Andrés el
+28/10/2026 para veterinarias, pet shops y peluquerías caninas y felinas.
+El software nació del centro
+veterinario Mateos Pet de Andrés y Lina. Andrés lo desarrolla con ayuda de IA
+para su operación real y posterior comercialización. Nexo Web es su iniciativa
+de desarrollo, aún sin constituir. Los identificadores técnicos heredados y
+las referencias operativas se conservan por compatibilidad. Los informes y
+copias legales también usan la marca nueva mediante edición identificada. Ver
+[identidades y origen](docs/IDENTIDAD_DEL_PRODUCTO.md).
 
 **Plataforma Operativa Inteligente** para negocios especializados en salud y bienestar animal.  
 Administra la operación diaria completa — agenda, servicios, finanzas, staff, historiales y comunicaciones — con Empleados Digitales Especializados que colaboran con el equipo humano.

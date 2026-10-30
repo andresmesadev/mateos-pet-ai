@@ -4,6 +4,7 @@ import { apiUrl, makeServerHeaders } from "./lib/api";
 import type { DashboardAccess } from "./lib/dashboard-access";
 import type { NextRequest, NextFetchEvent } from "next/server";
 import { rejectsPageAction } from "./lib/page-request-policy";
+import { verifyBillingAdministrator, billingTenantId } from "./lib/billing-access";
 
 const authenticatedProxy = auth(async (req, event: NextFetchEvent) => {
   // Select NextAuth's middleware overload, rather than its API-route overload.
@@ -18,10 +19,24 @@ const authenticatedProxy = auth(async (req, event: NextFetchEvent) => {
     return NextResponse.redirect(login);
   }
   if (!protectedPath || !req.auth?.user) return NextResponse.next();
+  if (path === "/dashboard/billing") {
+    const authorization = await verifyBillingAdministrator(req.auth);
+    if (authorization.allowed) return NextResponse.next();
+    if (authorization.reason === "role") return NextResponse.redirect(new URL("/dashboard", req.nextUrl));
+    return recoveryRedirect(req, authorization.reason);
+  }
   try {
     const response = await fetch(apiUrl("/api/dashboard/access"), {
       headers: makeServerHeaders(req.auth, req.nextUrl.searchParams.get("tenant")), cache: "no-store",
     });
+    if (response.status === 402) {
+      const authorization = await verifyBillingAdministrator(req.auth);
+      if (!authorization.allowed) return recoveryRedirect(req, authorization.reason === "role" ? "suspended" : authorization.reason);
+      const target = new URL("/dashboard/billing", req.nextUrl);
+      const tenant = billingTenantId(req.auth, req.nextUrl.searchParams.get("tenant"));
+      if (req.auth.user.isSuperAdmin && tenant) target.searchParams.set("tenant", tenant);
+      return NextResponse.redirect(target, { headers: { "Cache-Control": "no-store" } });
+    }
     if (!response.ok) return recoveryRedirect(req, response.status === 401 || response.status === 403 ? 'session' : 'unavailable');
     const access: DashboardAccess = await response.json();
     const permitted = path.startsWith("/print") ? access.capabilities.administration || access.capabilities.clinical
@@ -35,7 +50,7 @@ const authenticatedProxy = auth(async (req, event: NextFetchEvent) => {
   } catch { return recoveryRedirect(req, 'unavailable'); }
 });
 
-function recoveryRedirect(req: NextRequest, reason: 'session' | 'unavailable') {
+function recoveryRedirect(req: NextRequest, reason: 'session' | 'unavailable' | 'suspended') {
   const target = new URL('/session-recovery', req.nextUrl);
   target.searchParams.set('reason', reason);
   return NextResponse.redirect(target, { headers: { 'Cache-Control': 'no-store' } });

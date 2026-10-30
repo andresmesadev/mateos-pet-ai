@@ -1,9 +1,12 @@
 # ADR 010 — Reconciliación Arquitectónica: el principio "motor conversacional intocable" frente a una carencia funcional real de memoria
 
+
+> Actualización editorial de marca — 28/10/2026: se usa Huella Nex por solicitud de Andrés. Se conservan las fechas, versiones, decisiones y condiciones originales; esta edición no registra nuevas aprobaciones ni autorizaciones de clientes.
+
 **Fecha:** 2026-09-02
 **Estado:** Aceptado (2026-09-02) — el responsable del proyecto eligió la **Opción A+B combinada** (recomendación de este ADR)
 **Fase:** posterior al cierre de la Fase 7 (Ecosistema, v2.32.0) — ninguna fase activa cubre este trabajo hoy
-**Origen:** informe comparativo externo (`Mateos Pet AI vs. Sancho Agent IA`, 2026-09-01), hallazgos verificados línea por línea contra el código real antes de este ADR
+**Origen:** informe comparativo externo del software frente a Sancho Agent IA (denominación actualizada editorialmente a Huella Nex; informe del 2026-09-01), hallazgos verificados línea por línea contra el código real antes de este ADR
 **Naturaleza de este ADR:** reconciliación entre el principio institucionalizado desde el Entregable 3.4 ("el motor conversacional no se reescribe") y una carencia funcional real y verificada (D-M1) cuya corrección exige editar exactamente los archivos protegidos por ese principio.
 
 ---

@@ -42,7 +42,7 @@ export function ContactsImporter() {
       try {
         const parsed = parseContactsCSV(text);
         if (parsed.length === 0) {
-          toast("No se detectó el formato de Mateos Pet. El archivo debe incluir la columna pet_1_name.", "error");
+          toast("No se detectó el formato de Huella Nex. El archivo debe incluir la columna pet_1_name.", "error");
           return;
         }
         setContacts(parsed);
@@ -273,7 +273,7 @@ export function ContactsImporter() {
           <Upload className="h-5 w-5 text-primary" />
         </div>
         <div className="text-center">
-          <p className="font-medium">Arrastra el CSV de Mateos Pet aquí</p>
+          <p className="font-medium">Arrastra el CSV de Huella Nex aquí</p>
           <p className="mt-0.5 text-sm text-muted-foreground">o haz clic para seleccionar</p>
         </div>
         <span className="rounded border border-black/[0.06] px-2 py-0.5 text-xs text-muted-foreground/60">

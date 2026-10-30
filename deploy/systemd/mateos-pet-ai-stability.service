@@ -1,5 +1,5 @@
 [Unit]
-Description=Mateos Pet AI finite 48-hour public health observation
+Description=Huella Nex finite 48-hour public health observation
 After=docker.service network-online.target
 Wants=network-online.target
 Requires=docker.service

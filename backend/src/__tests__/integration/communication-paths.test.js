@@ -10,7 +10,9 @@ const request = require("supertest");
 jest.mock("../../lib/prisma", () => ({
   conversation: { findUnique: jest.fn(), findFirst: jest.fn(), update: jest.fn(), updateMany: jest.fn(), create: jest.fn(), findMany: jest.fn() },
   message: { create: jest.fn(), findMany: jest.fn() },
-  channel: { findFirst: jest.fn() },
+  channel: { findFirst: jest.fn(), findUnique: jest.fn() },
+  tenant: { findUnique: jest.fn() },
+  whatsAppConnection: { findUnique: jest.fn().mockResolvedValue(null) },
 }));
 
 jest.mock("../../services/whatsapp-api.service", () => ({
@@ -34,8 +36,12 @@ function buildApp() {
 }
 
 let current;
+const originalEnv = process.env;
 beforeEach(() => {
   jest.clearAllMocks();
+  process.env = { ...originalEnv, WHATSAPP_ENABLED: 'true', WHATSAPP_PHONE_NUMBER_ID: '100001', WHATSAPP_ACCESS_TOKEN: 'synthetic-only' };
+  prisma.tenant.findUnique.mockResolvedValue({ id: 'tenant-a', active: true, phone: '100001' });
+  prisma.channel.findUnique.mockResolvedValue({ id: 'ch-1', tenantId: 'tenant-a', type: 'whatsapp', active: true });
   current = { id: "conv-1", tenantId: "tenant-a", userId: "user-1", status: "esperando_humano",
     assignedActorId: "admin:admin@example.com", controlVersion: 0, updatedAt: new Date(),
     user: { phone: "573000000000" }, sessionData: {} };
@@ -48,6 +54,7 @@ beforeEach(() => {
     return { count: 1 };
   });
 });
+afterEach(() => { process.env = originalEnv; });
 
 describe("POST /conversations/:id/send — Enviar Mensaje con conversationId explícito", () => {
   test("envía por el proveedor y persiste con origin=agente en la conversación exacta de la URL", async () => {
@@ -70,7 +77,7 @@ describe("POST /conversations/:id/send — Enviar Mensaje con conversationId exp
       .send({ message: "hola desde el operador", expectedVersion: 0 });
 
     expect(res.status).toBe(200);
-    expect(sendWhatsAppMessage).toHaveBeenCalledWith("573000000000", "hola desde el operador");
+    expect(sendWhatsAppMessage).toHaveBeenCalledWith("573000000000", "hola desde el operador", expect.objectContaining({ tenantId: "tenant-a", receiver: "100001" }));
     expect(created.conversationId).toBe("conv-1");
     expect(created.origin).toBe("agente");
     expect(created.role).toBe("assistant");
@@ -90,6 +97,15 @@ describe("POST /conversations/:id/send — Enviar Mensaje con conversationId exp
       .send({ message: "hola", expectedVersion: 0 });
 
     expect(res.status).toBe(502);
+    expect(prisma.message.create).not.toHaveBeenCalled();
+  });
+
+  test('un canal propio no autoriza usar la línea de otro establecimiento', async () => {
+    prisma.channel.findFirst.mockResolvedValue({ id: 'ch-1', tenantId: 'tenant-a', type: 'whatsapp', active: true });
+    prisma.tenant.findUnique.mockResolvedValue({ id: 'tenant-a', active: true, phone: '100002' });
+    const res = await request(buildApp()).post('/api/dashboard/conversations/conv-1/send').send({ message: 'Synthetic', expectedVersion: 0 });
+    expect(res.status).toBe(502);
+    expect(sendWhatsAppMessage).not.toHaveBeenCalled();
     expect(prisma.message.create).not.toHaveBeenCalled();
   });
 

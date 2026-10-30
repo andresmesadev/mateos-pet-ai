@@ -1,6 +1,7 @@
 const { randomUUID } = require("crypto");
 const prisma = require("../lib/prisma");
 const OpenAI = require("openai");
+const { executeTenantAi } = require('./ai-quota.service');
 
 const EMBEDDING_MODEL = "text-embedding-3-small";
 const EMBEDDING_DIMENSIONS = 1536;
@@ -42,11 +43,11 @@ const generateEmbedding = async (text) => {
     console.log("[Embedding] Generating embedding");
 
     const startedAt = Date.now();
-    const response = await openai.embeddings.create({
+    const response = await executeTenantAi('embedding', normalized, options => openai.embeddings.create({
       model: EMBEDDING_MODEL,
       input: normalized,
       dimensions: EMBEDDING_DIMENSIONS,
-    });
+    }, ...(options ? [options] : [])));
     console.info("[AssistantAI] Usage:", { operation: "embedding", model: EMBEDDING_MODEL, elapsedMs: Date.now() - startedAt, totalTokens: response.usage?.total_tokens ?? null });
 
     const embedding = response.data?.[0]?.embedding;

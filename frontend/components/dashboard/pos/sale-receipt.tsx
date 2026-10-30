@@ -1,16 +1,22 @@
 "use client";
 
 import { createPortal } from "react-dom";
+import { useEffect, useState } from "react";
 import { Printer, ReceiptText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PAYMENT_METHOD_LABELS, formatTransactionDate, type Transaction } from "@/lib/transactions";
 import { formatPosMoney } from "@/lib/pos-checkout";
 import { HISTORY_ORIGIN_LABELS, transactionNeedsReview } from "@/lib/pos-history";
+import { proxyUrl } from "@/lib/api";
 
-export function SaleReceipt({ transaction, cash }: { transaction: Transaction; cash?: { received: number; change: number } }) {
+export type ReceiptEstablishment = { id: string; name: string; contactPhone: string | null; address: string | null };
+
+export function SaleReceipt({ transaction, cash, establishment }: { transaction: Transaction; cash?: { received: number; change: number }; establishment?: ReceiptEstablishment | null }) {
   const review = transactionNeedsReview(transaction);
+  const issuer = establishment?.id === transaction.tenantId ? establishment : null;
   return <article className="space-y-5 text-sm">
+    {issuer && <header className="space-y-1 border-b pb-4" aria-label="Establecimiento del comprobante"><p className="break-words text-lg font-bold">{issuer.name}</p>{issuer.contactPhone && <p className="break-words">{issuer.contactPhone}</p>}{issuer.address && <p className="whitespace-pre-wrap break-words text-muted-foreground">{issuer.address}</p>}</header>}
     {transaction.status === "voided" && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-red-900"><p className="font-bold">VENTA ANULADA</p><p className="mt-1 whitespace-pre-wrap break-words">{transaction.voidReason}</p>{transaction.voidedAt && <p className="mt-1 text-xs">{formatTransactionDate(transaction.voidedAt)}</p>}<p className="mt-2 text-xs">Importe original conservado para consulta. Excluido de los ingresos.</p></div>}
     <div className="border-b border-dashed pb-4"><h3 className="text-xl font-bold">{review ? "Comprobante de operación" : "Comprobante de cobro"}</h3><p className="mt-1 text-muted-foreground">{formatTransactionDate(transaction.paidAt)}</p><p className="mt-1 text-muted-foreground">{HISTORY_ORIGIN_LABELS[transaction.origin || "legacy"]}</p><p className="mt-2 break-all text-xs text-muted-foreground">Referencia: {transaction.id}</p></div>
     <dl className="space-y-2"><div className="flex justify-between gap-4"><dt className="text-muted-foreground">Cliente</dt><dd className="text-right font-medium">{transaction.clientName || transaction.clientPhone || "Venta de mostrador"}</dd></div>{transaction.petName && <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Mascota</dt><dd>{transaction.petName}</dd></div>}</dl>
@@ -28,9 +34,37 @@ export function ReceiptDialog({ transaction, onClose, cash }: { transaction: Tra
     <Dialog open={!!transaction} onOpenChange={open => { if (!open) onClose(); }}>
       <DialogContent className="max-h-[90dvh] w-[calc(100%-2rem)] max-w-xl overflow-y-auto border-border bg-white shadow-xl">
         <DialogHeader><DialogTitle className="flex items-center gap-2"><ReceiptText className="h-5 w-5 text-primary" />Detalle de operación</DialogTitle><DialogDescription>Consulta los datos guardados de esta operación.</DialogDescription></DialogHeader>
-        {transaction && <div className="p-6"><SaleReceipt transaction={transaction} cash={cash} /><div className="mt-6 flex justify-end gap-2"><Button type="button" variant="outline" onClick={onClose}>Cerrar</Button><Button type="button" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Imprimir</Button></div></div>}
+        {transaction && <ReceiptContent key={`${transaction.tenantId}:${transaction.id}`} transaction={transaction} cash={cash} onClose={onClose} />}
       </DialogContent>
     </Dialog>
-    {transaction && createPortal(<div data-pos-print="true" className="hidden"><style>{`@media print { body > *:not([data-pos-print]) { display: none !important; } body > [data-pos-print] { display: block !important; max-width: 80mm; padding: 4mm; margin: 0 auto; color: #111; background: white; } @page { margin: 10mm; } }`}</style><SaleReceipt transaction={transaction} cash={cash} /></div>, document.body)}
   </>;
+}
+
+function ReceiptContent({ transaction, cash, onClose }: { transaction: Transaction; cash?: { received: number; change: number }; onClose: () => void }) {
+  const [establishment, setEstablishment] = useState<ReceiptEstablishment | null>(null);
+  const [error, setError] = useState("");
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    const controller = new AbortController();
+    async function load() {
+      try {
+        if (!transaction.tenantId) throw new Error("missing establishment");
+        const response = await fetch(proxyUrl(`/api/dashboard/tenant/profile?tenantId=${encodeURIComponent(transaction.tenantId)}`), { cache: "no-store", signal: controller.signal });
+        if (!response.ok) throw new Error("profile unavailable");
+        const profile = await response.json();
+        if (profile?.id !== transaction.tenantId || typeof profile.name !== "string" || !profile.name.trim()) throw new Error("establishment mismatch");
+        if (!controller.signal.aborted) setEstablishment({ id: profile.id, name: profile.name, contactPhone: typeof profile.contactPhone === "string" ? profile.contactPhone : null, address: typeof profile.address === "string" ? profile.address : null });
+      } catch {
+        if (!controller.signal.aborted) setError("No se pudo comprobar el establecimiento de este cobro. Reintenta antes de imprimir.");
+      }
+    }
+    void load();
+    return () => controller.abort();
+  }, [transaction.tenantId, attempt]);
+  return <div className="p-6">
+    {!establishment && (error ? <div role="alert" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm"><p>{error}</p><Button type="button" variant="outline" className="mt-2" onClick={() => { setError(""); setAttempt(value => value + 1); }}>Reintentar establecimiento</Button></div> : <p role="status" className="mb-4 text-sm text-muted-foreground">Comprobando establecimiento…</p>)}
+    <SaleReceipt transaction={transaction} cash={cash} establishment={establishment} />
+    <div className="mt-6 flex justify-end gap-2"><Button type="button" variant="outline" onClick={onClose}>Cerrar</Button><Button type="button" disabled={!establishment} onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Imprimir</Button></div>
+    {establishment && createPortal(<div data-pos-print="true" className="hidden"><style>{`@media print { body > *:not([data-pos-print]) { display: none !important; } body > [data-pos-print] { display: block !important; max-width: 80mm; padding: 4mm; margin: 0 auto; color: #111; background: white; } @page { margin: 10mm; } }`}</style><SaleReceipt transaction={transaction} cash={cash} establishment={establishment} /></div>, document.body)}
+  </div>;
 }

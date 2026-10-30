@@ -33,6 +33,7 @@ export type ServiceRow = {
   id: string;
   name: string;
   category: string;
+  bookingCategory?: string | null;
   duration: number | null;
   basePrice: number | null;
   requiresAppointment: boolean;
@@ -40,11 +41,11 @@ export type ServiceRow = {
 };
 
 type PageProps = {
-  searchParams: Promise<{ tenant?: string; tab?: string }>;
+  searchParams: Promise<{ tenant?: string; tab?: string; guide?: string }>;
 };
 
 export default async function SettingsPage({ searchParams }: PageProps) {
-  const { tenant, tab } = await searchParams;
+  const { tenant, tab, guide } = await searchParams;
   const session = await auth();
   const headers = makeServerHeaders(session, tenant);
 
@@ -74,9 +75,9 @@ export default async function SettingsPage({ searchParams }: PageProps) {
         description="Información del negocio, servicios, horarios y equipo"
         icon={Settings}
         tint="bg-slate-100 text-slate-700"
-      />
+      ><Link href={tenant ? `/dashboard/settings/integrations?tenant=${encodeURIComponent(tenant)}` : '/dashboard/settings/integrations'} className="inline-flex min-h-11 items-center rounded-lg border border-border bg-card px-4 text-sm font-semibold text-primary">WhatsApp e IA</Link></PageHeader>
       {profile && services ? (
-        <SettingsTabs key={profile.id} profile={profile} services={services} initialTab={tab} />
+        <SettingsTabs key={profile.id} profile={profile} services={services} initialTab={tab} guideOpen={guide === "1"} />
       ) : (
         <div role="alert" className="max-w-2xl rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-950">
           <h2 className="font-semibold">No se pudo cargar la administración</h2>

@@ -47,6 +47,7 @@ export function QuickActions({ tenant, access }: { tenant?: string; access: Dash
       <div className="mb-4 flex flex-wrap items-baseline gap-x-3">
         <h2 id="quick-actions-heading" className="text-lg font-bold tracking-tight">Acciones rápidas</h2>
         <p className="text-sm text-muted-foreground">Las tareas más comunes, a un clic.</p>
+        {access.capabilities.administration && <Link prefetch={false} href={homeHref("/dashboard/settings?guide=1", tenant)} className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary underline underline-offset-4">Preparar mi negocio<ArrowRight className="size-4" aria-hidden="true" /></Link>}
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
         {PRIMARY_ACTIONS.filter(a => access.capabilities[a.permission]).map((a) => {

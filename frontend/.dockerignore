@@ -1,6 +1,13 @@
 node_modules
 .env
 .env.local
+.env.*
+.git
+.cache
+.tmp
+.codex-remote-attachments
+test-results
+playwright-report
 logs
 coverage
 .next

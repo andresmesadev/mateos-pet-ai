@@ -25,10 +25,14 @@ function resolveTab(value: string | null): Tab {
   return value === "importar" || TABS.some((tab) => tab.id === value) ? value as Tab : "general";
 }
 
-type Props = { profile: TenantProfile | null; services: ServiceRow[]; initialTab?: string };
+type Props = { profile: TenantProfile | null; services: ServiceRow[]; initialTab?: string; guideOpen?: boolean };
 type Navigation = { tab: Tab } | { href: string };
 
-export function SettingsTabs({ profile, services, initialTab }: Props) {
+function revealSection(tab: Tab) {
+  requestAnimationFrame(() => document.getElementById(`settings-panel-${tab}`)?.scrollIntoView({ block: "start" }));
+}
+
+export function SettingsTabs({ profile, services, initialTab, guideOpen }: Props) {
   const router = useRouter();
   const [active, setActive] = useState<Tab>(resolveTab(initialTab ?? null));
   const [dirty, setDirty] = useState(false);
@@ -52,10 +56,12 @@ export function SettingsTabs({ profile, services, initialTab }: Props) {
     // A section is a selection within Administration, not a new page in the history.
     window.history.replaceState(null, "", url.pathname + url.search + url.hash);
     setActive(target.tab);
+    revealSection(target.tab);
   }
 
   function select(tab: Tab) {
-    if (saving || tab === active) return;
+    if (saving) return;
+    if (tab === active) { revealSection(tab); return; }
     if (dirty) setPending({ tab }); else navigate({ tab });
   }
 
@@ -98,7 +104,7 @@ export function SettingsTabs({ profile, services, initialTab }: Props) {
 
   return (
     <div className="space-y-6">
-      <SetupGuide profile={profile} services={services} onSelect={select} />
+      <SetupGuide profile={profile} services={services} onSelect={select} startOpen={guideOpen} />
       <div className="rounded-2xl border border-border bg-card p-1.5 shadow-sm">
         <div role="tablist" aria-label="Secciones de Administración" className="flex flex-wrap gap-1">
           {TABS.map(({ id, label, icon: Icon }) => (
@@ -121,14 +127,14 @@ export function SettingsTabs({ profile, services, initialTab }: Props) {
         </div>
       </div>
 
-      <div id={`settings-panel-${active}`} role={active === "importar" ? "region" : "tabpanel"} aria-labelledby={active === "importar" ? "settings-import-tool" : `settings-tab-${active}`} tabIndex={0} className="rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <div id={`settings-panel-${active}`} role={active === "importar" ? "region" : "tabpanel"} aria-labelledby={active === "importar" ? "settings-import-tool" : `settings-tab-${active}`} tabIndex={0} className="scroll-mt-32 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         {active === "general" && <GeneralInfoSection key={profile?.id} profile={profile} onDirtyChange={reportDirty} onSavingChange={reportSaving} />}
         {active === "areas" && <BusinessModules initial={profile?.activeModules ?? []} onDirtyChange={reportDirty} onSavingChange={reportSaving} />}
         {active === "localizacion" && <LocationServicesSection profile={profile} services={services} onDirtyChange={reportDirty} onSavingChange={reportSaving} />}
         {active === "agenda" && <ScheduleSection profile={profile} onDirtyChange={reportDirty} onSavingChange={reportSaving} onOpenTeam={() => select("usuarios")} />}
         {active === "usuarios" && <StaffManager profile={profile} onDirtyChange={reportDirty} onSavingChange={reportSaving} />}
         {active === "importar" && <div className="max-w-2xl space-y-4">
-          <div><h2 className="text-xl font-bold">Importar clientes y mascotas</h2><p className="mt-2 text-sm text-muted-foreground">Carga un CSV en el formato de Mateos Pet y revisa sus datos antes de importar. Los contactos existentes se actualizan por su número de WhatsApp.</p></div>
+          <div><h2 className="text-xl font-bold">Importar clientes y mascotas</h2><p className="mt-2 text-sm text-muted-foreground">Carga un CSV en el formato de Huella Nex y revisa sus datos antes de importar. Los contactos existentes se actualizan por su número de WhatsApp.</p></div>
           <ContactsImporter />
         </div>}
       </div>

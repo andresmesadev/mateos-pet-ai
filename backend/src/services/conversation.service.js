@@ -72,7 +72,8 @@ const formatServiceHours = (serviceType, businessHours) => {
     if (!isBusinessDay(dateKey, businessHours, serviceType)) continue;
     const window = resolveHourWindow(serviceType, dateKey, businessHours);
     if (!window.active) continue;
-    const label = `${String(window.startHour).padStart(2, "0")}:00–${String(window.endHourExclusive).padStart(2, "0")}:00`;
+    const time = hour => { const minutes = Math.round(hour * 60); return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`; };
+    const label = `${time(window.startHour)}–${time(window.endHourExclusive)}`;
     if (!groups.has(label)) groups.set(label, []);
     groups.get(label).push(dayName);
   }
@@ -83,7 +84,16 @@ const formatServiceHours = (serviceType, businessHours) => {
 const buildBusinessHoursReply = async (tenantId) => {
   try {
     const businessHours = await getBusinessHours(tenantId);
-    return `Veterinaria: ${formatServiceHours(SERVICE_TYPES.VET, businessHours)}. Peluquería: ${formatServiceHours(SERVICE_TYPES.GROOMING, businessHours)}. Los festivos permanecen cerrados salvo apertura especial. ¿Para qué servicio buscas cita?`;
+    const modules = await getActiveModules(tenantId);
+    const parts = [];
+    if (modules.includes("veterinary")) parts.push(`Veterinaria: ${formatServiceHours(SERVICE_TYPES.VET, businessHours)}`);
+    if (modules.includes("grooming")) parts.push(`Peluquería: ${formatServiceHours(SERVICE_TYPES.GROOMING, businessHours)}`);
+    if (modules.includes("retail")) {
+      const general = businessHours ? Object.fromEntries(Object.entries(businessHours).filter(([key]) => key !== "services")) : null;
+      parts.push(`Pet shop: ${general && Object.keys(general).length ? formatServiceHours(SERVICE_TYPES.VET, general) : "consulta el horario con el equipo"}`);
+    }
+    const appointments = modules.includes("veterinary") || modules.includes("grooming");
+    return `${parts.join(". ")}. Los festivos permanecen cerrados salvo apertura especial. ${appointments ? "¿Para qué servicio buscas cita?" : "¿En qué podemos ayudarte?"}`;
   } catch (error) {
     console.error("[Conversation] No se pudo consultar el horario:", error.message);
     return "No puedo verificar el horario de atención en este momento. Si me dices el servicio y el día, lo revisamos antes de agendar. 🐾";

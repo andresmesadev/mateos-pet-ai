@@ -9,7 +9,7 @@ cd "$repo_dir"
   exit 1
 }
 
-echo "Deploying Mateos Pet AI from origin/main..."
+echo "Deploying Huella Nex from origin/main..."
 git pull --ff-only origin main
 docker compose build backend frontend
 docker compose up -d db

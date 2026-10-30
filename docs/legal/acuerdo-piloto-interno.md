@@ -1,5 +1,8 @@
 # Acuerdo, aviso y autorización — piloto interno
 
+
+> Actualización editorial de marca — 28/10/2026: se usa Huella Nex por solicitud de Andrés. Se conservan las fechas, versiones, decisiones y condiciones originales; esta edición no registra nuevas aprobaciones ni autorizaciones de clientes.
+
 **Versión:** 1.1, 14 de octubre de 2026. Modelo para entrega y aceptación individual; no acredita firmas o autorizaciones existentes. Contacto completo en la copia privada.
 
 ## 1. Acuerdo de participación
@@ -8,7 +11,7 @@ Responsable: **{{RESPONSABLE}}**, **{{CIUDAD}}, {{PAIS}}**. Contacto: **{{CORREO
 
 Participante: nombre o alias y contacto registrados privadamente. Confirmar mayoría de edad sin pedir cédula por defecto. Una ficha anterior de personal no demuestra autorización actual de su titular.
 
-Objeto: probar Mateos Pet AI internamente con escenarios ficticios, cuentas autorizadas y número de prueba de Meta. No se presta atención veterinaria, no se hacen cobros reales ni se autoriza invitar clientes externos. El ensayo no genera cargos de suscripción al participante.
+Objeto: probar Huella Nex internamente con escenarios ficticios, cuentas autorizadas y número de prueba de Meta. No se presta atención veterinaria, no se hacen cobros reales ni se autoriza invitar clientes externos. El ensayo no genera cargos de suscripción al participante.
 
 Antes de un bloque se informa duración, recorrido, operaciones permitidas, soporte y limpieza. El fin del bloque no cierra automáticamente el piloto completo: el responsable registra y comunica ese cierre. Participar es voluntario y puedes retirarte o no realizar un recorrido.
 
@@ -20,7 +23,7 @@ Se entregan [condiciones](terminos-de-servicio.md) y [política](politica-de-pri
 
 ## 2. Aviso breve previo a la prueba
 
-> {{RESPONSABLE}} organiza el piloto interno de Mateos Pet AI. Trata nombre/alias, teléfono, correo de acceso, mensajes de prueba y registros técnicos para ejecutar y revisar pruebas, separar contexto y atender solicitudes. Usa clientes, mascotas y direcciones ficticios; no envíes menores, datos sensibles de personas ni datos de terceros. Tu teléfono o voz pueden identificarte aunque el escenario sea ficticio.
+> {{RESPONSABLE}} organiza el piloto interno de Huella Nex. Trata nombre/alias, teléfono, correo de acceso, mensajes de prueba y registros técnicos para ejecutar y revisar pruebas, separar contexto y atender solicitudes. Usa clientes, mascotas y direcciones ficticios; no envíes menores, datos sensibles de personas ni datos de terceros. Tu teléfono o voz pueden identificarte aunque el escenario sea ficticio.
 >
 > Aplicación/PostgreSQL están en Oracle Cloud, Bogotá. Meta entrega mensajes y OpenAI recibe texto/contexto y audio si lo usas; esos servicios no se presumen limitados a Colombia. El canal de correo de privacidad/soporte está dirigido a Hostinger Email; el ensayo individual de consulta, acuse y respuesta se completó el 14 de octubre. Hay copias cifradas y evidencias privadas bajo custodia del responsable. Plazo: duración del piloto y hasta treinta días tras su cierre, con gestión manual de eliminación/anonimización.
 >
@@ -32,7 +35,7 @@ Entregar también un medio accesible para consultar la política completa. Puede
 
 **Aceptación de condiciones:**
 
-> Recibí y leí las condiciones y el acuerdo del piloto interno de Mateos Pet AI, versión 1.1. Entiendo su alcance ficticio, voluntario y experimental y acepto participar en las pruebas acordadas.
+> Recibí y leí las condiciones y el acuerdo del piloto interno de Huella Nex, versión 1.1. Entiendo su alcance ficticio, voluntario y experimental y acepto participar en las pruebas acordadas.
 
 **Autorización de datos:**
 

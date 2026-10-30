@@ -1,7 +1,9 @@
 const express = require("express");
 const prisma = require("../lib/prisma");
+const { resolveBillingPlanPrice, resolveSubscriptionPlan, BillingPlanPriceError } = require("../services/billing-plan-price.service");
 const {
   createCheckoutSession,
+  createBillingPortalSession,
   cancelSubscription,
   updateSubscriptionPrice,
   constructWebhookEvent,
@@ -14,18 +16,25 @@ const router = express.Router();
 /**
  * POST /api/billing/checkout
  * Crea una Checkout Session de Stripe y devuelve la URL de pago.
- * Body: { tenantId, priceId, successUrl, cancelUrl }
+ * Body: { tenantId, planId, successUrl, cancelUrl }
+ * Legacy priceId is accepted only when allowlisted in server configuration.
  */
 router.post("/checkout", async (req, res) => {
   try {
-    const { tenantId, priceId, successUrl, cancelUrl } = req.body ?? {};
+    const { tenantId, successUrl, cancelUrl } = req.body ?? {};
 
-    if (!tenantId || !priceId || !successUrl || !cancelUrl) {
+    if (!tenantId || !successUrl || !cancelUrl) {
       return res.status(400).json({
-        error: "tenantId, priceId, successUrl y cancelUrl son requeridos",
+        error: "tenantId, successUrl y cancelUrl son requeridos",
       });
     }
 
+    const { priceId } = resolveBillingPlanPrice(req.body);
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { stripeSubscriptionId: true, subscriptionStatus: true } });
+    if (!tenant) return res.status(404).json({ error: "Tenant not found" });
+    if (tenant.stripeSubscriptionId && !["canceled", "incomplete_expired"].includes(tenant.subscriptionStatus)) {
+      return res.status(409).json({ error: "Ya existe una suscripción. Gestiona sus pagos o cambia el plan existente." });
+    }
     const session = await createCheckoutSession(
       tenantId,
       priceId,
@@ -41,6 +50,7 @@ router.post("/checkout", async (req, res) => {
 
     res.json({ url: session.url, sessionId: session.id });
   } catch (error) {
+    if (error instanceof BillingPlanPriceError) return res.status(error.status).json({ error: error.message });
     console.error("[Billing] checkout error:", error.message);
 
     if (error.message === "Tenant not found") {
@@ -58,6 +68,24 @@ router.post("/checkout", async (req, res) => {
  * (existente desde antes de este entregable, nunca invocado hasta ahora).
  * Body: { tenantId }
  */
+router.post("/portal", async (req, res) => {
+  try {
+    const { tenantId, returnUrl } = req.body ?? {};
+    if (!tenantId || typeof returnUrl !== "string") return res.status(400).json({ error: "tenantId y returnUrl son requeridos" });
+    let target;
+    try { target = new URL(returnUrl); } catch { return res.status(400).json({ error: "URL de retorno no válida" }); }
+    if (target.username || target.password || (target.protocol !== "https:" && !(target.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(target.hostname)))) return res.status(400).json({ error: "URL de retorno no válida" });
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { stripeCustomerId: true } });
+    if (!tenant) return res.status(404).json({ error: "Tenant not found" });
+    if (!tenant.stripeCustomerId) return res.status(409).json({ error: "Este negocio todavía no tiene un cliente de pagos registrado." });
+    const session = await createBillingPortalSession(tenant.stripeCustomerId, target.href);
+    if (!session) return res.status(503).json({ error: "Stripe no está configurado en este entorno" });
+    return res.json({ url: session.url });
+  } catch {
+    return res.status(503).json({ error: "No se pudo abrir la gestión de pagos. Reintenta." });
+  }
+});
+
 router.post("/cancel", async (req, res) => {
   try {
     const { tenantId } = req.body ?? {};
@@ -108,14 +136,15 @@ router.post("/cancel", async (req, res) => {
  * Subscription Item Update), en vez de crear una segunda suscripción vía
  * Checkout — corrige el defecto detectado en la auditoría (cambio de plan
  * pago→pago duplicaba suscripciones activas).
- * Body: { tenantId, priceId }
+ * Body: { tenantId, planId }; legacy priceId must be allowlisted server-side.
  */
 router.post("/change-plan", async (req, res) => {
   try {
-    const { tenantId, priceId } = req.body ?? {};
-    if (!tenantId || !priceId) {
-      return res.status(400).json({ error: "tenantId y priceId son requeridos" });
+    const { tenantId } = req.body ?? {};
+    if (!tenantId) {
+      return res.status(400).json({ error: "tenantId es requerido" });
     }
+    const selected = resolveBillingPlanPrice(req.body);
 
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
     if (!tenant) {
@@ -127,14 +156,20 @@ router.post("/change-plan", async (req, res) => {
       });
     }
 
-    const subscription = await updateSubscriptionPrice(tenant.stripeSubscriptionId, priceId);
+    const subscription = await updateSubscriptionPrice(tenant.stripeSubscriptionId, selected.priceId);
     if (!subscription) {
       return res.status(503).json({ error: "Stripe no está configurado en este entorno" });
+    }
+
+    const confirmed = resolveSubscriptionPlan(subscription);
+    if (confirmed.planId !== selected.planId || subscription.id !== tenant.stripeSubscriptionId || typeof subscription.status !== 'string' || !subscription.status) {
+      throw new BillingPlanPriceError(502, 'El proveedor no confirmó el cambio al plan seleccionado.');
     }
 
     const updated = await prisma.tenant.update({
       where: { id: tenantId },
       data: {
+        plan: confirmed.planId,
         subscriptionStatus: subscription.status,
         active: subscription.status === "active" || subscription.status === "trialing",
         planExpiresAt: subscription.current_period_end
@@ -146,6 +181,7 @@ router.post("/change-plan", async (req, res) => {
 
     res.json(updated);
   } catch (error) {
+    if (error instanceof BillingPlanPriceError) return res.status(error.status).json({ error: error.message });
     console.error("[Billing] change-plan error:", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
@@ -221,10 +257,20 @@ const handleStripeEvent = async (event) => {
       const tenantId = obj.metadata?.tenantId;
       if (!tenantId) break;
 
+      const confirmed = resolveSubscriptionPlan(obj);
+      const customerId = typeof obj.customer === 'string' ? obj.customer : obj.customer?.id;
+      if (typeof tenantId !== 'string' || typeof customerId !== 'string' || !customerId || typeof obj.id !== 'string' || !obj.id || typeof obj.status !== 'string' || !obj.status) {
+        throw new BillingPlanPriceError(502, 'No se pudo identificar la suscripción del proveedor.');
+      }
+
+      const current = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { stripeSubscriptionId: true, subscriptionStatus: true } });
+      if (current?.stripeSubscriptionId && current.stripeSubscriptionId !== obj.id && !["canceled", "incomplete_expired"].includes(current.subscriptionStatus)) break;
+
       await prisma.tenant.update({
         where: { id: tenantId },
         data: {
-          stripeCustomerId: obj.customer,
+          plan: confirmed.planId,
+          stripeCustomerId: customerId,
           stripeSubscriptionId: obj.id,
           subscriptionStatus: obj.status,
           active: obj.status === "active" || obj.status === "trialing",
@@ -243,9 +289,11 @@ const handleStripeEvent = async (event) => {
     case "customer.subscription.deleted": {
       const tenantId = obj.metadata?.tenantId;
       if (!tenantId) break;
+      if (typeof tenantId !== 'string' || typeof obj.id !== 'string' || !obj.id) throw new BillingPlanPriceError(502, 'No se pudo identificar la suscripción cancelada.');
 
-      await prisma.tenant.update({
-        where: { id: tenantId },
+      // A delayed cancellation for the previous contract must not suspend its replacement.
+      await prisma.tenant.updateMany({
+        where: { id: tenantId, stripeSubscriptionId: obj.id },
         data: {
           subscriptionStatus: "canceled",
           active: false,

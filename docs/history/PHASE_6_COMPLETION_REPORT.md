@@ -1,4 +1,7 @@
 # Fase 6 — Informe de Cierre Oficial y Retrospectiva
+
+> Actualización editorial de marca — 28/10/2026: se usa Huella Nex por solicitud de Andrés. Se conservan las fechas, versiones, decisiones y condiciones originales; esta edición no registra nuevas aprobaciones ni autorizaciones de clientes.
+
 ## Operación Multi-Establecimiento Real · Plataforma Operativa Inteligente · Mateos Pet
 
 **Fecha de cierre:** 2026-08-11
@@ -142,7 +145,7 @@ Las cuatro macroetapas institucionalizadas desde la Fase 3 (Auditoría → Dise�
 
 ## 10. Estado del producto al cierre de la Fase 6
 
-Al cierre de esta fase, Mateos Pet AI puede: operar múltiples establecimientos con aislamiento de datos verificado por evidencia (no solo por diseño) en Agenda, Staff, Finanzas, Automatizaciones y Empleados Digitales; aplicar horario de atención real por establecimiento al flujo de reserva por WhatsApp; y ofrecer a un superadmin una vista administrativa consolidada, deliberada y auditada, del estado operativo agregado de todos los establecimientos activos — sin exponer nunca datos individuales de un tenant a otro por accidente. Lo que aún no puede: operar establecimientos en husos horarios distintos entre sí, ni ofrecer un reporting consolidado más allá de conteos y sumas básicas.
+Al cierre de esta fase, Huella Nex puede: operar múltiples establecimientos con aislamiento de datos verificado por evidencia (no solo por diseño) en Agenda, Staff, Finanzas, Automatizaciones y Empleados Digitales; aplicar horario de atención real por establecimiento al flujo de reserva por WhatsApp; y ofrecer a un superadmin una vista administrativa consolidada, deliberada y auditada, del estado operativo agregado de todos los establecimientos activos — sin exponer nunca datos individuales de un tenant a otro por accidente. Lo que aún no puede: operar establecimientos en husos horarios distintos entre sí, ni ofrecer un reporting consolidado más allá de conteos y sumas básicas.
 
 ## 11. Qué habilita (y qué no habilita todavía) una fase futura
 

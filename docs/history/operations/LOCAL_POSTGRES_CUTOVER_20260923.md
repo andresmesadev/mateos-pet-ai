@@ -1,5 +1,8 @@
 # Cambio de Neon a PostgreSQL en la VPS
 
+
+> Actualización editorial de marca — 28/10/2026: se usa Huella Nex por solicitud de Andrés. Se conservan las fechas, versiones, decisiones y condiciones originales; esta edición no registra nuevas aprobaciones ni autorizaciones de clientes.
+
 > Procedimiento histórico para una migración o versión concreta. Sus precondiciones y comandos describen esa intervención, no el arranque ni el despliegue actuales. Consulte las [guías operativas vigentes](../../operations/README.md) y el [estado actual](../../ESTADO_ACTUAL.md).
 
 **Fecha:** 2026-09-23. **Alcance:** reinicio deliberado de los datos de prueba,
@@ -84,7 +87,7 @@ contra la red privada y reconstrucción de los servicios. Se recomienda borrar
 el secreto `DATABASE_URL` antiguo del repositorio de GitHub si ya no tiene
 consumidores externos conocidos; no se necesita para el CI actual.
 
-**Actualización 2026-09-26:** el proyecto antiguo de Neon `Mateos Pet AI`
+**Actualización 2026-09-26:** el proyecto antiguo de Neon del software
 (`summer-bar-45935047`) fue eliminado posteriormente con autorización expresa
 del operador. La frase de apertura describe el alcance original del cambio del
 23 de septiembre, no el estado actual. La aplicación sigue en PostgreSQL de la

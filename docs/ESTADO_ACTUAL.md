@@ -1,5 +1,32 @@
 # Estado actual del proyecto
 
+**30 de octubre — publicación 3.0.0 autorizada, en preparación:** Andrés pidió
+versionar Huella Nex como 3.0 y realizar commit, push y despliegue. Backend y
+frontend declaran 3.0.0 con locks coherentes. Se conserva la evidencia local
+anterior; CI y certificación de la VPS se registrarán al ejecutarse.
+[Publicación 3.0.0](history/RELEASE_3_0_0_20261030.md).
+
+**30 de octubre — barrido local previo a publicación del candidato 2.58.3:**
+exclusión de adjuntos/cachés y contexto Docker, control de publicación,
+actualización compatible de dependencias y ampliación de CI. Pasaron 2.136
+pruebas backend, 295 de flujos, 17 PostgreSQL de proveedores, 34 comprobaciones
+integrales, 23 comerciales y 11 de Python; build/TypeScript/lint correctos.
+Auditorías de producción sin avisos conocidos. Queda un aviso bajo de
+desarrollo en la cadena Jest/deepmerge, sin parche publicado. No hubo commit,
+push ni despliegue. La VPS no se consultó: el último despliegue documentado
+es 2.58.2, no una constatación nueva de su estado en vivo.
+[Barrido y límites](audits/HUELLA_NEX_PREPUBLICATION_CLEANUP_20261030.md).
+
+**28 de octubre — Huella Nex preparada localmente (2.58.3):** nombre y logo
+«Vínculo» elegidos por Andrés y aplicados a la presentación del producto:
+página pública, acceso, dashboard, metadatos/iconos y créditos de PDF/Excel.
+Público explícito: veterinarias, pet shops y peluquerías caninas y felinas.
+Compilación/TypeScript y 35 regresiones correctas; iconos 32/180 y cuatro
+páginas públicas comprobados por HTTP local. No se ha publicado este lote:
+producción sigue en 2.58.2 y su observación no se reinició. El centro Mateos Pet
+y los identificadores técnicos heredados mantienen su identidad/compatibilidad.
+[Alcance y límites](architecture/product-identity-huella-nex-20261028.md).
+
 **27 de octubre — 2.58.2 publicada a las 16:35 Colombia:** espera de OpenAI en
 salud limitada a ocho segundos y sin reintentos, conservando `degraded`/503.
 CI aprobado: cinco jobs, 220 suites/1.869 tests backend. Respaldo cifrado

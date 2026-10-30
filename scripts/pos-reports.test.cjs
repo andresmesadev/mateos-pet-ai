@@ -81,13 +81,16 @@ test('exportación exige fechas, selección y centavos coincidentes; errores no 
 });
 test('Excel se abre con cuatro hojas, participación profesional e importes numéricos exactos sin fórmulas', async () => {
   const Excel = require('../frontend/node_modules/exceljs');
+  const brand = { exports: {} };
+  new Function('exports', ts.transpileModule(fs.readFileSync(require.resolve('../frontend/lib/product-brand.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText)(brand.exports);
   const exportsContext = { exports: {} };
   const compiled = ts.transpileModule(fs.readFileSync(require.resolve('../frontend/lib/pos-report-export.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   // ExcelJS checks row arrays in its own realm; execute this adapter in Node's realm.
-  new Function('exports', 'require', compiled)(exportsContext.exports, name => name === 'exceljs' ? Excel : context.exports);
+  new Function('exports', 'require', compiled)(exportsContext.exports, name => name === 'exceljs' ? Excel : name === './product-brand' ? brand.exports : context.exports);
   const same = { ...summary, establishment: { id: 'tenant-a', name: '=HYPERLINK("https://invalid")' }, revenue: { ...metric, value: breakdown.total } };
   const buffer = await exportsContext.exports.createReportWorkbook(same, breakdown);
   const book = new Excel.Workbook(); await book.xlsx.load(buffer);
+  assert.equal(book.creator, 'Huella Nex');
   assert.equal(book.worksheets.length, 4);
   assert.equal(book.getWorksheet('Resumen').getCell('B1').value, same.establishment.name);
   assert.equal(book.getWorksheet('Resumen').getCell('B11').value, 0.3);

@@ -7,6 +7,9 @@ backups/offsite/
 .claude/
 .agents/
 .codex/
+.codex-remote-attachments/
+__pycache__/
+*.py[cod]
 
 # Logs
 logs

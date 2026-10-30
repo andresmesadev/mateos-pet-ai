@@ -1,4 +1,7 @@
-# Equipo de agentes de Mateos Pet AI
+# Equipo de agentes de Huella Nex
+
+
+> Actualización editorial de marca — 28/10/2026: se usa Huella Nex por solicitud de Andrés. Se conservan las fechas, versiones, decisiones y condiciones originales; esta edición no registra nuevas aprobaciones ni autorizaciones de clientes.
 
 Fecha: 2026-10-14. Estado: inventario de código y perfiles de desarrollo; evaluación funcional preliminar para el producto.
 

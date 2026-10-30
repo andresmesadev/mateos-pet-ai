@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Providers } from "@/components/providers";
+import { PRODUCT_NAME, PRODUCT_DESCRIPTOR, PRODUCT_DESCRIPTION } from "@/lib/product-brand";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,9 +15,16 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Mateos Pet AI — El Agente de IA para tu Veterinaria",
-  description:
-    "Agenda citas, recuerda clientes y gestiona tu veterinaria por WhatsApp automáticamente.",
+  title: `${PRODUCT_NAME} — ${PRODUCT_DESCRIPTOR}`,
+  applicationName: PRODUCT_NAME,
+  description: PRODUCT_DESCRIPTION,
+  openGraph: {
+    title: `${PRODUCT_NAME} — ${PRODUCT_DESCRIPTOR}`,
+    description: PRODUCT_DESCRIPTION,
+    siteName: PRODUCT_NAME,
+    locale: "es_CO",
+    type: "website",
+  },
 };
 
 export default function RootLayout({

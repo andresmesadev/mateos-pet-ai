@@ -8,9 +8,10 @@ class ChannelProviderPort {
    * @param {string} channelType — "whatsapp" | "email" | "sms"... (nunca un proveedor concreto)
    * @param {string} to
    * @param {string} content
+   * @param {{tenantId: string, channelId: string}} route — identity resolved by Communication, never provider credentials
    * @returns {Promise<false|{messageId: string|null}>} aceptación del proveedor, no entrega al cliente
    */
-  async send(_channelType, _to, _content) {
+  async send(_channelType, _to, _content, _route) {
     throw new Error("ChannelProviderPort.send no implementado");
   }
 
@@ -23,9 +24,10 @@ class ChannelProviderPort {
    * @param {string} _templateName — nombre exacto registrado en Meta
    * @param {string} _languageCode — código de idioma exacto registrado en Meta (ej. "es")
    * @param {Array} _components — parámetros de la plantilla (ver Cloud API docs)
+   * @param {{tenantId: string, channelId: string}} _route — resolved delivery identity
    * @returns {Promise<boolean>}
    */
-  async sendTemplate(_channelType, _to, _templateName, _languageCode, _components) {
+  async sendTemplate(_channelType, _to, _templateName, _languageCode, _components, _route) {
     throw new Error("ChannelProviderPort.sendTemplate no implementado");
   }
 }

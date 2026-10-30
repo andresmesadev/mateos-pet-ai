@@ -2,6 +2,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$IdentityPath,
     [ValidatePattern('^[a-z_][a-z0-9_-]*@[a-z0-9][a-z0-9.-]*$')][string]$SshDestination = 'ubuntu@149.130.191.53',
+    [ValidateRange(5, 1440)][int]$IntervalMinutes = 15,
     [switch]$Install
 )
 
@@ -45,16 +46,16 @@ $plan = [ordered]@{
     payload = 'El último respaldo cifrado de PostgreSQL, manifest y SHA256SUMS'
     destination = (Join-Path $repoDirectory 'backups\offsite')
     account = $accountName
-    schedule = 'Diaria 03:35 hora Colombia; al estar disponible si se omitió la hora'
+    schedule = ('Cada {0} minutos; al estar disponible si se omitió una ejecución' -f $IntervalMinutes)
     prerequisites = 'Equipo encendido y usuario conectado; Node y SSH existentes'
     removesExistingBackups = $false
 }
 if ($Install) {
     $action = New-ScheduledTaskAction -Execute $powershellExecutable -Argument $actionArguments -WorkingDirectory $repoDirectory
-    $trigger = New-ScheduledTaskTrigger -Daily -At '03:35'
+    $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes)
     $principal = New-ScheduledTaskPrincipal -UserId $accountName -LogonType Interactive -RunLevel Limited
     $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 15) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
-    Register-ScheduledTask -TaskName $taskName -TaskPath '\' -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description 'Copia de respaldo cifrado de Mateos Pet AI; requiere autorización del operador para transferencias periódicas.' -Force | Out-Null
+    Register-ScheduledTask -TaskName $taskName -TaskPath '\' -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description 'Copia de respaldo cifrado de Huella Nex; requiere autorización del operador para transferencias periódicas.' -Force | Out-Null
     $plan.status = 'registered'
 }
 $plan | ConvertTo-Json -Compress

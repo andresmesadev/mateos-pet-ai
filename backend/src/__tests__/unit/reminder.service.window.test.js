@@ -1,4 +1,4 @@
-jest.mock("../../lib/prisma", () => ({ appointment: { update: jest.fn() } }));
+jest.mock("../../lib/prisma", () => ({ appointment: { update: jest.fn() }, tenant: { findUnique: jest.fn() } }));
 jest.mock("../../contexts/communication", () => ({ sendMessage: jest.fn() }));
 const { sendMessage } = require("../../contexts/communication");
 const prisma = require("../../lib/prisma");
@@ -6,7 +6,7 @@ const { ReminderEngineAdapter } = require("../../contexts/schedule-coordinator/i
 const { sendAbandonedBookingReminder } = require("../../services/reminder.service");
 const appointment = { id: "appointment", tenantId: "tenant", userId: "owner", user: { id: "owner", phone: "test" }, petName: "Pet", serviceType: "vet", date: new Date("2026-10-14T17:00:00Z") };
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => { jest.clearAllMocks(); prisma.tenant.findUnique.mockResolvedValue({ name: 'Centro demo' }); });
 test("omitted window-closed reminder never marks appointment sent", async () => {
   sendMessage.mockResolvedValue({ message: null, skipped: true, reason: "whatsapp_window_closed" });
   expect(await new ReminderEngineAdapter().sendAndMarkAppointmentReminder(appointment)).toBe(false);

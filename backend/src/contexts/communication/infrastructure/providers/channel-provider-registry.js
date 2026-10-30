@@ -13,21 +13,21 @@ class ChannelProviderRegistry extends ChannelProviderPort {
     this.providersByType = providersByType;
   }
 
-  async send(channelType, to, content) {
+  async send(channelType, to, content, route) {
     const provider = this.providersByType[channelType];
     if (!provider) {
       throw new Error(`No hay proveedor de infraestructura registrado para el tipo de canal "${channelType}".`);
     }
-    return provider.send(channelType, to, content);
+    return provider.send(channelType, to, content, route);
   }
 
   // Mejora post-Fase 8 (2026-09-08).
-  async sendTemplate(channelType, to, templateName, languageCode, components) {
+  async sendTemplate(channelType, to, templateName, languageCode, components, route) {
     const provider = this.providersByType[channelType];
     if (!provider) {
       throw new Error(`No hay proveedor de infraestructura registrado para el tipo de canal "${channelType}".`);
     }
-    return provider.sendTemplate(channelType, to, templateName, languageCode, components);
+    return provider.sendTemplate(channelType, to, templateName, languageCode, components, route);
   }
 }
 

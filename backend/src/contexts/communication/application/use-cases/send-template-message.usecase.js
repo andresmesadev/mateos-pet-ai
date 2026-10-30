@@ -75,7 +75,7 @@ function createSendTemplateMessageUseCase({
       conversation = await conversationRepository.findOrCreateActiveForUser(userId, channel.id);
     }
 
-    const delivered = await channelProvider.sendTemplate(channel.type, phone, templateName, languageCode, components);
+    const delivered = await channelProvider.sendTemplate(channel.type, phone, templateName, languageCode, components, { tenantId, channelId: channel.id });
     if (!delivered) {
       throw new MessageDeliveryFailedError(`proveedor del canal "${channel.type}" no confirmó el envío de la plantilla "${templateName}"`);
     }

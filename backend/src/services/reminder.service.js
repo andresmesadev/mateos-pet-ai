@@ -1,5 +1,6 @@
 const prisma = require("../lib/prisma");
 const logger = require("../lib/logger");
+const { getBusinessName } = require("./business-identity.service");
 
 // Entregable 3.1 — Comunicación: todo envío pasa exclusivamente por
 // Enviar Mensaje. Ninguna llamada directa a sendWhatsAppMessage permanece
@@ -494,7 +495,7 @@ const getUpcomingGroomingReminders = async (tenantId) => {
 
 
 
-const buildReminderMessage = (appointment) => {
+const buildReminderMessage = (appointment, businessName = null) => {
 
   const instant =
 
@@ -518,7 +519,7 @@ const buildReminderMessage = (appointment) => {
 
   return `Hola 👋
 
-Te recordamos que mañana tienes cita en Mateos Pet:
+Te recordamos que mañana tienes cita${businessName ? ` en ${businessName}` : ""}:
 
 📅 ${dateTimeLabel}
 
@@ -604,7 +605,7 @@ const sendReminder = async (appointment) => {
 
   const userId = appointment?.userId;
 
-  if (!phone || !userId) {
+  if (!phone || !userId || !appointment?.tenantId) {
 
     logger.warn(
 
@@ -620,9 +621,9 @@ const sendReminder = async (appointment) => {
 
 
 
-  const message = buildReminderMessage(appointment);
-
   try {
+
+    const message = buildReminderMessage(appointment, await getBusinessName(appointment.tenantId));
 
     if (!(await sendReminderMessage({
       tenantId: appointment?.tenantId ?? null,

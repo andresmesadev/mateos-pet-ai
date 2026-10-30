@@ -32,6 +32,16 @@ beforeEach(() => {
 });
 
 describe("enqueueInboundJob", () => {
+  test('persists only the receiver/revision snapshot, never provider credentials', async () => {
+    prisma.inboundJob.findUnique.mockResolvedValue(null);
+    prisma.inboundJob.create.mockResolvedValue({ id: 'snapshot-job' });
+    const { runProviderScope } = require('../../lib/provider-execution');
+    await runProviderScope({ tenantId: 'a', whatsapp: { tenantId: 'a', receiver: '100001', connectionId: 'connection-a', routeVersion: 7, accessToken: 'private-token' } },
+      () => enqueueInboundJob({ provider: 'whatsapp', providerEventId: 'snapshot', payload: {} }));
+    const data = prisma.inboundJob.create.mock.calls[0][0].data;
+    expect(data.providerRoute).toEqual({ tenantId: 'a', receiver: '100001', connectionId: 'connection-a', routeVersion: 7 });
+    expect(JSON.stringify(data)).not.toContain('private-token');
+  });
   test("rechaza sin provider o providerEventId", async () => {
     await expect(
       enqueueInboundJob({ provider: "", providerEventId: "wamid.1" })
@@ -81,6 +91,12 @@ describe("enqueueInboundJob", () => {
       enqueueInboundJob({ provider: "whatsapp", providerEventId: "wamid.4" })
     ).rejects.toThrow("db down");
   });
+});
+
+test('a changed provider route is put into review rather than automatically replayed', async () => {
+  prisma.inboundJob.findUnique.mockResolvedValue({ id: 'j', phase: 'pending', status: 'claimed', attempts: 1, envelopeVersion: 1 });
+  await markInboundJobFailed({ id: 'j', phase: 'pending', status: 'claimed', attempts: 1, leaseExpiresAt: new Date(Date.now()+60000), envelopeVersion: 1 }, Object.assign(Error('route'),{ code: 'PROVIDER_ROUTE_CHANGED' }));
+  expect(prisma.inboundJob.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: 'needs_review', lastError: 'PROVIDER_ROUTE_CHANGED' }) }));
 });
 
 describe("claimNextInboundJob", () => {

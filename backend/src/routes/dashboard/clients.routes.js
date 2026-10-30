@@ -652,9 +652,10 @@ router.patch("/clients/:id", async (req, res) => {
   }
 });
 
-router.get("/campaigns/reactivation/context", (req, res) => {
+router.get("/campaigns/reactivation/context", async (req, res, next) => {
   if (!req.access.activeModules.includes("grooming")) return res.status(403).json({ error: "La reactivación por frecuencia corresponde al módulo de peluquería." });
-  res.json(reactivationContext());
+  try { res.json(await reactivationContext(req.tenant.tenantId)); }
+  catch (error) { next(error); }
 });
 
 router.post("/campaigns/reactivation", async (req, res) => {

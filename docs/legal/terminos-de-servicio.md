@@ -1,4 +1,7 @@
-# Condiciones de uso — piloto interno de Mateos Pet AI
+# Condiciones de uso — piloto interno de Huella Nex
+
+
+> Actualización editorial de marca — 28/10/2026: se usa Huella Nex por solicitud de Andrés. Se conservan las fechas, versiones, decisiones y condiciones originales; esta edición no registra nuevas aprobaciones ni autorizaciones de clientes.
 
 **Versión:** 1.1, preparada el 14 de octubre de 2026. **Copia:** plantilla pública; identidad y contacto completos en la versión privada. No habilita contratación comercial o beta externa.
 

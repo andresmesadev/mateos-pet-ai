@@ -16,6 +16,12 @@ export type InactiveClient = {
   lastVisitDate: string | null; lastReminderSentAt?: string | null;
 };
 export type InactiveClientsPage = { data: InactiveClient[]; total: number; page: number; totalPages: number; pageSize: number };
+export type ReactivationPreviewTemplate = { body: string; businessName: string };
+export function reactivationPreview(template: ReactivationPreviewTemplate | null | undefined, clientName: string | null | undefined) {
+  if (!template) return null;
+  const name = clientName?.trim() || "cliente";
+  return template.body.replace(/\{\{([12])\}\}/g, (_, key: string) => key === "1" ? name : template.businessName);
+}
 export function followupTiming(days: number | undefined) {
   if (days === undefined) return null;
   if (days === 0) return "Vence hoy";

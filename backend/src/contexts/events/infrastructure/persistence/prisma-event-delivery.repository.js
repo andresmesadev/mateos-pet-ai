@@ -2,8 +2,10 @@ const prisma = require("../../../../lib/prisma");
 const { EventDeliveryRepositoryPort } = require("../../application/ports/event-delivery-repository.port");
 
 class PrismaEventDeliveryRepository extends EventDeliveryRepositoryPort {
-  async create(data) {
-    return prisma.eventDelivery.create({ data });
+  async create(data, ctx) {
+    // The triggering event may still be uncommitted. Its delivery must use
+    // that same transaction, or PostgreSQL cannot see the referenced event.
+    return (ctx?.tx ?? prisma).eventDelivery.create({ data });
   }
 
   async listByDomainEvent(domainEventId) {

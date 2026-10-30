@@ -36,7 +36,7 @@ async function allowVeterinaryDashboard(req, res, next) {
     const c = req.access.capabilities;
     const admin = c.administration;
     const deny = (message = "No tienes permiso para esta acción.") => res.status(403).json({ error: message });
-    if (match(req, [["GET", /^\/(access|workspace|tenant\/profile)$/]])) return next();
+    if (match(req, [["GET", /^\/(access|workspace|service-status|tenant\/profile)$/]])) return next();
     if (req.path.startsWith('/grooming/transport/')) {
       if (!req.access.activeModules.includes('grooming')) return deny('Peluquería no está habilitada.');
       if (req.method === 'GET' || req.path === '/grooming/transport/quote') return (c.schedule || c.grooming) ? next() : deny();

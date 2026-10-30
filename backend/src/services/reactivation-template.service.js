@@ -1,71 +1,78 @@
-// Mejora post-Fase 8 (2026-09-08): plantilla pre-aprobada de Meta para
-// reabrir la ventana de 24h con clientes inactivos ("Reactivar" en el
-// dashboard). El adaptador dashboard-reactivation.service.js reutiliza
-// esta plantilla para contactos fuera de la ventana de atención.
-//
-// Nombre e idioma NO están hardcodeados a propósito: la plantilla todavía
-// está en aprobación en Meta Business Suite al momento de escribir esto.
-// Se leen de env — conectar la plantilla aprobada es poner
-// WHATSAPP_TEMPLATE_REACTIVACION_NAME / _LANG en el .env, sin tocar código.
-// Mientras no estén configuradas, isReactivationTemplateConfigured() es
-// false y el dashboard bloquea el envío hasta completar la configuración.
-const { sendTemplateMessage } = require("../contexts/communication");
-const logger = require("../lib/logger");
+const { sendTemplateMessage } = require('../contexts/communication');
+const { getBusinessName } = require('./business-identity.service');
+const { outbound } = require('./whatsapp-route.service');
+const logger = require('../lib/logger');
 
-function renderReactivationTemplate(clientName) {
-  const name = String(clientName || "").trim() || "cliente";
-  return `Hola ${name} 👋 Somos Mateos Pet. Hace tiempo no vemos a tu mascota por acá y queríamos saludarte. Si quieres agendar una cita o tienes alguna pregunta, escríbenos por aquí 🐾`;
+// Copiar el cuerpo EXACTO aprobado en la WABA de cada Tenant. Nunca
+// reconstruir un supuesto cuerpo a partir del nombre de la plantilla.
+function getReactivationTemplate(tenantId, env = process.env) {
+  if (typeof tenantId !== 'string' || !tenantId) return null;
+  try {
+    const templates = JSON.parse(env.WHATSAPP_REACTIVATION_TEMPLATES_JSON || '{}');
+    if (!templates || Array.isArray(templates) || !Object.hasOwn(templates, tenantId)) return null;
+    const entry = templates[tenantId];
+    if (!entry || typeof entry.name !== 'string' || !/^[a-z0-9_]{1,512}$/.test(entry.name) ||
+      typeof entry.languageCode !== 'string' || !/^[a-z]{2,3}(?:_[A-Z]{2})?$/.test(entry.languageCode) ||
+      typeof entry.body !== 'string' || !entry.body.trim() || entry.body.length > 1024) return null;
+    const variables = entry.body.match(/\{\{[\s\S]*?\}\}/g) || [];
+    if (variables.length !== 2 || !variables.includes('{{1}}') || !variables.includes('{{2}}') ||
+      /[{}]/.test(entry.body.replace(/\{\{[12]\}\}/g, ''))) return null;
+    return { templateName: entry.name, languageCode: entry.languageCode, body: entry.body };
+  } catch { return null; }
 }
 
-const isReactivationTemplateConfigured = () => {
-  return Boolean(
-    String(process.env.WHATSAPP_TEMPLATE_REACTIVACION_NAME || "").trim() &&
-    String(process.env.WHATSAPP_TEMPLATE_REACTIVACION_LANG || "").trim()
-  );
-};
+function renderReactivationTemplate(clientName, businessName, template) {
+  if (!template || !businessName) return null;
+  const name = String(clientName || '').trim() || 'cliente';
+  // Callback: nombres con $& o secuencias de plantilla se insertan literalmente.
+  return template.body.replace(/\{\{([12])\}\}/g, (_, key) => key === '1' ? name : businessName);
+}
 
-/**
- * @param {{ tenantId?: string|null, userId: string, phone: string, clientName?: string|null, conversationId?: string|null }} client
- * @returns {Promise<boolean>}
- */
-const sendReactivationTemplate = async ({ tenantId, userId, phone, clientName, conversationId } = {}) => {
-  const templateName = String(process.env.WHATSAPP_TEMPLATE_REACTIVACION_NAME || "").trim();
-  const languageCode = String(process.env.WHATSAPP_TEMPLATE_REACTIVACION_LANG || "").trim();
+const isReactivationTemplateConfigured = (tenantId) => Boolean(getReactivationTemplate(tenantId));
 
-  if (!templateName || !languageCode) {
-    logger.error(
-      "[ReactivationTemplate] WHATSAPP_TEMPLATE_REACTIVACION_NAME/_LANG no configuradas — plantilla aún no aprobada en Meta"
-    );
-    return false;
-  }
+async function reactivationContext(tenantId) {
+  const template = getReactivationTemplate(tenantId);
+  const businessName = await getBusinessName(tenantId);
+  let channelConfigured = false;
+  try { channelConfigured = Boolean(await outbound(tenantId)); } catch { /* fail closed */ }
+  const templateConfigured = Boolean(template);
+  const identityConfigured = Boolean(businessName);
+  return {
+    ready: channelConfigured && templateConfigured && identityConfigured,
+    templateConfigured, channelConfigured, identityConfigured,
+    preview: renderReactivationTemplate('{nombre}', businessName, template),
+    previewTemplate: template && businessName ? { body: template.body, businessName } : null,
+    reason: !identityConfigured ? 'Completa el nombre del establecimiento en Administración antes de enviar.'
+      : !channelConfigured ? 'Configura y habilita el canal de WhatsApp de este establecimiento antes de enviar.'
+        : !templateConfigured ? 'Falta configurar el cuerpo exacto y las variables de la plantilla aprobada para este establecimiento.' : null,
+  };
+}
 
-  const name = String(clientName || "").trim() || "cliente";
-  const renderedContent = renderReactivationTemplate(name);
-
+async function sendReactivationTemplate({ tenantId, userId, phone, clientName, conversationId } = {}) {
   try {
-    await sendTemplateMessage({
-      tenantId: tenantId ?? null,
-      userId,
-      phone,
+    const template = getReactivationTemplate(tenantId);
+    const businessName = await getBusinessName(tenantId);
+    if (!template || !businessName || !(await outbound(tenantId))) return false;
+    const name = String(clientName || '').trim() || 'cliente';
+    const result = await sendTemplateMessage({
+      tenantId, userId, phone,
       conversationId: conversationId ?? null,
-      origin: "sistema",
-      content: renderedContent,
-      templateName,
-      languageCode,
-      components: [
-        { type: "body", parameters: [{ type: "text", text: name }] },
-      ],
+      origin: 'sistema',
+      content: renderReactivationTemplate(name, businessName, template),
+      templateName: template.templateName,
+      languageCode: template.languageCode,
+      components: [{ type: 'body', parameters: [
+        { type: 'text', text: name }, { type: 'text', text: businessName },
+      ] }],
     });
-    logger.info("[ReactivationTemplate] Plantilla de reactivación enviada:", phone);
-    return true;
+    return Boolean(result?.message && !result?.skipped);
   } catch (error) {
-    logger.error("[ReactivationTemplate] Error enviando plantilla de reactivación:", phone, error.message);
+    logger.error('[ReactivationTemplate] No se confirmó el envío de la plantilla:', error.message);
     return false;
   }
-};
+}
 
 module.exports = {
-  renderReactivationTemplate,
-  isReactivationTemplateConfigured,
-  sendReactivationTemplate,
+  getReactivationTemplate, renderReactivationTemplate, isReactivationTemplateConfigured,
+  reactivationContext, sendReactivationTemplate,
 };

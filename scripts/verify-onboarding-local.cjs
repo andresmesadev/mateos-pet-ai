@@ -12,7 +12,13 @@ const { chromium } = require('playwright');
 const marker = 'onboarding-check-' + randomBytes(6).toString('hex');
 const password = 'Frase de prueba ' + randomBytes(12).toString('hex');
 const secret = randomBytes(32).toString('hex');
-const output = path.join(root, '.cache/onboarding-verification');
+const guidedBusinessSetup = process.argv.includes('--guided-business-setup');
+const supportLifecycle = process.argv.includes('--support-lifecycle');
+const tenantConfiguration = process.argv.includes('--tenant-configuration');
+const serviceVisibility = process.argv.includes('--service-visibility');
+const generalBusinessCycles = serviceVisibility || tenantConfiguration || supportLifecycle || guidedBusinessSetup || process.argv.includes('--general-business-cycles');
+const productReview = generalBusinessCycles || process.argv.includes('--product-final-review');
+const output = path.join(root, serviceVisibility && guidedBusinessSetup ? '.cache/external-business-demo' : serviceVisibility ? '.cache/service-visibility' : tenantConfiguration ? '.cache/tenant-configuration' : supportLifecycle ? '.cache/support-lifecycle' : guidedBusinessSetup ? '.cache/guided-business-setup' : generalBusinessCycles ? '.cache/general-business-cycles' : productReview ? '.cache/product-final-review' : '.cache/onboarding-verification');
 const image = 'pgvector/pgvector:0.8.6-pg18-bookworm';
 let container, pool, prisma, backend, frontend, browser, base, apiBase, passed = 0;
 let frontendLogs = '';
@@ -60,6 +66,7 @@ async function main() {
     prisma = new PrismaClient({ adapter: new PrismaPg(pool, { disposeExternalPool: true }) });
     const prismaFile = require.resolve('../backend/src/lib/prisma');
     require.cache[prismaFile] = { id: prismaFile, filename: prismaFile, loaded: true, exports: prisma };
+    const reviewFixture = productReview ? require('./product-final-review-fixture.cjs')({ prisma }) : null;
     await prisma.eventType.create({ data: { name: 'EmpleadoDigitalRegistrado', originContext: 'Empleados Digitales' } });
     await prisma.tenant.create({ data: { id: 'legacy-clinic', name: 'Negocio anterior de prueba', slug: 'legacy-clinic' } });
     const express = require(path.join(root, 'backend/node_modules/express'));
@@ -68,7 +75,11 @@ async function main() {
       assert(!req.headers['x-internal-token'], 'Public adapter forwarded internal authority'); next();
     }, require('../backend/src/routes/onboarding.routes'));
     app.use('/api/internal', require('../backend/src/middleware/requireInternalToken').requireInternalToken, require('../backend/src/routes/staff-auth.routes'));
-    if (process.argv.includes('--team-permissions')) {
+    if (productReview) {
+      const internal = require('../backend/src/middleware/requireInternalToken').requireInternalToken;
+      app.use('/api/billing', internal, require('../backend/src/routes/billing.routes').router);
+      app.use('/api/integrations', internal, require('../backend/src/routes/integrations.routes'));
+    } else if (process.argv.includes('--team-permissions')) {
       // Exercise Next's real billing authorization without calling Stripe.
       app.get('/api/billing/status/:id', require('../backend/src/middleware/requireInternalToken').requireInternalToken, (req, res) => res.json({ tenantId: req.params.id }));
     }
@@ -90,6 +101,7 @@ async function main() {
     fs.mkdirSync(output, { recursive: true });
     browser = await chromium.launch({ headless: true, channel: process.env.MATEOS_BROWSER_CHANNEL || 'chrome' });
     const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+    if (reviewFixture) await reviewFixture.guardBrowser(context);
     const page = await context.newPage(); const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(base); await page.getByRole('banner').getByRole('link', { name: 'Crear mi cuenta', exact: true }).click();
@@ -145,8 +157,10 @@ async function main() {
     assert.equal(tenant.staff.length, 1); assert.equal(tenant.staff[0].generatesCommission, false);
     assert.notEqual(tenant.staff[0].credential.passwordHash, password);
     check('real browser creates tenant + hashed administrator and signs in through NextAuth, without WhatsApp or payment');
-    await page.getByRole('link', { name: 'Entrar a mi negocio' }).click();
-    await page.waitForURL(base + '/dashboard', { timeout: 30000 });
+    await page.getByRole('link', { name: 'Preparar mi negocio', exact: true }).click();
+    await page.waitForURL(base + '/dashboard/settings?guide=1', { timeout: 30000 });
+    assert.equal(await page.locator('#setup-guide').evaluate(element => element.open), true);
+    await page.goto(base + '/dashboard');
     const access = await context.request.get(base + '/api/proxy/dashboard/access'); assert.equal(access.status(), 200);
     assert.equal((await access.json()).role, 'admin');
     const members = await context.request.get(base + '/api/proxy/dashboard/staff?tenant=legacy-clinic');
@@ -167,6 +181,7 @@ async function main() {
     assert.equal(await prisma.tenant.count(), before + 1);
     check('multiple tenants have no channel; duplicate and concurrent email writes roll back the entire losing tenant');
     const anonymous = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    if (reviewFixture) await reviewFixture.guardBrowser(anonymous);
     const mobile = await anonymous.newPage(); await mobile.goto(base + '/onboarding');
     for (const width of [320, 390, 768]) {
       await mobile.setViewportSize({ width, height: 844 });
@@ -246,12 +261,17 @@ async function main() {
     if (process.argv.includes('--new-owner-prices')) {
       await require('./verify-new-owner-prices-scenario.cjs')({ prisma, base, context, page, output, check, tenantId: session.user.tenantId });
     }
+    if (generalBusinessCycles) {
+      const businesses = await require('./verify-general-business-cycles.cjs')({ prisma, base, browser, password, output, check, reviewFixture });
+      if (supportLifecycle) await require('./verify-support-lifecycle.cjs')({ prisma, base, browser, password, output, check, reviewFixture, businesses });
+    }
+    else if (reviewFixture) await require('./verify-product-final-review.cjs')({ prisma, base, browser, context, page, password, output, check, reviewFixture });
     await prisma.staffCredential.update({ where: { staffId: session.user.staffId }, data: { active: false } });
     assert.equal((await context.request.get(base + '/api/proxy/dashboard/access')).status(), 403);
     check('revoking the new administrator immediately blocks its existing session');
     assert.equal(errors.length, 0, errors.join('\n'));
     console.log(`Onboarding integration: ${passed} passed, 0 failed. Local disposable data only; no jobs, external messages or real charges.`);
-    console.log('Screenshots: .cache/onboarding-verification/');
+    console.log('Screenshots: ' + path.relative(root, output));
   } finally {
     await browser?.close();
     if (frontend && frontend.exitCode === null) { frontend.kill(); await Promise.race([new Promise(resolve => frontend.once('exit', resolve)), delay(4000)]); }

@@ -1,4 +1,7 @@
-# Propuesta para mejorar y unificar Mateos Pet AI
+# Propuesta para mejorar y unificar Huella Nex
+
+
+> Actualización editorial de marca — 28/10/2026: se usa Huella Nex por solicitud de Andrés. Se conservan las fechas, versiones, decisiones y condiciones originales; esta edición no registra nuevas aprobaciones ni autorizaciones de clientes.
 
 > Archivo de diseño concluido. Conserva el diagnóstico y la propuesta de su fecha; no es una lista de trabajo pendiente. Implementación y límites de comprobación: [informe de cierre](../UNIFICACION_PRODUCTO_20261007.md). Estado de publicación: [estado actual](../../ESTADO_ACTUAL.md).
 

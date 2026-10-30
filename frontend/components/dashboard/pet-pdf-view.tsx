@@ -23,7 +23,7 @@ type PetReport = {
   };
   tenant: {
     name: string;
-    phone: string;
+    contactPhone: string | null;
     email: string | null;
     address: string | null;
   } | null;
@@ -210,7 +210,7 @@ export function PdfPrintView({ report }: { report: PetReport }) {
           </div>
           <div style={{ textAlign: "right" }}>
             {tenant && <div style={{ fontWeight: 700, fontSize: 14 }}>{tenant.name}</div>}
-            {tenant?.phone && <div style={{ fontSize: 12, color: "#555" }}>{tenant.phone}</div>}
+            {tenant?.contactPhone && <div style={{ fontSize: 12, color: "#555" }}>{tenant.contactPhone}</div>}
             {tenant?.address && <div style={{ fontSize: 11, color: "#777" }}>{tenant.address}</div>}
             <div style={{ fontSize: 10, color: "#aaa", marginTop: 4 }}>Generado: {generatedAt}</div>
           </div>
@@ -358,7 +358,7 @@ export function PdfPrintView({ report }: { report: PetReport }) {
 
         {/* Pie de página */}
         <div style={{ marginTop: 32, paddingTop: 12, borderTop: "1px solid #e5e5e5", fontSize: 10, color: "#aaa", display: "flex", justifyContent: "space-between" }}>
-          <span>Ficha clínica generada por Mateos Pet AI</span>
+          <span>Ficha clínica generada por Huella Nex</span>
           <span>{generatedAt}</span>
         </div>
       </div>

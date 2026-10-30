@@ -588,7 +588,109 @@ model InventoryReturnLine {
   @@index([tenantId, transactionId], map: "InventoryReturnLine_sale_idx")
 }
 
+model WhatsAppConnection {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @unique
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  channelId String @unique
+  channel Channel @relation(fields: [tenantId, channelId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  wabaId String @unique @db.VarChar(64)
+  phoneNumberId String @unique @db.VarChar(64)
+  displayPhone String? @db.VarChar(64)
+  status String @db.VarChar(16)
+  encryptedToken String? @db.Text
+  tokenExpiresAt DateTime? @db.Timestamptz(3)
+  routeVersion Int @default(1)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  @@unique([tenantId, channelId])
+}
+
+model WhatsAppConnectionChallenge {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  stateHash String @unique @db.Char(64)
+  actorHash String @db.Char(64)
+  status String @db.VarChar(16)
+  expectedRouteVersion Int
+  expiresAt DateTime @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  consumedAt DateTime? @db.Timestamptz(3)
+  @@index([tenantId, expiresAt])
+}
+
+// Append-only lifecycle audit; never contains a token or authorization code.
+model WhatsAppConnectionEvent {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  action String @db.VarChar(16)
+  routeVersion Int
+  actorHash String @db.Char(64)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@index([tenantId, createdAt])
+}
+
+model AiQuotaConfig {
+  tenantId String @id
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  monthlyLimit Int @default(0)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+}
+
+model AiQuotaPeriod {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  monthKey String @db.VarChar(7)
+  quotaLimit Int
+  usedUnits Int @default(0)
+  reservedUnits Int @default(0)
+  policyVersion String @db.VarChar(64)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  entries AiUsageEntry[]
+  @@unique([tenantId, monthKey])
+  @@unique([tenantId, id])
+}
+
+model AiUsageEntry {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  periodId String @db.Uuid
+  period AiQuotaPeriod @relation(fields: [tenantId, periodId], references: [tenantId, id], onDelete: Restrict)
+  operationKey String @db.VarChar(128)
+  operation String @db.VarChar(32)
+  units Int
+  state String @db.VarChar(16)
+  providerUsage Json?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  settledAt DateTime? @db.Timestamptz(3)
+  @@unique([tenantId, operationKey])
+  @@index([tenantId, createdAt])
+}
+
+model AiQuotaChange {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  actorHash String @db.Char(64)
+  previousLimit Int
+  newLimit Int
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@index([tenantId, createdAt])
+}
+
 model Tenant {
+  whatsappConnection WhatsAppConnection?
+  whatsappChallenges WhatsAppConnectionChallenge[]
+  whatsappConnectionEvents WhatsAppConnectionEvent[]
+  aiQuotaConfig AiQuotaConfig?
+  aiQuotaPeriods AiQuotaPeriod[]
+  aiUsageEntries AiUsageEntry[]
+  aiQuotaChanges AiQuotaChange[]
   operatorAccessEpoch BigInt @default(1) // Only new scalar on this projection.
   proofs              OperatorProof[]
   subjects            OperatorSubject[]
@@ -1066,6 +1168,7 @@ model Message {
 // Canal describe una línea propia del negocio (WhatsApp, Email...). tenantId
 // nulo = canal global/compartido (estado actual: una sola línea).
 model Channel {
+  providerConnection WhatsAppConnection?
   operatorRoutes OperatorChannelRoute[]
   id       String   @id @default(cuid())
   tenantId String?
@@ -1079,6 +1182,7 @@ model Channel {
   conversations Conversation[]
 
   @@unique([tenantId, type])
+  @@unique([tenantId, id])
 }
 
 /// Embeddings semánticos (pgvector). Dimensión 1536 = text-embedding-3-small / similar.
@@ -1755,6 +1859,7 @@ model ClientSession {
 // (jobs/inbound-message.job.js) reclama y procesa. ADR 011: checkpoints y
 // concesiones recuperan solo pasos seguros; efectos inciertos requieren revisión.
 model InboundJob {
+  providerRoute Json? // Tenant/connection/revision snapshot; never provider secrets.
   envelopeVersion    Int @default(1)
   channelTenantId    String?
   channelRouteId     String?
