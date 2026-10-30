@@ -1,9 +1,13 @@
 # Estado actual del proyecto
 
-**30 de octubre — publicación 3.0.0 autorizada, en preparación:** Andrés pidió
-versionar Huella Nex como 3.0 y realizar commit, push y despliegue. Backend y
-frontend declaran 3.0.0 con locks coherentes. Se conserva la evidencia local
-anterior; CI y certificación de la VPS se registrarán al ejecutarse.
+**30 de octubre — Huella Nex 3.0.0 publicada a las 18:32 Colombia:** código
+`edae4d3`, seis trabajos CI aprobados, respaldo cifrado verificado y dos
+migraciones aditivas aplicadas (68 en total). Backend/frontend 3.0.0 y salud
+HTTPS 200; seis lecturas autenticadas correctas. PostgreSQL conservado,
+WhatsApp pausado y proveedores comerciales desactivados. Históricos financieros
+y credenciales conservan sus huellas anteriores; inventario operativo leído
+sin modificaciones. Nueva ventana de observación identificada para 3.0.0;
+la anterior de 48 horas conserva sus dos fallos.
 [Publicación 3.0.0](history/RELEASE_3_0_0_20261030.md).
 
 **30 de octubre — barrido local previo a publicación del candidato 2.58.3:**

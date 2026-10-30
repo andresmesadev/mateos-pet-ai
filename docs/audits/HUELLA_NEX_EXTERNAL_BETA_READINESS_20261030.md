@@ -115,7 +115,10 @@ parches compatibles, se excluyeron artefactos privados/generados y se añadió
 control de higiene y PostgreSQL comercial al CI. Regresión local favorable y
 auditorías de producción sin avisos conocidos; persiste el aviso bajo de
 desarrollo de Jest/deepmerge. Ver [barrido](HUELLA_NEX_PREPUBLICATION_CLEANUP_20261030.md).
-No cierra BETA-01: commit, ejecución remota de CI y despliegue siguen pendientes.
+Ese barrido no cerraba BETA-01. Después, por autorización expresa de Andrés,
+se publicó **3.0.0** el 30/10 a las 18:32 Colombia: CI de seis trabajos aprobado,
+respaldo verificado, migraciones y lecturas posteriores correctas. Ver
+[certificación de publicación](../history/RELEASE_3_0_0_20261030.md).
 
 Esta numeración identifica la revisión guiada del 30/10. No sustituye los
 ítems históricos del centro, HN-01–07 ni los criterios BETA-01–08 de admisión.
@@ -132,10 +135,10 @@ Esta numeración identifica la revisión guiada del 30/10. No sustituye los
 Completar la preparación de estos seis puntos no publica el lote ni equivale
 a abrir la beta externa. Las condiciones de admisión se mantienen abajo.
 
-El último commit local consultado es `a7c60e5`, del 27/10, que documenta 2.58.2.
-El lote revisado permanece en el árbol de trabajo sin publicar. No se consultó
-la VPS en vivo en esta revisión: el estado actual del servidor y su estabilidad
-se deben verificar, no deducir de esos documentos ni del commit local.
+La revisión inicial consultó `a7c60e5` y no inspeccionó la VPS. La publicación
+posterior sí verificó en vivo **3.0.0**, código de aplicación `edae4d3`.
+Su estado y límites se registran en la certificación enlazada; no se deduce
+estabilidad continua de las comprobaciones puntuales.
 
 ## Lo que ya tiene valor vendible
 
@@ -159,7 +162,7 @@ no sustituyen la validación con otros negocios.
 
 | ID | Prioridad y alcance | Evidencia y mejora necesaria | Comprobación para cerrar |
 | --- | --- | --- | --- |
-| BETA-01 | Antes de datos reales de otro negocio | Publicar el lote revisado. Lo probado localmente no es todavía lo desplegado. | Versión coherente, CI, respaldo, migraciones, cliente Prisma y lecturas autenticadas posteriores; mantener capacidades comerciales pendientes desactivadas. |
+| BETA-01 | Cerrado para la publicación 3.0.0 del 30/10 | Lote publicado: versiones coherentes, CI aprobado, respaldo y migraciones verificados; lecturas autenticadas correctas. | Mantener la evidencia de esta versión y las capacidades comerciales pendientes desactivadas. No sustituye los demás criterios de admisión. |
 | BETA-02 | Antes de asumir custodia de otro negocio | Recuperación ante pérdida completa de VPS. Se retiró la copia del computador y no hay un destino externo automático nuevo documentado. | Elegir almacenamiento independiente gestionado desde la plataforma; probar copia cifrada, restauración y custodia de claves. No requiere Google ni un computador del cliente. |
 | BETA-03 | Antes de admisión externa | Acreditar estabilidad de la versión que se ofrecerá. La última revisión documental conserva el ítem 9 abierto por timeouts y dependencia OpenAI. | Revisar muestras actuales, causas y cobertura; acordar y cumplir la ventana de aceptación. Distinguir dashboard disponible de integración IA degradada. |
 | BETA-04 | Antes de incorporar un cliente externo | Condiciones y privacidad del software comercial. Los documentos aprobados del centro describen la operación de Mateos Pet. | Paquete específico para el negocio externo: prestador real, alcance, tratamiento/acceso a datos, proveedores, soporte, salida y constancia de aceptación. Revisar su adecuación antes de utilizarlo. |

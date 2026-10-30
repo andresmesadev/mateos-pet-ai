@@ -1,6 +1,6 @@
 # Huella Nex
 
-**Versión 3.0.0** — publicación autorizada el 30/10/2026. Incluye la identidad
+**Versión 3.0.0** — publicada el 30/10/2026. Incluye la identidad
 del producto y la preparación general para los tres tipos de negocio.
 El número de versión no declara abierta la beta externa ni activa WhatsApp/IA
 comercial. [Alcance y estado de publicación](docs/history/RELEASE_3_0_0_20261030.md).
